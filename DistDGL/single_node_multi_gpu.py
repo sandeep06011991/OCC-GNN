@@ -39,7 +39,7 @@ import sklearn.metrics
 
 DATA_DIR = '/home/spolisetty/datadir'
 
-dataset = DglNodePropPredDataset('ogbn-arxiv', root = DATA_DIR)
+dataset = DglNodePropPredDataset('ogbn-products', root = DATA_DIR)
 
 graph, node_labels = dataset[0]
 # Add reverse edges since ogbn-arxiv is unidirectional.
