@@ -4,9 +4,12 @@
 srun --pty -p m40-short --mem=24000 --gres=gpu:1 bash
 
 2. module load cuda11
-   module load gcc/6.1.0 
+   module load gcc/6.1.0
 
 
 3. torch 1.8.1,
    cuda111
    pip install torch-scatter torch-sparse -f https://pytorch-geometric.com/whl/torch-1.8.1+cu111.html
+
+4. Using torch front end for cuda111
+  
