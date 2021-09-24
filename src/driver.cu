@@ -7,6 +7,7 @@
 #include <vector>
 #include "dataset.h"
 #include "tensor.hh"
+#include "layers/linear.hh"
 
 using namespace std;
 
@@ -48,6 +49,9 @@ int main() {
     Tensor<float> *F = new Tensor<float>(dataset->features, dataset->num_nodes, dataset->fsize);
     Tensor<int> *Labels = new Tensor<int>(dataset->labels, dataset->num_nodes, 1);
     // Initialize data on GPU
+
+    LinearLayer *l1 = new LinearLayer(dataset->fsize,3,dataset->num_nodes);
+    auto out = l1->computeForwardPass(*F);
     // Initialize model weights on gpu
     // Forward Pass.
     // Compute Loss

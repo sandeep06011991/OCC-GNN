@@ -67,7 +67,7 @@ def write_dataset_dataset(dataset, TARGET_DIR):
     with open(TARGET_DIR+'/meta.txt','w') as fp:
         for k in meta_structure.keys():
             fp.write("{}={}\n".format(k,meta_structure[k]))
-
+    print("All data written!")
 # arg0 = dgl dataset name
 # arg1 = full target directory
 if __name__=="__main__":

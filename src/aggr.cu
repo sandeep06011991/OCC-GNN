@@ -1,5 +1,3 @@
-
-
 // Naive global aggregation
 __global__ void aggregate_local(ComputeGraph *cgr,int *in, int *out){
     int threadIdx;
@@ -12,7 +10,7 @@ __global__ void aggregate_local(ComputeGraph *cgr,int *in, int *out){
     out[fIdx] = s;
 }
 
-// Initially compute graph is on the cpu. 
+// Initially compute graph is on the cpu.
 void initializeSpaceOut(ComputeGraph *cgr){
     cudaMalloc()
 }

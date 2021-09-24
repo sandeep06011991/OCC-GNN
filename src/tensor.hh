@@ -8,8 +8,6 @@ class Tensor {
 private:
 	bool device_allocated;
 	bool host_allocated;
-  int dim1;
-  int dim2;
 
 	void allocateCudaMemory();
 	void allocateHostMemory();
@@ -17,9 +15,12 @@ private:
 public:
 
 	T* data_device;
-	T* data_host;
+	T* data_host = nullptr;
+  int dim1;
+  int dim2;
 
-	Tensor(size_t x_dim = 1, size_t y_dim = 1);
+
+	Tensor(int x_dim = 1,int y_dim = 1);
   Tensor(T* data, int  x_dim, int y_dim);
 
 	void allocateMemory();
@@ -29,7 +30,13 @@ public:
 
 	// float& operator[](const int index);
 	// const float& operator[](const int index) const;
+  void verify(T* correct_data);
+  void debugTensor();
 };
 
 template class Tensor<float>;
 template class Tensor<int>;
+
+float * allocate_random(int size);
+
+bool tensor_equal(Tensor<float> &a, Tensor<float> &b);

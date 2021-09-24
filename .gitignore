@@ -1,3 +1,7 @@
 *.pt
 pyg_autoscale/
 build/
+__pycache__
+*.out
+*.json
+venv/
