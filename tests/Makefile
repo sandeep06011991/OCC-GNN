@@ -4,6 +4,11 @@ bce:
 	../build/test
 
 linear:
-	nvcc -I ../src/ ../src/tensor.cu ../src/layers/linear.cu \
+	nvcc -I ../src/ ../src/tensor.cu ../src/layers/linear.cu -lcublas \
 	../src/layers/relu.cu linear_test.cc -o ../build/linear_test
-	../build/linear/test
+	../build/linear_test
+
+matrix:
+	nvcc -I ../src/ ../src/tensor.cu -lcublas \
+	matrix_util_test.cc -o ../build/mat_util
+	../build/mat_util
