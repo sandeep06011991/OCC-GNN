@@ -1,12 +1,6 @@
 #include "full.h"
 // Clean up pseudo code
 // completely
-class Graph{
-  int num_nodes;
-  int num_edges;
-  int *indptr;
-  int *indices;
-};
 
 class SubGraph{
 
@@ -67,11 +61,11 @@ TwoHopNoSample::sample_from_hop(Sample *S,int *target_vertices, int no_targets){
   dest_ids.erase(last, dest_ids.end());
 }
 
-TwoHopNoSample::sample_from_target(int * target_vertices, int no_targets){
+void TwoHopNoSample::sample_from_target(int * target_vertices, int no_targets){
 
-  Subgraph S1; Subgraph S2;
-  this->sample_from_hop(S1,target_vertices, no_targets);
-  this->sample_from_hop(S2,S1->dest_ids.data, S1->dest_ids.size());
+
+  this->sample_from_hop(&this->l1,target_vertices, no_targets);
+  this->sample_from_hop(&this->l2,S1->dest_ids.data, S1->dest_ids.size());
 
   // For each neighbourhood sample, fill up reordering vectors.
 

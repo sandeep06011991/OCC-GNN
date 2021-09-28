@@ -19,3 +19,11 @@ gcn:
 	# nvcc -I ../src/ ../src/tensor.cu ../src/samplers/full.cpp -lcublas \
 	# ../src/dataset.cpp gcn_test.cc -o ../build/gcn_test
 	../build/gcn_test
+
+sampling:
+	nvcc -I ../src/ ../src/tensor.cu ../src/gnn/sage.cu  \
+	../src/samplers/full.cpp  ../src/dataset.cpp sampling_test.cc \
+	-lcublas -o ../build/sampling
+	# nvcc -I ../src/ ../src/tensor.cu ../src/samplers/full.cpp -lcublas \
+	# ../src/dataset.cpp gcn_test.cc -o ../build/gcn_test
+	../build/sampling
