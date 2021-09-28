@@ -5,6 +5,8 @@
 #include <cuda_runtime.h>
 #include "cublas_v2.h"
 
+
+
 template<typename T>
 Tensor<T>::Tensor( int dim1, int dim2){
   this->dim1 = dim1;
@@ -119,4 +121,12 @@ void mat_mul_a_b_t(Tensor<float>& A, bool transA, Tensor<float>& B, bool transB,
                 std::cout << "\33[31mError: " << success << "\33[0m\n";
             cublasDestroy(handle);
         }
+}
+
+Tensor<float> * allocate_ones(int dim1, int dim2){
+   float * data_host = (float *)malloc(dim1 * dim2 * sizeof(float));
+   for(int i=0;i<dim1*dim2;i++){
+     data_host[i] = 1;
+   }
+   return new Tensor<float>(data_host,dim1, dim2);
 }

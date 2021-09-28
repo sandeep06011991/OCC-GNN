@@ -1,10 +1,10 @@
 #include "layers/relu.hh"
-
+#include <iostream>
 __global__ void cuda_forward(float * in, float * out, int size){
-  int globalIdx = threadIdx.x + blockIdx.x * blockDim.x;
+  int globalIdx = threadIdx.x + (blockIdx.x * blockDim.x);
   if(globalIdx < size){
-    int t = in[globalIdx];
-    if(t < 0){
+    float t = in[globalIdx];
+    if(t <= 0){
       t = 0;
     }
     out[globalIdx] = t;
@@ -12,11 +12,11 @@ __global__ void cuda_forward(float * in, float * out, int size){
 }
 
 __global__ void cuda_backward(float * in_g, float * out, float * out_g, int size){
-  int globalIdx = threadIdx.x + blockIdx.x * blockDim.x;
+  int globalIdx = threadIdx.x + (blockIdx.x * blockDim.x);
   if(globalIdx < size){
-    int t = out[globalIdx];
-    int r = in_g[globalIdx];
-    if(t == 0){
+    float t = out[globalIdx];
+    float r = in_g[globalIdx];
+    if(t <= 0){
       r = 0;
     }
     out_g[globalIdx] = r;
@@ -43,6 +43,8 @@ Tensor<float>& Relu::backward(Tensor<float>& grad_x){
   int size = this->dim1 * this->dim2;
   int noBlocks = (size  + 255)/256;
   int noThreads = 256;
+  std::cout << "Debug Tensor \n";
+  out->debugTensor();
   cuda_backward<<<noBlocks,noThreads>>>(grad_x.data_device, out->data_device,
             d_out->data_device, size);
   cudaDeviceSynchronize();

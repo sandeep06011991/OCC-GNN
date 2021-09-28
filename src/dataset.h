@@ -6,6 +6,7 @@ class Dataset{
 private:
   void read_meta_file();
   void read_node_data();
+  void read_graph();
 public:
 
   std::string BIN_DIR;
@@ -25,9 +26,16 @@ public:
   int train_idx_sizes;
   int test_idx_sizes;
 
+  // graph data.
+  // Assume in node range same as out node range.
+  int * indptr; // size = num_nodes + 1
+  int * indices; // size = num_edges
+
   // check sum
   int csum_features;
   int csum_labels;
+  int csum_offsets;
+  int csum_edges;
 
   Dataset(std::string dir);
 };

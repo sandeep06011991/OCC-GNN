@@ -37,6 +37,17 @@ public:
 template class Tensor<float>;
 template class Tensor<int>;
 
+Tensor<float> * allocate_ones(int dim1, int dim2);
+
 float * allocate_random(int size);
 
 bool tensor_equal(Tensor<float> &a, Tensor<float> &b);
+
+void mat_mul_a_b(Tensor<float>& A, bool transA, Tensor<float>& B, bool transB,
+                          Tensor<float>& c);
+
+void mat_mul_a_b_t(Tensor<float>& A, bool transA, Tensor<float>& B, bool transB,
+                          Tensor<float>& c);
+
+void mat_mul_a_t_b(Tensor<float>& A, bool transA, Tensor<float>& B, bool transB,
+                          Tensor<float>& c);

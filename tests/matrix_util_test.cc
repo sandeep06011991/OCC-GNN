@@ -22,10 +22,6 @@ int main(){
   std::fstream file2(BIN_DIR + "/B.bin",std::ios::in|std::ios::binary);
   float * B  = (float *)malloc (sizeof(float) * N * K);
   file2.read((char *)B, sizeof(float) * N * K);
-  // for(int i=0;i<N*K;i++){
-  //   B[i] = 1;
-  // }
-
   Tensor<float> * B_t = new Tensor<float>(B, N, K);
 
 
@@ -51,12 +47,13 @@ int main(){
   mat_mul_a_b(*A_t, false, *B_t, false, *C_calc);
   mat_mul_a_b_t(*C_t,false,*B_t, false, *dA_calc);
   mat_mul_a_t_b(*A_t,false,*C_t,false, *dW_calc);
+
   dW_t->debugTensor();
   dW_calc->debugTensor();
   dA_t->debugTensor();
   dA_calc->debugTensor();
   C_calc->debugTensor();
   C_t->debugTensor();
-  std::cout << "haha \n";
+  std::cout << "Done  \n";
 
 }
