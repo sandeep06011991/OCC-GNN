@@ -62,7 +62,7 @@ CrossEntropyLoss::CrossEntropyLoss(int n, int d){
 void CrossEntropyLoss::compute_exponent(Tensor<float> &in){
   int dim1 = in.dim1;
   int dim2 = in.dim2;
-  int noBlocks = ((dim1 * dim2) + 256)/256;
+  int noBlocks = ((in.dim1 * in.dim2) + 256)/256;
   int noThreads = 256;
   std::cout << noBlocks <<" " << noThreads << dim1 << dim2 << "\n";
   std::cout << in.data_device << "\n";
@@ -93,16 +93,46 @@ void CrossEntropyLoss::compute_loss(Tensor<float> &in,
 // returns Tensor of shape N,1
 Tensor<float>& CrossEntropyLoss::lossForward(Tensor<float> &in,Tensor<int> &true_labels){
     // in.debugTensor();
+    this->N = in.dim1;
+    this->D = in.dim2;
+    int dim1 = in.dim1;
+    int dim2 = in.dim2;
+    if(this->exp_x != nullptr){
+      std::cout << "Kernel 1 ok !\n";
+
+
+      delete this->exp_x;
+
+      std::cout << "Kernel 1 ok !\n";
+
+      delete this->exp_sum;
+      std::cout << "Kernel 1 ok !\n";
+
+      delete this->loss;
+      std::cout << "Kernel 1 ok !\n";
+
+      delete this->dx;
+      std::cout << "Kernel 1 ok !\n";
+
+      NNException::throwIfDeviceErrorsOccurred("compute exponent loss failed ");
+
+    }
+    this->exp_x = new Tensor<float>(dim1,dim2);
+    this->exp_sum = new Tensor<float>(dim1,1);
+    this->loss = new Tensor<float>(dim1,1);
+    this->dx = new Tensor<float>(dim1,dim2);
+
+    // return *loss;
     compute_exponent(in);
     // this->exp_x->debugTensor();
     cudaDeviceSynchronize();
-    // std::cout << "Kernel 1 ok !\n";
+    std::cout << "Kernel 1 ok !\n";
     compute_exponent_sum();
     cudaDeviceSynchronize();
-    // std::cout << "Kernel 2 ok !\n";
+    std::cout << "Kernel 2 ok !\n";
     compute_loss(in, true_labels);
     cudaDeviceSynchronize();
-    // std::cout << "Kernel 2 ok !\n";
+    std::cout << "Kernel 3 ok !\n";
     return *loss;
 }
 

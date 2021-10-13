@@ -3,14 +3,18 @@
 
 class SageAggr{
 
-  Tensor<float> * out_feat;
-  Tensor<float> * out_grad;
+  Tensor<float> * out_feat  = nullptr;
+  Tensor<float> * out_grad = nullptr;
 
-  Tensor<int> * offsets;
-  Tensor<int> * indices;
+  // offsets refer to out nodes
+  Tensor<int> offsets;
+  // indices refer to in nodes
+  Tensor<int> indices;
 
+  // nodes in are aggregated based on indices and updated in out for forward pass.
   int num_nodes_in;
   int num_nodes_out;
+
   int fsize;
 
 public:
@@ -18,9 +22,9 @@ public:
       this->fsize = fsize;
   }
 
-  Tensor<float>& forwardPass(Tensor<int> * ind_ptr, Tensor<int> * indices,
+  Tensor<float>& forwardPass(Tensor<int>& ind_ptr, Tensor<int>& indices,
           Tensor<float>& in, int num_nodes_out, int num_nodes_in);
 
-  Tensor<float>& backwardPass(Tensor<float> &outFeat);
+  Tensor<float>& backwardPass(Tensor<float> &doutFeat);
 
 };

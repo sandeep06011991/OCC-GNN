@@ -1,5 +1,5 @@
 bce:
-	nvcc  -I ../src/ ../src/tensor.cu ../src/layers/loss.cu  \
+	nvcc  -I ../src/ ../src/tensor.cu ../src/layers/loss.cu -lcublas \
 	bce_test.cc -o ../build/test
 	../build/test
 
@@ -28,7 +28,7 @@ sampling:
 	# ../src/dataset.cpp gcn_test.cc -o ../build/gcn_test
 	../build/sampling
 
-gcn:
+sampled_gcn:
 	nvcc -I ../src/ ../src/dataset.cpp ../src/tensor.cu  \
 	../src/gnn/sage.cu \
 	 sampled_gcn.cc -lcublas -o ../build/forward

@@ -51,7 +51,7 @@ template<typename T>
 void Tensor<T>::debugTensor(){
   this->copyDeviceToHost();
   for(int i=0;i<4;i++){
-    for(int j=0;j<4;j++){
+    for(int j=0;j<8;j++){
       std::cout << this->data_host[i*this->dim2+j] << " ";
     }
     std::cout << "\n";

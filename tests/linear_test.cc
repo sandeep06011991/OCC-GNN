@@ -49,24 +49,21 @@ int main(){
   Tensor<float> * dX_t = new Tensor<float>(dX, N, M);
 
 
-  LinearLayer* l1 = new LinearLayer(W,B, M, K,N);
+  LinearLayer* l1 = new LinearLayer(W,B, M, K, N);
   Relu* l2 = new Relu(N,K);
   // // Construct tensors
   // // Match forward pass
   // // check output at l2
-  auto i = l1->computeForwardPass(input_t);
+  auto i = l1->computeForwardPass(*input_t);
   auto out = l2->forward(i);
   auto g = l2->backward(*allocate_ones(N,K));
   auto dX_calc = l1->computeBackwardPass(g);
-
+  //
   dX_t->debugTensor();
   dX_calc.debugTensor();
   dw_t->debugTensor();
   l1->dW->debugTensor();
   db_t->debugTensor();
   l1->db->debugTensor();
-  // out.debugTensor();
-  // std::cout << "Final Target \n";
-  // output_t->debugTensor();
-  // std::cout << "Test ok !\n";
+
 }

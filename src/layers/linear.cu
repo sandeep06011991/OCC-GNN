@@ -3,6 +3,17 @@
 #include "nn_exception.hh"
 #include <assert.h>
 
+LinearLayer::LinearLayer(int dim1, int dim2){
+  this->dim1 = dim1;
+  this->dim2 = dim2;
+  this->W = new Tensor<float>(allocate_random(dim1*dim2),dim1,dim2);
+  this->b = new Tensor<float>(allocate_random(dim2),dim2,1);
+  this->dW = new Tensor<float>(dim1,dim2);
+  this->db = new Tensor<float>(dim2,1);
+  // Dummy allocation
+  this->in = *(new Tensor<float>(1,1));
+}
+
 LinearLayer::LinearLayer(int dim1, int dim2, int in_dim){
     this->dim1 = dim1;
     this->dim2 = dim2;
@@ -14,6 +25,7 @@ LinearLayer::LinearLayer(int dim1, int dim2, int in_dim){
     this->dW = new Tensor<float>(allocate_random(dim1*dim2),dim1,dim2);
     this->db = new Tensor<float>(allocate_random(dim2),dim2,1);
     this->_btemp =  allocate_ones(in_dim,1);
+    this->in = *(new Tensor<float>(1,1));
 
 }
 
@@ -29,6 +41,7 @@ LinearLayer::LinearLayer(float *W, float *B, int dim1, int dim2, int in_dim){
     this->dW = new Tensor<float>(allocate_random(dim1*dim2),dim1,dim2);
     this->db = new Tensor<float>(allocate_random(dim2),dim2,1);
     this->_btemp =  allocate_ones(in_dim,1);
+    this->in = *(new Tensor<float>(1,1));
 }
 
 // Copied code modifu this later to get grads as well
@@ -89,14 +102,24 @@ __global__ void cu_add_bias(float *out, float *bias){
 	out[tid] = out[tid] + bias[threadIdx.x];
 }
 
-Tensor<float>& LinearLayer::computeForwardPass(Tensor<float>* in_p){
+Tensor<float>& LinearLayer::computeForwardPass(Tensor<float>& in_p){
+  this->in_dim = in_p.dim1;
   this->in = in_p;
-  Tensor<float>& in = *in_p;
+  Tensor<float>& in = in_p;
   int TILE_WIDTH = 32;
   dim3 dimGrid((out->dim1 - 1) / TILE_WIDTH + 1, (out->dim2 - 1) / TILE_WIDTH + 1);
   dim3 dimBlock(TILE_WIDTH, TILE_WIDTH);
   // in.debugTensor();
   // W->debugTensor();
+  if(this->out !=nullptr){
+    delete this->out;
+    delete this->out_grad;
+    delete this->_btemp;
+  }
+  this->out = new Tensor<float>(in_dim,dim2);
+  this->out_grad = new Tensor<float>(in_dim,dim1);
+  this->_btemp =  allocate_ones(in_dim,1);
+
   cu_multiply<<<dimGrid, dimBlock>>>((float*)in.data_device ,
                 (float *) W->data_device,
                 (float *) out->data_device,
@@ -117,8 +140,7 @@ Tensor<float>& LinearLayer::computeForwardPass(Tensor<float>* in_p){
 Tensor<float>& LinearLayer::computeBackwardPass(Tensor<float>& in_grad){
   assert(in_grad.dim1 = this->in_dim );
   assert(in_grad.dim2 = this->dim2);
-  in_grad.debugTensor();
-  mat_mul_a_t_b(*this->in,true, in_grad, true, *dW);
+  mat_mul_a_t_b(this->in,true, in_grad, true, *dW);
   // Tensor<float> * out_grad;
   mat_mul_a_b_t(in_grad,true,*W,true,*out_grad);
   mat_mul_a_t_b(in_grad,true,*this->_btemp,true,*db);

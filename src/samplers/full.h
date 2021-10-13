@@ -21,12 +21,10 @@ class TwoHopNoSampler{
   int no_edges;
   // Instantitate from sample 1-n
 
-  // bipartite graph 1
-  // ComputeGraph l1;
-  // ComputeGraph l2;
   // Features of the last sampled_hop
-
   float * features;
+  // Targets
+  int * targets;
 
   int next_minibatch;
   int minibatch_size;
@@ -73,7 +71,10 @@ public:
         sampled_features[i*this->fsize+j]= (features[nodeIds[i] * this->fsize + j]);
       }
     }
+  }
 
+  void fill_targets(int* nodeIds, int no_nodes){
+    i
   }
 
   void get_sample(int batchId){

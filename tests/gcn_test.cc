@@ -1,4 +1,4 @@
-#include <iostream>
+  #include <iostream>
 #include <string>
 #include "dataset.h"
 #include <fstream>
@@ -29,12 +29,13 @@ int main(){
       dataset->fsize);
 
   SageAggr * l1 =new SageAggr(dataset->fsize);
-  auto out = l1->forwardPass(offsets, indices, *in_data, dataset->num_nodes, dataset->num_nodes);
+    auto out = l1->forwardPass(*offsets, *indices, \
+        *in_data, dataset->num_nodes, dataset->num_nodes);
   auto grad_in =  allocate_ones(dataset->num_nodes, dataset->fsize);
-  auto grad_out = l1->backwardPass(grad_in);
+  auto grad_out = l1->backwardPass(*grad_in);
   out.debugTensor();
   aggr_t->debugTensor();
-  grad_out->debugTensor();
+  grad_out.debugTensor();
   grad_t->debugTensor();
 
   // auto sampler = new TwoHopNoSample(dataset->num_nodes, dataset->num_edges,

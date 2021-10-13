@@ -5,10 +5,10 @@ class CrossEntropyLoss{
 public:
    int N;
    int D;
-   Tensor<float> * exp_x;
-   Tensor<float> * exp_sum;
-   Tensor<float> * loss;
-   Tensor<float> * dx;
+   Tensor<float> * exp_x = nullptr;
+   Tensor<float> * exp_sum = nullptr;
+   Tensor<float> * loss = nullptr;
+   Tensor<float> * dx = nullptr;
 
    void compute_exponent(Tensor<float> &in);
    void compute_exponent_sum();
@@ -16,6 +16,7 @@ public:
 
 
     // Create space for all data structures
+    CrossEntropyLoss();
     CrossEntropyLoss(int N, int D);
     // For classification
     // in Shape = N,C

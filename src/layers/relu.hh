@@ -4,13 +4,15 @@
 
 class Relu{
 
-  Tensor<float> *out;
-  Tensor<float> *d_out;
+  Tensor<float> *out = nullptr;
+  Tensor<float> *d_out = nullptr;
   // Need this for gradient.
   int dim1;
   int dim2;
 
 public:
+  Relu();
+
   Relu(int dim1, int dim2);
 
   Tensor<float>& forward(Tensor<float>& X);

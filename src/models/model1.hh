@@ -36,7 +36,7 @@ public:
 
 // Output is used on loss functions.
   Tensor<float>& forward(Tensor<float>& in, Tensor<int>& off_nb1, Tensor<int>& indices_nb1,
-        Tensor<int>& off_nb2, Tensor<int>& indices_nb2){
+        Tensor<int>& off_nb2, Tensor<int>& indices_nb2, Tensor<int> &labels){
         int out_nodes = off_nb2.dim1;
         if(out != nullptr){
            delete(out);
@@ -59,6 +59,7 @@ public:
   }
 
   void update(int learning_rate){
+    std::cout << "Triggering empty update \n";
     // this->ll1.update(learning_rate);
     // this->ll2.update(learning_rate);
   }

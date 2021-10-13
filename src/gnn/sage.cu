@@ -26,22 +26,26 @@ __global__ void  aggregate_edgeWise(float *ingrad, float *outgrad, int *offsets,
       }
 }
 
-// Initially compute graph is on the cpu.
-Tensor<float>& SageAggr::forwardPass(Tensor<int> * offsets , Tensor<int> * indices,
+
+Tensor<float>& SageAggr::forwardPass(Tensor<int>& offsets , Tensor<int>& indices,
         Tensor<float>& in, int num_nodes_out, int num_nodes_in){
+    if(this->out_feat != nullptr){
+      delete this->out_feat;
+    }
+    if(this->out_grad != nullptr){
+      delete this->out_grad;
+    }
     this->out_feat = new Tensor<float>(num_nodes_out,this->fsize);
     this->out_grad = new Tensor<float>(num_nodes_in,this->fsize);
     int blocks = num_nodes_out;
     int threads = fsize;
-    std::cout << blocks << " " << threads <<"\n";
     this->num_nodes_out = num_nodes_out;
     this->num_nodes_in = num_nodes_in;
     this->offsets = offsets ;
     this->indices = indices;
 
-    NNException::throwIfDeviceErrorsOccurred("forward Pass before");
     aggregate_nodeWise<<<blocks, threads>>>(in.data_device, out_feat->data_device, \
-      offsets->data_device, indices->data_device, this->fsize);
+      offsets.data_device, indices.data_device, this->fsize);
     std::cout << "Forward pass kernels launched \n";
     cudaDeviceSynchronize();
     NNException::throwIfDeviceErrorsOccurred("forward Pass failed");
@@ -51,10 +55,9 @@ Tensor<float>& SageAggr::forwardPass(Tensor<int> * offsets , Tensor<int> * indic
 Tensor<float>& SageAggr::backwardPass(Tensor<float>& in_grad){
   int blocks = this->num_nodes_out;
   int threads = this->fsize;
-  NNException::throwIfDeviceErrorsOccurred("backward Pass before");
   aggregate_edgeWise<<<blocks, threads>>>(in_grad.data_device, this->out_grad->data_device, \
-    this->offsets->data_device, this->indices->data_device, this->fsize);
+    this->offsets.data_device, this->indices.data_device, this->fsize);
   cudaDeviceSynchronize();
-  NNException::throwIfDeviceErrorsOccurred("backward Pass before");
+  NNException::throwIfDeviceErrorsOccurred("backward pass failed\n");
   return *out_grad;
 }
