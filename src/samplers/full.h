@@ -2,6 +2,7 @@
 #include<algorithm>
 #include<assert.h>
 #include<samplers/sample.h>
+
 // creates minibatches of given size by shuffling target node
 // with full 2 hop neighbourhood.
 // Fixme:: Move the graph class to different position.
@@ -12,7 +13,7 @@ struct Graph{
   int *indices;
 };
 
-class TwoHopNoSample{
+class TwoHopNoSampler{
 
   Graph graph;
   // Full graph
@@ -24,17 +25,22 @@ class TwoHopNoSample{
   // ComputeGraph l1;
   // ComputeGraph l2;
   // Features of the last sampled_hop
-  float * sampled_features;
+
+  float * features;
 
   int next_minibatch;
   int minibatch_size;
+  int current_minibatch_size;
   int * target_nodes;
+  int fsize;
 
-  TwoHopSample sample;
 
 public:
+  TwoHopSample sample;
+    float * sampled_features = nullptr;
 
-  TwoHopNoSample(int no_nodes, int no_edges, int *ind_ptr, int *indices, int max_batch_size){
+  TwoHopNoSampler(int no_nodes, int no_edges, int *ind_ptr, int *indices,
+      int max_batch_size, float *features, int fsize){
     this->graph.num_nodes = no_nodes;
     this->graph.num_edges = no_edges;
     this->graph.indptr = ind_ptr;
@@ -42,18 +48,32 @@ public:
     this->no_nodes = no_nodes;
     this->no_edges = no_edges;
     this->target_nodes = (int *)malloc(sizeof(int) * no_nodes);
-
+    this->features = features;
     for(int i =0;i<no_nodes;i++){
       this->target_nodes[i] = i;
     }
     this->next_minibatch=0;
     this->minibatch_size = max_batch_size;
+    this->fsize = fsize;
     shuffle();
   }
 
   void shuffle(){
     std::random_shuffle(&this->target_nodes[0], &this->target_nodes[this->no_nodes]);
     next_minibatch = 0;
+  }
+
+  void fill_features(int* nodeIds, int no_nodes){
+    if(sampled_features != nullptr){
+      free(sampled_features);
+    }
+    sampled_features = (float *)malloc(sizeof(float)* no_nodes * this->fsize);
+    for(int i=0; i < no_nodes;i++){
+      for(int j=0;j < this->fsize; j++){
+        sampled_features[i*this->fsize+j]= (features[nodeIds[i] * this->fsize + j]);
+      }
+    }
+
   }
 
   void get_sample(int batchId){
@@ -63,8 +83,10 @@ public:
     if(this->minibatch_size * (batchId + 1) > this->no_nodes){
       no_nodes = this->no_nodes - (this->minibatch_size * batchId);
     }
+    this->current_minibatch_size = no_nodes;
     // Sample 2-hop neighbourhoods.
     sample.clear();
+
     for(int i=0;i<no_nodes;i++){
       int nd1 = tgt[i];
       int edge_start = this->graph.indptr[nd1];
@@ -93,8 +115,10 @@ public:
     // create csr
     sample.l1.create_csr();
     sample.l2.create_csr();
-
+    this->fill_features(sample.l2.nd2.data(),sample.l2.in_nodes);
   }
+
+
 
   int number_of_batches(){
     return ((this->no_nodes - 1)/minibatch_size  + 1);

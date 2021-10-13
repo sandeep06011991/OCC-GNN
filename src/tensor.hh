@@ -1,4 +1,6 @@
 #pragma once
+#include<iostream>
+#include <cuda_runtime.h>
 
 // Currently a matrix(i.e 2D),
 // extend later for more complex shapes.
@@ -19,6 +21,8 @@ public:
   int dim1;
   int dim2;
 
+  T* grad_device;
+  bool has_grad;
 
 	Tensor(int x_dim = 1,int y_dim = 1);
   Tensor(T* data, int  x_dim, int y_dim);
@@ -32,6 +36,19 @@ public:
 	// const float& operator[](const int index) const;
   void verify(T* correct_data);
   void debugTensor();
+
+  void update(int learning_rate);
+
+  ~Tensor(){
+    std::cout << "Tensor clean begin !\n";
+    // if(data_device !=nullptr){
+    //   cudaFree(data_device);
+    // }
+    // if(grad_device !=nullptr){
+    //   cudaFree(grad_device);
+    // }
+    std::cout << "Tensor clean up !\n";
+  }
 };
 
 template class Tensor<float>;

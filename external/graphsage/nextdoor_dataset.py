@@ -37,7 +37,7 @@ def get_graph_from_nextdoor_datapath(filename):
 
 def fill_up_graph_data(N, G):
     G.ndata["label"] = torch.randint(0,41,(N,),device = 'cpu',requires_grad = False)
-    G.ndata["feat"] = torch.rand(N, 128 ,device = 'cpu',requires_grad = False)
+    G.ndata["feat"] = torch.rand(N, 32 ,device = 'cpu',requires_grad = False)
     G.ndata["labels"] = G.ndata["label"]
     G.ndata["features"] = G.ndata["feat"]
     b = torch.rand(N,device = 'cpu',requires_grad = False)
@@ -61,6 +61,7 @@ def run(args, device, data,filename):
     test_nid = th.nonzero(~(test_g.ndata['train_mask'] | test_g.ndata['val_mask']), as_tuple=True)[0]
 
     dataloader_device = th.device('cpu')
+    assert(not args.sample_gpu)
     if args.sample_gpu:
         train_nid = train_nid.to(device)
         # copy only the csc to the GPU
@@ -100,16 +101,17 @@ def run(args, device, data,filename):
     sampling_time = e-s
     print(sampling_time)
 
-
+    backward_pass_time = 0
     data_movement_time = 0
     forward_prop_time = 0
     for epoch in range(1):
         tic = time.time()
         for step, (input_nodes, seeds, blocks) in enumerate(dataloader):
             # Load the input features as well as output labels
+            s1 = time.time()
             batch_inputs, batch_labels = load_subtensor(train_nfeat, train_labels,
                                                         seeds, input_nodes, device)
-            s1 = time.time()
+
             blocks = [block.int().to(device) for block in blocks]
             e1 = time.time()
             data_movement_time = e1 - s1 + (data_movement_time)
@@ -118,10 +120,16 @@ def run(args, device, data,filename):
             batch_pred = model(blocks, batch_inputs)
             e2 = time.time()
             forward_prop_time = (e2-s2) + (forward_prop_time)
+            s3 = time.time()
+            loss = loss_fcn(batch_pred, batch_labels)
+            optimizer.zero_grad()
+            loss.backward()
+            e3 = time.time()
+            backward_pass_time += e3 - s3
 
     with open('results.txt','a') as fp:
-        fp.write("{}|{}|{}|{}\n".format(filename,sampling_time,data_movement_time,forward_prop_time))
-        print("{}|{}|{}|{}\n".format(filename,sampling_time,data_movement_time,forward_prop_time))
+        fp.write("{}|{}|{}|{}|{}\n".format(filename,sampling_time,data_movement_time,forward_prop_time,backward_pass_time))
+        print("{}|{}|{}|{}|{}\n".format(filename,sampling_time,data_movement_time,forward_prop_time,backward_pass_time))
 
 
 
@@ -136,6 +144,7 @@ def run_experiment(filename,args):
     G = fill_up_graph_data(N,G)
     g = G
     n_classes = 41
+    print("num_nodes",g.num_nodes())
     #################################
 
     if args.inductive:
@@ -151,6 +160,7 @@ def run_experiment(filename,args):
         train_nfeat = val_nfeat = test_nfeat = g.ndata.pop('features')
         train_labels = val_labels = test_labels = g.ndata.pop('labels')
 
+    assert(args.data_cpu)
     if not args.data_cpu:
         train_nfeat = train_nfeat.to(device)
         train_labels = train_labels.to(device)
@@ -179,22 +189,24 @@ if __name__ == '__main__':
     argparser.add_argument('--dropout', type=float, default=0.5)
     argparser.add_argument('--num-workers', type=int, default=4,
                            help="Number of sampling processes. Use 0 for no extra process.")
-    argparser.add_argument('--sample-gpu', action='store_true',
+    argparser.add_argument('--sample-gpu', action='store_true', default = False,
                            help="Perform the sampling process on the GPU. Must have 0 workers.")
     argparser.add_argument('--inductive', action='store_true',
                            help="Inductive learning setting")
-    argparser.add_argument('--data-cpu', action='store_true',
+    argparser.add_argument('--data-cpu', action='store_true', default = True,
                            help="By default the script puts all node features and labels "
                                 "on GPU when using it to save time for data copy. This may "
                                 "be undesired if they cannot fit in GPU memory at once. "
                                 "This flag disables that.")
     args = argparser.parse_args()
+    assert(args.data_cpu)
 
     with open('results.txt','a') as fp:
-        fp.write("{}|{}|{}|{}\n".format("dataset","sampling_time","data_movement_time","forward_prop_time"))
+        fp.write("{}|{}|{}|{}|{}\n".format("dataset","sampling_time","data_movement_time","forward_prop_time","backward_pass"))
 
 
     filenames = ["ppi","reddit","patents","orkut","LJ1"]
-    # filenames = ["ppi","ppi"]
+    filenames = ["ppi","reddit","patents"]
+    filenames = ["orkut","LJ1"]
     for i in filenames:
         run_experiment(i,args)

@@ -27,3 +27,9 @@ sampling:
 	# nvcc -I ../src/ ../src/tensor.cu ../src/samplers/full.cpp -lcublas \
 	# ../src/dataset.cpp gcn_test.cc -o ../build/gcn_test
 	../build/sampling
+
+gcn:
+	nvcc -I ../src/ ../src/dataset.cpp ../src/tensor.cu  \
+	../src/gnn/sage.cu \
+	 sampled_gcn.cc -lcublas -o ../build/forward
+	../build/forward
