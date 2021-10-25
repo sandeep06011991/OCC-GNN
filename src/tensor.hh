@@ -2,6 +2,7 @@
 #include<iostream>
 #include <cuda_runtime.h>
 #include "nn_exception.hh"
+#include <assert.h>
 // Currently a matrix(i.e 2D),
 // extend later for more complex shapes.
 // Tensor only guarantees space exists on gpu.
@@ -22,7 +23,7 @@ public:
   int dim1;
   int dim2;
 
-  T* grad_device = nullptr;
+  // T* grad_device = nullptr;
   bool has_grad;
 
 	Tensor(int x_dim = 1,int y_dim = 1);
@@ -30,31 +31,52 @@ public:
 
 	void allocateMemory();
 
-
 	void copyHostToDevice();
 	void copyDeviceToHost();
 
 	// float& operator[](const int index);
 	// const float& operator[](const int index) const;
   void verify(T* correct_data);
-  void debugTensor();
+  T debugTensor();
 
-  void update(int learning_rate);
+  void update(float learning_rate,Tensor * grad);
 
-  ~Tensor(){
+  void viewTensor(){
+    // assert(dim1 > 2);
+    // assert(dim2 > 2);
+    for(int i=0;i<3;i++){
+      for(int j=0;j<3;j++){
+        std::cout << data_host[i * dim2  + j] <<" ";
+      }
+      std::cout << "\n ";
+
+    }
+    std::cout <<"\n";
+  }
+
+  void cleanUpTensor(){
+    NNException::throwIfDeviceErrorsOccurred("Error before attempting to free\n");
     if(data_device !=nullptr){
-      cudaFree(data_device);
-      NNException::throwIfDeviceErrorsOccurred("cudaFree failed\n");
+      cudaError_t error = cudaFree(data_device);
+      std::cout << cudaGetErrorString(error);
+      NNException::throwIfDeviceErrorsOccurred("cudaFree data failed\n");
+      std::cout << "Free Succes !\n";
     }
-    if(grad_device !=nullptr){
-      cudaFree(grad_device);
-      NNException::throwIfDeviceErrorsOccurred("cudaFree failed\n");
-    }
+    // if(grad_device !=nullptr){
+    //   cudaFree(grad_device);
+    //   NNException::throwIfDeviceErrorsOccurred("cudaFree of grad failed\n");
+    // }
   }
 };
 
 template class Tensor<float>;
 template class Tensor<int>;
+
+
+bool approx_equal(int a,int b);
+
+bool approx_equal(float a,float b);
+
 
 Tensor<float> * allocate_ones(int dim1, int dim2);
 

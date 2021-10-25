@@ -10,14 +10,14 @@ class LinearLayer  {
 public:
 	const float weights_init_threshold = 0.01;
 
-  Tensor<float> * W;
-	Tensor<float> * b;
-  Tensor<float> * out;
+  Tensor<float> * W = nullptr;
+	Tensor<float> * b = nullptr;
+  Tensor<float> * out = nullptr;
 
 	Tensor<float> * dW;
 	Tensor<float> * db;
-  Tensor<float> * out_grad;
-  Tensor<float> * _btemp;
+  Tensor<float> * out_grad= nullptr;
+  Tensor<float> * _btemp= nullptr;
 
   int dim1;
   int dim2;
@@ -29,9 +29,10 @@ public:
 
 // For debugging.
   LinearLayer(float *W, float *B, int dim1, int dim2, int in_dim);
+  LinearLayer(float *W, float *B,int dim1, int dim2);
 
-	Tensor<float>& computeForwardPass(Tensor<float>& in);
-	Tensor<float>& computeBackwardPass(Tensor<float>& dW);
+	Tensor<float>& forward(Tensor<float>& in);
+	Tensor<float>& backward(Tensor<float>& dW);
 
-  // void updateWeights(Optimizer &optm);
+  void update(float learning_rate);
 };

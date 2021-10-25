@@ -4,7 +4,6 @@
 
 // Copied code modifu this later to get grads as well
 __global__ void cu_exponent(float* in, float* out, int size){
-  // printf("check\n");
   int offset = blockDim.x*blockIdx.x + threadIdx.x;
   while(offset < size){
     out[offset] = expf(in[offset]);
@@ -15,20 +14,28 @@ __global__ void cu_exponent(float* in, float* out, int size){
 __global__ void cu_exponent_sum(float *in, float *out, int N, int noClasses){
   __shared__ float s[64];
   int n = blockIdx.x;
+  assert(threadIdx.x < 64);
   if(threadIdx.x < noClasses){
     s[threadIdx.x] = in[n * noClasses + threadIdx.x];
     // s[threadIdx.x] = 200;
   }
   __syncthreads();
-  int i = noClasses/2;
-  while(i!=0){
-    if(threadIdx.x<i){
-        s[threadIdx.x] = s[threadIdx.x + i] + s[threadIdx.x];
+  // Bad Code here but dont worry now!
+  if(threadIdx.x == 0){
+    for(int i=1;i<noClasses;i++){
+      s[0] = s[0] + s[i];
     }
-    i = i/2;
-    __syncthreads();
+    out[n] = s[0];
   }
-  if(threadIdx.x == 0)out[n] = s[0];
+  // int i = noClasses/2;
+  // while(i!=0){
+  //   if(threadIdx.x<i){
+  //       s[threadIdx.x] = s[threadIdx.x + i] + s[threadIdx.x];
+  //   }
+  //   i = i/2;
+  //   __syncthreads();
+  // }
+  // if(threadIdx.x == 0)
 }
 
 __global__ void cu_loss(float *x, int * y, float *exp_sum, float *loss, int N, int noClasses){
@@ -64,15 +71,12 @@ void CrossEntropyLoss::compute_exponent(Tensor<float> &in){
   int dim2 = in.dim2;
   int noBlocks = ((in.dim1 * in.dim2) + 256)/256;
   int noThreads = 256;
-  std::cout << noBlocks <<" " << noThreads << dim1 << dim2 << "\n";
-  std::cout << in.data_device << "\n";
   cu_exponent<<<noBlocks,noThreads>>>((float *) in.data_device,
   (float *)  this->exp_x->data_device, dim1 * dim2);
   NNException::throwIfDeviceErrorsOccurred("compute exponent failed ");
 }
 
 void CrossEntropyLoss::compute_exponent_sum(){
-  assert(this->D ==8);
   cu_exponent_sum<<<this->N,this->D>>>((float *) exp_x->data_device,
   (float *)  exp_sum->data_device, this->N, this-> D);
   NNException::throwIfDeviceErrorsOccurred("compute exponent sum failed ");
@@ -91,53 +95,45 @@ void CrossEntropyLoss::compute_loss(Tensor<float> &in,
 // in Shape = N,C
 // N num examples, C num examples.
 // returns Tensor of shape N,1
-Tensor<float>& CrossEntropyLoss::lossForward(Tensor<float> &in,Tensor<int> &true_labels){
+Tensor<float>& CrossEntropyLoss::forward(Tensor<float> &in,Tensor<int> &true_labels){
     // in.debugTensor();
     this->N = in.dim1;
     this->D = in.dim2;
     int dim1 = in.dim1;
     int dim2 = in.dim2;
     if(this->exp_x != nullptr){
-      std::cout << "Kernel 1 ok !\n";
-
-
+      this->exp_x->cleanUpTensor();
+      this->exp_sum->cleanUpTensor();
+      this->loss->cleanUpTensor();
+      this->dx->cleanUpTensor();
       delete this->exp_x;
-
-      std::cout << "Kernel 1 ok !\n";
-
       delete this->exp_sum;
-      std::cout << "Kernel 1 ok !\n";
-
       delete this->loss;
-      std::cout << "Kernel 1 ok !\n";
-
       delete this->dx;
-      std::cout << "Kernel 1 ok !\n";
-
-      NNException::throwIfDeviceErrorsOccurred("compute exponent loss failed ");
-
+      NNException::throwIfDeviceErrorsOccurred("compute deletion failed ");
     }
     this->exp_x = new Tensor<float>(dim1,dim2);
     this->exp_sum = new Tensor<float>(dim1,1);
     this->loss = new Tensor<float>(dim1,1);
     this->dx = new Tensor<float>(dim1,dim2);
 
-    // return *loss;
     compute_exponent(in);
-    // this->exp_x->debugTensor();
     cudaDeviceSynchronize();
-    std::cout << "Kernel 1 ok !\n";
     compute_exponent_sum();
-    cudaDeviceSynchronize();
-    std::cout << "Kernel 2 ok !\n";
     compute_loss(in, true_labels);
     cudaDeviceSynchronize();
-    std::cout << "Kernel 3 ok !\n";
-    return *loss;
+    NNException::throwIfDeviceErrorsOccurred("BCE Failed ");
+    return *this->loss;
 }
 
-Tensor<float>&  CrossEntropyLoss::lossBackward(Tensor<int> &true_labels){
-  assert(this->D ==8);
+Tensor<float>&  CrossEntropyLoss::backward(Tensor<int> &true_labels){
+  // assert(this->D ==8);
+  std::cout << "Labels \n";
+  true_labels.debugTensor();
+  true_labels.viewTensor();
+  std::cout << "Predicted \n";
+  this->loss->debugTensor();
+  this->loss->viewTensor();
   cu_gradient<<<this->N, this->D>>>(this->exp_x->data_device, this->exp_sum->data_device, true_labels.data_device
         , this->dx->data_device, N, D);
   cudaDeviceSynchronize();

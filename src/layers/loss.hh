@@ -16,14 +16,16 @@ public:
 
 
     // Create space for all data structures
-    CrossEntropyLoss();
+    CrossEntropyLoss(){
+      
+    }
     CrossEntropyLoss(int N, int D);
     // For classification
     // in Shape = N,C
     // N num examples, C num examples.
     // returns Tensor of shape N,1
-    Tensor<float>& lossForward(Tensor<float> &in,Tensor<int> &true_labels);
+    Tensor<float>& forward(Tensor<float> &in,Tensor<int> &true_labels);
 
-    Tensor<float>& lossBackward(Tensor<int> &true_labels);
+    Tensor<float>& backward(Tensor<int> &true_labels);
 
 };

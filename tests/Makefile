@@ -22,7 +22,7 @@ gcn:
 
 sampling:
 	nvcc -I ../src/ ../src/tensor.cu ../src/gnn/sage.cu  \
-	../src/samplers/full.cpp  ../src/dataset.cpp sampling_test.cc \
+	  ../src/dataset.cpp sampling_test.cc \
 	-lcublas -o ../build/sampling
 	# nvcc -I ../src/ ../src/tensor.cu ../src/samplers/full.cpp -lcublas \
 	# ../src/dataset.cpp gcn_test.cc -o ../build/gcn_test
@@ -30,6 +30,12 @@ sampling:
 
 sampled_gcn:
 	nvcc -I ../src/ ../src/dataset.cpp ../src/tensor.cu  \
-	../src/gnn/sage.cu \
-	 sampled_gcn.cc -lcublas -o ../build/forward
+	../src/gnn/sage.cu ../src/layers/*.cu -lcublas  \
+	 sampled_gcn.cc -o ../build/forward
 	../build/forward
+
+full_graph_gcn:
+	nvcc -I ../src/ ../src/dataset.cpp ../src/tensor.cu  \
+	../src/gnn/sage.cu ../src/layers/*.cu -lcublas  \
+	 	full_graph_gcn.cc -o ../build/full
+	../build/full

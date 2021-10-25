@@ -12,7 +12,7 @@ int main(){
   Dataset * dataset = new Dataset(BIN_DIR + "/pubmed");
   std::cout << dataset->num_edges <<"\n";
   std::cout << dataset->fsize << "\n";
-
+std::cout << " classes: " << dataset->noClasses << "\n";
   auto *s = new TwoHopNoSample(dataset->num_nodes, dataset->num_edges,
                dataset->indptr, dataset->indices, 1000);
 

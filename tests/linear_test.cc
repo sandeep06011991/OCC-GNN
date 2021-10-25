@@ -4,13 +4,15 @@
 #include "layers/relu.hh"
 #include "tensor.hh"
 #include <fstream>
+#include <assert.h>
 
 std::string BIN_DIR = "/mnt/homes/spolisetty/data/tests/linear";
 
 int main(){
-  int N = 1024;
-  int M = 40;
-  int K = 16;
+
+  int N = 19717;
+  int M = 500;
+  int K = 128;
   // N = 4;
   // M = 4;
   // K = 12;
@@ -49,21 +51,30 @@ int main(){
   Tensor<float> * dX_t = new Tensor<float>(dX, N, M);
 
 
-  LinearLayer* l1 = new LinearLayer(W,B, M, K, N);
-  Relu* l2 = new Relu(N,K);
+  LinearLayer* l1 = new LinearLayer(W,B, M, K);
+  Relu* l2 = new Relu();
   // // Construct tensors
   // // Match forward pass
   // // check output at l2
-  auto i = l1->computeForwardPass(*input_t);
+  auto i = l1->forward(*input_t);
   auto out = l2->forward(i);
   auto g = l2->backward(*allocate_ones(N,K));
-  auto dX_calc = l1->computeBackwardPass(g);
+  auto dX_calc = l1->backward(g);
   //
-  dX_t->debugTensor();
-  dX_calc.debugTensor();
-  dw_t->debugTensor();
-  l1->dW->debugTensor();
-  db_t->debugTensor();
-  l1->db->debugTensor();
+  std::cout << "haha " << out.debugTensor() <<": " << output_t->debugTensor() <<"\n";
+  assert(approx_equal(out.debugTensor(),output_t->debugTensor()));
+  assert(approx_equal(dX_t->debugTensor(),dX_calc.debugTensor()));
+  assert(approx_equal(dw_t->debugTensor(),l1->dW->debugTensor()));
+  assert(approx_equal(db_t->debugTensor(),l1->db->debugTensor()));
+
+  l1->update(.1);
+  l1->W->debugTensor();
+  l1->W->viewTensor();
+  // dX_t->debugTensor();
+  // dX_calc.debugTensor();
+  // dw_t->debugTensor();
+  // l1->dW->debugTensor();
+  // db_t->debugTensor();
+  // l1->db->debugTensor();
 
 }

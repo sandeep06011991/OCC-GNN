@@ -5,14 +5,40 @@
 #include <cuda_runtime.h>
 #include "cublas_v2.h"
 
+// template<typename T>
+__global__
+void gradient_update(float * x, float * x_grad, int size, float learning_rate){
+  int globalIdx = threadIdx.x + (blockIdx.x * blockDim.x);
+  if(globalIdx < size){
+    x[globalIdx] = x[globalIdx] - (x_grad[globalIdx] * learning_rate );
+  }
+}
 
 
 template<typename T>
-Tensor<T>::Tensor( int dim1, int dim2){
+void Tensor<T>::update(float learning_rate, Tensor<T> * grad){
+  assert(this->dim1 == grad->dim1);
+  assert(this->dim2 == grad->dim2);
+
+  int totalSize = this->dim1 * this->dim2;
+  int noBlocks = (totalSize  + 255)/256;
+  int noThreads = 256;
+  gradient_update<<<noBlocks,noThreads>>>((float *)this->data_device,(float *)grad->data_device,totalSize,learning_rate);
+
+}
+
+template<typename T>
+Tensor<T>::Tensor(int dim1, int dim2){
   this->dim1 = dim1;
   this->dim2 = dim2;
+  assert(this->dim1 > 0);
+  assert(this->dim2 > 0);
+
   this->allocateMemory();
+  NNException::throwIfDeviceErrorsOccurred("cudaalloc data failed\n");
   cudaDeviceSynchronize();
+  NNException::throwIfDeviceErrorsOccurred("cudaalloc data failed\n");
+  // this->debugTensor();
 }
 
 template<typename T>
@@ -33,6 +59,8 @@ void Tensor<T>::allocateMemory(){
 
 template<typename T>
 void Tensor<T>::copyHostToDevice(){
+   assert(this->data_device !=nullptr);
+   assert(this->data_host !=nullptr);
    cudaMemcpy(this->data_device,this->data_host,dim1 * dim2 * sizeof(T), cudaMemcpyHostToDevice);
    NNException::throwIfDeviceErrorsOccurred("memory copy failed");
 }
@@ -42,32 +70,36 @@ void Tensor<T>::copyDeviceToHost(){
   if(this->data_host == nullptr){
      this->data_host = (T *)malloc(sizeof(T) * dim1 * dim2);
    }
+   assert(this->data_device !=nullptr);
+   assert(this->data_host !=nullptr);
    cudaMemcpy(this->data_host,this->data_device,dim1 * dim2 * sizeof(T), cudaMemcpyDeviceToHost);
    cudaDeviceSynchronize();
    NNException::throwIfDeviceErrorsOccurred("memory copy failed");
 }
 
 template<typename T>
-void Tensor<T>::debugTensor(){
+T Tensor<T>::debugTensor(){
   this->copyDeviceToHost();
-  for(int i=0;i<4;i++){
-    for(int j=0;j<8;j++){
-      std::cout << this->data_host[i*this->dim2+j] << " ";
-    }
-    std::cout << "\n";
-  }
+  // for(int i=0;i<4;i++){
+  //   for(int j=0;j<4;j++){
+  //     std::cout << this->data_host[i*this->dim2+j] << " ";
+  //   }
+  //   std::cout << "\n";
+  // }
   T s = 0;
   for(int i=0;i<this->dim1;i++){
     for(int j=0;j<this->dim2;j++){
       s += this->data_host[i*this->dim2+j] ;
     }
   }
-  std::cout << "SUM " << s <<"\n";
+  // std::cout << "SUM " << s <<"\n";
+  return s;
 }
 float * allocate_random(int size){
   float * data = (float *)malloc(sizeof(float)*size);
   for(int i=0;i<size;i++){
-    data[i] = rand();
+    data[i] = .001;
+
   }
   return data;
 }
@@ -129,4 +161,18 @@ Tensor<float> * allocate_ones(int dim1, int dim2){
      data_host[i] = 1;
    }
    return new Tensor<float>(data_host,dim1, dim2);
+}
+
+bool approx_equal(int a,int b){
+  return a==b;
+}
+
+bool approx_equal(float a,float b){
+  // std::cout << a << " " << b <<"\n";
+  // std::cout << "doffer" <<b - a<<"\n";
+  if(a==b)return true;
+  if(a>b){
+    return (a-b)/a < .0001;
+  }
+  return (b-a)/a < .00001;
 }

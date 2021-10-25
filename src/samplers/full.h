@@ -22,10 +22,12 @@ class TwoHopNoSampler{
   // Instantitate from sample 1-n
 
   // Features of the last sampled_hop
-  float * features;
-  // Targets
-  int * targets;
+  float * full_features;
+  int * full_labels;
 
+
+
+  // Utilities which support minibatching.
   int next_minibatch;
   int minibatch_size;
   int current_minibatch_size;
@@ -35,10 +37,11 @@ class TwoHopNoSampler{
 
 public:
   TwoHopSample sample;
-    float * sampled_features = nullptr;
+  float * batch_features = nullptr;
+  int * batch_labels = nullptr;
 
   TwoHopNoSampler(int no_nodes, int no_edges, int *ind_ptr, int *indices,
-      int max_batch_size, float *features, int fsize){
+      int max_batch_size, float *features, int * labels, int fsize){
     this->graph.num_nodes = no_nodes;
     this->graph.num_edges = no_edges;
     this->graph.indptr = ind_ptr;
@@ -46,7 +49,8 @@ public:
     this->no_nodes = no_nodes;
     this->no_edges = no_edges;
     this->target_nodes = (int *)malloc(sizeof(int) * no_nodes);
-    this->features = features;
+    this->full_features = features;
+    this->full_labels = labels;
     for(int i =0;i<no_nodes;i++){
       this->target_nodes[i] = i;
     }
@@ -61,21 +65,27 @@ public:
     next_minibatch = 0;
   }
 
-  void fill_features(int* nodeIds, int no_nodes){
-    if(sampled_features != nullptr){
-      free(sampled_features);
+  void fill_batch_data(int* in_nodes, int no_in, int* out_nodes, int no_out){
+    if(batch_features != nullptr){
+      free(batch_features);
     }
-    sampled_features = (float *)malloc(sizeof(float)* no_nodes * this->fsize);
-    for(int i=0; i < no_nodes;i++){
+    if(batch_labels != nullptr){
+      free(batch_labels);
+    }
+    batch_features = (float *)malloc(sizeof(float)* no_in * this->fsize);
+    batch_labels = (int *)malloc(sizeof(int) * no_out);
+
+    for(int i=0; i < no_in;i++){
       for(int j=0;j < this->fsize; j++){
-        sampled_features[i*this->fsize+j]= (features[nodeIds[i] * this->fsize + j]);
+        batch_features[i*this->fsize+j]= (full_features[in_nodes[i] * this->fsize + j]);
       }
+    }
+
+    for(int i=0; i< no_out; i++){
+      batch_labels[i] = full_labels[out_nodes[i]];
     }
   }
 
-  void fill_targets(int* nodeIds, int no_nodes){
-    i
-  }
 
   void get_sample(int batchId){
     assert(batchId * this->minibatch_size < this->no_nodes);
@@ -116,7 +126,7 @@ public:
     // create csr
     sample.l1.create_csr();
     sample.l2.create_csr();
-    this->fill_features(sample.l2.nd2.data(),sample.l2.in_nodes);
+    this->fill_batch_data(sample.l2.nd2.data(),sample.l2.in_nodes, sample.l1.nd1.data(), sample.l1.out_nodes);
   }
 
 

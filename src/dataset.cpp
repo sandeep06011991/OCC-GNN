@@ -10,6 +10,7 @@ Dataset::Dataset(std::string dir){
   read_meta_file();
   read_graph();
   read_node_data();
+  assert(noClasses != 0);
   // read_training_splits();
 }
 
@@ -60,6 +61,7 @@ void Dataset::read_meta_file(){
   std::fstream file(this->BIN_DIR + "/meta.txt",std::ios::in);
   std::string line;
   while(getline(file,line)){
+    std::cout << line <<"\n";
     if(file.eof())break;
     std::string name = line.substr(0,line.find("="));
     std::string token = line.substr(line.find("=") + 1,line.length() );
@@ -90,6 +92,10 @@ void Dataset::read_meta_file(){
     }
     if (name == "csum_edges") {
       this->csum_edges = val;
+      continue;
+    }
+    if (name == "num_classes") {
+      this->noClasses = val;
       continue;
     }
   }

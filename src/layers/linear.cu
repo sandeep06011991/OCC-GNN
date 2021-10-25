@@ -2,6 +2,7 @@
 #include "linear.hh"
 #include "nn_exception.hh"
 #include <assert.h>
+#include <iostream>
 
 LinearLayer::LinearLayer(int dim1, int dim2){
   this->dim1 = dim1;
@@ -10,7 +11,17 @@ LinearLayer::LinearLayer(int dim1, int dim2){
   this->b = new Tensor<float>(allocate_random(dim2),dim2,1);
   this->dW = new Tensor<float>(dim1,dim2);
   this->db = new Tensor<float>(dim2,1);
-  // Dummy allocation
+
+  this->in = *(new Tensor<float>(1,1));
+}
+
+LinearLayer::LinearLayer(float *W, float *B, int dim1, int dim2){
+  this->dim1 = dim1;
+  this->dim2 = dim2;
+  this->W = new Tensor<float>(W,dim1,dim2);
+  this->b = new Tensor<float>(B,dim2,1);
+  this->dW = new Tensor<float>(dim1,dim2);
+  this->db = new Tensor<float>(dim2,1);
   this->in = *(new Tensor<float>(1,1));
 }
 
@@ -21,6 +32,8 @@ LinearLayer::LinearLayer(int dim1, int dim2, int in_dim){
     this->out = new Tensor<float>(in_dim,dim2);
     this->W = new Tensor<float>(allocate_random(dim1*dim2),dim1,dim2);
     this->b = new Tensor<float>(allocate_random(dim2),dim2,1);
+
+
     this->out_grad = new Tensor<float>(in_dim,dim1);
     this->dW = new Tensor<float>(allocate_random(dim1*dim2),dim1,dim2);
     this->db = new Tensor<float>(allocate_random(dim2),dim2,1);
@@ -29,6 +42,11 @@ LinearLayer::LinearLayer(int dim1, int dim2, int in_dim){
 
 }
 
+
+  void LinearLayer::update(float learning_rate){
+    this->W->update(learning_rate, this->dW);
+    this->b->update(learning_rate, this->db);
+  }
 
 LinearLayer::LinearLayer(float *W, float *B, int dim1, int dim2, int in_dim){
     this->dim1 = dim1;
@@ -43,6 +61,8 @@ LinearLayer::LinearLayer(float *W, float *B, int dim1, int dim2, int in_dim){
     this->_btemp =  allocate_ones(in_dim,1);
     this->in = *(new Tensor<float>(1,1));
 }
+
+
 
 // Copied code modifu this later to get grads as well
 __global__ void cu_multiply(float* A, float* B, float * C,
@@ -102,13 +122,13 @@ __global__ void cu_add_bias(float *out, float *bias){
 	out[tid] = out[tid] + bias[threadIdx.x];
 }
 
-Tensor<float>& LinearLayer::computeForwardPass(Tensor<float>& in_p){
+Tensor<float>& LinearLayer::forward(Tensor<float>& in_p){
+
   this->in_dim = in_p.dim1;
   this->in = in_p;
   Tensor<float>& in = in_p;
   int TILE_WIDTH = 32;
-  dim3 dimGrid((out->dim1 - 1) / TILE_WIDTH + 1, (out->dim2 - 1) / TILE_WIDTH + 1);
-  dim3 dimBlock(TILE_WIDTH, TILE_WIDTH);
+
   // in.debugTensor();
   // W->debugTensor();
   if(this->out !=nullptr){
@@ -120,24 +140,30 @@ Tensor<float>& LinearLayer::computeForwardPass(Tensor<float>& in_p){
   this->out_grad = new Tensor<float>(in_dim,dim1);
   this->_btemp =  allocate_ones(in_dim,1);
 
-  cu_multiply<<<dimGrid, dimBlock>>>((float*)in.data_device ,
-                (float *) W->data_device,
-                (float *) out->data_device,
-								in.dim1, in.dim2,
-                W->dim1, W->dim2,
-                out->dim1, out->dim2 );
-  // out->debugTensor();
-  // std::cout << "printing b\n";
-  // b->debugTensor();
+
+  std::cout << "sum of W "<< this->W->debugTensor() <<"\n";
+  std::cout << "sum of b "<< this->b->debugTensor() <<"\n";
+  std::cout << "sum of in "<< this->in.debugTensor() <<"\n";
+
+  mat_mul_a_b(in, true, *this->W, true , *this->out);
+  // this->W->viewTensor();
+  std::cout << "sum of mat mul "<< this->out->debugTensor() <<"\n";
+
+
+  NNException::throwIfDeviceErrorsOccurred("mat mul   failed");
+
   cu_add_bias<<<out->dim1, out->dim2>>>(out->data_device, b->data_device);
   NNException::throwIfDeviceErrorsOccurred("mat mul linear failed");
+
   cudaDeviceSynchronize();
+  std::cout << "sum of fc1 mat mul and bias out  "<< this->out->debugTensor() <<"\n";
+
   return *out;
 }
 
 // void compute_w_grad(float *in, in_dim1, in_dim2, float *wx)
 
-Tensor<float>& LinearLayer::computeBackwardPass(Tensor<float>& in_grad){
+Tensor<float>& LinearLayer::backward(Tensor<float>& in_grad){
   assert(in_grad.dim1 = this->in_dim );
   assert(in_grad.dim2 = this->dim2);
   mat_mul_a_t_b(this->in,true, in_grad, true, *dW);

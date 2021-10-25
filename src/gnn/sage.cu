@@ -27,7 +27,7 @@ __global__ void  aggregate_edgeWise(float *ingrad, float *outgrad, int *offsets,
 }
 
 
-Tensor<float>& SageAggr::forwardPass(Tensor<int>& offsets , Tensor<int>& indices,
+Tensor<float>& SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
         Tensor<float>& in, int num_nodes_out, int num_nodes_in){
     if(this->out_feat != nullptr){
       delete this->out_feat;
@@ -52,7 +52,7 @@ Tensor<float>& SageAggr::forwardPass(Tensor<int>& offsets , Tensor<int>& indices
     return *out_feat;
 }
 
-Tensor<float>& SageAggr::backwardPass(Tensor<float>& in_grad){
+Tensor<float>& SageAggr::backward(Tensor<float>& in_grad){
   int blocks = this->num_nodes_out;
   int threads = this->fsize;
   aggregate_edgeWise<<<blocks, threads>>>(in_grad.data_device, this->out_grad->data_device, \

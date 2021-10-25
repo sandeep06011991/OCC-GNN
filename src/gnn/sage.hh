@@ -22,9 +22,9 @@ public:
       this->fsize = fsize;
   }
 
-  Tensor<float>& forwardPass(Tensor<int>& ind_ptr, Tensor<int>& indices,
+  Tensor<float>& forward(Tensor<int>& ind_ptr, Tensor<int>& indices,
           Tensor<float>& in, int num_nodes_out, int num_nodes_in);
 
-  Tensor<float>& backwardPass(Tensor<float> &doutFeat);
+  Tensor<float>& backward(Tensor<float> &doutFeat);
 
 };

@@ -3,6 +3,7 @@
 #include "dataset.h"
 #include <fstream>
 #include "tensor.hh"
+#include "assert.h"
 // #include "samplers/full.h"
 #include "gnn/sage.hh"
 
@@ -23,20 +24,24 @@ int main(){
   file2.read((char *)grad, dataset->num_nodes * dataset->fsize * sizeof(float));
   Tensor<float> * grad_t = new Tensor<float>(grad, dataset->num_nodes, dataset->fsize);
 
+  // Important assumption keep track of this
+  for(int i=0;i<dataset->num_nodes;i++){
+      assert(dataset->indptr[i] != dataset->indptr[i+1]);
+  }
+
   Tensor<int> * offsets = new Tensor<int>(dataset->indptr,dataset->num_nodes+1,1);
   Tensor<int> * indices = new Tensor<int>(dataset->indices,dataset->num_edges,1);
   Tensor<float> * in_data = new Tensor<float>(dataset->features,dataset->num_nodes, \
       dataset->fsize);
 
   SageAggr * l1 =new SageAggr(dataset->fsize);
-    auto out = l1->forwardPass(*offsets, *indices, \
+    auto out = l1->forward(*offsets, *indices, \
         *in_data, dataset->num_nodes, dataset->num_nodes);
   auto grad_in =  allocate_ones(dataset->num_nodes, dataset->fsize);
-  auto grad_out = l1->backwardPass(*grad_in);
-  out.debugTensor();
-  aggr_t->debugTensor();
-  grad_out.debugTensor();
-  grad_t->debugTensor();
+  auto grad_out = l1->backward(*grad_in);
+  assert(approx_equal(out.debugTensor(),aggr_t->debugTensor()));
+  assert(approx_equal(grad_out.debugTensor(),grad_t->debugTensor()));
+
 
   // auto sampler = new TwoHopNoSample(dataset->num_nodes, dataset->num_edges,
   //   dataset->indptr, dataset->indices, 100);

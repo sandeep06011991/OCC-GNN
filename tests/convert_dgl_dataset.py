@@ -5,6 +5,7 @@ import numpy as np
 # All one time preprocessing goes here.
 ROOT_DIR = "/mnt/homes/spolisetty/data"
 TARGET_DIR = "/mnt/homes/spolisetty/data/occ"
+TARGET_DIR = "/mnt/homes/spolisetty/data/tests/gcn/"
 
 def get_dataset(name):
     if name =="cora":
@@ -27,6 +28,7 @@ def write_dataset_dataset(dataset, TARGET_DIR):
     print("edges", indices.sum())
     num_edges = dataset[0].num_edges()
     num_nodes = dataset[0].num_nodes()
+    num_classes = dataset.num_classes
     features = dataset[0].ndata['feat']
     labels = dataset[0].ndata['label']
     assert features.shape[0] == num_nodes
@@ -55,11 +57,11 @@ def write_dataset_dataset(dataset, TARGET_DIR):
     with open(TARGET_DIR+'/features.bin','wb') as fp:
         fp.write(features.numpy().astype('float32').tobytes())
     with open(TARGET_DIR+'/labels.bin','wb') as fp:
-        fp.write(labels.numpy().astype('int').tobytes())
+        fp.write(labels.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/train_idx.bin','wb') as fp:
-        fp.write(train_idx.numpy().astype('int').tobytes())
+        fp.write(train_idx.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/val_idx.bin','wb') as fp:
-        fp.write(val_idx.numpy().astype('int').tobytes())
+        fp.write(val_idx.numpy().astype('int32').tobytes())
     csum_train = torch.sum(train_idx).item()
     csum_test = torch.sum(val_idx).item()
 
@@ -73,6 +75,7 @@ def write_dataset_dataset(dataset, TARGET_DIR):
     meta_structure["csum_test"] = csum_test
     meta_structure["csum_offsets"] = csum_offsets
     meta_structure["csum_edges"] = csum_edges
+    meta_structure["num_classes"] = num_classes
     with open(TARGET_DIR+'/meta.txt','w') as fp:
         for k in meta_structure.keys():
             fp.write("{}={}\n".format(k,meta_structure[k]))
