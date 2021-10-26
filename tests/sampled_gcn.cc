@@ -63,7 +63,6 @@ int main(){
     if(loss != loss){
       assert(false);
     }
-
     // delete batch_in;
     model->backward(grad_out);
 
