@@ -57,7 +57,7 @@ public:
     this->next_minibatch=0;
     this->minibatch_size = max_batch_size;
     this->fsize = fsize;
-    shuffle();
+    // shuffle();
   }
 
   void shuffle(){

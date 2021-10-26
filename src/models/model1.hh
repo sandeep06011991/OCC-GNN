@@ -63,30 +63,20 @@ public:
 
       NNException::throwIfDeviceErrorsOccurred("Device error before forward \n");
       auto t1 = this->gcn1->forward(off_nb1,indices_nb1, in, off_nb1.dim1-1,in.dim1);
-      std::cout << "First gcn layer sum " << t1.debugTensor() <<"\n";
+      // std::cout << "First gcn layer sum " << t1.debugTensor() <<"\n";
       NNException::throwIfDeviceErrorsOccurred("gcn 1 failure \n");
       auto t2 = this->ll1->forward(t1);
-      std::cout << "First linear layer sum " << t2.debugTensor() <<"\n";
+      // std::cout << "First linear layer sum " << t2.debugTensor() <<"\n";
       NNException::throwIfDeviceErrorsOccurred("First linear layer sum \n");
       auto t3 = this->relu->forward(t2);
-      std::cout << "First relu 1 sum " << t3.debugTensor() <<"\n";
+      // std::cout << "First relu 1 sum " << t3.debugTensor() <<"\n";
       NNException::throwIfDeviceErrorsOccurred("relu failed \n");
       auto t4 = this->gcn2->forward(off_nb2,indices_nb2,t3,off_nb2.dim1-1,t3.dim1);
-      std::cout << "Second gcn layer sum " << t4.debugTensor() <<"\n";
+      // std::cout << "Second gcn layer sum " << t4.debugTensor() <<"\n";
       NNException::throwIfDeviceErrorsOccurred("Second gcn failed \n");
       Tensor<float>& t5 = this->ll2->forward(t4);
-      std::cout << "Second gcn layer sum " << t5.debugTensor() <<"\n";
-      // t5.debugTensor();
+      // std::cout << "Second gcn layer sum " << t5.debugTensor() <<"\n";
       return t5;
-      //
-      // NNException::throwIfDeviceErrorsOccurred("Catch6 \n");
-      // this->out = this->loss->forward(t5,labels);
-      // NNException::throwIfDeviceErrorsOccurred("Catch7 \n");
-      //
-      // // this->out.debugTensor();
-      // // std::cout << "Catch7 \n";
-      // // std::cout << "Catch7 \n";
-      // return out;
   }
 
   void backward(Tensor<float> & grad){
@@ -94,15 +84,12 @@ public:
     NNException::throwIfDeviceErrorsOccurred("Catch3\n");
     auto t4 = this->gcn2->backward(t5);
     NNException::throwIfDeviceErrorsOccurred("Catch4\n");
-    std::cout << "REACHED HERE!!!!\n";
     auto t3 = this->relu->backward(t4);
     NNException::throwIfDeviceErrorsOccurred("Catch5\n");
-    std::cout << "REACHED HERE!!!!\n";
     auto t2 = this->ll1->backward(t3);
     NNException::throwIfDeviceErrorsOccurred("Catch6\n");
     auto t1 = this->gcn1->backward(t2);
     NNException::throwIfDeviceErrorsOccurred("Catch7\n");
-    std::cout << "Back7 \n";
   }
 
   void update(float learning_rate){

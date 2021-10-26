@@ -35,9 +35,6 @@ Relu::Relu(int dim1, int dim2){
 }
 
 Tensor<float>& Relu::forward(Tensor<float>& X){
-
-  std::cout << this->dim1 << " " << this->dim2 <<"\n";
-  std::cout << "Start forward kernel \n";
   this->dim1 = X.dim1;
   this->dim2 = X.dim2;
   if(this->out != nullptr){
@@ -54,7 +51,6 @@ Tensor<float>& Relu::forward(Tensor<float>& X){
   int noThreads = 256;
   cuda_forward<<<noBlocks,noThreads>>>(X.data_device,out->data_device,size);
   cudaDeviceSynchronize();
-  std::cout << "End forward kernel \n";
   return *this->out;
   // return *(new Tensor<float>(1,1));
 }
@@ -64,12 +60,6 @@ Tensor<float>& Relu::backward(Tensor<float>& grad_x){
   int size = this->dim1 * this->dim2;
   int noBlocks = (size  + 255)/256;
   int noThreads = 256;
-  std::cout << "Start backward kernel \n";
-  // std::cout << out->dim1 << " " << out->dim2 <<"\n";
-  // std::cout << out->data_device <<"\n";
-  // grad_x.debugTensor();
-  // d_out->debugTensor();
-  // out->debugTensor();
   cuda_backward<<<noBlocks,noThreads>>>(grad_x.data_device, out->data_device,
             d_out->data_device, size);
   cudaDeviceSynchronize();

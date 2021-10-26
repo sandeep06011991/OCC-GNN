@@ -58,9 +58,10 @@ public:
     NNException::throwIfDeviceErrorsOccurred("Error before attempting to free\n");
     if(data_device !=nullptr){
       cudaError_t error = cudaFree(data_device);
-      std::cout << cudaGetErrorString(error);
       NNException::throwIfDeviceErrorsOccurred("cudaFree data failed\n");
-      std::cout << "Free Succes !\n";
+    }
+    if(data_host!=nullptr){
+      free(data_host);
     }
     // if(grad_device !=nullptr){
     //   cudaFree(grad_device);
@@ -80,7 +81,7 @@ bool approx_equal(float a,float b);
 
 Tensor<float> * allocate_ones(int dim1, int dim2);
 
-float * allocate_random(int size);
+float * allocate_random(int size,int dim);
 
 bool tensor_equal(Tensor<float> &a, Tensor<float> &b);
 

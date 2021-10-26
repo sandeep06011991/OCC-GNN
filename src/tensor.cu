@@ -4,6 +4,11 @@
 #include <assert.h>
 #include <cuda_runtime.h>
 #include "cublas_v2.h"
+#include<iostream>
+#include <stdio.h>      /* printf */
+#include <math.h>
+
+
 
 // template<typename T>
 __global__
@@ -95,10 +100,14 @@ T Tensor<T>::debugTensor(){
   // std::cout << "SUM " << s <<"\n";
   return s;
 }
-float * allocate_random(int size){
+float * allocate_random(int size,int dim){
+  float stdv = 1. / sqrt(dim);
+  std::random_device rd;  // Will be used to obtain a seed for the random number engine
+  std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+  std::uniform_real_distribution<> dis(-stdv, stdv);
   float * data = (float *)malloc(sizeof(float)*size);
   for(int i=0;i<size;i++){
-    data[i] = .001;
+    data[i] =  dis(gen);
 
   }
   return data;

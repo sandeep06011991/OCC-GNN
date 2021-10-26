@@ -7,8 +7,8 @@
 LinearLayer::LinearLayer(int dim1, int dim2){
   this->dim1 = dim1;
   this->dim2 = dim2;
-  this->W = new Tensor<float>(allocate_random(dim1*dim2),dim1,dim2);
-  this->b = new Tensor<float>(allocate_random(dim2),dim2,1);
+  this->W = new Tensor<float>(allocate_random(dim1*dim2,dim2),dim1,dim2);
+  this->b = new Tensor<float>(allocate_random(dim2,dim2),dim2,1);
   this->dW = new Tensor<float>(dim1,dim2);
   this->db = new Tensor<float>(dim2,1);
 
@@ -30,13 +30,11 @@ LinearLayer::LinearLayer(int dim1, int dim2, int in_dim){
     this->dim2 = dim2;
     this->in_dim = in_dim;
     this->out = new Tensor<float>(in_dim,dim2);
-    this->W = new Tensor<float>(allocate_random(dim1*dim2),dim1,dim2);
-    this->b = new Tensor<float>(allocate_random(dim2),dim2,1);
-
-
+    this->W = new Tensor<float>(allocate_random(dim1*dim2,dim2),dim1,dim2);
+    this->b = new Tensor<float>(allocate_random(dim2,dim2),dim2,1);
     this->out_grad = new Tensor<float>(in_dim,dim1);
-    this->dW = new Tensor<float>(allocate_random(dim1*dim2),dim1,dim2);
-    this->db = new Tensor<float>(allocate_random(dim2),dim2,1);
+    this->dW = new Tensor<float>(allocate_random(dim1*dim2,dim2),dim1,dim2);
+    this->db = new Tensor<float>(allocate_random(dim2,dim2),dim2,1);
     this->_btemp =  allocate_ones(in_dim,1);
     this->in = *(new Tensor<float>(1,1));
 
@@ -44,6 +42,9 @@ LinearLayer::LinearLayer(int dim1, int dim2, int in_dim){
 
 
   void LinearLayer::update(float learning_rate){
+    // std::cout << "Checking gradients \n";
+    // this->dW->debugTensor();
+    // this->dW->viewTensor();
     this->W->update(learning_rate, this->dW);
     this->b->update(learning_rate, this->db);
   }
@@ -56,8 +57,8 @@ LinearLayer::LinearLayer(float *W, float *B, int dim1, int dim2, int in_dim){
     this->W = new Tensor<float>(W,dim1,dim2);
     this->b = new Tensor<float>(B,dim2,1);
     this->out_grad = new Tensor<float>(in_dim,dim1);
-    this->dW = new Tensor<float>(allocate_random(dim1*dim2),dim1,dim2);
-    this->db = new Tensor<float>(allocate_random(dim2),dim2,1);
+    this->dW = new Tensor<float>(allocate_random(dim1*dim2,dim2),dim1,dim2);
+    this->db = new Tensor<float>(allocate_random(dim2,dim2),dim2,1);
     this->_btemp =  allocate_ones(in_dim,1);
     this->in = *(new Tensor<float>(1,1));
 }
@@ -140,24 +141,13 @@ Tensor<float>& LinearLayer::forward(Tensor<float>& in_p){
   this->out_grad = new Tensor<float>(in_dim,dim1);
   this->_btemp =  allocate_ones(in_dim,1);
 
-
-  std::cout << "sum of W "<< this->W->debugTensor() <<"\n";
-  std::cout << "sum of b "<< this->b->debugTensor() <<"\n";
-  std::cout << "sum of in "<< this->in.debugTensor() <<"\n";
-
   mat_mul_a_b(in, true, *this->W, true , *this->out);
-  // this->W->viewTensor();
-  std::cout << "sum of mat mul "<< this->out->debugTensor() <<"\n";
-
-
   NNException::throwIfDeviceErrorsOccurred("mat mul   failed");
 
   cu_add_bias<<<out->dim1, out->dim2>>>(out->data_device, b->data_device);
   NNException::throwIfDeviceErrorsOccurred("mat mul linear failed");
 
   cudaDeviceSynchronize();
-  std::cout << "sum of fc1 mat mul and bias out  "<< this->out->debugTensor() <<"\n";
-
   return *out;
 }
 

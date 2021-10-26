@@ -99,8 +99,13 @@ Tensor<float>& CrossEntropyLoss::forward(Tensor<float> &in,Tensor<int> &true_lab
     // in.debugTensor();
     this->N = in.dim1;
     this->D = in.dim2;
+    assert(in.dim2 ==3);
     int dim1 = in.dim1;
     int dim2 = in.dim2;
+    // in.debugTensor();
+    // in.viewTensor();
+    // true_labels.debugTensor();
+    // true_labels.viewTensor();
     if(this->exp_x != nullptr){
       this->exp_x->cleanUpTensor();
       this->exp_sum->cleanUpTensor();
@@ -118,24 +123,30 @@ Tensor<float>& CrossEntropyLoss::forward(Tensor<float> &in,Tensor<int> &true_lab
     this->dx = new Tensor<float>(dim1,dim2);
 
     compute_exponent(in);
-    cudaDeviceSynchronize();
+    NNException::throwIfDeviceErrorsOccurred("BCE Failed1 ");
+
     compute_exponent_sum();
+    NNException::throwIfDeviceErrorsOccurred("BCE Failed2 ");
+
     compute_loss(in, true_labels);
+    NNException::throwIfDeviceErrorsOccurred("BCE Failed3 ");
+
     cudaDeviceSynchronize();
-    NNException::throwIfDeviceErrorsOccurred("BCE Failed ");
+    NNException::throwIfDeviceErrorsOccurred("BCE Failed4 ");
     return *this->loss;
 }
 
 Tensor<float>&  CrossEntropyLoss::backward(Tensor<int> &true_labels){
   // assert(this->D ==8);
-  std::cout << "Labels \n";
-  true_labels.debugTensor();
-  true_labels.viewTensor();
-  std::cout << "Predicted \n";
-  this->loss->debugTensor();
-  this->loss->viewTensor();
+  // std::cout << "Labels \n";
+  // true_labels.debugTensor();
+  // true_labels.viewTensor();
+  // std::cout << "Predicted \n";
+  // this->loss->debugTensor();
+  // this->loss->viewTensor();
   cu_gradient<<<this->N, this->D>>>(this->exp_x->data_device, this->exp_sum->data_device, true_labels.data_device
         , this->dx->data_device, N, D);
+
   cudaDeviceSynchronize();
   return *this->dx;
 }

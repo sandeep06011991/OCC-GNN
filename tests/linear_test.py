@@ -15,8 +15,8 @@ K = 128
 
 input = torch.rand((N,M),requires_grad = True)
 layer1 = torch.nn.Linear(M, K)
-# print(layer1.wei  ght.shape)
-# assert(False)
+print(layer1.weight)
+assert(False)
 layer2 = torch.nn.ReLU()
 
 optim = torch.optim.SGD([layer1.weight, layer1.bias],lr = .1)

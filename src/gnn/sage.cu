@@ -46,7 +46,6 @@ Tensor<float>& SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
 
     aggregate_nodeWise<<<blocks, threads>>>(in.data_device, out_feat->data_device, \
       offsets.data_device, indices.data_device, this->fsize);
-    std::cout << "Forward pass kernels launched \n";
     cudaDeviceSynchronize();
     NNException::throwIfDeviceErrorsOccurred("forward Pass failed");
     return *out_feat;
