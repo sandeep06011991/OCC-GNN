@@ -67,14 +67,17 @@ int main(){
   assert(approx_equal(dw_t->debugTensor(),l1->dW->debugTensor()));
   assert(approx_equal(db_t->debugTensor(),l1->db->debugTensor()));
 
-  l1->update(.1);
+  std::cout << "Calculated \n";
   l1->W->debugTensor();
   l1->W->viewTensor();
   // dX_t->debugTensor();
+  std::cout << "Actual \n";
   // dX_calc.debugTensor();
-  // dw_t->debugTensor();
+  dw_t->debugTensor();
+  dw_t->viewTensor();
   // l1->dW->debugTensor();
   // db_t->debugTensor();
   // l1->db->debugTensor();
 
+    l1->update(.1);
 }

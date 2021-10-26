@@ -42,9 +42,9 @@ LinearLayer::LinearLayer(int dim1, int dim2, int in_dim){
 
 
   void LinearLayer::update(float learning_rate){
-    // std::cout << "Checking gradients \n";
-    // this->dW->debugTensor();
-    // this->dW->viewTensor();
+    std::cout << "Checking gradients \n";
+    this->dW->debugTensor();
+    this->dW->viewTensor();
     this->W->update(learning_rate, this->dW);
     this->b->update(learning_rate, this->db);
   }
@@ -133,17 +133,22 @@ Tensor<float>& LinearLayer::forward(Tensor<float>& in_p){
   // in.debugTensor();
   // W->debugTensor();
   if(this->out !=nullptr){
+    this->out->cleanUpTensor();
+    this->out_grad->cleanUpTensor();
+    this->_btemp->cleanUpTensor();
     delete this->out;
     delete this->out_grad;
-    delete this->_btemp;
+    delete (this->_btemp);
+    std::cout << "clean ok\n";
   }
   this->out = new Tensor<float>(in_dim,dim2);
   this->out_grad = new Tensor<float>(in_dim,dim1);
   this->_btemp =  allocate_ones(in_dim,1);
+  std::cout << "new allocation\n";
 
   mat_mul_a_b(in, true, *this->W, true , *this->out);
   NNException::throwIfDeviceErrorsOccurred("mat mul   failed");
-
+  //
   cu_add_bias<<<out->dim1, out->dim2>>>(out->data_device, b->data_device);
   NNException::throwIfDeviceErrorsOccurred("mat mul linear failed");
 

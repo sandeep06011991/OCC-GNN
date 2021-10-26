@@ -44,8 +44,9 @@ public:
   void viewTensor(){
     // assert(dim1 > 2);
     // assert(dim2 > 2);
+    int J = std::min(dim2,3);
     for(int i=0;i<3;i++){
-      for(int j=0;j<3;j++){
+      for(int j=0;j<J;j++){
         std::cout << data_host[i * dim2  + j] <<" ";
       }
       std::cout << "\n ";
@@ -58,6 +59,7 @@ public:
     NNException::throwIfDeviceErrorsOccurred("Error before attempting to free\n");
     if(data_device !=nullptr){
       cudaError_t error = cudaFree(data_device);
+      // std::cout <<"free " << dim1 * dim2 <<"\n";
       NNException::throwIfDeviceErrorsOccurred("cudaFree data failed\n");
     }
     if(data_host!=nullptr){

@@ -8,7 +8,7 @@ Multi GPU GCN, using collection and train independently.
 4. Add exception support (DONE)
 4. Initialize model weights on gpu linear layers.
   Build Linear Layers.
-    
+
 5. Forward Pass.
 6. Compute Loss
 7. Backward Pass
@@ -20,3 +20,4 @@ Multi GPU GCN, using collection and train independently.
 
 Parts of the code have been inspired/copied from the following repos.
 1. https://github.com/pwlnk/cuda-neural-network/
+2. https://github.com/GT-TDAlab/MG-GCN

@@ -7,6 +7,7 @@
 #include<iostream>
 #include <stdio.h>      /* printf */
 #include <math.h>
+#include <algorithm>
 
 
 
@@ -58,6 +59,7 @@ Tensor<T>::Tensor(T* data, int dim1, int dim2){
 
 template<typename T>
 void Tensor<T>::allocateMemory(){
+   // std::cout << "allocate " << dim1 *dim2 <<"\n";
    cudaMalloc(&this->data_device, dim1 * dim2 * sizeof(T));
    NNException::throwIfDeviceErrorsOccurred("memory allocation failed");
 }
@@ -113,6 +115,22 @@ float * allocate_random(int size,int dim){
   return data;
 }
 
+const char* cublasGetErrorString(cublasStatus_t status)
+{
+    switch(status)
+    {
+        case CUBLAS_STATUS_SUCCESS: return "CUBLAS_STATUS_SUCCESS";
+        case CUBLAS_STATUS_NOT_INITIALIZED: return "CUBLAS_STATUS_NOT_INITIALIZED";
+        case CUBLAS_STATUS_ALLOC_FAILED: return "CUBLAS_STATUS_ALLOC_FAILED";
+        case CUBLAS_STATUS_INVALID_VALUE: return "CUBLAS_STATUS_INVALID_VALUE";
+        case CUBLAS_STATUS_ARCH_MISMATCH: return "CUBLAS_STATUS_ARCH_MISMATCH";
+        case CUBLAS_STATUS_MAPPING_ERROR: return "CUBLAS_STATUS_MAPPING_ERROR";
+        case CUBLAS_STATUS_EXECUTION_FAILED: return "CUBLAS_STATUS_EXECUTION_FAILED";
+        case CUBLAS_STATUS_INTERNAL_ERROR: return "CUBLAS_STATUS_INTERNAL_ERROR";
+    }
+    return "unknown error";
+}
+
 // ,mat mul in row major format
 void mat_mul_a_b(Tensor<float>& A, bool transA, Tensor<float>& B, bool transB,
                           Tensor<float>& C){
@@ -125,9 +143,10 @@ void mat_mul_a_b(Tensor<float>& A, bool transA, Tensor<float>& B, bool transB,
        &alpha,   B.data_device, B.dim2, A.data_device, A.dim2 ,
         &beta , C.data_device, C.dim2);
     if ( success != CUBLAS_STATUS_SUCCESS){
-                std::cout << "\33[31mError: " << success << "\33[0m\n";
-            cublasDestroy(handle);
+                std::cout << "\33[31mErrorjjj: " << cublasGetErrorString(success) << "\33[0m\n";
+
         }
+      cublasDestroy(handle);
 }
 
 // ,mat mul in row major format
@@ -143,8 +162,9 @@ void mat_mul_a_t_b(Tensor<float>& A, bool transA, Tensor<float>& B, bool transB,
         &beta , C.data_device, C.dim2);
     if ( success != CUBLAS_STATUS_SUCCESS){
                 std::cout << "\33[31mError: " << success << "\33[0m\n";
-            cublasDestroy(handle);
+
         }
+    cublasDestroy(handle);
 }
 
 // ,mat mul in row major format
@@ -160,8 +180,9 @@ void mat_mul_a_b_t(Tensor<float>& A, bool transA, Tensor<float>& B, bool transB,
         &beta , C.data_device, C.dim2);
     if ( success != CUBLAS_STATUS_SUCCESS){
                 std::cout << "\33[31mError: " << success << "\33[0m\n";
-            cublasDestroy(handle);
+
         }
+    cublasDestroy(handle);
 }
 
 Tensor<float> * allocate_ones(int dim1, int dim2){
@@ -169,7 +190,11 @@ Tensor<float> * allocate_ones(int dim1, int dim2){
    for(int i=0;i<dim1*dim2;i++){
      data_host[i] = 1;
    }
-   return new Tensor<float>(data_host,dim1, dim2);
+
+   Tensor<float> * ret =  new Tensor<float>(data_host,dim1, dim2);
+   ret->data_host = nullptr;
+   free(data_host);
+   return ret;
 }
 
 bool approx_equal(int a,int b){
