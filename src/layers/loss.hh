@@ -6,18 +6,18 @@ public:
    int N;
    int D;
    Tensor<float> * exp_x = nullptr;
-   Tensor<float> * exp_sum = nullptr;
+   // Tensor<float> * exp_sum = nullptr;
    Tensor<float> * loss = nullptr;
    Tensor<float> * dx = nullptr;
 
-   void compute_exponent(Tensor<float> &in);
-   void compute_exponent_sum();
+   // void compute_exponent(Tensor<float> &in);
+   // void compute_exponent_sum();
    void compute_loss(Tensor<float> &in,Tensor<int> &labels);
 
 
     // Create space for all data structures
     CrossEntropyLoss(){
-      
+
     }
     CrossEntropyLoss(int N, int D);
     // For classification

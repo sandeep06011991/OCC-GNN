@@ -54,6 +54,7 @@ Tensor<T>::Tensor(T* data, int dim1, int dim2){
   this->dim2 = dim2;
   this->allocateMemory();
   this->copyHostToDevice();
+  this->data_host = nullptr;
   cudaDeviceSynchronize();
 }
 

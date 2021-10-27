@@ -2,58 +2,59 @@
 #include "nn_exception.hh"
 #include<assert.h>
 
-// Copied code modifu this later to get grads as well
-__global__ void cu_exponent(float* in, float* out, int size){
-  int offset = blockDim.x*blockIdx.x + threadIdx.x;
-  while(offset < size){
-    out[offset] = expf(in[offset]);
-    offset = offset + gridDim.x*blockDim.x;
-  }
-}
-
-__global__ void cu_exponent_sum(float *in, float *out, int N, int noClasses){
-  __shared__ float s[64];
+// ((float *)in.data_device, true_labels.data_device,
+//       (float *) exp_sum->data_device,  loss->data_device, N, D);
+__global__ void cu_loss(float *x, int * y, float *exp, float *loss, int N, int noClasses){
   int n = blockIdx.x;
-  assert(threadIdx.x < 64);
-  if(threadIdx.x < noClasses){
-    s[threadIdx.x] = in[n * noClasses + threadIdx.x];
-    // s[threadIdx.x] = 200;
-  }
-  __syncthreads();
-  // Bad Code here but dont worry now!
-  if(threadIdx.x == 0){
-    for(int i=1;i<noClasses;i++){
-      s[0] = s[0] + s[i];
+  // int c = threadIdx.x;
+
+  __shared__ float max;
+  int offset = n * noClasses + threadIdx.x;
+  if(threadIdx.x==0){
+    max = 0;
+      for(int j=0;j<noClasses;j++){
+        if(max < x[n * noClasses + j])max = x[n * noClasses + j];
+      }
     }
-    out[n] = s[0];
-  }
-  // int i = noClasses/2;
-  // while(i!=0){
-  //   if(threadIdx.x<i){
-  //       s[threadIdx.x] = s[threadIdx.x + i] + s[threadIdx.x];
-  //   }
-  //   i = i/2;
-  //   __syncthreads();
-  // }
-  // if(threadIdx.x == 0)
-}
+  __syncthreads();
+  assert(blockDim.x < 20);
+  __shared__ float sum[20];
+  sum[threadIdx.x] = expf(x[offset] - max);
+  exp[offset] = sum[threadIdx.x];
+  assert(exp[offset]>=0);
+  __syncthreads();
+  __shared__ float exp_sum;
+  if(threadIdx.x==0){
+    exp_sum = 0;
+    for(int i=0;i<noClasses;i++){
+      exp_sum += sum[i];
+    }
+      loss[n] = -x[n*noClasses + y[n]] + max  + logf(exp_sum);
+    }
 
-__global__ void cu_loss(float *x, int * y, float *exp_sum, float *loss, int N, int noClasses){
-  int offset = blockDim.x*blockIdx.x + threadIdx.x;
-  if(offset < N){
-    loss[offset] = -x[offset * noClasses + y[offset]] + logf(exp_sum[offset]);
-    //
   }
-}
 
-__global__ void cu_gradient(float *exp, float *exp_sum, int *y, float *out,  int N, int D){
+
+  // cu_gradient<<<this->N, this->D>>>(this->exp_x->data_device, true_labels.data_device
+  //       , this->dx->data_device, N, D);
+__global__ void cu_gradient(float *exp, int *y, float *out,  int N, int D){
   int n = blockIdx.x;
   int d = threadIdx.x;
   int global_id = n * blockDim.x + d;
-  float t = exp[global_id]/exp_sum[n];
+  __shared__ float sum;
+  if(threadIdx.x == 0){
+    sum = 0;
+    for(int i=0;i<D;i++){
+      sum += exp[n*D + i];
+    }
+  }
+  __syncthreads();
+  assert(sum != 0 );
+  float t = exp[global_id]/sum;
   if(threadIdx.x == y[n]){
     t = t - 1;
   }
+  assert(N != 0);
   out[global_id] = t/N;
 }
 
@@ -61,33 +62,36 @@ CrossEntropyLoss::CrossEntropyLoss(int n, int d){
   this->N = n;
   this->D = d;
   this->exp_x = new Tensor<float>(n,d);
-  this->exp_sum = new Tensor<float>(n,1);
+  // this->exp_sum = new Tensor<float>(n,1);
   this->loss = new Tensor<float>(n,1);
   this->dx = new Tensor<float>(n,d);
 }
 
-void CrossEntropyLoss::compute_exponent(Tensor<float> &in){
-  int dim1 = in.dim1;
-  int dim2 = in.dim2;
-  int noBlocks = ((in.dim1 * in.dim2) + 256)/256;
-  int noThreads = 256;
-  cu_exponent<<<noBlocks,noThreads>>>((float *) in.data_device,
-  (float *)  this->exp_x->data_device, dim1 * dim2);
-  NNException::throwIfDeviceErrorsOccurred("compute exponent failed ");
-}
+// void CrossEntropyLoss::compute_exponent(Tensor<float> &in){
+//   int dim1 = in.dim1;
+//   int dim2 = in.dim2;
+//   // int noBlocks = ((in.dim1 * in.dim2) + 256)/256;
+//   // int noThreads = 256;
+//   std::cout << dim1 << " " << dim2 <<"\n";
+//   cu_exponent<<<dim1,dim2>>>((float *) in.data_device,
+//   (float *)  this->exp_x->data_device, dim1 * dim2);
+//   NNException::throwIfDeviceErrorsOccurred("compute exponent failed ");
+// }
 
-void CrossEntropyLoss::compute_exponent_sum(){
-  cu_exponent_sum<<<this->N,this->D>>>((float *) exp_x->data_device,
-  (float *)  exp_sum->data_device, this->N, this-> D);
-  NNException::throwIfDeviceErrorsOccurred("compute exponent sum failed ");
-}
+// void CrossEntropyLoss::compute_exponent_sum(){
+//   cu_exponent_sum<<<this->N,this->D>>>((float *) exp_x->data_device,
+//   (float *)  exp_sum->data_device, this->N, this-> D);
+//   NNException::throwIfDeviceErrorsOccurred("compute exponent sum failed ");
+// }
+
 
 void CrossEntropyLoss::compute_loss(Tensor<float> &in,
                 Tensor<int> &true_labels){
-  int noBlocks = ((N + 256)/256);
-  int noThreads = 256;
-  cu_loss<<<noBlocks,noThreads>>>((float *)in.data_device, true_labels.data_device,
-        (float *) exp_sum->data_device,  loss->data_device, N, D);
+  assert(in.dim1 == N);
+  assert(in.dim2 == D);
+  // float *x, int * y, float *exp, float *loss, int N, int noClasses
+  cu_loss<<<in.dim1, in.dim2 >>>((float *)in.data_device, true_labels.data_device,
+            (float *)this->exp_x->data_device,(float *) loss->data_device, N, D);
   NNException::throwIfDeviceErrorsOccurred("compute exponent loss failed ");
 }
 
@@ -99,7 +103,6 @@ Tensor<float>& CrossEntropyLoss::forward(Tensor<float> &in,Tensor<int> &true_lab
     // in.debugTensor();
     this->N = in.dim1;
     this->D = in.dim2;
-    assert(in.dim2 ==3);
     int dim1 = in.dim1;
     int dim2 = in.dim2;
     // in.debugTensor();
@@ -108,26 +111,28 @@ Tensor<float>& CrossEntropyLoss::forward(Tensor<float> &in,Tensor<int> &true_lab
     // true_labels.viewTensor();
     if(this->exp_x != nullptr){
       this->exp_x->cleanUpTensor();
-      this->exp_sum->cleanUpTensor();
+      // this->exp_sum->cleanUpTensor();
       this->loss->cleanUpTensor();
       this->dx->cleanUpTensor();
       delete this->exp_x;
-      delete this->exp_sum;
+      // delete this->exp_sum;
       delete this->loss;
       delete this->dx;
       NNException::throwIfDeviceErrorsOccurred("compute deletion failed ");
     }
     this->exp_x = new Tensor<float>(dim1,dim2);
-    this->exp_sum = new Tensor<float>(dim1,1);
+    // this->exp_sum = new Tensor<float>(dim1,1);
     this->loss = new Tensor<float>(dim1,1);
     this->dx = new Tensor<float>(dim1,dim2);
 
-    compute_exponent(in);
-    NNException::throwIfDeviceErrorsOccurred("BCE Failed1 ");
-
-    compute_exponent_sum();
-    NNException::throwIfDeviceErrorsOccurred("BCE Failed2 ");
-
+    // compute_exponent(in);
+    // NNException::throwIfDeviceErrorsOccurred("BCE Failed1 ");
+    // exp_x->debugTensor();
+    // exp_x->viewTensor();
+    // compute_exponent_sum();
+    // NNException::throwIfDeviceErrorsOccurred("BCE Failed2 ");
+    // exp_sum->debugTensor();
+    // exp_sum->viewTensor();
     compute_loss(in, true_labels);
     NNException::throwIfDeviceErrorsOccurred("BCE Failed3 ");
 
@@ -144,7 +149,7 @@ Tensor<float>&  CrossEntropyLoss::backward(Tensor<int> &true_labels){
   // std::cout << "Predicted \n";
   // this->loss->debugTensor();
   // this->loss->viewTensor();
-  cu_gradient<<<this->N, this->D>>>(this->exp_x->data_device, this->exp_sum->data_device, true_labels.data_device
+  cu_gradient<<<this->N, this->D>>>(this->exp_x->data_device, true_labels.data_device
         , this->dx->data_device, N, D);
 
   cudaDeviceSynchronize();

@@ -42,9 +42,9 @@ LinearLayer::LinearLayer(int dim1, int dim2, int in_dim){
 
 
   void LinearLayer::update(float learning_rate){
-    std::cout << "Checking gradients \n";
-    this->dW->debugTensor();
-    this->dW->viewTensor();
+    // std::cout << "Checking gradients \n";
+    // this->dW->debugTensor();
+    // this->dW->viewTensor();
     this->W->update(learning_rate, this->dW);
     this->b->update(learning_rate, this->db);
   }

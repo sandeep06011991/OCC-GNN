@@ -8,6 +8,7 @@ float find_accuracy(Tensor<int> &labels, Tensor<float> &predictions){
   int noClasses = predictions.dim2;
   int examples = labels.dim1;
   int acc = 0;
+
   for(int i=0;i<labels.dim1;i++){
     bool correct = true;
     int pred_class = labels.data_host[i];
@@ -23,7 +24,8 @@ float find_accuracy(Tensor<int> &labels, Tensor<float> &predictions){
     if(correct)acc ++;
   }
   // free(labels.data_host);
+  assert(acc < examples);
   float final_acc = (1.0 * acc) / examples;
-
+  assert(final_acc < 1);
   return final_acc;
 }

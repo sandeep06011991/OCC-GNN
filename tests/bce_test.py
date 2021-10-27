@@ -4,13 +4,15 @@ TARGET_DIR = "/mnt/homes/spolisetty/data/tests/bce"
 import torch
 N = 19717
 M = 3
-# N = 1024
-# M = 5
+N = 1024
+M = 5
 
-input = torch.ones((N,M),requires_grad = True)
+input = torch.ones((N,M),requires_grad = True) *20
+input.retain_grad()
 loss = torch.nn.CrossEntropyLoss()
 target = torch.empty((N,), dtype=torch.long).random_(M)
 # target = target.squeeze()
+
 output = loss(input, target)
 print("Loss !!",output)
 output.backward()

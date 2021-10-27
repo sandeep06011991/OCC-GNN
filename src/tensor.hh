@@ -45,7 +45,7 @@ public:
     // assert(dim1 > 2);
     // assert(dim2 > 2);
     int J = std::min(dim2,3);
-    for(int i=0;i<3;i++){
+    for(int i=0;i<10;i++){
       for(int j=0;j<J;j++){
         std::cout << data_host[i * dim2  + j] <<" ";
       }

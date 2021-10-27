@@ -28,7 +28,7 @@ class TwoHopNoSampler{
 
 
   // Utilities which support minibatching.
-  int next_minibatch;
+  // int next_minibatch;
   int minibatch_size;
   int current_minibatch_size;
   int * target_nodes;
@@ -54,7 +54,7 @@ public:
     for(int i =0;i<no_nodes;i++){
       this->target_nodes[i] = i;
     }
-    this->next_minibatch=0;
+    // this->next_minibatch=0;
     this->minibatch_size = max_batch_size;
     this->fsize = fsize;
     // shuffle();
@@ -62,7 +62,7 @@ public:
 
   void shuffle(){
     std::random_shuffle(&this->target_nodes[0], &this->target_nodes[this->no_nodes]);
-    next_minibatch = 0;
+    // next_minibatch = 0;
   }
 
   void fill_batch_data(int* in_nodes, int no_in, int* out_nodes, int no_out){

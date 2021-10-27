@@ -30,9 +30,11 @@ __global__ void  aggregate_edgeWise(float *ingrad, float *outgrad, int *offsets,
 Tensor<float>& SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
         Tensor<float>& in, int num_nodes_out, int num_nodes_in){
     if(this->out_feat != nullptr){
+      this->out_feat->cleanUpTensor();
       delete this->out_feat;
     }
     if(this->out_grad != nullptr){
+      this->out_grad->cleanUpTensor();
       delete this->out_grad;
     }
     this->out_feat = new Tensor<float>(num_nodes_out,this->fsize);
