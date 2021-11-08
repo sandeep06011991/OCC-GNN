@@ -18,3 +18,9 @@ PaGraph	|	livejournal	|	4.04M	|	69.46M	|	600
 PaGraph	|	lj-link	|	5.20M	|	103.55M	|	600
 PaGraph	|	lj-large	|	10.69M	|	224.61M	|	400
 PaGraph	|	en-wiki	|	12.15M	|	756.28M	|	400
+
+### Primary datasets.
+(MAIN) ROC	|	Reddit	|	232,965	|	114,848,857	|	602
+(MAIN) ROC	|	Pubmed	|	19,717	|	108,365	|	500
+(MAIN) P3	|	OGB-Product [29]	|	2.4 million	|	123.7 million	|	100
+(MAIN) P3	|	OGB-Paper [29]	|	111 million	|	1.6 billion	|	128

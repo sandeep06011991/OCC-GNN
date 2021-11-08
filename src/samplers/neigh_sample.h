@@ -2,8 +2,8 @@
 #include<algorithm>
 #include<assert.h>
 #include<samplers/sample.h>
-#include<cstring>
-
+#include <stdlib.h>
+#include <cstring>
 // creates minibatches of given size by shuffling target node
 // with full 2 hop neighbourhood.
 // Fixme:: Move the graph class to different position.
@@ -78,7 +78,6 @@ public:
 
     for(int i=0; i < no_in;i++){
       memcpy(&batch_features[i*this->fsize],&full_features[in_nodes[i*this->fsize]],sizeof(float) * this->fsize);
-
       // for(int j=0;j < this->fsize; j++){
       //   batch_features[i*this->fsize+j]= (full_features[in_nodes[i] * this->fsize + j]);
       // }
@@ -106,11 +105,22 @@ public:
       int edge_start = this->graph.indptr[nd1];
       int edge_end = this->graph.indptr[nd1+1];
       sample.l1.nd1.push_back(nd1);
-      for(int j=edge_start; j < edge_end ; j++ ){
-        int nd2 = this->graph.indices[j];
-        sample.l1.nd2.push_back(nd2);
-        sample.l1.edges.push_back(std::make_pair(nd1,nd2));
+      int no_neighbours = edge_end - edge_start;
+      if(no_neigbhours < 25){
+        for(int j=edge_start; j < edge_end ; j++ ){
+          int nd2 = this->graph.indices[j];
+          sample.l1.nd2.push_back(nd2);
+          sample.l1.edges.push_back(std::make_pair(nd1,nd2));
+        }
+      }else{
+        for(int j=0;j<25;j++){
+          int rand_nb = rand()%no_neighbours;
+          int nd2 = this->graph.indices[edge_start+rand_nb];
+          sample.l1.nd2.push_back(nd2);
+          sample.l1.edges.push_back(std::make_pair(nd1,nd2));
+        }
       }
+
     }
     sample.l1.remove_duplicates();
     int nodes_l1 = sample.l1.nd2.size();
@@ -119,10 +129,20 @@ public:
       int edge_start = this->graph.indptr[nd1];
       int edge_end = this->graph.indptr[nd1+1];
       sample.l2.nd1.push_back(nd1);
-      for(int j=edge_start; j < edge_end ; j++ ){
-        int nd2 = this->graph.indices[j];
-        sample.l2.nd2.push_back(nd2);
-        sample.l2.edges.push_back(std::make_pair(nd1,nd2));
+      int no_neighbours = edge_end - edge_start;
+      if(no_neigbhours < 10){
+        for(int j=edge_start; j < edge_end ; j++ ){
+          int nd2 = this->graph.indices[j];
+          sample.l2.nd2.push_back(nd2);
+          sample.l2.edges.push_back(std::make_pair(nd1,nd2));
+        }
+      }else{
+        for(int j=0;j<10;j++){
+          int rand_nb = rand()%no_neighbours;
+          int nd2 = this->graph.indices[edge_start+rand_nb];
+          sample.l2.nd2.push_back(nd2);
+          sample.l2.edges.push_back(std::make_pair(nd1,nd2));
+        }
       }
     }
     sample.l2.remove_duplicates();

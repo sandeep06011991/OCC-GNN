@@ -4,8 +4,8 @@
 
 int main(){
 // Dummy dataset
-  int no_vertices = 10;
-  int no_edges = 10;
+  int no_vertices = 6;
+  int no_edges = 6;
   int src[] = {};
   int dest[] = {};
   int fsize = 32;
@@ -17,10 +17,6 @@ int main(){
   int no_gpus = 2;
   int device_ids[] = {0,1};
 
-
-  Shape s1(10,10);
-  Shape s2(10,20);
-  std::cout << (s1==s2) <<"\n";
 
 // Commit 1.
 // Partition f_cpu into a multi gpu container.
