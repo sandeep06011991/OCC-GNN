@@ -3,16 +3,16 @@ import dgl
 import torch
 import numpy as np
 # All one time preprocessing goes here.
-ROOT_DIR = "/mnt/homes/spolisetty/data"
-TARGET_DIR = "/mnt/homes/spolisetty/data/occ"
-TARGET_DIR = "/mnt/homes/spolisetty/data/tests/gcn/"
+ROOT_DIR = "/home/spolisetty/data"
+TARGET_DIR = "/home/spolisetty/data"
+# TARGET_DIR = "/home/spolisetty/data/tests/gcn/"
 
 def get_dataset(name):
     if name =="cora":
-        graphs = dgl.data.CoraFullDataset(ROOT_DIR)
+        graphs = dgl.data.CoraFullDataset()
         dataset = graphs
     if name =="pubmed":
-        graphs = dgl.data.PubmedGraphDataset(ROOT_DIR)
+        graphs = dgl.data.PubmedGraphDataset()
         dataset = graphs
     # Returns DGLHeteroGraph
     # Create dummy dataset for testing.

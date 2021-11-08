@@ -5,7 +5,7 @@ import torch
 import dgl.function as fn
 from convert_dgl_dataset import *
 
-TARGET_DIR = "/mnt/homes/spolisetty/data/tests/gcn"
+TARGET_DIR = "/home/spolisetty/data/tests/gcn"
 name = "pubmed"
 target = TARGET_DIR +"/pubmed"
 # import os

@@ -3,6 +3,26 @@
 #include <cuda_runtime.h>
 #include "nn_exception.hh"
 #include <assert.h>
+
+struct Shape{
+  int dim1;
+  int dim2;
+  int dim3;
+
+  Shape(int dim1, int dim2){
+    this->dim1 = dim1;
+    this->dim2 = dim2;
+    this->dim3 = -1;
+  }
+
+
+  bool operator ==(Shape &s){
+    if(dim1!=s.dim1)return false;
+    if(dim2!=s.dim2)return false;
+    if(dim3!=s.dim3)return false;
+    return true;
+  }
+};
 // Currently a matrix(i.e 2D),
 // extend later for more complex shapes.
 // Tensor only guarantees space exists on gpu.

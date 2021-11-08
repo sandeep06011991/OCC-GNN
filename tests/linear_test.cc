@@ -6,7 +6,7 @@
 #include <fstream>
 #include <assert.h>
 
-std::string BIN_DIR = "/mnt/homes/spolisetty/data/tests/linear";
+std::string BIN_DIR = "/homes/spolisetty/data/tests/linear";
 
 int main(){
 
@@ -17,6 +17,7 @@ int main(){
   // M = 4;
   // K = 12;
 
+  cudaSetDevice(0);
   std::fstream file1(BIN_DIR + "/input.bin",std::ios::in|std::ios::binary);
   float * input = (float *)malloc (N * M  * sizeof(float));
   file1.read((char *)input , N * M  * sizeof(float));

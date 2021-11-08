@@ -20,8 +20,9 @@ public:
 	static void throwIfDeviceErrorsOccurred(const char* exception_message) {
 		cudaError_t error = cudaGetLastError();
 		if (error != cudaSuccess) {
-      std::cerr << "print cuda error \n";
-			std::cerr << error << ": " << exception_message;
+      std::cerr << cudaGetErrorString(error) << " : user tag" << exception_message <<"\n";
+      // std::cerr << "print cuda error \n";
+			// std::cerr << error << ": " << exception_message;
 			throw NNException(exception_message);
 		}
 	}

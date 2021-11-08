@@ -135,7 +135,7 @@ Tensor<float>& CrossEntropyLoss::forward(Tensor<float> &in,Tensor<int> &true_lab
     // exp_sum->viewTensor();
     compute_loss(in, true_labels);
     NNException::throwIfDeviceErrorsOccurred("BCE Failed3 ");
-
+    cudaSetDevice(0);
     cudaDeviceSynchronize();
     NNException::throwIfDeviceErrorsOccurred("BCE Failed4 ");
     return *this->loss;

@@ -3,7 +3,6 @@
 #include <assert.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "graph.h"
 #include <vector>
 #include "dataset.h"
 #include "tensor.hh"

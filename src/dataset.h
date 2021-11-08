@@ -1,3 +1,8 @@
+// Does only one job, Read the files from binary into memory.
+// Data structures are not created here
+// As placement decisions are taken here.
+// Therefore contains some redundant data creation
+
 #include <string>
 #ifndef DATASET_H
 #define DATASET_H

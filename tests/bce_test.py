@@ -1,5 +1,5 @@
 
-TARGET_DIR = "/mnt/homes/spolisetty/data/tests/bce"
+TARGET_DIR = "/home/spolisetty/data/tests/bce"
 
 import torch
 N = 19717

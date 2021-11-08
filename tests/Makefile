@@ -39,3 +39,13 @@ full_graph_gcn:
 	../src/gnn/sage.cu ../src/layers/*.cu -lcublas  \
 	 	full_graph_gcn.cc -o ../build/full
 	../build/full
+
+single:
+	nvcc -I ../src/ single_gpu.cc ../src/tensor.cu  \
+	-lcublas  -o ../build/full
+	../build/full
+
+dist_gcn:
+	nvcc -I ../src/ distributed_gcn.cc ../src/tensor.cu -lcublas \
+	-o ../build/distributed_gcn
+	../build/distributed_gcn

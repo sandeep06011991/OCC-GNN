@@ -1,5 +1,5 @@
 import torch
-TARGET_DIR = "/mnt/homes/spolisetty/data/tests/linear"
+TARGET_DIR = "/home/spolisetty/data/tests/linear"
 
 import torch
 

@@ -6,7 +6,7 @@
 
 int main(){
 
-  std::string BIN_DIR = "/mnt/homes/spolisetty/data/tests/gcn";
+  std::string BIN_DIR = "/home/spolisetty/data";
   Dataset * dataset = new Dataset(BIN_DIR + "/pubmed");
   std::cout << dataset->num_edges <<"\n";
   std::cout << dataset->fsize << "\n";
@@ -14,7 +14,7 @@ int main(){
   int M = dataset->fsize;
   int N = 128;
   int K = dataset->noClasses;
-  std::string TARGET_DIR = "/mnt/homes/spolisetty/data/tests/gcn";
+  std::string TARGET_DIR = "/home/spolisetty/data/tests/gcn";
 
   std::fstream file2(TARGET_DIR + "/W1.bin",std::ios::in|std::ios::binary);
   float * W1  = (float *)malloc (sizeof(float) * M * N);
