@@ -46,6 +46,6 @@ single:
 	../build/full
 
 dist_gcn:
-	nvcc -I ../src/ distributed_gcn.cc ../src/tensor.cu -lcublas \
-	-o ../build/distributed_gcn
+	nvcc -I ../src/ ../src/util/tensor.cu distributed_gcn.cpp  \
+	../src/util/dist_tensor.cu  -lcublas -o ../build/distributed_gcn
 	../build/distributed_gcn

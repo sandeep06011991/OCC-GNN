@@ -1,6 +1,6 @@
 #pragma once
-#include <tensor.hh>
-#include <util/dist_tensor.hh>
+#include <util/tensor.hh>
+#include "util/dist_tensor.hh"
 
 // Contains all the logic for gcn aggregation
 // when the data is placed as a distributed tensor.
@@ -20,8 +20,8 @@ public:
       this->fsize = fsize;
   }
 
-  DistTensor<float>& forward(Tensor<int>& ind_ptr, Tensor<int>& indices,
-          DTensor<float>& in, int num_nodes_out, int num_nodes_in);
+  DistTensor& forward(Tensor<int>& ind_ptr, Tensor<int>& indices,
+          DistTensor& in, int num_nodes_out, int num_nodes_in);
 
   DistTensor& backward(DistTensor &doutFeat);
 
