@@ -4,6 +4,12 @@
 #include <vector>
 using namespace std;
 
+
+struct{
+  Tensor<int> *indptr = nullptr;
+  Tensor<int> *indices = nullptr;
+} csr
+
 // Contains all the logic for gcn aggregation
 // when the data is placed as a distributed tensor.
 // returns a distributed tensor.
@@ -13,6 +19,10 @@ class DistSageAggr{
   int num_nodes_in;
   int num_nodes_out;
   int fsize;
+
+  csr local_csrs[4][4];
+
+  Sage  
 
 public:
 
