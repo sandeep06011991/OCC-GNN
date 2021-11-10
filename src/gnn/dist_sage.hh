@@ -1,9 +1,12 @@
 #pragma once
 #include <util/tensor.hh>
 #include "util/dist_tensor.hh"
+#include <vector>
+using namespace std;
 
 // Contains all the logic for gcn aggregation
 // when the data is placed as a distributed tensor.
+// returns a distributed tensor.
 class DistSageAggr{
 
   // nodes in are aggregated based on indices and updated in out for forward pass.
@@ -18,11 +21,13 @@ public:
 
   DistSageAggr(int fsize){
       this->fsize = fsize;
-  }
+  };
 
-  DistTensor& forward(Tensor<int>& ind_ptr, Tensor<int>& indices,
+  // void test(vector<int>& a);
+
+  void forward(vector<int>& ind_ptr, vector<int>& indices,
           DistTensor& in, int num_nodes_out, int num_nodes_in);
 
-  DistTensor& backward(DistTensor &doutFeat);
+  DistTensor& backward(DistTensor& doutFeat);
 
 };
