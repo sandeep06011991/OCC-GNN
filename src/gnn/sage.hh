@@ -3,8 +3,6 @@
 
 class SageAggr{
 
-
-
   // offsets refer to out nodes
   Tensor<int> offsets;
   // indices refer to in nodes
@@ -20,7 +18,7 @@ public:
 
   Tensor<float> * out_feat  = nullptr;
   Tensor<float> * out_grad = nullptr;
-  
+
   SageAggr(int fsize){
       this->fsize = fsize;
   }

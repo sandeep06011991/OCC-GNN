@@ -34,24 +34,13 @@ int main(){
 
 
   DistTensor * in = new DistTensor(f_cpu, Shape(no_vertices,fsize), ordering);
-  DistSageAggr *ll = new DistSageAggr(fsize);
+  DistSageAggr *ll = new DistSageAggr(fsize, no_gpus);
   // in->debugTensor();
   ll->forward(ss1.indptr,ss1.indices, *in, ss1.indptr.size()-1,ss1.indices.size()-1);
   // DistributedTensor *in = new DistributedTensor(f_cpu, shape, ordering);
   // DistributedGCNLayer *ll = new DistributedGCNLayer(fsize);
   // DistributedTensor &out = l1->forward(*in, sample_src, sample_dest);
 
-
-// // Commit 1.
-//     Allocate and move data for distributed in
-// // Commit 2.
-//     Allocated and move data for distributed out. [src = dist]
-// // Commit 3.
-//     Launch local kernels for aggregation.
-// // Commit 4.
-//     Move and reduce data.
-// // Commit 5.
-//     Debug.
 
 // Commit 1.
 // Partition f_cpu into a multi gpu container.

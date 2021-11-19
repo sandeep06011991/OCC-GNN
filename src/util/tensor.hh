@@ -36,7 +36,7 @@ private:
   // if device_id = -1, indicated CPU pointer.
   int device_id;
   T* data_device;
-  Shape s;
+
 
 	// void allocateCudaMemory();
 	// void allocateHostMemory();
@@ -46,7 +46,7 @@ private:
 
 public:
 
-
+  Shape s;
   Tensor(Shape s, int device);
   Tensor(T* data, Shape s, int device);
   Tensor(Tensor<T>& t,int device);
@@ -68,17 +68,17 @@ public:
   //   std::cout <<"\n";
   // }
 
-  // void cleanUpTensor(){
-  //   NNException::throwIfDeviceErrorsOccurred("Error before attempting to free\n");
-  //   if(data_device !=nullptr){
-  //     cudaError_t error = cudaFree(data_device);
-  //     // std::cout <<"free " << dim1 * dim2 <<"\n";
-  //     NNException::throwIfDeviceErrorsOccurred("cudaFree data failed\n");
-  //   }
+  void clearTensor(){
+    NNException::throwIfDeviceErrorsOccurred("Error before attempting to free\n");
+    if(data_device !=nullptr){
+      cudaError_t error = cudaFree(data_device);
+      // std::cout <<"free " << dim1 * dim2 <<"\n";
+      NNException::throwIfDeviceErrorsOccurred("cudaFree data failed\n");
+    }
   //   if(data_host!=nullptr){
   //     free(data_host);
   //   }
-  // }
+  }
 };
 
 template class Tensor<float>;

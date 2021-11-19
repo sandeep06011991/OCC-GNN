@@ -13,7 +13,8 @@ void slice_one(float *arr, int *slice, float *size_out,int dim1, int dim2,int  s
 }
 
 
-void slice_two(float *arr, int *slice, float *size_out,int dim1, int dim2,int  slice_size){
+void slice_two(float *arr, int *slice, float *size_out,
+  int dim1, int dim2,int  slice_size){
   for(int i=0;i<slice_size;i++){
     str:memcpy(&size_out[i],&arr[slice[i]*dim2],sizeof(float)*dim2);
   }
