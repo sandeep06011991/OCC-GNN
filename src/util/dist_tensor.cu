@@ -2,47 +2,77 @@
 #include "nn_exception.hh"
 #include <cstring>
 #include <iostream>
+#include "util/gpu.hh"
 
-// slice data continuosly into local maps and place it. 
-DistTensor::DistTensor(float *cpu_data, Shape s, int *reorder_map){
 
-  this->s = s;
-
+void DistTensor::create_local_mapping(){
+  this->global_to_local.resize(s.dim1);
+  // size of local tensor on each gpu.
   int local_sizes[4];
   memset(local_sizes, 0, sizeof(int) * 4);
   for(int i=0;i<s.dim1;i++){
-    assert(reorder_map[i] < 4);
-    local_sizes[reorder_map[i]]++;
+    assert(this->global_to_gpu[i] < this->no_gpus);
+    local_sizes[this->global_to_gpu[i]]++;
   }
 
-  float * local_slice[4];
-  int * local_to_global[4];
-  memset(local_slice, 0, sizeof(float *) * 4);
-  memset(local_to_global,0, sizeof(int *) * 4);
   for(int i=0;i<4;i++){
-      local_slice[i] = (float *)malloc(sizeof(float) * s.dim2 * local_sizes[i]);
-      local_to_global[i] = (int *)malloc(sizeof(int) * s.dim2 * local_sizes[i]);
+      local_to_global[i].resize(local_sizes[i]);
   }
 
   int indptr[4];
   memset(indptr, 0, sizeof(int) * 4);
   for(int i=0;i<s.dim1;i++){
-    int pos = reorder_map[i];
-    memcpy(&local_slice[pos][indptr[pos]], &cpu_data[i*s.dim2], sizeof(float) * s.dim2);
-    indptr[pos] = indptr[pos] + s.dim2;
+    int pos = this->global_to_gpu[i];
+    this->global_to_local[i] = indptr[pos];
+    this->local_to_global[pos][indptr[pos]] = i;
+    indptr[pos] = indptr[pos] + 1;
   }
-
-  for(int i=0; i<4; i++){
-    Shape local_s(local_sizes[i],s.dim2);
-    local_tensors[i] = new Tensor<float>(local_slice[i], local_s, i);
-  }
-
-  NNException::throwIfDeviceErrorsOccurred("dist tensor initialization failed\n");
-
 }
 
-void DistTensor::debugTensor(){
-  for(int i=0;i<4;i++){
-    local_tensors[i]->debugTensor();
+// slice data continuosly into local maps and place it.
+// Used to create H_0. The input feature vectors.
+DistTensor::DistTensor(float *cpu_data, Shape s, int *reorder_map, int no_gpus){
+  isView = false;
+  this->s = s;
+  this->no_gpus = no_gpus;
+  this->global_to_gpu.resize(s.dim1);
+  copy(reorder_map, reorder_map + s.dim1, this->global_to_gpu.begin());
+  create_local_mapping();
+  float * local_slice[4];
+  for(int i=0;i<no_gpus;i++){
+      local_slice[i] = (float *)malloc(sizeof(float) * s.dim2 * this->local_to_global[i].size());
+  }
+
+  int indptr[4];
+  memset(indptr, 0, sizeof(int) * 4);
+  for(int i=0;i<no_gpus;i++){
+    for(int j=0;j<local_to_global[i].size();j++){
+      memcpy(&local_slice[i][j * s.dim2], &cpu_data[local_to_global[i][j]*s.dim2], sizeof(float) * s.dim2);
+    }
+  }
+
+
+  for(int i=0; i<no_gpus; i++){
+    Shape local_s(this->local_to_global[i].size(),s.dim2);
+    this->local_tensors[i] = new Tensor<float>(local_slice[i], local_s, i);
+  }
+  sync_all_gpus();
+
+  // Free temporary data structures.
+  for(int i=0;i<no_gpus;i++){
+    free(local_slice[i]);
+  }
+  NNException::throwIfDeviceErrorsOccurred("dist tensor initialization failed\n");
+}
+
+DistTensor::DistTensor(Shape s, int *reorder_map,int no_gpus){
+  isView = true;
+  this->s = s;
+  this->no_gpus = no_gpus;
+  this->global_to_gpu.resize(s.dim1);
+  copy(reorder_map, reorder_map + s.dim1, this->global_to_gpu.begin());
+  create_local_mapping();
+  for(int i=0;i<no_gpus;i++){
+    this->local_tensors[i] = nullptr;
   }
 }

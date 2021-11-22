@@ -1,10 +1,11 @@
-#pragma once
+#ifndef GPU_H
+#define GPU_H
 
-int no_gpus = 2;
 
-void sync_all_gpus(){
-  for(int i=0;i<no_gpus;i++){
-      cudaSetDevice(i);
-      cudaDeviceSynchronize();
-  }
-}
+extern int no_gpus;
+
+void sync_all_gpus();
+
+void enable_peer_communication();
+
+#endif

@@ -8,7 +8,8 @@ __global__ void aggregate_nodeWise(float *inFeat, float *outFeat, int *offsets,
     int *indices, int fsize){
       int outNodeID = blockIdx.x;
       float t = 0;
-      for(int edge_off = offsets[outNodeID]; edge_off < offsets[outNodeID + 1]; edge_off ++ ){
+      for(int edge_off = offsets[outNodeID]; edge_off < offsets[outNodeID + 1];
+        edge_off ++ ){
         int edge_id = indices[edge_off];
         t += inFeat[edge_id * fsize + threadIdx.x];
       }

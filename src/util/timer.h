@@ -43,7 +43,7 @@ void print_timer(){
         case TIME2: std::cout << "time 2";
                     break;
       }
-      std::cout << TIMERS[i] <<"\n";
+      std::cout << TIMERS[i] <<"ms\n";
     }
   }
 }

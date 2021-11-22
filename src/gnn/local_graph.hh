@@ -2,7 +2,11 @@
 // destination gpu id.
 #include<vector>
 #include "util/tensor.hh"
-
+#include "gnn/sage.hh"
+// Global data graph is broken down into local executable units on individual gpus.
+// Main inputs are dest_local_ids and indices and local_to_local.
+// populated using add_edge.
+// ind ptr only for convenience
 class LocalComputeGraph{
 
   std::vector<int> indptr;
@@ -14,14 +18,18 @@ class LocalComputeGraph{
   int src_gpu;
   int dest_gpu;
 
-  Tensor<float> *out = nullptr;
+  Tensor<float> out;
   SageAggr  * aggr;
+  Tensor<int> * ind_ptr_t;
+  Tensor<int> * indices_t;
+  Tensor<int> * local_to_local_t;
 
 public:
 
-  void set_src_dest(int src_id,int dest_id){
+  void set_src_dest(int src_id,int dest_id,int fsize){
     this->src_gpu = src_id;
     this->dest_gpu = dest_id;
+    aggr = new SageAggr(fsize);
   };
 
   void create_csr(){
@@ -55,19 +63,33 @@ public:
     dest_local_id.clear();
     indices.clear();
     local_to_local.clear();
+    if(ind_ptr_t!=nullptr){
+      ind_ptr_t->clearTensor();
+      delete ind_ptr_t;
+    }
+    if(indices_t!=nullptr){
+      indices_t->clearTensor();
+      delete ind_ptr_t;
+    }
+    if(local_to_local_t!=nullptr){
+      local_to_local_t->clearTensor();
+      delete local_to_local_t;
+    }
   }
 
   void forward(Tensor<float> &src){
-      Tensor<float>& forward(Tensor<int>& ind_ptr, Tensor<int>& indices,
-              Tensor<float>& in, int num_nodes_out, int num_nodes_in);
-      Tensor<int> * ind_ptr_t =
-          new Tensor<int>(ind_ptr.data(),Shape(ind_ptr.size(),1),src_gpu_id);
-      Tensor<int> * indices_t =
-            new Tensor<int>(indices.data(), Shape(indices.size(),1), src_gpu_id);
-      int num_nodes_out = ind_ptr.size()-1;
+      // Tensor<float>& forward(Tensor<int>& ind_ptr, Tensor<int>& indices,
+      //         Tensor<float>& in, int num_nodes_out, int num_nodes_in);
+      ind_ptr_t = new Tensor<int>(indptr.data(),
+                      Shape(indptr.size(),1),src_gpu);
+      indices_t = new Tensor<int>(indices.data(),
+                      Shape(indices.size(),1), src_gpu);
+      local_to_local_t = new Tensor<int>(local_to_local.data(),
+                      Shape(local_to_local.size(),1),dest_gpu);
+      int num_nodes_out = indptr.size()-1;
       int num_nodes_in = src.s.dim1;
-      cudaSetDevice(src);
-      out = aggr.forward(ind_ptr_t, indices_t, src, num_nodes_out, num_nodes_in);
+      cudaSetDevice(src_gpu);
+      out = aggr->forward(*ind_ptr_t, *indices_t, src, num_nodes_out, num_nodes_in);
 
   }
 

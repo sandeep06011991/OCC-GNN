@@ -6,7 +6,8 @@
 
 using namespace std;
 
-
+// Src matrix is merged with desitnation matrix using idices offsets.
+// sizeof(indices.dim1) == src.dim1;
 void merge(Tensor<float> *src, Tensor<float> *dest, Tensor<int> indices);
 
 // Contains all the logic for gcn aggregation
@@ -35,7 +36,7 @@ public:
       this->no_gpus = no_gpus;
       for(int i=0;i<no_gpus;i++){
         for(int j=0; j<no_gpus;j++){
-          local_graph[i][j].set_src_dest(i,j);
+          local_graph[i][j].set_src_dest(i,j,fsize);
         }
       }
   };
@@ -46,7 +47,5 @@ public:
           DistTensor& in, int num_nodes_out, int num_nodes_in);
 
   DistTensor& backward(DistTensor& doutFeat);
-
-  merge(temp[dest][dest],temp[src][dest],this->local_graph[src][dest].local_to_local[id]);
 
 };

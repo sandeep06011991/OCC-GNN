@@ -68,7 +68,7 @@ Tensor<T>::Tensor(Tensor<T> &src, int device_id){
 }
 
 template<typename T>
-void Tensor<T>::debugTensor(){
+void Tensor<T>::viewTensor(){
   T * host = (T *)malloc(sizeof(T) * this->s.dim1 * this->s.dim2);
   cudaMemcpy(host, this->data_device,  s.dim1 * s.dim2 *sizeof(T), cudaMemcpyDeviceToHost);
   cudaDeviceSynchronize();
@@ -86,7 +86,7 @@ void Tensor<T>::debugTensor(){
   free(host);
 
 }
-//
+
 // template<typename T>
 // void Tensor<T>::allocateMemory(){
 //    // std::cout << "allocate " << dim1 *dim2 <<"\n";

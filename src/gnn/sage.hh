@@ -1,5 +1,5 @@
 #pragma once
-#include <tensor.hh>
+#include "util/tensor.hh"
 
 class SageAggr{
 

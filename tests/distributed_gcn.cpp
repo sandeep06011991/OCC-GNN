@@ -1,11 +1,13 @@
 #include<iostream>
+#include "util/gpu.hh"
 // #include  "util/tensor.hh"
-// #include "util/dist_tensor.hh"
-// #include "samplers/sample.h"
+#include "util/dist_tensor.hh"
+#include "samplers/sample.h"
+#include "gnn/dist_sage.hh"
+#include "util/timer.h"
 // #include "gnn/dist_sage.hh"
 
-// #include "gnn/dist_sage.hh"
-// #include<tensor.hh>
+int no_gpus = 2;
 
 int main(){
 // Dummy dataset
@@ -19,22 +21,27 @@ int main(){
 // Sample
   int sample_src[] = {1,1,1,2,2,2};
   int sample_dest[] = {0,1,2,3,4,5};
-//   SampleLayer ss1;
-//   for(int i=0;i<sizeof(sample_src)/sizeof(int);i++){
-//     ss1.nd1.push_back(sample_src[i]);
-//     ss1.nd2.push_back(sample_dest[i]);
-//     ss1.edges.push_back(std::make_pair(sample_src[i],sample_dest[i]));
-//   }
-//   ss1.remove_duplicates();
-//   ss1.create_csr();
+  SampleLayer ss1;
+  for(int i=0;i<sizeof(sample_src)/sizeof(int);i++){
+    ss1.nd1.push_back(sample_src[i]);
+    ss1.nd2.push_back(sample_dest[i]);
+    ss1.edges.push_back(std::make_pair(sample_src[i],sample_dest[i]));
+  }
+  ss1.remove_duplicates();
+  ss1.create_csr();
 //
 // // GPU data
-//   int no_gpus = 2;
-//   int ordering[] = {0,1,0,1,0,1};
-//
-//
-//   DistTensor * in = new DistTensor(f_cpu, Shape(no_vertices,fsize), ordering);
-//   DistSageAggr *ll = new DistSageAggr(fsize, no_gpus);
+  int no_gpus = 2;
+  enable_peer_communication();
+  int ordering_in[] = {0,1,0,1,0,1};
+  int ordering_out[] = {0,1};
+  active_timer(TIME1);
+  // start_timer(TIME1);
+  DistTensor * in = new DistTensor(f_cpu, Shape(no_vertices,fsize), ordering_in,no_gpus);
+  // stop_timer(TIME1);
+  // print_timer();
+  // in->debugTensor();
+  DistSageAggr *ll = new DistSageAggr(fsize, no_gpus);
 //   // in->debugTensor();
 //   ll->forward(ss1.indptr,ss1.indices, *in, ss1.indptr.size()-1,ss1.indices.size()-1);
 //   // DistributedTensor *in = new DistributedTensor(f_cpu, shape, ordering);
