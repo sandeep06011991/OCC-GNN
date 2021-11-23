@@ -17,6 +17,7 @@ public:
   std::vector<int> indptr;
   // len indptr in range of nd1
 
+  // Local Edge Ids
   std::vector<int> indices;
   // indices in range of nd2
 

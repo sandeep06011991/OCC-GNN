@@ -106,7 +106,8 @@ public:
       int edge_end = this->graph.indptr[nd1+1];
       sample.l1.nd1.push_back(nd1);
       int no_neighbours = edge_end - edge_start;
-      if(no_neigbhours < 25){
+      if(no_neigbhours < 25)
+      {
         for(int j=edge_start; j < edge_end ; j++ ){
           int nd2 = this->graph.indices[j];
           sample.l1.nd2.push_back(nd2);
