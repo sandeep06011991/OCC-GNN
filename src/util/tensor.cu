@@ -25,6 +25,7 @@ void Tensor<T>::update(float learning_rate, Tensor<T> * grad){
   int totalSize = this->s.dim1 * this->s.dim2;
   int noBlocks = (totalSize  + 255)/256;
   int noThreads = 256;
+  cudaSetDevice(device_id);
   gradient_update<<<noBlocks,noThreads>>>((float *)this->data_device,(float *)grad->data_device,totalSize,learning_rate);
 
 }
@@ -84,6 +85,7 @@ Tensor<T>::Tensor(Tensor<T> *src, int device_id){
 template<typename T>
 void Tensor<T>::viewTensor(){
   T * host = (T *)malloc(sizeof(T) * this->s.dim1 * this->s.dim2);
+  cudaSetDevice(device_id);
   cudaMemcpy(host, this->data_device,  s.dim1 * s.dim2 *sizeof(T), cudaMemcpyDeviceToHost);
   cudaDeviceSynchronize();
 
@@ -99,6 +101,12 @@ void Tensor<T>::viewTensor(){
    }
   free(host);
 
+}
+template<typename T>
+void Tensor<T>::copyTensorToCPUMemory(T* cpu_mem){
+  cudaSetDevice(device_id);
+  cudaMemcpy(cpu_mem, this->data_device,  s.dim1 * s.dim2 *sizeof(T), cudaMemcpyDeviceToHost);
+  cudaDeviceSynchronize();
 }
 
 // template<typename T>

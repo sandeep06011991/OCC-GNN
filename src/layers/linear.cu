@@ -133,9 +133,9 @@ Tensor<float>& LinearLayer::forward(Tensor<float>& in_p){
   // in.debugTensor();
   // W->debugTensor();
   if(this->out !=nullptr){
-    this->out->cleanUpTensor();
-    this->out_grad->cleanUpTensor();
-    this->_btemp->cleanUpTensor();
+    this->out->clearTensor();
+    this->out_grad->clearTensor();
+    this->_btemp->clearTensor();
     delete this->out;
     delete this->out_grad;
     delete (this->_btemp);

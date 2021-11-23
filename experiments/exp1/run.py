@@ -58,7 +58,8 @@ def run_experiment(dataset_name,hops):
         pass
 
     with open("exp1.txt","a") as fp:
-        fp.write("{}|{}|{}|{}|{}\n".format(dataset_name,hops,sampling_time, \
+        fp.write("{}|{}|{}|{}|{}\n".format("dataset","hops","sampling(s)","fomat(s)","data(s)"))
+        fp.write("{}|{}|{:.2f}|{:.2f}|{:.2f}\n".format(dataset_name,hops,sampling_time, \
                         formatting_time,data_movement_time))
 
 # python3 run.py "reddit|cora|pubmed" "hops"

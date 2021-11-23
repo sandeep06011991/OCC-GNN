@@ -38,8 +38,8 @@ Tensor<float>& Relu::forward(Tensor<float>& X){
   this->dim1 = X.dim1;
   this->dim2 = X.dim2;
   if(this->out != nullptr){
-    this->out->cleanUpTensor();
-    this->d_out->cleanUpTensor();
+    this->out->clearTensor();
+    this->d_out->clearTensor();
     delete this->out;
     delete this->d_out;
   }

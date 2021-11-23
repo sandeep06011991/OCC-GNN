@@ -58,13 +58,14 @@ __global__ void cu_gradient(float *exp, int *y, float *out,  int N, int D){
   out[global_id] = t/N;
 }
 
-CrossEntropyLoss::CrossEntropyLoss(int n, int d){
+CrossEntropyLoss::CrossEntropyLoss(int n, int d,int device_id){
   this->N = n;
   this->D = d;
-  this->exp_x = new Tensor<float>(n,d);
+  this->device_id = device_id;
+  this->exp_x = new Tensor<float>(Shape(n,d),this->device_id);
   // this->exp_sum = new Tensor<float>(n,1);
-  this->loss = new Tensor<float>(n,1);
-  this->dx = new Tensor<float>(n,d);
+  this->loss = new Tensor<float>(Shape(n,1),this->device_id);
+  this->dx = new Tensor<float>(Shape(n,d),this->device_id);
 }
 
 // void CrossEntropyLoss::compute_exponent(Tensor<float> &in){
@@ -87,10 +88,10 @@ CrossEntropyLoss::CrossEntropyLoss(int n, int d){
 
 void CrossEntropyLoss::compute_loss(Tensor<float> &in,
                 Tensor<int> &true_labels){
-  assert(in.dim1 == N);
-  assert(in.dim2 == D);
+  assert(in.s.dim1 == N);
+  assert(in.s.dim2 == D);
   // float *x, int * y, float *exp, float *loss, int N, int noClasses
-  cu_loss<<<in.dim1, in.dim2 >>>((float *)in.data_device, true_labels.data_device,
+  cu_loss<<<in.s.dim1, in.s.dim2 >>>((float *)in.data_device, true_labels.data_device,
             (float *)this->exp_x->data_device,(float *) loss->data_device, N, D);
   NNException::throwIfDeviceErrorsOccurred("compute exponent loss failed ");
 }
@@ -101,29 +102,29 @@ void CrossEntropyLoss::compute_loss(Tensor<float> &in,
 // returns Tensor of shape N,1
 Tensor<float>& CrossEntropyLoss::forward(Tensor<float> &in,Tensor<int> &true_labels){
     // in.debugTensor();
-    this->N = in.dim1;
-    this->D = in.dim2;
-    int dim1 = in.dim1;
-    int dim2 = in.dim2;
+    this->N = in.s.dim1;
+    this->D = in.s.dim2;
+    int dim1 = in.s.dim1;
+    int dim2 = in.s.dim2;
     // in.debugTensor();
     // in.viewTensor();
     // true_labels.debugTensor();
     // true_labels.viewTensor();
     if(this->exp_x != nullptr){
-      this->exp_x->cleanUpTensor();
-      // this->exp_sum->cleanUpTensor();
-      this->loss->cleanUpTensor();
-      this->dx->cleanUpTensor();
+      this->exp_x->clearTensor();
+      // this->exp_sum->clearTensor();
+      this->loss->clearTensor();
+      this->dx->clearTensor();
       delete this->exp_x;
       // delete this->exp_sum;
       delete this->loss;
       delete this->dx;
       NNException::throwIfDeviceErrorsOccurred("compute deletion failed ");
     }
-    this->exp_x = new Tensor<float>(dim1,dim2);
+    this->exp_x = new Tensor<float>(Shape(dim1,dim2),this->device_id);
     // this->exp_sum = new Tensor<float>(dim1,1);
-    this->loss = new Tensor<float>(dim1,1);
-    this->dx = new Tensor<float>(dim1,dim2);
+    this->loss = new Tensor<float>(Shape(dim1,1),this->device_id);
+    this->dx = new Tensor<float>(Shape(dim1,dim2),this->device_id);
 
     // compute_exponent(in);
     // NNException::throwIfDeviceErrorsOccurred("BCE Failed1 ");
@@ -133,9 +134,10 @@ Tensor<float>& CrossEntropyLoss::forward(Tensor<float> &in,Tensor<int> &true_lab
     // NNException::throwIfDeviceErrorsOccurred("BCE Failed2 ");
     // exp_sum->debugTensor();
     // exp_sum->viewTensor();
+    cudaSetDevice(this->device_id);
     compute_loss(in, true_labels);
     NNException::throwIfDeviceErrorsOccurred("BCE Failed3 ");
-    cudaSetDevice(0);
+
     cudaDeviceSynchronize();
     NNException::throwIfDeviceErrorsOccurred("BCE Failed4 ");
     return *this->loss;
@@ -149,6 +151,7 @@ Tensor<float>&  CrossEntropyLoss::backward(Tensor<int> &true_labels){
   // std::cout << "Predicted \n";
   // this->loss->debugTensor();
   // this->loss->viewTensor();
+  cudaSetDevice(this->device_id);
   cu_gradient<<<this->N, this->D>>>(this->exp_x->data_device, true_labels.data_device
         , this->dx->data_device, N, D);
 

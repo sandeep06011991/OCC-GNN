@@ -58,6 +58,8 @@ public:
       NNException::throwIfDeviceErrorsOccurred("cudaFree data failed\n");
     }
   }
+
+  void copyTensorToCPUMemory(T* cpu_mem);
 };
 
 template class Tensor<float>;

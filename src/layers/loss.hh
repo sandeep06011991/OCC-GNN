@@ -1,7 +1,8 @@
-#include "tensor.hh"
+#include "util/tensor.hh"
 #pragma once
 
 class CrossEntropyLoss{
+  int device_id;
 public:
    int N;
    int D;
@@ -16,10 +17,10 @@ public:
 
 
     // Create space for all data structures
-    CrossEntropyLoss(){
-
+    CrossEntropyLoss(int device_id){
+      this->device_id = device_id;
     }
-    CrossEntropyLoss(int N, int D);
+    CrossEntropyLoss(int N, int D,int device_id);
     // For classification
     // in Shape = N,C
     // N num examples, C num examples.

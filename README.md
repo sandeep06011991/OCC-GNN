@@ -6,7 +6,7 @@ Multi GPU GCN, using collection and train independently.
 2. Populate data into graph cpp datastructures. (DONE)
 3. Initialize data on GPU (DONE)
 4. Add exception support (DONE)
-4. Initialize model weights on gpu linear layers.
+5. Initialize model weights on gpu linear layers.
   Build Linear Layers.
 
 5. Forward Pass.
@@ -28,7 +28,7 @@ Multi GPU GCN, using collection and train independently.
     Can be initialized from another tensor or cpu_array.
     Tensor creates its own pointers and frees them itself.
     It does not hold any external pointers.
-    Can be instantiated as a blank or with values from another tensor. 
+    Can be instantiated as a blank or with values from another tensor.
 
 2. Distributed Tensor
     A Global tensor which is split across multiple gpus.

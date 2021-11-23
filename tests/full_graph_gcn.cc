@@ -75,12 +75,12 @@ int main(){
   // assert(approx_equal(loss.debugTensor(),correct_out->debugTensor()));
     // std::cout << "total sum " << correct_out->debugTensor();
   // std::cout << "backward OK!\n";
-    // indptr1->cleanUpTensor();
-    // indices1->cleanUpTensor();
-    // batch_in->cleanUpTensor();
-    // indptr2->cleanUpTensor();
-    // indices2->cleanUpTensor();
-    // batch_labels->cleanUpTensor();
+    // indptr1->clearTensor();
+    // indices1->clearTensor();
+    // batch_in->clearTensor();
+    // indptr2->clearTensor();
+    // indices2->clearTensor();
+    // batch_labels->clearTensor();
     // delete indptr1, indices1, batch_in, indptr2, indices2, batch_labels;
 
   // Test 2 sample add one backward pass
