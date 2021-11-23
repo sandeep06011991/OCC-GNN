@@ -8,7 +8,7 @@ using namespace std;
 
 // Src matrix is merged with desitnation matrix using idices offsets.
 // sizeof(indices.dim1) == src.dim1;
-void merge(Tensor<float> *src, Tensor<float> *dest, Tensor<int> indices);
+void merge(Tensor<float> *src, Tensor<float> *dest, Tensor<int> *indices);
 
 // Contains all the logic for gcn aggregation
 // when the data is placed as a distributed tensor.

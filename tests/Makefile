@@ -49,7 +49,7 @@ dist_gcn:
 	nvcc -I ../src/ distributed_gcn.cpp ../src/util/dist_tensor.cu -l cublas  \
 	../src/gnn/dist_sage.cu  ../src/gnn/sage.cu	\
 	../src/util/tensor.cu  ../src/util/gpu.cu -o ../build/distributed_gcn
-	# ../build/distributed_gcn
+	../build/distributed_gcn
 	# nvcc -I ../src/ ../src/util/tensor.cu distributed_gcn.cpp  \
 	# ../src/util/dist_tensor.cu  ../src/gnn/dist_sage.cu -lcublas -o ../build/distributed_gcn
 	# ../build/distributed_gcn

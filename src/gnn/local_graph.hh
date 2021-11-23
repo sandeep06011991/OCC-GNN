@@ -15,21 +15,24 @@ class LocalComputeGraph{
   std::vector<int> indices;
   // size of indptr - 1
   std::vector<int> local_to_local;
-  int src_gpu;
-  int dest_gpu;
 
-  Tensor<float> out;
+
+
   SageAggr  * aggr;
   Tensor<int> * ind_ptr_t;
   Tensor<int> * indices_t;
-  Tensor<int> * local_to_local_t;
+
 
 public:
+  int src_gpu;
+  int dest_gpu;
+  Tensor<float> *out;
+  Tensor<int> * local_to_local_t;
 
   void set_src_dest(int src_id,int dest_id,int fsize){
     this->src_gpu = src_id;
     this->dest_gpu = dest_id;
-    aggr = new SageAggr(fsize);
+    aggr = new SageAggr(fsize,src_id);
   };
 
   void create_csr(){
@@ -89,7 +92,7 @@ public:
       int num_nodes_out = indptr.size()-1;
       int num_nodes_in = src.s.dim1;
       cudaSetDevice(src_gpu);
-      out = aggr->forward(*ind_ptr_t, *indices_t, src, num_nodes_out, num_nodes_in);
+      this->out = aggr->forward(*ind_ptr_t, *indices_t, src, num_nodes_out, num_nodes_in);
 
   }
 

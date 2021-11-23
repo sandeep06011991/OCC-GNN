@@ -68,6 +68,20 @@ Tensor<T>::Tensor(Tensor<T> &src, int device_id){
 }
 
 template<typename T>
+Tensor<T>::Tensor(Tensor<T> *src, int device_id){
+  assert(src->device_id != device_id);
+  this->s = src->s;
+  this->device_id = device_id;
+  assert(device_id >= 0);
+  cudaSetDevice(device_id);
+  cudaMalloc(&this->data_device, this->s.dim1 * this->s.dim2 *sizeof(T));
+  NNException::throwIfDeviceErrorsOccurred("cudamalloc data failed\n");
+  cudaMemcpy(this->data_device, src->data_device, s.dim1 * s.dim2 *sizeof(T), cudaMemcpyDeviceToDevice);
+  NNException::throwIfDeviceErrorsOccurred("Memcpy data failed\n");
+  cudaDeviceSynchronize();
+}
+
+template<typename T>
 void Tensor<T>::viewTensor(){
   T * host = (T *)malloc(sizeof(T) * this->s.dim1 * this->s.dim2);
   cudaMemcpy(host, this->data_device,  s.dim1 * s.dim2 *sizeof(T), cudaMemcpyDeviceToHost);

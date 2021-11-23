@@ -1,5 +1,5 @@
 // Naive global aggregation
-#include "tensor.hh"
+#include "util/tensor.hh"
 #include "gnn/sage.hh"
 #include "nn_exception.hh"
 #include <iostream>
@@ -28,18 +28,18 @@ __global__ void  aggregate_edgeWise(float *ingrad, float *outgrad, int *offsets,
 }
 
 
-Tensor<float>& SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
+Tensor<float> * SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
         Tensor<float>& in, int num_nodes_out, int num_nodes_in){
     if(this->out_feat != nullptr){
-      this->out_feat->cleanUpTensor();
+      this->out_feat->clearTensor();
       delete this->out_feat;
     }
     if(this->out_grad != nullptr){
-      this->out_grad->cleanUpTensor();
+      this->out_grad->clearTensor();
       delete this->out_grad;
     }
-    this->out_feat = new Tensor<float>(num_nodes_out,this->fsize);
-    this->out_grad = new Tensor<float>(num_nodes_in,this->fsize);
+    this->out_feat = new Tensor<float>(Shape(num_nodes_out,this->fsize),this->device_id);
+    this->out_grad = new Tensor<float>(Shape(num_nodes_in,this->fsize),this->device_id);
     int blocks = num_nodes_out;
     int threads = fsize;
     this->num_nodes_out = num_nodes_out;
@@ -51,7 +51,7 @@ Tensor<float>& SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
       offsets.data_device, indices.data_device, this->fsize);
     cudaDeviceSynchronize();
     NNException::throwIfDeviceErrorsOccurred("forward Pass failed");
-    return *out_feat;
+    return out_feat;
 }
 
 Tensor<float>& SageAggr::backward(Tensor<float>& in_grad){

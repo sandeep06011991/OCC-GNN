@@ -38,10 +38,11 @@ public:
   T* data_device;
 
   Shape s;
-  Tensor();
+  Tensor(){};
   Tensor(Shape s, int device);
   Tensor(T* data, Shape s, int device);
   Tensor(Tensor<T>& t,int device);
+  Tensor(Tensor<T>* t,int device);
 
 	void verify(T* correct_data);
 
