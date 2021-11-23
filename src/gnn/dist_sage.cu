@@ -13,17 +13,19 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
         reorder_map[i] = i%2;
       }
 
-      if(this->out_feat == nullptr){
+      if(this->out_feat != nullptr){
         this->out_feat->clearTensor();
-        delete (out_feat);
+        delete (this->out_feat);
       }
       struct Shape s;
       s.dim1 = num_nodes_out;
       s.dim2 = in.s.dim2;
       this->out_feat = new DistTensor(s , reorder_map, no_gpus);
 
+
       // Populate remote_csrs.
       this->populateLocalGraphs(in, ind_ptr, indices);
+
       for(int i=0;i<no_gpus;i++){
         for(int j=0;j<no_gpus;j++){
         this->local_graph[i][j].create_csr();
@@ -35,6 +37,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
           this->local_graph[i][j].forward(*(in.local_tensors[i]));
         }
       }
+
       sync_all_gpus();
       // Create temporary tensors and clean up after wards.
       Tensor<float> * temp[4][4];
@@ -49,6 +52,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
           }
         }
       }
+
       sync_all_gpus();
       for(int dest=0;dest<no_gpus;dest++){
         for(int src=0;src<no_gpus;src++){
@@ -72,7 +76,6 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
           }
         }
       }
-
 }
 
 
@@ -83,7 +86,6 @@ void DistSageAggr::populateLocalGraphs(DistTensor &in, vector<int> &indptr,
       this->local_graph[i][j].clear();
     }
   }
-
   for(int i=0;i<indptr.size()-1;i++){
     int nd1 = i;
     int dest_gpu = this->out_feat->global_to_gpu[nd1];

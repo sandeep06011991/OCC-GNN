@@ -43,7 +43,10 @@ int main(){
   // in->debugTensor();
   DistSageAggr *ll = new DistSageAggr(fsize, no_gpus);
 //   // in->debugTensor();
-  ll->forward(ss1.indptr,ss1.indices, *in, ss1.indptr.size()-1,ss1.indices.size()-1);
+  for(int i=0;i<2;i++){
+    ll->forward(ss1.indptr,ss1.indices, *in, ss1.indptr.size()-1,ss1.indices.size()-1);
+  }
+  ll->out_feat->debugTensor();
 //   // DistributedTensor *in = new DistributedTensor(f_cpu, shape, ordering);
 //   // DistributedGCNLayer *ll = new DistributedGCNLayer(fsize);
 //   // DistributedTensor &out = l1->forward(*in, sample_src, sample_dest);

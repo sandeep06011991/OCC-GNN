@@ -66,6 +66,7 @@ public:
     for(int i=0;i<no_gpus;i++){
       local_to_global[i].clear();
     }
+
     if(!isView){
       for(int i=0;i<no_gpus;i++){
         local_tensors[i]->clearTensor();

@@ -19,15 +19,15 @@ class LocalComputeGraph{
 
 
   SageAggr  * aggr;
-  Tensor<int> * ind_ptr_t;
-  Tensor<int> * indices_t;
+  Tensor<int> * ind_ptr_t = nullptr;
+  Tensor<int> * indices_t = nullptr;
 
 
 public:
   int src_gpu;
   int dest_gpu;
   Tensor<float> *out;
-  Tensor<int> * local_to_local_t;
+  Tensor<int> * local_to_local_t = nullptr;
 
   void set_src_dest(int src_id,int dest_id,int fsize){
     this->src_gpu = src_id;
@@ -72,7 +72,7 @@ public:
     }
     if(indices_t!=nullptr){
       indices_t->clearTensor();
-      delete ind_ptr_t;
+      delete indices_t;
     }
     if(local_to_local_t!=nullptr){
       local_to_local_t->clearTensor();
