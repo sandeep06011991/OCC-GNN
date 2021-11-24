@@ -14,6 +14,9 @@ def get_dataset(name):
     if name =="pubmed":
         graphs = dgl.data.PubmedGraphDataset()
         dataset = graphs
+    if name =="reddit":
+        graphs = dgl.data.RedditDataset()
+        dataset = graphs
     # Returns DGLHeteroGraph
     # Create dummy dataset for testing.
     return dataset
@@ -84,8 +87,8 @@ def write_dataset_dataset(dataset, TARGET_DIR):
 # arg1 = full target directory
 if __name__=="__main__":
     # assert(len(sys.argv) == 3)
-    name = "pubmed"
-    target = TARGET_DIR +"/pubmed"
+    name = "reddit"
+    target = TARGET_DIR +"/" + name
     import os
     os.makedirs(target,exist_ok = True)
     dataset = get_dataset(name)

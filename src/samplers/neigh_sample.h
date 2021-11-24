@@ -3,6 +3,7 @@
 #include<assert.h>
 #include<samplers/sample.h>
 #include <stdlib.h>
+#include <util/timer.h>
 #include <cstring>
 // creates minibatches of given size by shuffling target node
 // with full 2 hop neighbourhood.
@@ -14,7 +15,7 @@ struct Graph{
   int *indices;
 };
 
-class TwoHopNoSampler{
+class TwoHopNeighSampler{
 
   Graph graph;
   // Full graph
@@ -41,7 +42,7 @@ public:
   float * batch_features = nullptr;
   int * batch_labels = nullptr;
 
-  TwoHopNoSampler(int no_nodes, int no_edges, int *ind_ptr, int *indices,
+  TwoHopNeighSampler(int no_nodes, int no_edges, int *ind_ptr, int *indices,
       int max_batch_size, float *features, int * labels, int fsize){
     this->graph.num_nodes = no_nodes;
     this->graph.num_edges = no_edges;
@@ -75,9 +76,10 @@ public:
     }
     batch_features = (float *)malloc(sizeof(float)* no_in * this->fsize);
     batch_labels = (int *)malloc(sizeof(int) * no_out);
-
+    start_timer(SAMPL_F_DATA_FORMAT);
     for(int i=0; i < no_in;i++){
-      memcpy(&batch_features[i*this->fsize],&full_features[in_nodes[i*this->fsize]],sizeof(float) * this->fsize);
+      memcpy(&batch_features[i*this->fsize],
+          &full_features[in_nodes[i]*this->fsize],sizeof(float) * this->fsize);
       // for(int j=0;j < this->fsize; j++){
       //   batch_features[i*this->fsize+j]= (full_features[in_nodes[i] * this->fsize + j]);
       // }
@@ -86,6 +88,7 @@ public:
     for(int i=0; i< no_out; i++){
       batch_labels[i] = full_labels[out_nodes[i]];
     }
+    stop_timer(SAMPL_F_DATA_FORMAT);
   }
 
 
@@ -99,14 +102,14 @@ public:
     this->current_minibatch_size = no_nodes;
     // Sample 2-hop neighbourhoods.
     sample.clear();
-
+    start_timer(SAMPLE_CREATION);
     for(int i=0;i<no_nodes;i++){
       int nd1 = tgt[i];
       int edge_start = this->graph.indptr[nd1];
       int edge_end = this->graph.indptr[nd1+1];
       sample.l1.nd1.push_back(nd1);
       int no_neighbours = edge_end - edge_start;
-      if(no_neigbhours < 25){
+      if(no_neighbours < 25){
         for(int j=edge_start; j < edge_end ; j++ ){
           int nd2 = this->graph.indices[j];
           sample.l1.nd2.push_back(nd2);
@@ -120,7 +123,6 @@ public:
           sample.l1.edges.push_back(std::make_pair(nd1,nd2));
         }
       }
-
     }
     sample.l1.remove_duplicates();
     int nodes_l1 = sample.l1.nd2.size();
@@ -130,7 +132,7 @@ public:
       int edge_end = this->graph.indptr[nd1+1];
       sample.l2.nd1.push_back(nd1);
       int no_neighbours = edge_end - edge_start;
-      if(no_neigbhours < 10){
+      if(no_neighbours < 10){
         for(int j=edge_start; j < edge_end ; j++ ){
           int nd2 = this->graph.indices[j];
           sample.l2.nd2.push_back(nd2);
@@ -145,10 +147,13 @@ public:
         }
       }
     }
+    stop_timer(SAMPLE_CREATION);
     sample.l2.remove_duplicates();
     // create csr
     sample.l1.create_csr();
     sample.l2.create_csr();
+
+
     this->fill_batch_data(sample.l2.nd2.data(),sample.l2.in_nodes, sample.l1.nd1.data(), sample.l1.out_nodes);
   }
 

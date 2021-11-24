@@ -99,3 +99,20 @@ public:
   }
 
 };
+
+class KHopSample{
+  static const int MAX_LAYERS = 10;
+public:
+  SampleLayer ll[MAX_LAYERS];
+  int k_hop;
+  KHopSample(int k_hop){
+      assert(k_hop < MAX_LAYERS);
+      this->k_hop = k_hop;
+  }
+
+  void clear(){
+      for(int i=0;i<k_hop;i++){
+        this->ll[i].clear();
+      }
+  }
+};

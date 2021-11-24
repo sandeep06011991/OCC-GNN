@@ -36,7 +36,7 @@ def run_experiment(dataset_name,hops):
     sampling_time = 0
     formatting_time = 0
     data_movement_time = 0
-
+    print("Start")
     try:
         while True:
             t_a = time.time()
@@ -51,15 +51,15 @@ def run_experiment(dataset_name,hops):
             block = blocks[0].int().to(device)
             torch.cuda.synchronize()
             t_d = time.time()
-            sampling_time = t_b-t_a
-            formatting_time = t_c - t_b
-            data_movement_time = t_d - t_c
+            sampling_time += (t_b-t_a)
+            formatting_time += (t_c - t_b)
+            data_movement_time += (t_d - t_c)
     except StopIteration:
         pass
 
     with open("exp1.txt","a") as fp:
         fp.write("{}|{}|{}|{}|{}\n".format("dataset","hops","sampling(s)","fomat(s)","data(s)"))
-        fp.write("{}|{}|{:.2f}|{:.2f}|{:.2f}\n".format(dataset_name,hops,sampling_time, \
+        fp.write("DGL|{}|{}|{:.2f}s|{:.2f}s|{:.2f}s\n".format(dataset_name,hops,sampling_time, \
                         formatting_time,data_movement_time))
 
 # python3 run.py "reddit|cora|pubmed" "hops"

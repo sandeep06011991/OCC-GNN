@@ -65,7 +65,8 @@ void Dataset::read_meta_file(){
     if(file.eof())break;
     std::string name = line.substr(0,line.find("="));
     std::string token = line.substr(line.find("=") + 1,line.length() );
-    int val = stoi(token);
+
+    int val = stoll(token);
     if (name == "num_nodes") {
       this->num_nodes = val;
       continue;
