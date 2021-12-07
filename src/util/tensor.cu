@@ -92,13 +92,18 @@ void Tensor<T>::viewTensor(){
   int ii = std::min(4, this->s.dim1);
   int jj = std::min(4, this->s.dim2);
 
-  std::cout << "On device" << this->device_id <<"\n";
-  for(int i=0;i<ii;i++){
-     for(int j=0;j<jj;j++){
-       std::cout << host[i*this->s.dim2+j] << " ";
-     }
-     std::cout << "\n";
-   }
+  // std::cout << "On device" << this->device_id <<"\n";
+  // for(int i=0;i<ii;i++){
+  //    for(int j=0;j<jj;j++){
+  //      std::cout << host[i*this->s.dim2+j] << " ";
+  //    }
+  //    std::cout << "\n";
+  //  }
+  float s = 0;
+  for(int i=0; i< (this->s.dim1);i++){
+    s = s + host[i * this->s.dim2];
+  }
+  std::cout << "Total sum on gpu:" <<device_id <<"sum :"<< s <<"\n";
   free(host);
 
 }

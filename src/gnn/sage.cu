@@ -30,6 +30,8 @@ __global__ void  aggregate_edgeWise(float *ingrad, float *outgrad, int *offsets,
 
 Tensor<float> * SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
         Tensor<float>& in, int num_nodes_out, int num_nodes_in){
+    assert(in.s.dim1 == num_nodes_in);
+    assert(offsets.s.dim1 == num_nodes_out + 1);
     if(this->out_feat != nullptr){
       this->out_feat->clearTensor();
       delete this->out_feat;
@@ -41,12 +43,13 @@ Tensor<float> * SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
     this->out_feat = new Tensor<float>(Shape(num_nodes_out,this->fsize),this->device_id);
     this->out_grad = new Tensor<float>(Shape(num_nodes_in,this->fsize),this->device_id);
     int blocks = num_nodes_out;
-    int threads = fsize;
+    int threads = this->fsize;
     this->num_nodes_out = num_nodes_out;
     this->num_nodes_in = num_nodes_in;
     this->offsets = offsets ;
     this->indices = indices;
-
+    cudaSetDevice(this->device_id);
+    NNException::throwIfDeviceErrorsOccurred("forward Pass pre failed");
     aggregate_nodeWise<<<blocks, threads>>>(in.data_device, out_feat->data_device, \
       offsets.data_device, indices.data_device, this->fsize);
     cudaDeviceSynchronize();

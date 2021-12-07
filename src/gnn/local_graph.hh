@@ -35,7 +35,34 @@ public:
     aggr = new SageAggr(fsize,src_id);
   };
 
-  void create_csr(){
+  void create_local_csr(int num_nodes){
+    // int prev = dest_local_id.at(0);
+    int prev = 0;
+    int start = 0;
+    indptr.push_back(start);
+    int end = start;
+    // int end = start+1;
+    for(int i=0;i < dest_local_id.size();i++){
+      while(dest_local_id[i]!=prev){
+        indptr.push_back(end);
+        prev ++ ;
+        // local_to_local.push_back(prev);
+        // prev ++;
+        // start = end;
+        // end = start;
+      }
+      end = end + 1;
+    }
+    // local_to_local.push_back(prev);
+    // indptr.push_back(end);
+    while(prev!=num_nodes){
+      indptr.push_back(end);
+      prev ++ ;
+    }
+    // assert(indptr.size()== (local_to_local.size()+1));
+  }
+
+  void create_remote_csr(){
     int prev = dest_local_id.at(0);
     int start = 0;
     indptr.push_back(start);
@@ -89,8 +116,8 @@ public:
                       Shape(indices.size(),1), src_gpu);
       local_to_local_t = new Tensor<int>(local_to_local.data(),
                       Shape(local_to_local.size(),1),dest_gpu);
-      int num_nodes_out = indptr.size()-1;
-      int num_nodes_in = src.s.dim1;
+      int num_nodes_out = (indptr.size()-1);
+      int num_nodes_in = src.s.dim1 ;
       cudaSetDevice(src_gpu);
       this->out = aggr->forward(*ind_ptr_t, *indices_t, src, num_nodes_out, num_nodes_in);
 

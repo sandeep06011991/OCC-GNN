@@ -73,18 +73,12 @@ public:
     if(batch_labels != nullptr){
       free(batch_labels);
     }
-    batch_features = (float *)malloc(sizeof(float)* no_in * this->fsize);
     batch_labels = (int *)malloc(sizeof(int) * no_out);
-    std::cout << "Filling\n " << no_in;
+    batch_features = (float *)malloc(sizeof(float)* no_in * this->fsize);
     for(int i=0; i < no_in;i++){
       memcpy(&batch_features[i*this->fsize],
             &full_features[in_nodes[i]*this->fsize],sizeof(float) * this->fsize);
-
-      // for(int j=0;j < this->fsize; j++){
-      //   batch_features[i*this->fsize+j]= (full_features[in_nodes[i] * this->fsize + j]);
-      // }
-    }
-
+          }
     for(int i=0; i< no_out; i++){
       batch_labels[i] = full_labels[out_nodes[i]];
     }
@@ -92,7 +86,6 @@ public:
 
 
   void get_sample(int batchId){
-    std::cout << "hello world\n";
     assert(batchId * this->minibatch_size < this->no_nodes);
     int * tgt = &this->target_nodes[this->minibatch_size * batchId];
     int no_nodes =  minibatch_size;
@@ -101,8 +94,6 @@ public:
     }
     this->current_minibatch_size = no_nodes;
     // Sample 2-hop neighbourhoods.
-    std::cout << "hello world\n";
-
     sample.clear();
 
     for(int i=0;i<no_nodes;i++){
@@ -116,8 +107,6 @@ public:
         sample.l1.edges.push_back(std::make_pair(nd1,nd2));
       }
     }
-    std::cout << "hello world\n";
-
     sample.l1.remove_duplicates();
     int nodes_l1 = sample.l1.nd2.size();
     for(int i=0;i<nodes_l1;i++){
@@ -131,18 +120,12 @@ public:
         sample.l2.edges.push_back(std::make_pair(nd1,nd2));
       }
     }
-    std::cout << "hello world\n";
 
     sample.l2.remove_duplicates();
     // create csr
-    std::cout << "hello world8\n";
 
     sample.l1.create_csr();
-    std::cout << "hello world9\n";
-
     sample.l2.create_csr();
-    std::cout << "hello world10\n";
-
     this->fill_batch_data(sample.l2.nd2.data(),sample.l2.in_nodes, sample.l1.nd1.data(), sample.l1.out_nodes);
   }
 

@@ -6,6 +6,7 @@
 #include "gnn/dist_sage.hh"
 #include "util/timer.h"
 // #include "gnn/dist_sage.hh"
+// Toy graph running.
 
 int no_gpus = 2;
 

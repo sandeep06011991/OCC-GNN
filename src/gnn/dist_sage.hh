@@ -23,7 +23,8 @@ class DistSageAggr{
 
   // [src],[dest]
   LocalComputeGraph local_graph[4][4];
-
+  bool israndomPartitioning;
+  bool isExternalPartitioning;
   void populateLocalGraphs(DistTensor &in, vector<int> &indptr,vector<int> &indices);
 
 public:
@@ -31,7 +32,7 @@ public:
   DistTensor * out_feat  = nullptr;
   DistTensor * out_grad = nullptr;
 
-  DistSageAggr(int fsize,int no_gpus){
+  DistSageAggr(int fsize,int no_gpus, bool isRandom, bool isExternal){
       this->fsize = fsize;
       this->no_gpus = no_gpus;
       for(int i=0;i<no_gpus;i++){
@@ -39,12 +40,14 @@ public:
           local_graph[i][j].set_src_dest(i,j,fsize);
         }
       }
+      this->israndomPartitioning = isRandom;
+      this->isExternalPartitioning = isExternal;
   };
 
   // void test(vector<int>& a);
 
   void forward(vector<int>& ind_ptr, vector<int>& indices,
-          DistTensor& in, int num_nodes_out, int num_nodes_in);
+          DistTensor& in, int num_nodes_out, int num_nodes_in,int *ext_map);
 
   DistTensor& backward(DistTensor& doutFeat);
 

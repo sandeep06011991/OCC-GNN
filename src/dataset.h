@@ -25,6 +25,9 @@ public:
   float *features;
   int *labels;
 
+  // gpu_partition_map
+  int *partition_map;
+
   // training splits.
   int * train_idx;
   int * test_idx;

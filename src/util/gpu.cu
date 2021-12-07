@@ -1,10 +1,12 @@
 #include "util/gpu.hh"
 #include "nn_exception.hh"
 #include <iostream>
+#include <string>
 void sync_all_gpus(){
   for(int i=0;i<no_gpus;i++){
       cudaSetDevice(i);
       cudaDeviceSynchronize();
+      NNException::throwIfDeviceErrorsOccurred("sync gpu failed for \n");
   }
 }
 

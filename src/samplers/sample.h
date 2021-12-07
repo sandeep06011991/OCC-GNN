@@ -26,6 +26,8 @@ public:
   // in_nodes = size(nd2)
   int out_nodes;
   // out_nodes = size(nd1)
+  bool reorder = true;
+
 
   void clear(){
     nd1.clear();

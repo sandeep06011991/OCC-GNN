@@ -55,6 +55,15 @@ void Dataset::read_node_data(){
   }
   assert(s-this->csum_labels<10);
 
+  std::fstream file2(this->BIN_DIR + "/partition_map.bin",std::ios::in|std::ios::binary);
+  this->partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
+  file2.read((char *)this->partition_map,this->num_nodes *  sizeof(int));
+  s = 0;
+  for(int i=0;i< (this->num_nodes) ;i++){
+     this->partition_map[i] < 4;
+     s = s + this->partition_map[i];
+  }
+  assert(s>10);
 }
 
 void Dataset::read_meta_file(){

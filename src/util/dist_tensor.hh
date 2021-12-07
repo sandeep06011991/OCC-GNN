@@ -31,6 +31,8 @@ public:
 
   bool isView;
 
+  void viewTensor();
+
   DistTensor(float *cpu_data, Shape s, int *reorder_map,int no_gpus);
 
   DistTensor(Shape s, int *reorder_map,int no_gpus);
