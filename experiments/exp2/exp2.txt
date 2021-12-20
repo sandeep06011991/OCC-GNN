@@ -1,0 +1,11 @@
+GRAPH | PARTITION | MOVE | COMPUTE
+pubmed | naive | 0.025s | 0.004s
+pubmed | random | 0.024s | 0.053s
+pubmed | metis | 0.004s | 0.048s
+pubmed | optimum | 0.004s | 0.047s
+GRAPH | PARTITION | MOVE | COMPUTE
+reddit | naive | 10.947s | 1.766s
+reddit | random | 0.164s | 0.288s
+reddit | metis | 0.084s | 0.275s
+reddit | optimum | 0.088s | 0.277s
+GRAPH | PARTITION | MOVE | COMPUTE

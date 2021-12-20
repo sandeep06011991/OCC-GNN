@@ -3,20 +3,20 @@ import torch
 import time
 import subprocess
 
-device = 0
-def get_dataset(name):
-    if name =="cora":
-        graphs = dgl.data.CoraFullDataset()
-        dataset = graphs
-    if name =="pubmed":
-        graphs = dgl.data.PubmedGraphDataset()
-        dataset = graphs
-    if name =="reddit":
-        graphs = dgl.data.RedditDataset()
-        dataset = graphs
-    # Returns DGLHeteroGraph
-    # Create dummy dataset for testing.
-    return dataset
+# device = 0
+# def get_dataset(name):
+#     if name =="cora":
+#         graphs = dgl.data.CoraFullDataset()
+#         dataset = graphs
+#     if name =="pubmed":
+#         graphs = dgl.data.PubmedGraphDataset()
+#         dataset = graphs
+#     if name =="reddit":
+#         graphs = dgl.data.RedditDataset()
+#         dataset = graphs
+#     # Returns DGLHeteroGraph
+#     # Create dummy dataset for testing.
+#     return dataset
 
 def run_experiment(dataset_name,hops):
     dataset = get_dataset(dataset_name)
@@ -68,18 +68,48 @@ def run_naive_experiment(filename):
     output = subprocess.run(["../../build/naive_distributed_gcn",
             filename], capture_output=True)
     output = str(output.stdout)
+    # print(output)
     movement = re.findall(r"data movement\|(\d+\.\d+s)",output)[0]
     compute = re.findall(r"compute\ \|(\d+\.\d+s)",output)[0]
-    print(movement)
-    print(compute)
+    return {"movement":movement,"compute":compute}
+
+def run_metis_experiment(filename,p):
+    partition_scheme = ["random","metis","optimum"]
+    assert(p in partition_scheme)
+    output = subprocess.run(["../../build/distributed_gcn",
+            filename,p], capture_output=True)
+    output = str(output.stdout)
+    # print(output)
+    movement = re.findall(r"data movement\|(\d+\.\d+s)",output)[0]
+    compute = re.findall(r"compute\ \|(\d+\.\d+s)",output)[0]
+    return {"movement":movement,"compute":compute}
+
+def run_experiment():
+    filename = ["pubmed","reddit","obgn-arxiv","obgn-products"]
+    partition_scheme = ["random","metis","optimum"]
+    filename = ["reddit","obgn-arxiv","obgn-products"]
+    filename = ["ogbn-arxiv","ogbn-products"]
+    with open("exp2.txt",'a') as fp:
+        fp.write("GRAPH | PARTITION | MOVE | COMPUTE\n")
+    for f in filename:
+        out = run_naive_experiment(f)
+        with open("exp2.txt",'a') as fp:
+            fp.write("{} | {} | {} | {}\n".format(f, "naive",out["movement"],out["compute"]))
+        for p in partition_scheme:
+            out = run_metis_experiment(f,p)
+            with open("exp2.txt",'a') as fp:
+                fp.write("{} | {} | {} | {}\n".format(f, p,out["movement"],out["compute"]))
+
+
 
 # python3 run.py "reddit|cora|pubmed" "hops"
 if __name__=="__main__":
-    import sys
-    assert(len(sys.argv) == 2)
-    graphName = sys.argv[1]
-    # hops = int(sys.argv[2])
-    # graphName = "cora"
-    # hops = 2
-    run_naive_experiment(graphName)
+    # import sys
+    # assert(len(sys.argv) == 2)
+    # graphName = sys.argv[1]
+    # # hops = int(sys.argv[2])
+    # # graphName = "cora"
+    # # hops = 2
+    run_experiment()
+    # run_naive_experiment(graphName)
     # run_experiment(graphName,hops)

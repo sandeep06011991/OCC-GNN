@@ -112,7 +112,7 @@ int main(int argc, char *argv[]){
   if(partition == "optimum"){
     found = true;
     isexternal = false;
-    israndom = true;
+    israndom = false;
   }
   assert(found);
   run_experiment(filename,isexternal,israndom);

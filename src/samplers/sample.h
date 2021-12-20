@@ -69,13 +69,21 @@ public:
                         if(a.first == b.first) return a.second < b.second;
                         return a.first < b.first;
                       });
+
+    auto last = std::unique(edges.begin(), edges.end(),[](const std::pair<int,int> &a,
+                      const std::pair<int,int> &b){
+                        return a.first ==b.first &&
+                          a.second == b.second; });
+    edges.erase(last, edges.end());
     int curr_size = 0;
     int curr_nd = -1;
     for(int i=0;i<edges.size();i++){
+      // std::cout << edges[i].first << " " << edges[i].second << "\n";
       indices.push_back(reorder_map[edges[i].second]);
       if(edges[i].first == curr_nd ){
          curr_size ++;
       }else{
+        // std::cout << edges[i].first << " ";
         indptr.push_back(i);
         curr_size = 1;
         curr_nd = edges[i].first;

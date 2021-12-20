@@ -105,7 +105,7 @@ def write_dataset_dataset(dataset,labels, TARGET_DIR):
 # arg1 = full target directory
 if __name__=="__main__":
     # assert(len(sys.argv) == 3)
-    name = "reddit"
+    name = "ogbn-products"
     target = TARGET_DIR +"/" + name
     import os
     os.makedirs(target,exist_ok = True)

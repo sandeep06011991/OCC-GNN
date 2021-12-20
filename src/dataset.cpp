@@ -44,7 +44,7 @@ void Dataset::read_node_data(){
     s = s + this->features[i];
   }
   std::cout << "features:" << s << " " << this->csum_features <<"\n";
-  assert(s-this->csum_features<10);
+  assert(abs(s-this->csum_features)<100);
 
   std::fstream file1(this->BIN_DIR + "/labels.bin",std::ios::in|std::ios::binary);
   this->labels = (int *)malloc (this->num_nodes *  sizeof(int));

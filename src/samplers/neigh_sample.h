@@ -107,7 +107,7 @@ public:
       int nd1 = tgt[i];
       int edge_start = this->graph.indptr[nd1];
       int edge_end = this->graph.indptr[nd1+1];
-      sample.l1.nd1.push_back(nd1);
+      if(edge_end - edge_start>0)sample.l1.nd1.push_back(nd1);
       int no_neighbours = edge_end - edge_start;
       if(no_neighbours < 25){
         for(int j=edge_start; j < edge_end ; j++ ){
@@ -130,8 +130,9 @@ public:
       int nd1 = sample.l1.nd2[i];
       int edge_start = this->graph.indptr[nd1];
       int edge_end = this->graph.indptr[nd1+1];
-      sample.l2.nd1.push_back(nd1);
+
       int no_neighbours = edge_end - edge_start;
+      if(edge_end - edge_start > 0)sample.l2.nd1.push_back(nd1);
       if(no_neighbours < 10){
         for(int j=edge_start; j < edge_end ; j++ ){
           int nd2 = this->graph.indices[j];

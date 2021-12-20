@@ -9,29 +9,29 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
           DistTensor& in, int num_nodes_out, int num_nodes_in, int *ext_map){
       // some magic reordering map
       // comes in externally.
-      std::cout << "v1\n";
+      // std::cout << "v1\n";
       int * reorder_map = (int *)malloc(sizeof(int) * num_nodes_out);
       if(!this->isExternalPartitioning){
-      if(this->israndomPartitioning){
-        for(int i=0; i< num_nodes_out;i++){
-          reorder_map[i] = i%no_gpus;
-        }
-      }else{
-        int max_gpu[4];
-        for(int i=0; i< num_nodes_out;i++){
-          int start = ind_ptr[i];
-          int end = ind_ptr[i+1];
-          memset(max_gpu,0,sizeof(int) * 4);
-          for(int j = start;j<end;j++){
-            max_gpu[in.global_to_gpu[indices[j]]]++;
+        if(this->israndomPartitioning){
+          for(int i=0; i< num_nodes_out;i++){
+            reorder_map[i] = i%no_gpus;
           }
-          int max_g = 0;
-          for(int j=1;j<4;j++){
-            if(max_gpu[j] > max_gpu[max_g])max_g = j;
+        }else{
+          int max_gpu[4];
+          for(int i=0; i< num_nodes_out;i++){
+            int start = ind_ptr[i];
+            int end = ind_ptr[i+1];
+            memset(max_gpu,0,sizeof(int) * 4);
+            for(int j = start;j<end;j++){
+              max_gpu[in.global_to_gpu[indices[j]]]++;
+            }
+            int max_g = 0;
+            for(int j=1;j<4;j++){
+              if(max_gpu[j] > max_gpu[max_g])max_g = j;
+            }
+            reorder_map[i] = max_g;
           }
-          reorder_map[i] = max_g;
         }
-      }
     }else{
       for(int i=0; i< num_nodes_out;i++){
         reorder_map[i] = ext_map[i];
@@ -41,17 +41,17 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
         this->out_feat->clearTensor();
         delete (this->out_feat);
       }
-      std::cout << "v2\n";
+      // std::cout << "v2\n";
       struct Shape s;
       s.dim1 = num_nodes_out;
       s.dim2 = in.s.dim2;
 
       this->out_feat = new DistTensor(s , reorder_map, no_gpus);
 
-      std::cout << "v3\n";
+      // std::cout << "v3\n";
       // Populate remote_csrs.
       this->populateLocalGraphs(in, ind_ptr, indices);
-      std::cout << "v4\n";
+      // std::cout << "v4\n";
       for(int i=0;i<no_gpus;i++){
         for(int j=0;j<no_gpus;j++){
           if(i==j){
@@ -61,14 +61,14 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
           }
         }
       }
-      std::cout << "v5\n";
+      // std::cout << "v5\n";
       start_timer(MOVEMENT_COMPUTE);
       for(int i=0;i<no_gpus;i++){
         for(int j=0;j<no_gpus;j++){
           this->local_graph[i][j].forward(*(in.local_tensors[i]));
         }
       }
-      std::cout << "v6\n";
+      // std::cout << "v6\n";
       sync_all_gpus();
       stop_timer(MOVEMENT_COMPUTE);
       // Create temporary tensors and clean up after wards.
@@ -86,7 +86,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
         }
       }
       stop_timer(MOVEMENT_COST);
-      std::cout << "v7\n";
+      // std::cout << "v7\n";
       sync_all_gpus();
       start_timer(MOVEMENT_COMPUTE);
       for(int dest=0;dest<no_gpus;dest++){
@@ -100,7 +100,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
       }
       sync_all_gpus();
       stop_timer(MOVEMENT_COMPUTE);
-      std::cout << "v8\n";
+      // std::cout << "v8\n";
       // out = new DistributedTensor(reorderer_map,shape);
       for(int i=0;i<no_gpus;i++){
         this->out_feat->local_tensors[i] = temp[i][i];
@@ -113,7 +113,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
           }
         }
       }
-      std::cout << "v9\n";
+      // std::cout << "v9\n";
 }
 
 

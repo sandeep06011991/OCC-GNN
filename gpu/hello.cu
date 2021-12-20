@@ -1,6 +1,7 @@
 #include <stdio.h>        // C programming header file
 #include <unistd.h>       // C programming header file
-                          // cude.h is automatically included by nvcc...
+#include <omp.h>
+// cude.h is automatically included by nvcc...
 
 /* ------------------------------------
    Your first kernel (= GPU function)

@@ -11,7 +11,7 @@
 int main(){
 
   std::string BIN_DIR = "/home/spolisetty/data";
-  Dataset * dataset = new Dataset(BIN_DIR + "/pubmed");
+  Dataset * dataset = new Dataset(BIN_DIR + "/ogbn-arxiv");
   std::cout << dataset->num_edges <<"\n";
   std::cout << dataset->fsize << "\n";
   std::cout << " classes: " << dataset->noClasses << "\n";
@@ -45,7 +45,7 @@ int main(){
   int device_id = 0;
   Tensor<float> * aggr_t = new Tensor<float>(aggr2, Shape(batch_size, dataset->fsize),device_id);
   SageAggr * layer1 = new SageAggr(dataset->fsize, device_id);
-  // SageAggr * layer2 = new SageAggr(dataset->fsize,device_id);
+  SageAggr * layer2 = new SageAggr(dataset->fsize,device_id);
   //
   s->shuffle();
   s->get_sample(2);

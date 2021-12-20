@@ -1,0 +1,3 @@
+[submodule "dependencies/thrust"]
+	path = dependencies/thrust
+	url = https://github.com/NVIDIA/thrust.git

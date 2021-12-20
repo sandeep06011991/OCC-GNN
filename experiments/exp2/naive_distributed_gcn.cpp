@@ -3,7 +3,7 @@
 #include "util/tensor.hh"
 #include "gnn/sage.hh"
 #include "samplers/sample.h"
-#include "samplers/full.h"
+#include "samplers/neigh_sample.h"
 #include "util/timer.h"
 #include "dataset.h"
 int no_gpus = 4;
@@ -23,7 +23,7 @@ int run_experiment(string filename){
 
 //   int no_gpus = 4;
 //   enable_peer_communication();
-  auto *s = new TwoHopNoSampler(dataset->num_nodes, dataset->num_edges,
+  auto *s = new TwoHopNeighSampler(dataset->num_nodes, dataset->num_edges,
              dataset->indptr, dataset->indices, 1024,dataset->features,
               dataset->labels, dataset->fsize);
   SageAggr * saggr_layer1[4];
@@ -33,7 +33,7 @@ int run_experiment(string filename){
     saggr_layer2[device] = new SageAggr(dataset->fsize, device);
   }
   int noB = s->number_of_batches();
-  noB = 10;
+  // noB = 10;
   for(int bid = 0; bid<noB/4;bid++){
     std::cout <<  "batch " << bid <<"\n";
     size_t free, total;

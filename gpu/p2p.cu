@@ -4,12 +4,12 @@ float p2p_copy (size_t size)
 {
   int *pointers[2];
 
-  size = sizeof(int);
+  //size = sizeof(int);
   cudaSetDevice (0);
   cudaDeviceEnablePeerAccess (1, 0);
   cudaMalloc (&pointers[0], size);
   int t = 1991;
-  cudaMemcpy(pointers[0], &t, size ,cudaMemcpyHostToDevice);
+  cudaMemcpy(pointers[0], &t, sizeof(int) ,cudaMemcpyHostToDevice);
 
   cudaSetDevice (1);
   cudaDeviceEnablePeerAccess (0, 1);
@@ -44,5 +44,5 @@ float p2p_copy (size_t size)
 }
 
 int main(){
-  p2p_copy(10);
+  p2p_copy(1024 * 1024 * 1024);
 }
