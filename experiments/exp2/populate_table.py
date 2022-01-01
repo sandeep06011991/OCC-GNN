@@ -1,5 +1,5 @@
-import dgl
-import torch
+# import dgl
+# import torch
 import time
 import subprocess
 
@@ -18,57 +18,57 @@ import subprocess
 #     # Create dummy dataset for testing.
 #     return dataset
 
-def run_experiment(dataset_name,hops):
-    dataset = get_dataset(dataset_name)
-    sampler = dgl.dataloading.MultiLayerNeighborSampler(
-        [10 for i in range(hops)])
-    g = dataset[0]
-    dataloader = dgl.dataloading.NodeDataLoader(
-        dataset[0],
-        torch.arange(g.num_nodes()),
-        sampler,
-        batch_size=256,
-        shuffle=True,
-        drop_last=False,
-        num_workers=1)
-    dataloader = iter(dataloader)
-    nfeat = dataset[0].ndata['feat']
-    labels = dataset[0].ndata['label']
-    sampling_time = 0
-    formatting_time = 0
-    data_movement_time = 0
-    print("Start")
-    try:
-        while True:
-            t_a = time.time()
-            input_nodes, output_nodes, blocks = next(dataloader)
-            t_b = time.time()
-        # for input_nodes, output_nodes, blocks in (dataloader):
-            batch_inputs = nfeat[input_nodes].clone()
-            batch_labels = labels[output_nodes].clone()
-            t_c = time.time()
-            batch_inputs.to(device)
-            labels.to(device)
-            block = blocks[0].int().to(device)
-            torch.cuda.synchronize()
-            t_d = time.time()
-            sampling_time += (t_b-t_a)
-            formatting_time += (t_c - t_b)
-            data_movement_time += (t_d - t_c)
-    except StopIteration:
-        pass
-
-    with open("exp1.txt","a") as fp:
-        fp.write("{}|{}|{}|{}|{}\n".format("dataset","hops","sampling(s)","fomat(s)","data(s)"))
-        fp.write("DGL|{}|{}|{:.2f}s|{:.2f}s|{:.2f}s\n".format(dataset_name,hops,sampling_time, \
-                        formatting_time,data_movement_time))
+# def run_experiment(dataset_name,hops):
+#     dataset = get_dataset(dataset_name)
+#     sampler = dgl.dataloading.MultiLayerNeighborSampler(
+#         [10 for i in range(hops)])
+#     g = dataset[0]
+#     dataloader = dgl.dataloading.NodeDataLoader(
+#         dataset[0],
+#         torch.arange(g.num_nodes()),
+#         sampler,
+#         batch_size=256,
+#         shuffle=True,
+#         drop_last=False,
+#         num_workers=1)
+#     dataloader = iter(dataloader)
+#     nfeat = dataset[0].ndata['feat']
+#     labels = dataset[0].ndata['label']
+#     sampling_time = 0
+#     formatting_time = 0
+#     data_movement_time = 0
+#     print("Start")
+#     try:
+#         while True:
+#             t_a = time.time()
+#             input_nodes, output_nodes, blocks = next(dataloader)
+#             t_b = time.time()
+#         # for input_nodes, output_nodes, blocks in (dataloader):
+#             batch_inputs = nfeat[input_nodes].clone()
+#             batch_labels = labels[output_nodes].clone()
+#             t_c = time.time()
+#             batch_inputs.to(device)
+#             labels.to(device)
+#             block = blocks[0].int().to(device)
+#             torch.cuda.synchronize()
+#             t_d = time.time()
+#             sampling_time += (t_b-t_a)
+#             formatting_time += (t_c - t_b)
+#             data_movement_time += (t_d - t_c)
+#     except StopIteration:
+#         pass
+#
+#     with open("exp1.txt","a") as fp:
+#         fp.write("{}|{}|{}|{}|{}\n".format("dataset","hops","sampling(s)","fomat(s)","data(s)"))
+#         fp.write("DGL|{}|{}|{:.2f}s|{:.2f}s|{:.2f}s\n".format(dataset_name,hops,sampling_time, \
+#                         formatting_time,data_movement_time))
 
 import re
 def run_naive_experiment(filename):
     output = subprocess.run(["../../build/naive_distributed_gcn",
             filename], capture_output=True)
     output = str(output.stdout)
-    # print(output)
+    print(output)
     movement = re.findall(r"data movement\|(\d+\.\d+s)",output)[0]
     compute = re.findall(r"compute\ \|(\d+\.\d+s)",output)[0]
     return {"movement":movement,"compute":compute}
@@ -79,16 +79,15 @@ def run_metis_experiment(filename,p):
     output = subprocess.run(["../../build/distributed_gcn",
             filename,p], capture_output=True)
     output = str(output.stdout)
-    # print(output)
+    print(output)
     movement = re.findall(r"data movement\|(\d+\.\d+s)",output)[0]
     compute = re.findall(r"compute\ \|(\d+\.\d+s)",output)[0]
     return {"movement":movement,"compute":compute}
 
 def run_experiment():
-    filename = ["pubmed","reddit","obgn-arxiv","obgn-products"]
     partition_scheme = ["random","metis","optimum"]
-    filename = ["reddit","obgn-arxiv","obgn-products"]
-    filename = ["ogbn-arxiv","ogbn-products"]
+    filename = ["pubmed","reddit","ogbn-arxiv","ogbn-products"]
+    filename = ["ogbn-products"]
     with open("exp2.txt",'a') as fp:
         fp.write("GRAPH | PARTITION | MOVE | COMPUTE\n")
     for f in filename:

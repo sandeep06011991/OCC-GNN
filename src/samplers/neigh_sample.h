@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <util/timer.h>
 #include <cstring>
+#include "nvToolsExt.h"
 // creates minibatches of given size by shuffling target node
 // with full 2 hop neighbourhood.
 // Fixme:: Move the graph class to different position.
@@ -93,6 +94,8 @@ public:
 
 
   void get_sample(int batchId){
+
+    nvtxRangePushA("Sampling start");
     assert(batchId * this->minibatch_size < this->no_nodes);
     int * tgt = &this->target_nodes[this->minibatch_size * batchId];
     int no_nodes =  minibatch_size;
@@ -109,14 +112,14 @@ public:
       int edge_end = this->graph.indptr[nd1+1];
       if(edge_end - edge_start>0)sample.l1.nd1.push_back(nd1);
       int no_neighbours = edge_end - edge_start;
-      if(no_neighbours < 25){
+      if(no_neighbours < 10){
         for(int j=edge_start; j < edge_end ; j++ ){
           int nd2 = this->graph.indices[j];
           sample.l1.nd2.push_back(nd2);
           sample.l1.edges.push_back(std::make_pair(nd1,nd2));
         }
       }else{
-        for(int j=0;j<25;j++){
+        for(int j=0;j<10;j++){
           int rand_nb = rand()%no_neighbours;
           int nd2 = this->graph.indices[edge_start+rand_nb];
           sample.l1.nd2.push_back(nd2);
@@ -156,10 +159,32 @@ public:
 
 
     this->fill_batch_data(sample.l2.nd2.data(),sample.l2.in_nodes, sample.l1.nd1.data(), sample.l1.out_nodes);
+    nvtxRangePop();
   }
 
 
-
+  void debug(){
+    // auto l1 = sample.l1.nd1;
+    // auto l2 = sample.l1.nd2;
+    // auto l3 = sample.l2.nd2;
+    // std::cout << "Layer 1\n";
+    // for(int i=0;i<l1.size();i++){
+    //   std::cout << l1[i] <<" ";
+    // }
+    // std::cout << "\n";
+    // std::cout << "Layer 2\n";
+    // for(int i=0;i<l2.size();i++){
+    //   std::cout << l2[i] <<" ";
+    // }
+    //
+    // std::cout << "\n";
+    // std::cout << "Layer 3\n";
+    // for(int i=0;i<l3.size();i++){
+    //   std::cout << l3[i] <<" ";
+    // }
+    //
+    // std::cout << "\n";
+  }
   int number_of_batches(){
     return ((this->no_nodes - 1)/minibatch_size  + 1);
   }

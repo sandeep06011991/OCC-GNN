@@ -1,8 +1,5 @@
-dataset|hops|sampling(s)|fomat(s)|data(s)
-DGL|pubmed|2|1.48s|0.11s|3.91s
-DGL|reddit|2|3.72s|18.70s|16.13s
-ME|pubmed|2|0.465|0.073|0.233
-ME|reddit|2|60.1741|42.8831|18.1241
-
-Reddit - F - 602
-Pubmed - F - 500
+dataset|hops|GPU-sample|CPU-sampling(s)|fomat(s)|data(s)
+ME|pubmed|2|** | 0.465|0.073|0.233
+ME|reddit|2|** |42.8831|18.1241
+DGL|pubmed|2|0.41s|0.29s|0.59s|0.20s
+DGL|reddit|2|3.43s|1.79s|17.99s|11.91s

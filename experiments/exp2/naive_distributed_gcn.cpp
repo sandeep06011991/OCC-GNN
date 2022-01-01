@@ -34,6 +34,8 @@ int run_experiment(string filename){
   }
   int noB = s->number_of_batches();
   // noB = 10;
+  std::vector<int> prev;
+  std::vector<int> empty;
   for(int bid = 0; bid<noB/4;bid++){
     std::cout <<  "batch " << bid <<"\n";
     size_t free, total;
@@ -42,6 +44,14 @@ int run_experiment(string filename){
     for(int device = 0;device < 4; device ++) {
       if(bid*4 + device > noB)continue;
       s->get_sample(bid * 4 + device);
+      // s->debug();
+      auto &i = s->sample.l2.nd2;
+      auto it = std::set_intersection(prev.begin(),prev.end(),
+            i.begin(),i.end(),std::back_inserter(empty));
+      std::cout << empty.size() << ":" << i.size() << "\n";
+      empty.clear();
+      prev = i;
+      continue;
       // Create tensor data from samples.
       SampleLayer &l2 = s->sample.l2;
       Tensor<int> * indptr1 = new Tensor<int>(l2.indptr.data(),Shape(l2.indptr.size(),1),device);
@@ -54,11 +64,17 @@ int run_experiment(string filename){
       Tensor<int> * indices2 = new Tensor<int>(l1.indices.data(), Shape(l1.indices.size(),1), device);
       start_timer(MOVEMENT_COST);
       // Tensor<int> * batch_labels = new Tensor<int>(s->batch_labels, Shape(l1.out_nodes, 1);
+      //
+      // cudaDeviceSynchronize();
       stop_timer(MOVEMENT_COST);
       start_timer(MOVEMENT_COMPUTE);
       assert(l1.in_nodes == l2.out_nodes);
+
       auto out = saggr_layer1[device]->forward(*indptr1,*indices1, *batch_in, l2.out_nodes,l2.in_nodes);
       saggr_layer2[device]->forward(*indptr2,*indices2, *out ,l1.out_nodes, l1.in_nodes);
+      // cudaSetDevice(device);
+      // cudaDeviceSynchronize();
+      //
       stop_timer(MOVEMENT_COMPUTE);
       indptr1->clearTensor();
       indptr2->clearTensor();

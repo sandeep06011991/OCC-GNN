@@ -11,6 +11,9 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
       // comes in externally.
       // std::cout << "v1\n";
       int * reorder_map = (int *)malloc(sizeof(int) * num_nodes_out);
+      int count = 0;
+      int min_mov = 0;
+      int l = 0;
       if(!this->isExternalPartitioning){
         if(this->israndomPartitioning){
           for(int i=0; i< num_nodes_out;i++){
@@ -30,6 +33,13 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
               if(max_gpu[j] > max_gpu[max_g])max_g = j;
             }
             reorder_map[i] = max_g;
+            if(reorder_map[i]!=ext_map[i])count++;
+            for(int j=0;j<4;j++){
+              if(j == max_g) continue;
+              min_mov = min_mov + max_gpu[j];
+              if(max_gpu[j]>0)l++;
+            }
+
           }
         }
     }else{
@@ -37,6 +47,8 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
         reorder_map[i] = ext_map[i];
       }
     }
+    std::cout << count <<" " << min_mov << " "
+        << num_nodes_in << " "<<  num_nodes_out <<" " << l << "\n";
       if(this->out_feat != nullptr){
         this->out_feat->clearTensor();
         delete (this->out_feat);
@@ -53,6 +65,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
       this->populateLocalGraphs(in, ind_ptr, indices);
       // std::cout << "v4\n";
       for(int i=0;i<no_gpus;i++){
+
         for(int j=0;j<no_gpus;j++){
           if(i==j){
             this->local_graph[i][j].create_local_csr(this->out_feat->local_to_global[i].size());
@@ -61,16 +74,25 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
           }
         }
       }
+      sync_all_gpus();
       // std::cout << "v5\n";
       start_timer(MOVEMENT_COMPUTE);
       for(int i=0;i<no_gpus;i++){
+        // std::cout << "gpu" << i <<"\n";
+        auto s =  high_resolution_clock::now();
         for(int j=0;j<no_gpus;j++){
           this->local_graph[i][j].forward(*(in.local_tensors[i]));
         }
+        cudaSetDevice(i);
+        cudaDeviceSynchronize();
+        auto e = high_resolution_clock::now();
+        auto duration = (float)duration_cast<milliseconds>(s - e).count()/1000;
+        std::cout <<"gpu" << i << "time" << duration <<"ms\n";
       }
       // std::cout << "v6\n";
-      sync_all_gpus();
+
       stop_timer(MOVEMENT_COMPUTE);
+      // sync_all_gpus();
       // Create temporary tensors and clean up after wards.
       Tensor<float> * temp[4][4];
       start_timer(MOVEMENT_COST);
@@ -87,7 +109,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
       }
       stop_timer(MOVEMENT_COST);
       // std::cout << "v7\n";
-      sync_all_gpus();
+      // sync_all_gpus();
       start_timer(MOVEMENT_COMPUTE);
       for(int dest=0;dest<no_gpus;dest++){
         for(int src=0;src<no_gpus;src++){
@@ -98,7 +120,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
           }
         }
       }
-      sync_all_gpus();
+      // sync_all_gpus();
       stop_timer(MOVEMENT_COMPUTE);
       // std::cout << "v8\n";
       // out = new DistributedTensor(reorderer_map,shape);
@@ -160,6 +182,6 @@ void merge(Tensor<float> *src, Tensor<float> *dest, Tensor<int> *indices){
   mergeKernel<<<noBlocks,noThreads>>>(src->data_device, src->s.dim1, src->s.dim2,
                           dest->data_device, dest->s.dim1, dest->s.dim2,
                           indices->data_device, indices->s.dim1);
-  cudaDeviceSynchronize();
+  // cudaDeviceSynchronize();
   NNException::throwIfDeviceErrorsOccurred("Failed Merge kernel \n");
 }

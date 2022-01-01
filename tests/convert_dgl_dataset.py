@@ -32,6 +32,7 @@ def get_dataset(name):
     return dataset,labels
 
 def write_dataset_dataset(dataset,labels, TARGET_DIR):
+    dataset = dgl.add_self_loop(dataset)
     sparse_mat = dataset.adj(scipy_fmt='csr')
     sparse_mat.sort_indices()
     assert(np.array_equal(np.ones(sparse_mat.data.shape),sparse_mat.data))
@@ -105,7 +106,7 @@ def write_dataset_dataset(dataset,labels, TARGET_DIR):
 # arg1 = full target directory
 if __name__=="__main__":
     # assert(len(sys.argv) == 3)
-    name = "ogbn-products"
+    name = "reddit"
     target = TARGET_DIR +"/" + name
     import os
     os.makedirs(target,exist_ok = True)

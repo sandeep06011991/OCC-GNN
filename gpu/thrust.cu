@@ -5,7 +5,7 @@
 #include <thrust/copy.h>
 #include <algorithm>
 #include <cstdlib>
-
+#include <iostream>
 int main(void)
 {
   // generate 32M random numbers serially
@@ -21,5 +21,6 @@ int main(void)
   // transfer data back to host
   thrust::copy(d_vec.begin(), d_vec.end(), h_vec.begin());
 
+  std::cout << "hello world\n";
   return 0;
 }

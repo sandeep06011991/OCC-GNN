@@ -110,6 +110,7 @@ public:
   void forward(Tensor<float> &src){
       // Tensor<float>& forward(Tensor<int>& ind_ptr, Tensor<int>& indices,
       //         Tensor<float>& in, int num_nodes_out, int num_nodes_in);
+      // std::cout << "stats: " << indptr.size() <<  " " << indices.size() <<"\n";
       ind_ptr_t = new Tensor<int>(indptr.data(),
                       Shape(indptr.size(),1),src_gpu);
       indices_t = new Tensor<int>(indices.data(),

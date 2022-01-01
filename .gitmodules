@@ -1,3 +1,9 @@
 [submodule "dependencies/thrust"]
 	path = dependencies/thrust
 	url = https://github.com/NVIDIA/thrust.git
+[submodule "cub"]
+	path = cub
+	url = https://github.com/NVIDIA/cub.git
+[submodule "dependencies/cub"]
+	path = dependencies/cub
+	url = https://github.com/NVIDIA/cub.git
