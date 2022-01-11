@@ -14,7 +14,7 @@ int run_experiment(string filename){
   std::string BIN_DIR = "/home/spolisetty/data/";
   reset_timers();
   active_timer(MOVEMENT_COST);
-  active_timer(MOVEMENT_COMPUTE);
+  active_timer(MOVEMENT_COMPUTE1);
   // Dataset * dataset = new Dataset(BIN_DIR + "/pubmed");
   Dataset * dataset = new Dataset(BIN_DIR + filename);
   int no_vertices = dataset->num_nodes;
@@ -36,6 +36,9 @@ int run_experiment(string filename){
   // noB = 10;
   std::vector<int> prev;
   std::vector<int> empty;
+  // noB = 48;
+
+  std::cout << "contains a total of no batch" << noB << "\n";
   for(int bid = 0; bid<noB/4;bid++){
     std::cout <<  "batch " << bid <<"\n";
     size_t free, total;
@@ -46,12 +49,12 @@ int run_experiment(string filename){
       s->get_sample(bid * 4 + device);
       // s->debug();
       auto &i = s->sample.l2.nd2;
-      auto it = std::set_intersection(prev.begin(),prev.end(),
-            i.begin(),i.end(),std::back_inserter(empty));
-      std::cout << empty.size() << ":" << i.size() << "\n";
-      empty.clear();
-      prev = i;
-      continue;
+      // auto it = std::set_intersection(prev.begin(),prev.end(),
+      //       i.begin(),i.end(),std::back_inserter(empty));
+      // std::cout << empty.size() << ":" << i.size() << "\n";
+      // empty.clear();
+      // prev = i;
+      // continue;
       // Create tensor data from samples.
       SampleLayer &l2 = s->sample.l2;
       Tensor<int> * indptr1 = new Tensor<int>(l2.indptr.data(),Shape(l2.indptr.size(),1),device);
@@ -67,15 +70,15 @@ int run_experiment(string filename){
       //
       // cudaDeviceSynchronize();
       stop_timer(MOVEMENT_COST);
-      start_timer(MOVEMENT_COMPUTE);
+      start_timer(MOVEMENT_COMPUTE1);
       assert(l1.in_nodes == l2.out_nodes);
 
       auto out = saggr_layer1[device]->forward(*indptr1,*indices1, *batch_in, l2.out_nodes,l2.in_nodes);
       saggr_layer2[device]->forward(*indptr2,*indices2, *out ,l1.out_nodes, l1.in_nodes);
-      // cudaSetDevice(device);
-      // cudaDeviceSynchronize();
+      cudaSetDevice(device);
+      cudaDeviceSynchronize();
       //
-      stop_timer(MOVEMENT_COMPUTE);
+      stop_timer(MOVEMENT_COMPUTE1);
       indptr1->clearTensor();
       indptr2->clearTensor();
       indices1->clearTensor();

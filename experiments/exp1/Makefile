@@ -1,9 +1,10 @@
 
 
 single_gpu:
-	nvcc -I ../../src/ ../../src/util/tensor.cu ../../src/gnn/sage.cu  \
+	nvcc -Xcompiler -fopenmp -I ../../src/ ../../src/util/tensor.cu ../../src/gnn/sage.cu  \
 		../../src/dataset.cpp single_gpu.cc \
-	-lcublas -o ../../build/sampling
+		../../src/util/timer.cpp \
+	-lcublas -lnvToolsExt   -o ../../build/sampling
 	# nvcc -I ../src/ ../src/tensor.cu ../src/samplers/full.cpp -lcublas \
 	# ../src/dataset.cpp gcn_test.cc -o ../build/gcn_test
 	../../build/sampling reddit

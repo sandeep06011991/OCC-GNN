@@ -3,6 +3,7 @@
 #include<vector>
 #include "util/tensor.hh"
 #include "gnn/sage.hh"
+#include "util/timer.h"
 // Global data graph is broken down into local executable units on individual gpus.
 // Main inputs are dest_local_ids and indices and local_to_local.
 // populated using add_edge.
@@ -120,8 +121,9 @@ public:
       int num_nodes_out = (indptr.size()-1);
       int num_nodes_in = src.s.dim1 ;
       cudaSetDevice(src_gpu);
-      this->out = aggr->forward(*ind_ptr_t, *indices_t, src, num_nodes_out, num_nodes_in);
 
+      this->out = aggr->forward(*ind_ptr_t, *indices_t, src, num_nodes_out, num_nodes_in);
+      // stop_timer(MOVEMENT_COMPUTE1);
   }
 
 };

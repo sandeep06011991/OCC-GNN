@@ -3,20 +3,20 @@
 #include "dataset.h"
 #include <fstream>
 #include "util/tensor.hh"
-#include "samplers/full.h"
+#include "samplers/neigh_sample.h"
 #include "gnn/sage.hh"
-
+#include "util/timer.h"
 // Not a test code runs.
 
 int main(){
 
   std::string BIN_DIR = "/home/spolisetty/data";
-  Dataset * dataset = new Dataset(BIN_DIR + "/ogbn-arxiv");
+  Dataset * dataset = new Dataset(BIN_DIR + "/reddit");
   std::cout << dataset->num_edges <<"\n";
   std::cout << dataset->fsize << "\n";
   std::cout << " classes: " << dataset->noClasses << "\n";
-  int batch_size = 4;
-  auto * s = new TwoHopNoSampler(dataset->num_nodes, dataset->num_edges,
+  int batch_size = 512;
+  auto * s = new TwoHopNeighSampler(dataset->num_nodes, dataset->num_edges,
              dataset->indptr, dataset->indices, batch_size,dataset->features,
               dataset->labels, dataset->fsize);
 
@@ -42,36 +42,40 @@ int main(){
   //   }
   //   std::cout <<"\n";
   // }
+  active_timer(SAMPLE_CREATION);
+  active_timer(FILL_DATA);
+  active_timer(CREATE_CSR);
+  active_timer(DUPLICATE_LAYER);
   int device_id = 0;
-  Tensor<float> * aggr_t = new Tensor<float>(aggr2, Shape(batch_size, dataset->fsize),device_id);
-  SageAggr * layer1 = new SageAggr(dataset->fsize, device_id);
-  SageAggr * layer2 = new SageAggr(dataset->fsize,device_id);
+  // Tensor<float> * aggr_t = new Tensor<float>(aggr2, Shape(batch_size, dataset->fsize),device_id);
+  // SageAggr * layer1 = new SageAggr(dataset->fsize, device_id);
+  // SageAggr * layer2 = new SageAggr(dataset->fsize,device_id);
   //
   s->shuffle();
-  s->get_sample(2);
-  SampleLayer &l2 = s->sample.l2;
-  Tensor<int> * indptr1 = new Tensor<int>(l2.indptr.data(),Shape(l2.indptr.size(),1),device_id);
-  Tensor<int> * indices1 = new Tensor<int>(l2.indices.data(),Shape(l2.indices.size(),1),device_id);
-  Tensor<float> * batch_in = new Tensor<float>(s->batch_features,Shape(l2.in_nodes,dataset->fsize),device_id);
-  SampleLayer &l1 = s->sample.l1;
-  Tensor<int> * indptr2 = new Tensor<int>(l1.indptr.data(),Shape(l1.indptr.size(),1),device_id);
-  Tensor<int> * indices2 = new Tensor<int>(l1.indices.data(),Shape(l1.indices.size(),1),device_id);
-  Tensor<int> * batch_labels = new Tensor<int>(s->batch_labels, Shape(l1.out_nodes, 1),device_id);
-
-  auto o1 = layer1->forward(*indptr1, *indices1, *batch_in,
-                  indptr1->s.dim1-1,batch_in->s.dim1);
-  auto o2 = layer2->forward(*indptr2,* indices2, *o1, indptr2->s.dim1-1,o1->s.dim1);
+  // s->get_sample(2);
+  // SampleLayer &l2 = s->sample.l2;
+  // Tensor<int> * indptr1 = new Tensor<int>(l2.indptr.data(),Shape(l2.indptr.size(),1),device_id);
+  // Tensor<int> * indices1 = new Tensor<int>(l2.indices.data(),Shape(l2.indices.size(),1),device_id);
+  // Tensor<float> * batch_in = new Tensor<float>(s->batch_features,Shape(l2.in_nodes,dataset->fsize),device_id);
+  // SampleLayer &l1 = s->sample.l1;
+  // Tensor<int> * indptr2 = new Tensor<int>(l1.indptr.data(),Shape(l1.indptr.size(),1),device_id);
+  // Tensor<int> * indices2 = new Tensor<int>(l1.indices.data(),Shape(l1.indices.size(),1),device_id);
+  // Tensor<int> * batch_labels = new Tensor<int>(s->batch_labels, Shape(l1.out_nodes, 1),device_id);
+  //
+  // auto o1 = layer1->forward(*indptr1, *indices1, *batch_in,
+  //                 indptr1->s.dim1-1,batch_in->s.dim1);
+  // auto o2 = layer2->forward(*indptr2,* indices2, *o1, indptr2->s.dim1-1,o1->s.dim1);
   // std::cout << "total sum" << o2.debugTensor() <<"\n";
   // o2.viewTensor();
   // std::cout << "total sum" << aggr_t->debugTensor() <<"\n";
   // aggr_t->viewTensor();
   //   // Test 1 print out all samples.
-  // int noB = s->number_of_batches();
-  // // std::cout << "number of batches is" << noB <<"\n";
-  // // for(int bid = 0; bid<noB;bid++){
-  //   s->get_sample(0);
-  // }
+  int noB = s->number_of_batches();
+  std::cout << "number of batches is" << noB <<"\n";
+  for(int bid = 0; bid<noB;bid++){
+    s->get_sample(bid);
+  }
   // Test 2 print out all csr neighbourhoods.
-
+print_timer();
   std::cout << "Hello World ! \n";
 }

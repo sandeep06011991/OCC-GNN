@@ -39,7 +39,7 @@ Tensor<T>::Tensor(Shape s, int device_id){
   cudaSetDevice(device_id);
   cudaMalloc(&this->data_device, s.dim1 * s.dim2 *sizeof(T));
   NNException::throwIfDeviceErrorsOccurred("cudamlloc data failed\n");
-  cudaDeviceSynchronize();
+  // cudaDeviceSynchronize();
 }
 
 template<typename T>
@@ -51,7 +51,7 @@ Tensor<T>::Tensor(T* data, Shape s, int device_id){
   cudaMalloc(&this->data_device, s.dim1 * s.dim2 *sizeof(T));
   NNException::throwIfDeviceErrorsOccurred("cudamalloc data failed\n");
   cudaMemcpy(this->data_device, data, s.dim1 * s.dim2 *sizeof(T), cudaMemcpyHostToDevice);
-  cudaDeviceSynchronize();
+  // cudaDeviceSynchronize();
 }
 
 template<typename T>
@@ -65,7 +65,7 @@ Tensor<T>::Tensor(Tensor<T> &src, int device_id){
   NNException::throwIfDeviceErrorsOccurred("cudamalloc data failed\n");
   cudaMemcpy(this->data_device, src.data_device, s.dim1 * s.dim2 *sizeof(T), cudaMemcpyDeviceToDevice);
   NNException::throwIfDeviceErrorsOccurred("Memcpy data failed\n");
-  cudaDeviceSynchronize();
+  // cudaDeviceSynchronize();
 }
 
 template<typename T>
@@ -79,7 +79,7 @@ Tensor<T>::Tensor(Tensor<T> *src, int device_id){
   NNException::throwIfDeviceErrorsOccurred("cudamalloc data failed\n");
   cudaMemcpy(this->data_device, src->data_device, s.dim1 * s.dim2 *sizeof(T), cudaMemcpyDeviceToDevice);
   NNException::throwIfDeviceErrorsOccurred("Memcpy data failed\n");
-  cudaDeviceSynchronize();
+  // cudaDeviceSynchronize();
 }
 
 template<typename T>
@@ -87,7 +87,7 @@ void Tensor<T>::viewTensor(){
   T * host = (T *)malloc(sizeof(T) * this->s.dim1 * this->s.dim2);
   cudaSetDevice(device_id);
   cudaMemcpy(host, this->data_device,  s.dim1 * s.dim2 *sizeof(T), cudaMemcpyDeviceToHost);
-  cudaDeviceSynchronize();
+  // cudaDeviceSynchronize();
 
   int ii = std::min(4, this->s.dim1);
   int jj = std::min(4, this->s.dim2);
@@ -111,7 +111,7 @@ template<typename T>
 void Tensor<T>::copyTensorToCPUMemory(T* cpu_mem){
   cudaSetDevice(device_id);
   cudaMemcpy(cpu_mem, this->data_device,  s.dim1 * s.dim2 *sizeof(T), cudaMemcpyDeviceToHost);
-  cudaDeviceSynchronize();
+  // cudaDeviceSynchronize();
 }
 
 // template<typename T>

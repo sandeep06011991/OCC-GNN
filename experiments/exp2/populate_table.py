@@ -70,7 +70,7 @@ def run_naive_experiment(filename):
     output = str(output.stdout)
     print(output)
     movement = re.findall(r"data movement\|(\d+\.\d+s)",output)[0]
-    compute = re.findall(r"compute\ \|(\d+\.\d+s)",output)[0]
+    compute = re.findall(r"compute1\ \|(\d+\.\d+s)",output)[0]
     return {"movement":movement,"compute":compute}
 
 def run_metis_experiment(filename,p):
@@ -81,13 +81,14 @@ def run_metis_experiment(filename,p):
     output = str(output.stdout)
     print(output)
     movement = re.findall(r"data movement\|(\d+\.\d+s)",output)[0]
-    compute = re.findall(r"compute\ \|(\d+\.\d+s)",output)[0]
+    compute = re.findall(r"compute1\ \|(\d+\.\d+s)",output)[0]
     return {"movement":movement,"compute":compute}
 
 def run_experiment():
     partition_scheme = ["random","metis","optimum"]
+    partition_scheme = ["metis"]
     filename = ["pubmed","reddit","ogbn-arxiv","ogbn-products"]
-    filename = ["ogbn-products"]
+    filename = ["ogbn-products","ogbn-arxiv","reddit"]
     with open("exp2.txt",'a') as fp:
         fp.write("GRAPH | PARTITION | MOVE | COMPUTE\n")
     for f in filename:

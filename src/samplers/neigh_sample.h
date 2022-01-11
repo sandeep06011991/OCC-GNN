@@ -78,6 +78,7 @@ public:
     batch_features = (float *)malloc(sizeof(float)* no_in * this->fsize);
     batch_labels = (int *)malloc(sizeof(int) * no_out);
     start_timer(SAMPL_F_DATA_FORMAT);
+    #pragma omp parallel for
     for(int i=0; i < no_in;i++){
       memcpy(&batch_features[i*this->fsize],
           &full_features[in_nodes[i]*this->fsize],sizeof(float) * this->fsize);
@@ -94,7 +95,6 @@ public:
 
 
   void get_sample(int batchId){
-
     nvtxRangePushA("Sampling start");
     assert(batchId * this->minibatch_size < this->no_nodes);
     int * tgt = &this->target_nodes[this->minibatch_size * batchId];
@@ -106,6 +106,7 @@ public:
     // Sample 2-hop neighbourhoods.
     sample.clear();
     start_timer(SAMPLE_CREATION);
+    // #pragma omp parallel for
     for(int i=0;i<no_nodes;i++){
       int nd1 = tgt[i];
       int edge_start = this->graph.indptr[nd1];
@@ -127,8 +128,13 @@ public:
         }
       }
     }
+    stop_timer(SAMPLE_CREATION);
+    start_timer(DUPLICATE_LAYER);
     sample.l1.remove_duplicates();
+    stop_timer(DUPLICATE_LAYER);
     int nodes_l1 = sample.l1.nd2.size();
+    // #pragma omp parallel for
+    start_timer(SAMPLE_CREATION);
     for(int i=0;i<nodes_l1;i++){
       int nd1 = sample.l1.nd2[i];
       int edge_start = this->graph.indptr[nd1];
@@ -152,13 +158,18 @@ public:
       }
     }
     stop_timer(SAMPLE_CREATION);
+    start_timer(DUPLICATE_LAYER);
     sample.l2.remove_duplicates();
+    stop_timer(DUPLICATE_LAYER);
     // create csr
+    start_timer(CREATE_CSR);
     sample.l1.create_csr();
     sample.l2.create_csr();
+    stop_timer(CREATE_CSR);
 
-
+    start_timer(FILL_DATA);
     this->fill_batch_data(sample.l2.nd2.data(),sample.l2.in_nodes, sample.l1.nd1.data(), sample.l1.out_nodes);
+    stop_timer(FILL_DATA);
     nvtxRangePop();
   }
 

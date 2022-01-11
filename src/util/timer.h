@@ -11,7 +11,11 @@ enum measure{
     SAMPL_F_DATA_FORMAT,
     SAMPL_F_DATA_TRANSFER,
     MOVEMENT_COST,
-    MOVEMENT_COMPUTE,
+    MOVEMENT_COMPUTE1,
+    MOVEMENT_COMPUTE2,
+    FILL_DATA,
+    CREATE_CSR,
+    DUPLICATE_LAYER,
     DEBUG1,
     DEBUG2,
     DEBUG3
@@ -29,7 +33,7 @@ inline void start_timer(measure m){
 
 inline void stop_timer(measure m){
     auto stop = high_resolution_clock::now();
-    auto duration = (float)duration_cast<milliseconds>(stop - START[m]).count()/1000;
+    auto duration = ((float)duration_cast<milliseconds>(stop - START[m]).count())/1000;
     TIMERS[m] += duration;
 }
 

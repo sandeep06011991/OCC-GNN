@@ -3,3 +3,19 @@ ME|pubmed|2|** | 0.465|0.073|0.233
 ME|reddit|2|** |42.8831|18.1241
 DGL|pubmed|2|0.41s|0.29s|0.59s|0.20s
 DGL|reddit|2|3.43s|1.79s|17.99s|11.91s
+
+Why nextdoor transit parallel beat the sample parallel.
+another baseline was cpu pytorch of graphsage and ladies and fastgcn and graphsaint.
+Does cpu pytorch include A , B[A].to() cpu-gpu transfer ? Not sure .
+
+Minibatch_F[n_i]
+F[n_i]
+
+
+
+ME|pubmed|2|0.06|0.092|0.236
+ME|pubmed|2|0.057|0.089|0.233
+ME|pubmed|2|0.081|0.476|0.239
+ME|pubmed|2|0.029|0.089|0.248
+ME|reddit|2|4.80705|21.1061|9.28412
+ME|reddit|2|5.21804|8.87899|9.6931

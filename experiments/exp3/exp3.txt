@@ -1,0 +1,7 @@
+Graph | cache-percentage | cache-miss rate | avg-epoch time
+reddit|10|0.8597|106.0649s
+reddit|25|0.6685|86.9115s
+reddit|100|0.0000|54.6855s
+lj|10|0.5158|155.6198s
+lj|25|0.2829|129.2277s
+lj|100|0.0000|75.8125s

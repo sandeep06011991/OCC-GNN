@@ -11,7 +11,7 @@ naive:
 	../../src/gnn/sage.cu  	\
 	../../src/dataset.cpp ../../src/util/gpu.cu \
 	../../src/util/timer.cpp -lnvToolsExt -o ../../build/naive_distributed_gcn
-	# ../../build/naive_distributed_gcn reddit
+	# ../../build/naive_distributed_gcn ogbn-arxiv
 
 metis_dist:
 	nvcc -I ../../src/ metis_distr_gcn.cpp ../../src/util/dist_tensor.cu -l cublas  \
@@ -19,4 +19,4 @@ metis_dist:
 	../../src/util/tensor.cu  ../../src/dataset.cpp \
 	../../src/util/timer.cpp \
 	../../src/util/gpu.cu -lnvToolsExt -o ../../build/distributed_gcn
-	../../build/distributed_gcn ogbn-products optimum
+	# ../../build/distributed_gcn ogbn-arxiv metis

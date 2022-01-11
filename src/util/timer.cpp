@@ -31,8 +31,16 @@ void print_timer(){
                     break;
         case MOVEMENT_COST:std::cout << "data movement|";
                     break;
-        case MOVEMENT_COMPUTE : std::cout << "compute |" ;
+        case MOVEMENT_COMPUTE1 : std::cout << "compute1 |" ;
                     break;
+        case MOVEMENT_COMPUTE2 : std::cout << "compute2 |" ;
+                    break;
+        case CREATE_CSR: std::cout << "create csr|";
+                      break;
+        case DUPLICATE_LAYER: std::cout << "Duplicate layer|";
+                      break;
+        case FILL_DATA: std::cout << "Fill data|";
+                        break;
         case DEBUG1 : std::cout << "debug 1|";
                     break;
         case DEBUG2 : std::cout << "debug 2|";

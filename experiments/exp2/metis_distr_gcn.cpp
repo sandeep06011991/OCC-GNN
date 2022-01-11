@@ -15,7 +15,8 @@ int run_experiment(string filename,bool isexternal, bool israndom){
   std::string BIN_DIR = "/home/spolisetty/data/";
   reset_timers();
   active_timer(MOVEMENT_COST);
-  active_timer(MOVEMENT_COMPUTE);
+  active_timer(MOVEMENT_COMPUTE1);
+  active_timer(MOVEMENT_COMPUTE2);
   // Dataset * dataset = new Dataset(BIN_DIR + "/pubmed");
   Dataset * dataset = new Dataset(BIN_DIR + filename);
   int no_vertices = dataset->num_nodes;
@@ -31,7 +32,7 @@ int run_experiment(string filename,bool isexternal, bool israndom){
           dataset->partition_map,no_gpus);
   // stop_timer(MOVEMENT_COST);
   auto *s = new TwoHopNeighSampler(dataset->num_nodes, dataset->num_edges,
-             dataset->indptr, dataset->indices, 1024,dataset->features,
+             dataset->indptr, dataset->indices, 4096,dataset->features,
               dataset->labels, dataset->fsize);
 
   DistSageAggr *ll1 = new DistSageAggr(fsize, no_gpus, israndom, isexternal);
@@ -42,9 +43,10 @@ int run_experiment(string filename,bool isexternal, bool israndom){
     v_in = new Tensor<float>(dataset->features,Shape(no_vertices,fsize),0);
   }
   int noB = s->number_of_batches();
+  // noB =8;
   std::cout << "contains a total of no batch" << noB << "\n";
   for(int bid = 0; bid<noB;bid++){
-    std::cout <<  "batch " << bid <<"\n";
+    // std::cout <<  "batch " << bid <<"\n";
     s->get_sample(bid);
     size_t free_m, total;
     cudaMemGetInfo( &free_m, &total );

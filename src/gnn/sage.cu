@@ -3,7 +3,7 @@
 #include "gnn/sage.hh"
 #include "nn_exception.hh"
 #include <iostream>
-
+#include "util/timer.h"
 __global__ void aggregate_nodeWise(float *inFeat, float *outFeat, int *offsets,
     int *indices, int fsize){
       int outNodeID = blockIdx.x;
@@ -30,6 +30,7 @@ __global__ void  aggregate_edgeWise(float *ingrad, float *outgrad, int *offsets,
 
 Tensor<float> * SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
         Tensor<float>& in, int num_nodes_out, int num_nodes_in){
+
     assert(in.s.dim1 == num_nodes_in);
     assert(offsets.s.dim1 == num_nodes_out + 1);
     if(this->out_feat != nullptr){
@@ -40,6 +41,7 @@ Tensor<float> * SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
       this->out_grad->clearTensor();
       delete this->out_grad;
     }
+    // start_timer(MOVEMENT_COMPUTE1);
     this->out_feat = new Tensor<float>(Shape(num_nodes_out,this->fsize),this->device_id);
     this->out_grad = new Tensor<float>(Shape(num_nodes_in,this->fsize),this->device_id);
     int blocks = num_nodes_out;
@@ -50,8 +52,10 @@ Tensor<float> * SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
     this->indices = indices;
     cudaSetDevice(this->device_id);
     NNException::throwIfDeviceErrorsOccurred("forward Pass pre failed");
+
     aggregate_nodeWise<<<blocks, threads>>>(in.data_device, out_feat->data_device, \
       offsets.data_device, indices.data_device, this->fsize);
+    // stop_timer(MOVEMENT_COMPUTE1);
     // cudaDeviceSynchronize();
     NNException::throwIfDeviceErrorsOccurred("forward Pass failed");
     return out_feat;

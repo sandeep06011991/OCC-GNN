@@ -47,8 +47,8 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
         reorder_map[i] = ext_map[i];
       }
     }
-    std::cout << count <<" " << min_mov << " "
-        << num_nodes_in << " "<<  num_nodes_out <<" " << l << "\n";
+    // std::cout << count <<" " << min_mov << " "
+    //     << num_nodes_in << " "<<  num_nodes_out <<" " << l << "\n";
       if(this->out_feat != nullptr){
         this->out_feat->clearTensor();
         delete (this->out_feat);
@@ -76,22 +76,22 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
       }
       sync_all_gpus();
       // std::cout << "v5\n";
-      start_timer(MOVEMENT_COMPUTE);
+      start_timer(MOVEMENT_COMPUTE1);
       for(int i=0;i<no_gpus;i++){
         // std::cout << "gpu" << i <<"\n";
-        auto s =  high_resolution_clock::now();
+        // auto s =  high_resolution_clock::now();
         for(int j=0;j<no_gpus;j++){
           this->local_graph[i][j].forward(*(in.local_tensors[i]));
         }
-        cudaSetDevice(i);
-        cudaDeviceSynchronize();
-        auto e = high_resolution_clock::now();
-        auto duration = (float)duration_cast<milliseconds>(s - e).count()/1000;
-        std::cout <<"gpu" << i << "time" << duration <<"ms\n";
+        // cudaSetDevice(i);
+        // cudaDeviceSynchronize();
+        // auto e = high_resolution_clock::now();
+        // auto duration = (float)duration_cast<milliseconds>(s - e).count()/1000;
+        // std::cout <<"gpu" << i << "time" << duration <<"ms\n";
       }
       // std::cout << "v6\n";
 
-      stop_timer(MOVEMENT_COMPUTE);
+      stop_timer(MOVEMENT_COMPUTE1);
       // sync_all_gpus();
       // Create temporary tensors and clean up after wards.
       Tensor<float> * temp[4][4];
@@ -110,7 +110,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
       stop_timer(MOVEMENT_COST);
       // std::cout << "v7\n";
       // sync_all_gpus();
-      start_timer(MOVEMENT_COMPUTE);
+      start_timer(MOVEMENT_COMPUTE1);
       for(int dest=0;dest<no_gpus;dest++){
         for(int src=0;src<no_gpus;src++){
           if(src!=dest) {
@@ -121,7 +121,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
         }
       }
       // sync_all_gpus();
-      stop_timer(MOVEMENT_COMPUTE);
+      stop_timer(MOVEMENT_COMPUTE1);
       // std::cout << "v8\n";
       // out = new DistributedTensor(reorderer_map,shape);
       for(int i=0;i<no_gpus;i++){
