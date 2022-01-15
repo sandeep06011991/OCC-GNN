@@ -1,3 +1,4 @@
+
 #include "util/dist_tensor.hh"
 #include "gnn/dist_sage.hh"
 #include <vector>
@@ -76,22 +77,18 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
       }
       sync_all_gpus();
       // std::cout << "v5\n";
-      start_timer(MOVEMENT_COMPUTE1);
+      // start_timer(MOVEMENT_COMPUTE1);
+     // auto s1 = high_resolution_clock::now();
       for(int i=0;i<no_gpus;i++){
-        // std::cout << "gpu" << i <<"\n";
-        // auto s =  high_resolution_clock::now();
         for(int j=0;j<no_gpus;j++){
           this->local_graph[i][j].forward(*(in.local_tensors[i]));
         }
-        // cudaSetDevice(i);
-        // cudaDeviceSynchronize();
-        // auto e = high_resolution_clock::now();
-        // auto duration = (float)duration_cast<milliseconds>(s - e).count()/1000;
-        // std::cout <<"gpu" << i << "time" << duration <<"ms\n";
       }
       // std::cout << "v6\n";
-
-      stop_timer(MOVEMENT_COMPUTE1);
+	    //auto e1 = high_resolution_clock::now();
+      //auto duration = (float) (std::chrono::duration_cast<std::chrono::milliseconds>(s1-e1).count())/1000;
+      //std::count << "time " << duration <<"\n";
+      // stop_timer(MOVEMENT_COMPUTE1);
       // sync_all_gpus();
       // Create temporary tensors and clean up after wards.
       Tensor<float> * temp[4][4];
@@ -110,7 +107,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
       stop_timer(MOVEMENT_COST);
       // std::cout << "v7\n";
       // sync_all_gpus();
-      start_timer(MOVEMENT_COMPUTE1);
+      // start_timer(MOVEMENT_COMPUTE1);
       for(int dest=0;dest<no_gpus;dest++){
         for(int src=0;src<no_gpus;src++){
           if(src!=dest) {
@@ -121,7 +118,7 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
         }
       }
       // sync_all_gpus();
-      stop_timer(MOVEMENT_COMPUTE1);
+      // stop_timer(MOVEMENT_COMPUTE1);
       // std::cout << "v8\n";
       // out = new DistributedTensor(reorderer_map,shape);
       for(int i=0;i<no_gpus;i++){
@@ -179,9 +176,21 @@ void merge(Tensor<float> *src, Tensor<float> *dest, Tensor<int> *indices){
   int noThreads = src->s.dim2;
   int noBlocks = src->s.dim1;
   cudaSetDevice(src->device_id);
+  cudaEvent_t start;
+  cudaEvent_t stop;
+  auto error = cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  auto  error_1 = cudaEventRecord(start);
   mergeKernel<<<noBlocks,noThreads>>>(src->data_device, src->s.dim1, src->s.dim2,
                           dest->data_device, dest->s.dim1, dest->s.dim2,
                           indices->data_device, indices->s.dim1);
+   auto error1 = cudaEventRecord(stop);
+   auto error2 = cudaEventSynchronize(stop);
+   float msec = 0.0f;
+   auto error3 = cudaEventElapsedTime(&msec, start, stop);
+   add_timer_ms(MOVEMENT_COMPUTE2,msec);
+   cudaEventDestroy(start);
+   cudaEventDestroy(stop);
   // cudaDeviceSynchronize();
   NNException::throwIfDeviceErrorsOccurred("Failed Merge kernel \n");
 }

@@ -9,7 +9,7 @@
 #include "dataset.h"
 int no_gpus = 4;
 
-int run_experiment(string filename,bool isexternal, bool israndom){
+int run_experiment(string filename,bool isexternal, bool israndom,int hops){
   // Dummy dataset
   // std::string filename = "pubmed";
   std::string BIN_DIR = "/home/spolisetty/data/";
@@ -97,6 +97,8 @@ int main(int argc, char *argv[]){
   // run_experiment(filename);
 
   std::string partition = (argv[2]);
+  // int hops = std::stoi(argv[3]);
+  // assert(hops <4);
   bool  found = false;
   bool isexternal;
   bool israndom;
@@ -116,5 +118,5 @@ int main(int argc, char *argv[]){
     israndom = false;
   }
   assert(found);
-  run_experiment(filename,isexternal,israndom);
+  run_experiment(filename,isexternal,israndom,hops);
 }

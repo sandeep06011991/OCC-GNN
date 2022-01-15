@@ -34,9 +34,15 @@ inline void start_timer(measure m){
 inline void stop_timer(measure m){
     auto stop = high_resolution_clock::now();
     auto duration = ((float)duration_cast<milliseconds>(stop - START[m]).count())/1000;
+    if(m == MOVEMENT_COMPUTE1){
+	    std::cout << duration <<"\n";
+    }
     TIMERS[m] += duration;
 }
 
+inline void add_timer_ms(measure m,float f){
+   TIMERS[m] += f/1000;
+}
 void reset_timers();
 
 void print_timer();

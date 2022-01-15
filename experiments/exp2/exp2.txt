@@ -10,7 +10,6 @@ ogbn-arxiv | naive | 0.164s | 0.246s
 ogbn-arxiv | random | 0.433s | 8.296s
 ogbn-arxiv | metis | 0.348s | 8.11899s
 ogbn-arxiv | optimum | 0.348s | 8.116s
-
 ogbn-products | naive | 20.08s | (cache - 0% |  4.26303s
               5% of graph = 10 GB
               |pagraph|  10s   |45%-pagraph-missrate = 25% caching percentage| 4.26s
@@ -25,3 +24,23 @@ ogbn-arxiv | naive | 0.14s | 0.187s
 ogbn-arxiv | metis | 0.02s | 1.094s
 reddit | naive | 8.002s | 1.798s
 reddit | metis | 0.27s | 6.495s
+
+
+naive with cache = .3 -.7 naive without graph
+Break move into 2 parts
+1 is data movement and 2 is hidden layer movement.
+AGGR = A_ijH_{i} = {H_j}
+4,
+16 = Graph = local_graph[i][j]
+for each local kernel
+  launch a kernel(local_graph[i][j] * H_i)
+MERGE = H_00 + H_01(gpu_1) = H_00
+Metis Aggregation  cannot be larger than naive aggregation.
+
+GRAPH | PARTITION | MOVE | AGGR | MERGE
+ogbn-products | naive | 12.5271s | 0.181283s | 0
+ogbn-products | metis | 1.101s | 0.46517s | 0.159031s
+ogbn-arxiv | naive | 0.295s | 0.00780816s | 0
+ogbn-arxiv | metis | 0.01s | 0.0432861s | 0.0229005s
+reddit | naive | 8.21s (5.6s-with cache) | 0.081218s /4 | 0
+reddit | metis | 0.262s | 0.104457s /16 | 0.029972s

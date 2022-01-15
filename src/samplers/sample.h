@@ -107,10 +107,22 @@ public:
     l1.clear();
     l2.clear();
   }
-
-
-
 };
+
+
+class ThreeHopSample{
+public:
+  SampleLayer l1;
+  SampleLayer l2;
+  SampleLayer l3;
+
+  void clear(){
+    l1.clear();
+    l2.clear();
+    l3.clear();
+  }
+};
+
 
 class KHopSample{
   static const int MAX_LAYERS = 10;

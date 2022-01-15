@@ -23,6 +23,8 @@ class LocalComputeGraph{
   Tensor<int> * ind_ptr_t = nullptr;
   Tensor<int> * indices_t = nullptr;
 
+  cudaEvent_t start;
+  cudaEvent_t stop;
 
 public:
   int src_gpu;
@@ -34,6 +36,9 @@ public:
     this->src_gpu = src_id;
     this->dest_gpu = dest_id;
     aggr = new SageAggr(fsize,src_id);
+    cudaSetDevice(src_id);
+    auto error = cudaEventCreate(&start);
+    cudaEventCreate(&stop);
   };
 
   void create_local_csr(int num_nodes){
@@ -120,10 +125,7 @@ public:
                       Shape(local_to_local.size(),1),dest_gpu);
       int num_nodes_out = (indptr.size()-1);
       int num_nodes_in = src.s.dim1 ;
-      cudaSetDevice(src_gpu);
-
-      this->out = aggr->forward(*ind_ptr_t, *indices_t, src, num_nodes_out, num_nodes_in);
-      // stop_timer(MOVEMENT_COMPUTE1);
+        this->out = aggr->forward(*ind_ptr_t, *indices_t, src, num_nodes_out, num_nodes_in);
   }
 
 };

@@ -25,9 +25,9 @@ from dgl.contrib.sampling import NeighborSampler as NeighborSampler
 # nf.map_to_parent_nid(0)
 # nf.block_edges
 # Todo take average instead of abo
-def run_experiment(graphname,cache_percentage):
+def run_experiment(graphname,cache_percentage,hops):
 
-    hops = 3
+    # hops = 4
     # cache_percentage = .10
     indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.intc)
     indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.intc)
@@ -135,7 +135,7 @@ def run_experiment(graphname,cache_percentage):
                 if h==0:
                     continue
                 pa_t = pa_t + b_i.layer_nid(h).shape[0]
-                for j in range(4):
+                for j in range(i+1,4):
                     if i==j:
                         continue
                     b_j = nodeflow_all[j]
@@ -144,20 +144,21 @@ def run_experiment(graphname,cache_percentage):
                     t1 = np.intersect1d(a,b)
                     t1  = t1.shape[0]
                     pa_red = pa_red + t1
+        # print(pa_red,pa_t)
         # Skew in pagraph
         work = [0,0,0,0]
         for i in range(4):
             work[i] = nodeflow_all[i].number_of_edges()
         skew = (max(work) - min(work))/min(work)
-        # print("{:.2f}|{:.2f}|{:.2f}|{:.2f}|{:.2f}|{:.2f}|{:.2f}".format(
+        # print("{:.2f}|{:.2f}|{:.2f}|{:.2f}|{:.2f}|{:.4f}|{:.2f}".format(
         # pagraph/pagraph_t , me_comm/pagraph_t , \
         #     me_comm1/pagraph_t, \
         #         pa_cache_saving/pagraph_t, my_cache_saving/pagraph_t,\
-        #             pa_red/(2 * pa_t), skew))
+        #             pa_red/( pa_t), skew))
         return pagraph/pagraph_t , me_comm/pagraph_t , \
             me_comm1/pagraph_t, \
                 pa_cache_saving/pagraph_t, my_cache_saving/pagraph_t,\
-                    pa_red/(2 * pa_t), skew
+                    pa_red/(pa_t), skew
 
 
     print("hello world")
@@ -165,17 +166,19 @@ def run_experiment(graphname,cache_percentage):
     # Create a 4 layer
 def populate_table():
     graph_names = ["ogbn-arxiv","ogbn-products","reddit"]
-    # graph_names = ["reddit"]
+    graph_names = ["ogbn-products"]
     cache_percentage = [.05]
-    hops = 3
+    hops = [2,3,4]
+    hops = [4]
     with open("exp4.txt",'a') as fp:
         fp.write("graph|hops|naive-partition|cross-edge-comm|cross-node|pa-cache|my-cache|red|skew\n")
-    for gn in graph_names:
-        for c in cache_percentage:
-            (a,b,c,d,e,f,g) = run_experiment(gn,c)
-        with open("exp4.txt",'a') as fp:
-            fp.write("{}|{}|{:.2f}|{:.2f}|{:.2f}|{:.2f}|{:.2f}|{:.2f}|{:.2f} \n".\
-                format(gn,hops, a,b,c,d,e,f,g))
+    for h in hops:
+        for gn in graph_names:
+            for c in cache_percentage:
+                (a,b,c,d,e,f,g) = run_experiment(gn,c,h)
+            with open("exp4.txt",'a') as fp:
+                fp.write("{}|{}|{:.2f}|{:.2f}|{:.2f}|{:.2f}|{:.2f}|{:.2f}|{:.2f} \n".\
+                    format(gn,h, a,b,c,d,e,f,g))
 
 
 

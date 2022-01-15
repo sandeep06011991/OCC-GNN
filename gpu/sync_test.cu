@@ -22,7 +22,7 @@ int main(){
                 // int num_bytes = 1<<10;
                 // gpuErrchk(cudaMalloc((void**)&device_array, num_bytes));
                 // cudaFree(device_array);
-            cudaDeviceSynchronize();
+             cudaDeviceSynchronize();
             }
         }
   auto end1 = std::chrono::system_clock::now();

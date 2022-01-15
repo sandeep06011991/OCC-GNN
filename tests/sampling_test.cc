@@ -11,12 +11,12 @@
 int main(){
 
   std::string BIN_DIR = "/home/spolisetty/data";
-  Dataset * dataset = new Dataset(BIN_DIR + "/reddit");
+  Dataset * dataset = new Dataset(BIN_DIR + "/ogbn-arxiv");
   std::cout << dataset->num_edges <<"\n";
   std::cout << dataset->fsize << "\n";
   std::cout << " classes: " << dataset->noClasses << "\n";
   int batch_size = 512;
-  auto * s = new TwoHopNeighSampler(dataset->num_nodes, dataset->num_edges,
+  auto * s = new ThreeHopNeighSampler(dataset->num_nodes, dataset->num_edges,
              dataset->indptr, dataset->indices, batch_size,dataset->features,
               dataset->labels, dataset->fsize);
 

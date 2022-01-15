@@ -19,9 +19,15 @@ public:
   Tensor<float> * out_feat  = nullptr;
   Tensor<float> * out_grad = nullptr;
 
+   cudaEvent_t start;
+   cudaEvent_t stop;
+
   SageAggr(int fsize,int device_id){
       this->fsize = fsize;
       this->device_id = device_id;
+	  cudaSetDevice(device_id);
+    auto error = cudaEventCreate(&start);
+  	cudaEventCreate(&stop);
   }
 
   Tensor<float> * forward(Tensor<int>& ind_ptr, Tensor<int>& indices,

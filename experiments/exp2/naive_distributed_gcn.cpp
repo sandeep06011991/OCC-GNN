@@ -70,7 +70,7 @@ int run_experiment(string filename){
       //
       // cudaDeviceSynchronize();
       stop_timer(MOVEMENT_COST);
-      start_timer(MOVEMENT_COMPUTE1);
+ //     start_timer(MOVEMENT_COMPUTE1);
       assert(l1.in_nodes == l2.out_nodes);
 
       auto out = saggr_layer1[device]->forward(*indptr1,*indices1, *batch_in, l2.out_nodes,l2.in_nodes);
@@ -78,7 +78,7 @@ int run_experiment(string filename){
       cudaSetDevice(device);
       cudaDeviceSynchronize();
       //
-      stop_timer(MOVEMENT_COMPUTE1);
+   //   stop_timer(MOVEMENT_COMPUTE1);
       indptr1->clearTensor();
       indptr2->clearTensor();
       indices1->clearTensor();
