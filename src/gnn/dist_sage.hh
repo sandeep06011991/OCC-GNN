@@ -32,6 +32,9 @@ public:
   DistTensor * out_feat  = nullptr;
   DistTensor * out_grad = nullptr;
 
+  cudaEvent_t start;
+  cudaEvent_t stop;
+  
   DistSageAggr(int fsize,int no_gpus, bool isRandom, bool isExternal){
       this->fsize = fsize;
       this->no_gpus = no_gpus;
@@ -42,6 +45,15 @@ public:
       }
       this->israndomPartitioning = isRandom;
       this->isExternalPartitioning = isExternal;
+
+      // float dur[4];
+      for(int i=0;i<1;i++){
+        cudaSetDevice(i);
+        auto error = cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+        auto  error_1 = cudaEventRecord(start);
+        cudaEventSynchronize(start);
+      }
   };
 
   // void test(vector<int>& a);

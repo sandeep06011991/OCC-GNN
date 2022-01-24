@@ -51,15 +51,16 @@ Tensor<float> * SageAggr::forward(Tensor<int>& offsets , Tensor<int>& indices,
     this->offsets = offsets ;
     this->indices = indices;
     cudaSetDevice(this->device_id);
+
     NNException::throwIfDeviceErrorsOccurred("forward Pass pre failed");
-   auto  error = cudaEventRecord(start);
+   auto  error = cudaEventRecord(this->start);
     aggregate_nodeWise<<<blocks, threads>>>(in.data_device, out_feat->data_device, \
       offsets.data_device, indices.data_device, this->fsize);
-    auto error1 = cudaEventRecord(stop);
-    auto error2 = cudaEventSynchronize(stop);
+    auto error1 = cudaEventRecord(this->stop);
+    auto error2 = cudaEventSynchronize(this->stop);
     float msec = 0.0f;
     auto error3 = cudaEventElapsedTime(&msec, this->start, this->stop);
-    add_timer_ms(MOVEMENT_COMPUTE1,msec);
+    if(this->device_id == 0) add_timer_ms(MOVEMENT_COMPUTE1,msec);
     // stop_timer(MOVEMENT_COMPUTE1);
     // cudaDeviceSynchronize();
     NNException::throwIfDeviceErrorsOccurred("forward Pass failed");

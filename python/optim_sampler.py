@@ -3,7 +3,7 @@
 import time
 import dgl
 import numpy as np
-import scipy
+import scipy.sparse as sparse
 from dgl._deprecate.graph import DGLGraph as DGLGraph
 from dgl.contrib.sampling import NeighborSampler as NeighborSampler
 import torch
@@ -11,14 +11,14 @@ from dgl.nn import GraphConv
 
 def get_graph():
     DATA_DIR = "/home/spolisetty/data"
-    graphname = "ogbn-products"
+    graphname = "ogbn-arxiv"
     indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.intc)
     indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.intc)
     num_nodes = indptr.shape[0] - 1
     num_edges = indices.shape[0]
-    fsize = 600
+    fsize = 1024
     features = torch.rand(num_nodes,fsize)
-    sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
+    sp = sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
     shape = (num_nodes,num_nodes))
     dg_graph = DGLGraph(sp)
     dg_graph.readonly()
@@ -45,6 +45,11 @@ class DistributedTensorMap():
             self.global_to_local_id.index_put_(indices = [self.local_to_global_id[i]],
                 values = torch.arange(self.local_sizes[i],dtype = torch.int))
 
+    def to(self,device):
+        self.global_to_gpu_id = self.global_to_gpu_id.to(device)
+        self.local_to_global_id = [i.to(device) for i in self.local_to_global_id]
+        self.global_to_local_id = self.global_to_local_id.to(device)
+        return self
 # dist_map1 = DistributedTensorMap(partition_map)
 hops = 2
 dataloader = (NeighborSampler(
@@ -54,11 +59,8 @@ total_1 = time.time()
 reordering_time = []
 forward_pass_time = []
 intermediate_data = []
-cost_of_data_movement = []
-pa_graph = []
 epoch_no = 0
 print("total batches",num_nodes/4096)
-# To avoud counting Dont count first epoch mem alloc
 for i in range(4):
     a = torch.ones(1000 * 1000 * 1000,device=i)
     del a
@@ -66,8 +68,6 @@ for i in range(4):
 for nf in dataloader:
     print("epoch no",epoch_no)
     epoch_no = epoch_no + 1
-    if epoch_no > 100:
-        break
     # s1 = time.time()
     # nf = next(dataloader)
     # e1 = time.time()
@@ -91,7 +91,7 @@ for nf in dataloader:
     # print(layer_offsets)
     dist_maps = []
     for i in range(hops + 1):
-        dist_maps.append(DistributedTensorMap(partition_map[nf.layer_parent_nid(i)]))
+        dist_maps.append(DistributedTensorMap(partition_map[nf.layer_parent_nid(i)]).to('cuda:0'))
     local_graphs = []
     merge_indices = []
     for i in range(hops):
@@ -99,10 +99,6 @@ for nf in dataloader:
         merge_indices.append([[None for i in range(4)] for i in range(4)])
 
     #
-    s1_time = time.time()
-    features[nf.layer_parent_nid(0)].to('cuda:0')
-    e1_time = time.time()
-    cost_of_data_movement.append(e1_time - s1_time)
     # dist_map1 = DistributedTensorMap(partition_map[a.layer_parent_nid(0)])
     # dist_map2 = DistributedTensorMap(partition_map[a.layer_parent_nid(1)])
     # dist_map3 = DistributedTensorMap(partition_map[a.layer_parent_nid(2)])
@@ -110,6 +106,7 @@ for nf in dataloader:
     # local_graphs1 = [[None for i in range(4)] for i in range(4)]
     # merge_indices1 = [[None for i in range(4)] for i in range(4)]
     # print("Beggining construction of local graphs")
+
     # with torch.autograd.profiler.profile() as prof:
     if(True):
         start_time = time.time()
@@ -120,11 +117,16 @@ for nf in dataloader:
             src_parent_id = nf.layer_parent_nid(current_layer_id)
             dest_parent_id = nf.layer_parent_nid(next_layer_id)
             src, dest, edge_id = nf.block_edges(current_layer_id)
+            src = src.to('cuda:0')
+            dest = dest.to('cuda:0')
+            edge_id = edge_id.to('cuda:0')
             block_id = current_layer_id
             # print(src)
             # print(dest)
             # print(dist_maps[current_layer_id].global_to_gpu_id.shape)
             # print(dist_maps[next_layer_id].global_to_gpu_id.shape)
+            edge_map = (dist_maps[current_layer_id].global_to_gpu_id[src - layer_offsets[current_layer_id]]), \
+                dist_maps[next_layer_id].global_to_gpu_id[dest - layer_offsets[next_layer_id]]
             edge_map = (dist_maps[current_layer_id].global_to_gpu_id[src - layer_offsets[current_layer_id]]), \
                 dist_maps[next_layer_id].global_to_gpu_id[dest - layer_offsets[next_layer_id]]
             dist_map1 = dist_maps[current_layer_id]
@@ -138,14 +140,42 @@ for nf in dataloader:
                         num_src_nodes = dist_map1.local_sizes[src_gpu]
                         num_dest_nodes = dist_map2.local_sizes[dest_gpu]
                         # print("local",num_dest_nodes)
+
                         block = dgl.create_block((src_local_edges,dest_local_edges),num_src_nodes = num_src_nodes, \
                                                 num_dst_nodes = num_dest_nodes).to(src_gpu)
                         local_graphs[current_layer_id][src_gpu][dest_gpu] = block
+                        local_edges = edge_id[torch.where((edge_map[0] == src_gpu) & (edge_map[1]==dest_gpu))] - edge_offsets[block_id]
+                        src_local_edges = dist_map1.global_to_local_id[src[local_edges]-layer_offsets[current_layer_id]]
+                        dest_local_edges = dist_map2.global_to_local_id[dest[local_edges]-layer_offsets[next_layer_id]]
+                        num_src_nodes = dist_map1.local_sizes[src_gpu]
+                        num_dest_nodes = dist_map2.local_sizes[dest_gpu]
+                        # print("local",num_dest_nodes)
+
+                        block = dgl.create_block((src_local_edges,dest_local_edges),num_src_nodes = num_src_nodes, \
+                                                num_dst_nodes = num_dest_nodes).to(src_gpu)
+                        local_graphs[current_layer_id][src_gpu][dest_gpu] = block
+
                     else:
                         non_local_edges = edge_id[torch.where((edge_map[0] == src_gpu) & (edge_map[1] == dest_gpu))] - edge_offsets[block_id]
                         # print("edges",non_local_edges.shape[0],src_gpu)
                         src_local_edges = dist_map1.global_to_local_id[src[non_local_edges]-layer_offsets[current_layer_id]]
                         remote_dest_nodes = dest[non_local_edges]-layer_offsets[next_layer_id]
+                        # print(remote_dest_nodes)
+                        no_dup,mapping = remote_dest_nodes.unique(return_inverse = True)
+                        merge_indices[current_layer_id][src_gpu][dest_gpu] = dist_map2.global_to_local_id[no_dup].long().to(dest_gpu)
+                        num_dest_nodes = no_dup.shape[0]
+                        num_src_nodes = dist_map1.local_sizes[src_gpu]
+                        dest_local_edges = mapping.type(torch.int32)
+                        # print("non-local dest",num_dest_nodes)
+                        # print("non-local src",num_src_nodes)
+                        block = dgl.create_block((src_local_edges,dest_local_edges),
+                                num_src_nodes = num_src_nodes, num_dst_nodes = num_dest_nodes).to(src_gpu)
+                        local_graphs[current_layer_id][src_gpu][dest_gpu] = block
+                        non_local_edges = edge_id[torch.where((edge_map[0] == src_gpu) & (edge_map[1] == dest_gpu))] - edge_offsets[block_id]
+                        # print("edges",non_local_edges.shape[0],src_gpu)
+                        src_local_edges = dist_map1.global_to_local_id[src[non_local_edges]-layer_offsets[current_layer_id]]
+                        remote_dest_nodes = dest[non_local_edges]-layer_offsets[next_layer_id]
+                        # print(remote_dest_nodes)
                         no_dup,mapping = remote_dest_nodes.unique(return_inverse = True)
                         merge_indices[current_layer_id][src_gpu][dest_gpu] = dist_map2.global_to_local_id[no_dup].long().to(dest_gpu)
                         num_dest_nodes = no_dup.shape[0]
@@ -157,6 +187,7 @@ for nf in dataloader:
                                 num_src_nodes = num_src_nodes, num_dst_nodes = num_dest_nodes).to(src_gpu)
                         local_graphs[current_layer_id][src_gpu][dest_gpu] = block
         end_time = time.time()
+        print(end_time - start_time)
         reordering_time.append(end_time-start_time)
 
     # print("local ordering ",end_time - start_time)
@@ -219,8 +250,8 @@ print("total training time",time.time()-total_1)
 print("Total reordering_time",sum(reordering_time))
 print("total forward tiem",sum(forward_pass_time))
 print("total intermediate time",sum(intermediate_data))
-print("all data movement ",sum(cost_of_data_movement ))
-print(prof.key_averages().table(sort_by="self_cpu_time_total"))
+
+# print(prof.key_averages().table(sort_by="self_cpu_time_total"))
 # assert(False)
 # except StopIteration:
 #     pass

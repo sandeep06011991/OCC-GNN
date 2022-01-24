@@ -57,7 +57,7 @@ int run_experiment(string filename){
       // continue;
       // Create tensor data from samples.
       SampleLayer &l2 = s->sample.l2;
-      Tensor<int> * indptr1 = new Tensor<int>(l2.indptr.data(),Shape(l2.indptr.size(),1),device);
+      Tensor<int > * indptr1 = new Tensor<int>(l2.indptr.data(),Shape(l2.indptr.size(),1),device);
       Tensor<int> * indices1 = new Tensor<int>(l2.indices.data(),Shape(l2.indices.size(),1),device);
       start_timer(MOVEMENT_COST);
       Tensor<float> * batch_in = new Tensor<float>(s->batch_features,Shape(l2.in_nodes,dataset->fsize),device);

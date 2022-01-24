@@ -44,3 +44,39 @@ ogbn-arxiv | naive | 0.295s | 0.00780816s | 0
 ogbn-arxiv | metis | 0.01s | 0.0432861s | 0.0229005s
 reddit | naive | 8.21s (5.6s-with cache) | 0.081218s /4 | 0
 reddit | metis | 0.262s | 0.104457s /16 | 0.029972s
+GRAPH | PARTITION | MOVE | AGGR | MERGE
+GRAPH | PARTITION | MOVE | AGGR | MERGE
+ogbn-products | naive | 10.063s | 0.136489s | 0
+ogbn-products | metis | 0.215s | 1.68616s | 3.92254s
+ogbn-arxiv | naive | 0.164s | 0.00445747s | 0
+GRAPH | PARTITION | MOVE | AGGR | MERGE
+ogbn-products | naive | 11.8557s | 0.137284s | 0
+ogbn-products | metis | 0.67704s | 1.61639s | 2.47868s
+ogbn-arxiv | naive | 0.179847s | 0.00444864s | 0
+ogbn-arxiv | metis | 0.015147s | 0.129194s | 0.178975s
+reddit | naive | 6.66009s | 0.0761614s | 0
+reddit | metis | 0.145272s | 0.144383s | 0.188493s
+####################################################  FRESH runs
+
+GRAPH | PARTITION | MOVE | AGGR | MERGE
+ogbn-products | naive | 11.9311s | 0.0327818s | 0
+ogbn-products | metis | 2.84564s | 0.679323s | 1.44052s
+ogbn-arxiv | naive | 0.180052s | 0.00105952s | 0
+ogbn-arxiv | metis | 0.19828s | 0.0591027s | 0.0986758s
+reddit | naive | 6.71173s | 0.0190018s | 0
+reddit | metis | 0.57432s | 0.0598098s | 0.123278s
+GRAPH | PARTITION | MOVE | AGGR | MERGE
+ogbn-products | naive | 12.0486s | 0.0376852s | 0
+ogbn-products | metis | 2.03398s | 0.0677403s | 0.0223834s
+ogbn-arxiv | naive | 0.180671s | 0.0012889s | 0
+ogbn-arxiv | metis | 0.01763s | 0.00308947s | 0.00311398s
+reddit | naive | 6.83009s | 0.0198258s | 0
+reddit | metis | 0.404046s | 0.0204001s | 0.00710819s
+##################################################### Mark
+GRAPH | PARTITION | MOVE | AGGR | MERGE
+ogbn-products | naive | 12.046s | 0.037092s | 0
+ogbn-products | metis | 0.77493s | 0.0674372s | 0.0235577s 
+ogbn-arxiv | naive | 0.17892s | 0.00126941s | 0
+ogbn-arxiv | metis | 0.011394s | 0.00314726s | 0.00321811s 
+reddit | naive | 6.80217s | 0.0199007s | 0
+reddit | metis | 0.144954s | 0.020438s | 0.0058633s 

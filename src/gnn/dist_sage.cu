@@ -5,7 +5,7 @@
 #include "util/tensor.hh"
 #include "util/gpu.hh"
 #include "util/timer.h"
-
+#include "nvToolsExt.h"
 void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
           DistTensor& in, int num_nodes_out, int num_nodes_in, int *ext_map){
       // some magic reordering map
@@ -79,11 +79,15 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
       // std::cout << "v5\n";
       // start_timer(MOVEMENT_COMPUTE1);
      // auto s1 = high_resolution_clock::now();
+
+     nvtxRangePushA("Forward csr");
       for(int i=0;i<no_gpus;i++){
         for(int j=0;j<no_gpus;j++){
           this->local_graph[i][j].forward(*(in.local_tensors[i]));
         }
       }
+
+      nvtxRangePop();
       // std::cout << "v6\n";
 	    //auto e1 = high_resolution_clock::now();
       //auto duration = (float) (std::chrono::duration_cast<std::chrono::milliseconds>(s1-e1).count())/1000;
@@ -104,19 +108,46 @@ void DistSageAggr::forward(vector<int>& ind_ptr, vector<int>& indices,
           }
         }
       }
+      // for(int i=0;i<4;i++){
+      //   cudaSetDevice(i);
+      //   cudaDeviceSynchronize();
+      // }
       stop_timer(MOVEMENT_COST);
       // std::cout << "v7\n";
       // sync_all_gpus();
       // start_timer(MOVEMENT_COMPUTE1);
+      // cudaSetDevice(src->device_id);
+
+
+      nvtxRangePushA("Merge start");
       for(int dest=0;dest<no_gpus;dest++){
-        for(int src=0;src<no_gpus;src++){
+        cudaSetDevice(dest);
+        if(dest == 0){
+          auto  error_1 = cudaEventRecord(start);
+          start_timer(MOVEMENT_COMPUTE2);
+        }
+        for(int src=0;src<4;src++){
           if(src!=dest) {
             merge(temp[src][dest],temp[dest][dest],
               this->local_graph[src][dest].local_to_local_t);
-
-          }
+            }
         }
+        if(dest == 0){
+          cudaSetDevice(0);
+          auto error1 = cudaEventRecord(stop);
+          // auto error2 = cudaEventSynchronize(stop);
+          // cudaDeviceSynchronize();
+          // stop_timer(MOVEMENT_COMPUTE2);
+          }
       }
+        cudaSetDevice(0);
+        auto error2 = cudaEventSynchronize(stop);
+        float msec = 0.0f;
+        auto error3 = cudaEventElapsedTime(&msec, start, stop);
+        // std::cout << "time " << msec << "\n";
+        add_timer_ms(MOVEMENT_COMPUTE2,msec);
+        nvtxRangePop();
+
       // sync_all_gpus();
       // stop_timer(MOVEMENT_COMPUTE1);
       // std::cout << "v8\n";
@@ -175,22 +206,23 @@ void merge(Tensor<float> *src, Tensor<float> *dest, Tensor<int> *indices){
   assert(indices->s.dim1 == src->s.dim1);
   int noThreads = src->s.dim2;
   int noBlocks = src->s.dim1;
-  cudaSetDevice(src->device_id);
-  cudaEvent_t start;
-  cudaEvent_t stop;
-  auto error = cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  auto  error_1 = cudaEventRecord(start);
-  mergeKernel<<<noBlocks,noThreads>>>(src->data_device, src->s.dim1, src->s.dim2,
+  // cudaSetDevice(src->device_id);
+  // cudaEvent_t start;
+  // cudaEvent_t stop;
+  // auto error = cudaEventCreate(&start);
+  // cudaEventCreate(&stop);
+  // auto  error_1 = cudaEventRecord(start);
+   // std::cout << "kernel " << src->device_id << ":";
+   mergeKernel<<<noBlocks,noThreads>>>(src->data_device, src->s.dim1, src->s.dim2,
                           dest->data_device, dest->s.dim1, dest->s.dim2,
                           indices->data_device, indices->s.dim1);
-   auto error1 = cudaEventRecord(stop);
-   auto error2 = cudaEventSynchronize(stop);
-   float msec = 0.0f;
-   auto error3 = cudaEventElapsedTime(&msec, start, stop);
-   add_timer_ms(MOVEMENT_COMPUTE2,msec);
-   cudaEventDestroy(start);
-   cudaEventDestroy(stop);
+   // auto error1 = cudaEventRecord(stop);
+   // // auto error2 = cudaEventSynchronize(stop);
+   // float msec = 0.0f;
+   // auto error3 = cudaEventElapsedTime(&msec, start, stop);
+   // add_timer_ms(MOVEMENT_COMPUTE2,msec);
+   // cudaEventDestroy(start);
+   // cudaEventDestroy(stop);
   // cudaDeviceSynchronize();
   NNException::throwIfDeviceErrorsOccurred("Failed Merge kernel \n");
 }

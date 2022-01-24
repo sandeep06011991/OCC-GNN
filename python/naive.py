@@ -14,7 +14,7 @@ import time
 
 def get_graph():
     DATA_DIR = "/home/spolisetty/data"
-    graphname = "ogbn-arxiv"
+    graphname = "ogbn-products"
     indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.intc)
     indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.intc)
     num_nodes = indptr.shape[0] - 1
@@ -39,9 +39,14 @@ class Model(torch.nn.Module):
         # self.conv1 = GraphConv(fsize,fsize, norm="none",allow_zero_in_degree = True)
         # self.conv2 = GraphConv(fsize,fsize, norm="none",allow_zero_in_degree = True)
         self.device_id = device_id
+        self.movement_time = []
+        self.compute_time = []
 
     def forward(self,nf):
+        t1 = time.time()
         nf.copy_from_parent(ctx = torch.device(self.device_id))
+        t2 = time.time()
+        self.movement_time.append(t2-t1)
         nf.block_compute(0 \
         , fn.copy_src(src='features', out='m'),
                                  lambda node : {'h': node.mailbox['m'].mean(dim=1)},
@@ -50,10 +55,11 @@ class Model(torch.nn.Module):
         , fn.copy_src(src='h', out='m'),
                                  lambda node : {'h2': node.mailbox['m'].mean(dim=1)},
                                  )
+        t3 = time.time()
+        self.compute_time.append(t3-t2)
         return nf
 
 def train(rank, world_size):
-    print(rank)
     hops = 2
     fsize = 1024
     gpu_id = rank
@@ -67,10 +73,13 @@ def train(rank, world_size):
             dg_graph, 1024, expand_factor = 10, num_hops = hops, \
             seed_nodes = torch.arange(per_batch * gpu_id, per_batch * gpu_id + 1,1) , \
             shuffle = True)
-    t1 = time.time()
+    # t1 = time.time()
     for nf in samplers:
         x = models(nf)
-
+    # t2 = time.time()
+    if rank ==0:
+        print("data movement time:", sum(models.movement_time))
+        print("compute time:",sum(models.compute_time))
 
 if __name__=="__main__":
     gpu_num = [0,1,2,3]

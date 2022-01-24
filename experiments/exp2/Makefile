@@ -14,7 +14,7 @@ naive:
 	# ../../build/naive_distributed_gcn ogbn-arxiv
 
 metis_dist:
-	nvcc -I ../../src/ metis_distr_gcn.cpp ../../src/util/dist_tensor.cu -l cublas  \
+	nvcc --default-stream per-thread -I ../../src/ metis_distr_gcn.cpp ../../src/util/dist_tensor.cu -l cublas  \
 	../../src/gnn/dist_sage.cu  ../../src/gnn/sage.cu	\
 	../../src/util/tensor.cu  ../../src/dataset.cpp \
 	../../src/util/timer.cpp \

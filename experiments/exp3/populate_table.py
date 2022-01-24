@@ -73,7 +73,7 @@ def run_experiment(graph_name,cache_per):
         p,t = run_graph_store_server(graph_name)
         output = subprocess.run(["python3","/home/spolisetty/OCC-GNN/external/PaGraph/examples/profile/pa_gcn.py",
                 "--dataset","/home/spolisetty/data/pagraph/{}".format(graph_name),
-                "--n-layers","4","--num-neighbors","2","--cache-percentage",str(cache_per),"--gpu","0,1,2,3","--n-epochs","1"], capture_output=True)
+                "--n-layers","4","--num-neighbors","10","--cache-percentage",str(cache_per),"--gpu","0,1,2,3","--n-epochs","1"], capture_output=True)
         print(output,"out")
         output = str(output.stdout)
         print(output)
@@ -97,7 +97,7 @@ def populate_table():
     graph_names = ["reddit","lj"]
     cache_percentage = [0,10,25,100]
     graph_name = ["lj","reddit"]
-    cache_percentage = [100]
+    # cache_percentage = [1,100]
     with open("exp3.txt",'a') as fp:
         fp.write("Graph | cache-percentage | cache-miss rate | avg-epoch time \n")
     for g in graph_name:

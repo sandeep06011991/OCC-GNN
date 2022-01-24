@@ -6,3 +6,19 @@ reddit|100|0.0000|54.6855s
 lj|10|0.5158|155.6198s
 lj|25|0.2829|129.2277s
 lj|100|0.0000|75.8125s
+Graph | cache-percentage | cache-miss rate | avg-epoch time
+lj|0|1.0000|74.8125s
+lj|10|0.5159|58.4818s
+lj|25|0.2828|45.3088s
+lj|100|0.0000|29.7108s
+reddit|0|1.0000|31.6487s
+reddit|10|0.8596|30.0707s
+reddit|25|0.6685|28.9823s
+reddit|100|0.0000|24.8168s
+Graph | cache-percentage | cache-miss rate | avg-epoch time 
+lj|0|OOM|OOM 
+lj|10|OOM|OOM 
+lj|25|OOM|OOM 
+lj|100|OOM|OOM 
+reddit|0|1.0000|30.9072s 
+reddit|10|0.8597|30.0858s 

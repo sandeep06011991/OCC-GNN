@@ -9,7 +9,7 @@
 #include "dataset.h"
 int no_gpus = 4;
 
-int run_experiment(string filename,bool isexternal, bool israndom,int hops){
+int run_experiment(string filename,bool isexternal, bool israndom){
   // Dummy dataset
   // std::string filename = "pubmed";
   std::string BIN_DIR = "/home/spolisetty/data/";
@@ -118,5 +118,5 @@ int main(int argc, char *argv[]){
     israndom = false;
   }
   assert(found);
-  run_experiment(filename,isexternal,israndom,hops);
+  run_experiment(filename,isexternal,israndom);
 }

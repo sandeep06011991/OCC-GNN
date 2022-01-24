@@ -26,8 +26,8 @@ public:
       this->fsize = fsize;
       this->device_id = device_id;
 	  cudaSetDevice(device_id);
-    auto error = cudaEventCreate(&start);
-  	cudaEventCreate(&stop);
+    auto error = cudaEventCreate(&this->start);
+  	cudaEventCreate(&this->stop);
   }
 
   Tensor<float> * forward(Tensor<int>& ind_ptr, Tensor<int>& indices,
