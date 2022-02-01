@@ -12,6 +12,8 @@ from dgl.nn import GraphConv
 import dgl.function as fn
 import time
 
+
+
 DATA_DIR = "/home/spolisetty/data"
 graphname = "ogbn-arxiv"
 indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.intc)

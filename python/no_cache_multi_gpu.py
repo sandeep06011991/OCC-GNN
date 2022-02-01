@@ -122,9 +122,11 @@ def run(proc_id, n_gpus, args, devices, data):
     # Training loop
     avg = 0
     iter_tput = []
+    data_movement = []
+    forward_time = []
+    t_1 = time.time()
     for epoch in range(args.num_epochs):
         tic = time.time()
-
         # Loop over the dataloader to sample the computation dependency graph as a list of
         # blocks.
         it = enumerate(dataloader)
@@ -139,17 +141,24 @@ def run(proc_id, n_gpus, args, devices, data):
                 # print("using gpu",dev_id)
                 # Load the input features as well as output labels
                 torch.cuda.nvtx.range_push("slice")
+                t1 = time.time()
                 batch_inputs, batch_labels = load_subtensor(train_nfeat, train_labels,
                                                             seeds, input_nodes, dev_id)
+
                 blocks = [block.int().to(dev_id) for block in blocks]
+                t2 = time.time()
                 torch.cuda.nvtx.range_pop()
                 # Compute loss and prediction
                 torch.cuda.nvtx.range_push("train")
                 batch_pred = model(blocks, batch_inputs)
-                loss = loss_fcn(batch_pred, batch_labels)
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+                t3 = time.time()
+                if epoch != 0:
+                    data_movement.append(t2-t1)
+                    forward_time.append(t3-t2)
+                # loss = loss_fcn(batch_pred, batch_labels)
+                # optimizer.zero_grad()
+                # loss.backward()
+                # optimizer.step()
                 torch.cuda.nvtx.range_pop()
         except StopIteration:
             torch.cuda.nvtx.range_pop()
@@ -166,23 +175,27 @@ def run(proc_id, n_gpus, args, devices, data):
         toc = time.time()
         if proc_id == 0:
             print('Epoch Time(s): {:.4f}'.format(toc - tic))
-            if epoch >= 5:
-                avg += toc - tic
-            if epoch % args.eval_every == 0 and epoch != 0:
-                if n_gpus == 1:
-                    eval_acc = evaluate(
-                        model, val_g, val_nfeat, val_labels, val_nid, devices[0])
-                    test_acc = evaluate(
-                        model, test_g, test_nfeat, test_labels, test_nid, devices[0])
-                else:
-                    eval_acc = evaluate(
-                        model.module, val_g, val_nfeat, val_labels, val_nid, devices[0])
-                    test_acc = evaluate(
-                        model.module, test_g, test_nfeat, test_labels, test_nid, devices[0])
-                print('Eval Acc {:.4f}'.format(eval_acc))
-                print('Test Acc: {:.4f}'.format(test_acc))
+            # if epoch >= 5:
+            #     avg += toc - tic
+            # if epoch % args.eval_every == 0 and epoch != 0:
+            #     if n_gpus == 1:
+            #         eval_acc = evaluate(
+            #             model, val_g, val_nfeat, val_labels, val_nid, devices[0])
+            #         test_acc = evaluate(
+            #             model, test_g, test_nfeat, test_labels, test_nid, devices[0])
+            #     else:
+            #         eval_acc = evaluate(
+            #             model.module, val_g, val_nfeat, val_labels, val_nid, devices[0])
+            #         test_acc = evaluate(
+            #             model.module, test_g, test_nfeat, test_labels, test_nid, devices[0])
+            #     print('Eval Acc {:.4f}'.format(eval_acc))
+            #     print('Test Acc: {:.4f}'.format(test_acc))
 
-
+    t_2 = time.time()
+    if proc_id == 0:
+    # print("total time", t_2 - t_1)
+        print("data movement_time:{}".format(sum(data_movement)/ (args.num_epochs - 1)))
+        print("forward_time:{}".format(sum(forward_time)/(args.num_epochs - 1 )))
     if n_gpus > 1:
         th.distributed.barrier()
     if proc_id == 0:
@@ -196,11 +209,11 @@ if __name__ == '__main__':
                             default = 0,
                             # default='0,1,2,3',
                            help="Comma separated list of GPU device IDs.")
-    argparser.add_argument('--num-epochs', type=int, default=2)
-    argparser.add_argument('--num-hidden', type=int, default=16)
-    argparser.add_argument('--num-layers', type=int, default=2)
-    argparser.add_argument('--fan-out', type=str, default='10,25')
-    argparser.add_argument('--batch-size', type=int, default=1000)
+    argparser.add_argument('--num-epochs', type=int, default=10)
+    argparser.add_argument('--num-hidden', type=int, default=62)
+    argparser.add_argument('--num-layers', type=int, default=3)
+    argparser.add_argument('--fan-out', type=str, default='10,10,10')
+    argparser.add_argument('--batch-size', type=int, default=1024)
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.003)
@@ -209,7 +222,7 @@ if __name__ == '__main__':
                            help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--inductive', action='store_false',
                            help="Inductive learning setting")
-    argparser.add_argument('--data-cpu', action='store_true', default = True, 
+    argparser.add_argument('--data-cpu', action='store_true', default = True,
                            help="By default the script puts all node features and labels "
                                 "on GPU when using it to save time for data copy. This may "
                                 "be undesired if they cannot fit in GPU memory at once. "
@@ -217,14 +230,14 @@ if __name__ == '__main__':
     args = argparser.parse_args()
     n_gpus = 4
     devices = [0,1,2,3]
-    n_gpus = 1
-    devices = [0]
+    # n_gpus = 1
+    # devices = [0]
     # devices = list(map(int, args.gpu.split(',')))
     # n_gpus = len(devices)
     # assert(n_gpus > 0)
     # print(n_gpus,devices)
     n_classes = 40
-    g,p_map =  get_dgl_graph('ogbn-arxiv')
+    g,p_map =  get_dgl_graph(args.graph)
     args.inductive = False
     # if args.inductive:
     #     train_g, val_g, test_g = inductive_split(g)
