@@ -1,0 +1,10 @@
+GRAPH | PARTITION | MOVE | AGGR | MERGE | SLICE
+ogbn-arxiv | naive | 1.1598 | 0.1573 | 0 | 0
+GRAPH | PARTITION | MOVE | AGGR | MERGE | SLICE
+GRAPH | PARTITION | MOVE | AGGR | MERGE | SLICE
+ogbn-arxiv | naive | 1.0268 | 0.1636 | 0 | 0
+ogbn-arxiv | metis | 0.0562 | 1.6923 | 0.0713 | 3.3709
+ogbn-products | naive | 283.4310 | 2.3160 | 0 | 0
+ogbn-products | metis | 0.8888 | 25.3584 | 1.0885 | 178.2216
+reddit | naive | 11.7455 | 0.2214 | 0 | 0
+reddit | metis | 0.0822 | 2.4153 | 0.0988 | 13.0642

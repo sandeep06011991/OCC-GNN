@@ -11,6 +11,7 @@ import torch.nn as nn
 from dgl.nn.pytorch import SAGEConv
 from utils import get_dgl_graph
 import argparse
+from line_profiler import LineProfiler
 
 # dg_graph,partition_map, features, num_nodes, num_edges = get_graph()
 # fsize = features.shape[1]
@@ -91,6 +92,8 @@ class Model(nn.Module):
         self.dist_feature = dist_feature
         self.p_map = p_map
         self.graph_creation_time = 0
+        self.lp = LineProfiler()
+        self.lpw = self.lp(self.create_local_graphs)
 
     def clear_timers(self):
         self.graph_creation_time = 0
@@ -113,13 +116,15 @@ class Model(nn.Module):
 
     def forward(self,in_nodes, out_nodes, blocks):
         t1 = time.time()
-        local_graphs,  merge_indices = self.create_local_graphs(in_nodes,
-                        out_nodes, blocks)
-        in_map = self.layers[0](self.dist_feature.local_tensors,
-                    local_graphs[0], merge_indices[0])
+        # local_graphs,  merge_indices = self.create_local_graphs(in_nodes,
+        #                 out_nodes, blocks)
+        self.lpw(in_nodes, out_nodes, blocks)
         no_layers = len(blocks)
         t2 = time.time()
         self.graph_creation_time = self.graph_creation_time + t2 - t1
+        return
+        in_map = self.layers[0](self.dist_feature.local_tensors,
+                    local_graphs[0], merge_indices[0])
         for i in range(1,no_layers):
             in_map = self.layers[i](in_map, local_graphs[i], \
                         merge_indices[i])
@@ -153,44 +158,87 @@ class Model(nn.Module):
                 edge_src_partition = dist_map_in.global_to_gpu_id[src_nds]
             edge_dest_partition = dist_map_out.global_to_gpu_id[dest_nds]
             edge_map = edge_src_partition, edge_dest_partition
-            local_graph_per_layer = [[i for i in range(4)] for i in range(4)]
+            src_1 = edge_src_partition.to("cuda:0")
+            torch.sort(src_1)
+            src_1.unique()
+            local_graph_per_layer = [None for i in range(4)]
             merge_indices_per_layer = [[i for i in range(4)] for i in range(4)]
+            # total_external = [None for i in range(4)]
             for src_gpu in range(4):
+                a = edge_map[0].to('cuda:0')
+                edge_with_src = torch.where(a == src_gpu)[0]
+                edge_with_src = torch.where(edge_map[0] == src_gpu)[0]
+                edge_with_src_remote_dest = torch.where(edge_map[1][edge_with_src] != src_gpu)[0]
+                edge_with_src_dest = torch.where((edge_map[1][edge_with_src] == src_gpu))[0]
+                dest_local_edges = torch.zeros(edge_with_src.shape[0],dtype = torch.int)
+                if i==0:
+                    src_local_edges = dist_map_in.global_to_local_id[block_in[src_nds[edge_with_src]]]
+                else:
+                    src_local_edges = dist_map_in.global_to_local_id[src_nds[edge_with_src]]
+                assert(src_local_edges.shape == dest_local_edges.shape)
+                dest_local_edges[edge_with_src_dest] = dist_map_out.global_to_local_id[dest_nds[edge_with_src_dest]]
+                remote_dest_nodes = dest_nds[edge_with_src_remote_dest]
+                no_dup,mapping = remote_dest_nodes.unique(return_inverse = True)
+                num_local_dest_nodes = dist_map_out.local_sizes[src_gpu]
+                mapping = mapping + num_local_dest_nodes
+                dest_local_edges[edge_with_src_remote_dest] = mapping.type(torch.int32)
+                num_dest_nodes = no_dup.shape[0] + dist_map_out.local_sizes[src_gpu]
+                num_src_nodes = dist_map_in.local_sizes[src_gpu]
+                block = dgl.create_block((src_local_edges,dest_local_edges),
+                        num_src_nodes = num_src_nodes, num_dst_nodes = num_dest_nodes).to(src_gpu)
+                s1 = src_local_edges.to("cuda:1")
+                d1 = dest_local_edges.to("cuda:1")
+                block1 = dgl.create_block((s1,d1),
+                        num_src_nodes = num_src_nodes, num_dst_nodes = num_dest_nodes).to(src_gpu)
+                # merge_indices_per_layer[src_gpu][dest_gpu] = dist_map_out.global_to_local_id[no_dup].long().to(dest_gpu)
                 for dest_gpu in range(4):
-                    if src_gpu == dest_gpu:
-                        local_edges = torch.where((edge_map[0] == src_gpu) & (edge_map[1]==dest_gpu))
-                        if i==0:
-                            src_local_edges = dist_map_in.global_to_local_id[block_in[src_nds[local_edges]]]
-                        else:
-                            src_local_edges = dist_map_in.global_to_local_id[src_nds[local_edges]]
-                        dest_local_edges = dist_map_out.global_to_local_id[dest_nds[local_edges]]
-                        num_src_nodes = dist_map_in.local_sizes[src_gpu]
-                        num_dest_nodes = dist_map_out.local_sizes[dest_gpu]
-                        # print("local",num_dest_nodes)
-                        block = dgl.create_block((src_local_edges,dest_local_edges),num_src_nodes = num_src_nodes, \
-                                                num_dst_nodes = num_dest_nodes).to(src_gpu)
-                        local_graph_per_layer[src_gpu][dest_gpu] = block
-                    else:
-                        non_local_edges = torch.where((edge_map[0] == src_gpu) & (edge_map[1] == dest_gpu))
-                        # print("edges",non_local_edges.shape[0],src_gpu)
-                        if i==0:
-                            src_local_edges = dist_map_in.global_to_local_id[block_in[src_nds[non_local_edges]]]
-                        else:
-                            src_local_edges = dist_map_in.global_to_local_id[src_nds[non_local_edges]]
-                        remote_dest_nodes = dest_nds[non_local_edges]
-                        no_dup,mapping = remote_dest_nodes.unique(return_inverse = True)
-                        merge_indices_per_layer[src_gpu][dest_gpu] = dist_map_out.global_to_local_id[no_dup].long().to(dest_gpu)
-                        num_dest_nodes = no_dup.shape[0]
-                        num_src_nodes = dist_map_in.local_sizes[src_gpu]
-                        dest_local_edges = mapping.type(torch.int32)
-
-                        # print("non-local dest",num_dest_nodes)
-                        # print("non-local src",num_src_nodes)
-                        block = dgl.create_block((src_local_edges,dest_local_edges),
-                                num_src_nodes = num_src_nodes, num_dst_nodes = num_dest_nodes).to(src_gpu)
-                        local_graph_per_layer[src_gpu][dest_gpu] = block
+                    # Do Double tuple(what to pull, what to merge)
+                    target_idx = torch.where(dist_map_out.global_to_gpu_id[no_dup] == dest_gpu)[0]
+                    if(dest_gpu == src_gpu):
+                        merge_indices_per_layer[src_gpu][dest_gpu] = None
+                        continue
+                    # print(target_idx)
+                    # print(num_local_dest_nodes)
+                    merge_indices_per_layer[src_gpu][dest_gpu] = ((target_idx + num_local_dest_nodes).to(src_gpu), \
+                                dist_map_out.global_to_local_id[no_dup[target_idx]].long().to(dest_gpu))
+                #
+                #
+                # for dest_gpu in range(4):
+                #     if src_gpu == dest_gpu:
+                #         local_edges = torch.where((edge_map[0] == src_gpu) & (edge_map[1]==dest_gpu))
+                #         if i==0:
+                #             src_local_edges = dist_map_in.global_to_local_id[block_in[src_nds[local_edges]]]
+                #         else:
+                #             src_local_edges = dist_map_in.global_to_local_id[src_nds[local_edges]]
+                #         dest_local_edges = dist_map_out.global_to_local_id[dest_nds[local_edges]]
+                #         num_src_nodes = dist_map_in.local_sizes[src_gpu]
+                #         num_dest_nodes = dist_map_out.local_sizes[dest_gpu]
+                #         # print("local",num_dest_nodes)
+                #         block = dgl.create_block((src_local_edges,dest_local_edges),num_src_nodes = num_src_nodes, \
+                #                                 num_dst_nodes = num_dest_nodes).to(src_gpu)
+                #         local_graph_per_layer[src_gpu][dest_gpu] = block
+                #     else:
+                #         non_local_edges = torch.where((edge_map[0] == src_gpu) & (edge_map[1] == dest_gpu))
+                #         # print("edges",non_local_edges.shape[0],src_gpu)
+                #         if i==0:
+                #             src_local_edges = dist_map_in.global_to_local_id[block_in[src_nds[non_local_edges]]]
+                #         else:
+                #             src_local_edges = dist_map_in.global_to_local_id[src_nds[non_local_edges]]
+                #         remote_dest_nodes = dest_nds[non_local_edges]
+                #         no_dup,mapping = remote_dest_nodes.unique(return_inverse = True)
+                #         merge_indices_per_layer[src_gpu][dest_gpu] = dist_map_out.global_to_local_id[no_dup].long().to(dest_gpu)
+                #         num_dest_nodes = no_dup.shape[0]
+                #         num_src_nodes = dist_map_in.local_sizes[src_gpu]
+                #         dest_local_edges = mapping.type(torch.int32)
+                #
+                #         # print("non-local dest",num_dest_nodes)
+                #         # print("non-local src",num_src_nodes)
+                #         block = dgl.create_block((src_local_edges,dest_local_edges),
+                #                 num_src_nodes = num_src_nodes, num_dst_nodes = num_dest_nodes).to(src_gpu)
+                #         local_graph_per_layer[src_gpu][dest_gpu] = block
             local_blocks.append(local_graph_per_layer)
             merge_indices.append(merge_indices_per_layer)
+        # assert(False)
         assert(len(local_blocks) == len(blocks))
         return local_blocks, merge_indices
 
@@ -238,6 +286,7 @@ def train(dg_graph, p_map, args):
                 data_transfer_time.append(data_movement)
             model.clear_timers()
     t2 = time.time()
+    model.lp.print_stats()
     print("Total time :",t2 - t1)
     print("forward_time_per_epoch:{}".format(sum(forward_time_per_epoch)/(args.num_epochs - 1)))
     print("merge_time per epoch:{}".format(sum(merge_time_per_epoch)/(args.num_epochs - 1)))

@@ -115,11 +115,12 @@ class Model(nn.Module):
         t1 = time.time()
         local_graphs,  merge_indices = self.create_local_graphs(in_nodes,
                         out_nodes, blocks)
+        t2 = time.time()
         in_map = self.layers[0](self.dist_feature.local_tensors,
                     local_graphs[0], merge_indices[0])
         no_layers = len(blocks)
-        t2 = time.time()
         self.graph_creation_time = self.graph_creation_time + t2 - t1
+        return
         for i in range(1,no_layers):
             in_map = self.layers[i](in_map, local_graphs[i], \
                         merge_indices[i])
