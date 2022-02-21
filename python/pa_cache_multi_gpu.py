@@ -62,7 +62,7 @@ class PaCache:
             print("no cache hit")
             batch_inputs = nfeat[input_nodes].to(dev_id)
         else:
-            print("cache hit",input_index.shape[0]/input_nodes.shape[0])
+            # print("cache hit",input_index.shape[0]/input_nodes.shape[0])
             cache_mask = torch.zeros(input_nodes.shape[0],dtype = torch.bool)
             cache_mask [input_index] = True
             batch_inputs = torch.cuda.FloatTensor(input_nodes.shape[0],nfeat.shape[1],device=dev_id)
@@ -145,6 +145,8 @@ def run(proc_id, n_gpus, args, devices, data):
     # Training loop
     avg = 0
     iter_tput = []
+    move_time = []
+    forward_time = []
     for epoch in range(args.num_epochs):
         tic = time.time()
 
@@ -162,13 +164,18 @@ def run(proc_id, n_gpus, args, devices, data):
                 # print("using gpu",dev_id)
                 # Load the input features as well as output labels
                 torch.cuda.nvtx.range_push("slice")
+                t1 = time.time()
                 batch_inputs, batch_labels = cache.load_subtensor(train_nfeat, train_labels,
                                                             seeds, input_nodes, dev_id)
                 blocks = [block.int().to(dev_id) for block in blocks]
+                t2 = time.time()
+                move_time.append(t2-t1)
                 torch.cuda.nvtx.range_pop()
                 # Compute loss and prediction
                 torch.cuda.nvtx.range_push("train")
                 batch_pred = model(blocks, batch_inputs)
+                t3 = time.time()
+                forward_time.append(t3-t2)
                 loss = loss_fcn(batch_pred, batch_labels)
                 optimizer.zero_grad()
                 loss.backward()
@@ -209,6 +216,8 @@ def run(proc_id, n_gpus, args, devices, data):
     if n_gpus > 1:
         th.distributed.barrier()
     if proc_id == 0:
+        print("Forward time {}".format(sum(move_time)/args.num_epochs))
+        print("Move time {}".format(sum(forward_time)/args.num_epochs))
         print('Avg epoch time: {}'.format(avg / (epoch - 4)))
 
 if __name__ == '__main__':

@@ -15,10 +15,3 @@ reddit|0|1.0000|31.6487s
 reddit|10|0.8596|30.0707s
 reddit|25|0.6685|28.9823s
 reddit|100|0.0000|24.8168s
-Graph | cache-percentage | cache-miss rate | avg-epoch time 
-lj|0|OOM|OOM 
-lj|10|OOM|OOM 
-lj|25|OOM|OOM 
-lj|100|OOM|OOM 
-reddit|0|1.0000|30.9072s 
-reddit|10|0.8597|30.0858s 

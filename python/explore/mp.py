@@ -34,9 +34,28 @@ def sampler_function(no_epochs,queues,barrier):
 
     # a = torch.tensor([0,2]).share_memory_()
 
+import time
+def worker(q,id):
+    for i in range(100):
+        time.sleep(id*10)
+        q.put((i,id))
+
+
+def master():
+    q = mp.Queue()
+    pr = []
+    for i in range(10):
+        p = mp.Process(target = worker, args = (q,i))
+        p.start()
+        pr.append(p)
+    while True:
+        print(q.get())
+
 
 
 if __name__ =="__main__":
+    master()
+
     n_gpus = 2
     no_epochs = 10
     processes = []
