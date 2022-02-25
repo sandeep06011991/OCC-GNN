@@ -15,6 +15,7 @@ import traceback
 import numpy as np
 import torch
 from dgl import DGLGraph
+import dgl
 
 def thread_wrapped_func(func):
     """
@@ -55,6 +56,7 @@ def get_dgl_graph(filename):
     sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
         shape = (num_nodes,num_nodes))
     dg_graph = DGLGraph(sp)
+    dg_graph = dgl.to_homogeneous(dg_graph)
     dg_graph.ndata["features"] = features
     num_classes = 40
     dg_graph.ndata["labels"] = torch.randint(0,40,(num_nodes,))
