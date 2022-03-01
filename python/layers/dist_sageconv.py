@@ -5,17 +5,16 @@ from torch.nn.parallel import gather
 
 class DistSageConv(nn.Module):
 
+    # Not exactly matching SageConv as normalization and activation as removed.
     def __init__(self, in_feats, out_feats, aggregator_type = "gcn", \
-        feat_drop=0., bias=True, norm=None, activation=None):
+        feat_drop=0.1, bias=True):
         super( DistSageConv, self).__init__()
         self.device_ids = [0,1,2,3]
         self._in_src_feats = in_feats
         self._in_dst_feats = in_feats
         self._out_feats = out_feats
         self._aggre_type = aggregator_type
-        self.norm = norm
         self.feat_drop = nn.Dropout(feat_drop)
-        self.activation = activation
         # aggregator type: mean/pool/lstm/gcn
         assert aggregator_type in ['mean','pool','gcn']
         if aggregator_type == 'pool':
@@ -71,7 +70,3 @@ class DistSageConv(nn.Module):
         for i in range(4):
             out.append(replica_nn[i](dist_tensors[i]))
         return out
-
-
-if __name__ == "__main__":
-    g = DistSageConv(10,10)

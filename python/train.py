@@ -8,7 +8,46 @@ import argparse
 import torch
 import dgl
 from dgl.sampling import sample_neighbors
-from utils import get_dgl_graph
+from utils.utils import get_dgl_graph
+from models.factory import get_model
+from utils.utils import get_dgl_graph
+from utils.memory_manager import MemoryManager
+from utils.sampler import Sampler
+import torch.optim as optim
+
+def train(args):
+    # Get input data
+    dg_graph,partition_map = get_dgl_graph("ogbn-arxiv")
+    partition_map = partition_map.type(torch.LongTensor)
+    features = torch.rand(dg_graph.num_nodes(),602)
+    cache_percentage = .10
+    batch_size = 3
+    fanout = [4, 4, 4]
+    # Create main objects
+    mm = MemoryManager(dg_graph, features, cache_percentage,fanout, batch_size,  partition_map)
+    # # (graph, training_nodes, memory_manager, fanout)
+    sampler = Sampler(dg_graph, torch.arange(dg_graph.num_nodes()), partition_map, \
+                mm, fanout, batch_size)
+    model = get_model()
+    print("Model constructed")
+    loss = torch.nn.NLLLoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    for b in sampler:
+        bipartite_graphs, shuffle_matrices, blocks, layers, classes = b
+    #     outputs = model(blocks)
+    #     outpus.
+
+    # for input, target in dataset:
+    #     optimizer.zero_grad()
+    #     output = model(input)
+    #     loss = loss_fn(output, target)
+    #     loss.backward()
+    #     optimizer.step()
+    print("sampler gives all the data required")
+    print("model forward pass is working")
+    print("model back pass and overall accuracy")
+    print("Hello World")
+
 def micro_test():
     dg_graph,p_map =  get_dgl_graph("ogbn-arxiv")
     batch_size = 4096
@@ -41,8 +80,6 @@ def micro_test():
         # print(g2)
     t4 = time.time()
     print(t4-t3)
-def train(g,p_map,args):
-    pass
 
 
 if __name__ == '__main__':
@@ -62,7 +99,7 @@ if __name__ == '__main__':
     argparser.add_argument('--num-epochs', type=int, default=10)
     argparser.add_argument('--num-hidden', type=int, default=32)
     argparser.add_argument('--num-layers', type=int, default=3)
-    parser.add_argument("--num-heads", type=int, default=8,
+    argparser.add_argument("--num-heads", type=int, default=8,
                         help="number of hidden attention heads if gat")
     argparser.add_argument('--fan-out', type=str, default='10,10,10')
     argparser.add_argument('--batch-size', type=int, default=4096)
@@ -76,3 +113,4 @@ if __name__ == '__main__':
     # micro_test()
     # g,p_map =  get_dgl_graph(args.graph)
     # train(g,p_map,args)
+    train(args)

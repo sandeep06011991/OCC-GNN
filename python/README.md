@@ -20,3 +20,4 @@ Final end-to-end architecture:
     Use pinned memory
     Handle varying levels of memory availability.
 4. models in final folder
+  

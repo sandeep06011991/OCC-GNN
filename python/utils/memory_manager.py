@@ -4,13 +4,13 @@ Memory manager manages the gpu memory on all devices
 Given the caching percentage and the graph, the memory manager distributes data
 on all devices.
 If it has non overlapping cache,from its partition it chooses the high degree vertices.
-Otherwise, it chooses the nodes in its partition along with highest degree of remaning nodes
+Otherwise, it chooses the nodes in its partition along with highest degree of remaining nodes
 it can fit
 Key data structures are:
     batch_in[4] : The frames of tensor used by each gpu in the forward pass of the first layer
-                  If caching percentage is less than <.25. This is refreshed
+                  If caching percentage is less than <.25. This has to be refreshed
     global_to_local: torch.ones(num_nodes,4)
-    node_gpu_mask: torch bool: (num_nodees, 4)
+    node_gpu_mask: torch bool: (num_nodes, 4)
     local_to_global[4]: of size local_sizes[i].
 
 '''
@@ -76,18 +76,25 @@ class MemoryManager():
         for k in self.clean_up.keys():
             prev_nds = self.clean_up[k]
             self.global_to_local[prev_nds,k] = -1
-
+            self.node_gpu_mask[prev_nds,k] = False
         self.clean_up = {}
         for gpu_id in range(4):
             nodes_for_gpu = last_layer_nodes[\
-                torch.where(self.partition_map[last_layer_nodes] == gpu_id)]
+                torch.where(self.partition_map[last_layer_nodes] == gpu_id)[0]]
+
             missing_nds = nodes_for_gpu[torch.where(self.global_to_local[nodes_for_gpu,gpu_id]==-1)[0]]
+            assert(torch.all(~self.node_gpu_mask[missing_nds,gpu_id]))
             # Fill in feature data calculating offsets
+            if missing_nds.shape[0] == 0:
+                continue
+            # print("adding nodes", gpu_id, missing_nds)
             self.clean_up[gpu_id] = missing_nds
             off_a = self.local_sizes[gpu_id]
             off_b = missing_nds.shape[0] + off_a
             self.batch_in[gpu_id][off_a:off_b] = self.features[missing_nds]
+            assert(torch.all(self.global_to_local[missing_nds,gpu_id]==-1))
             self.global_to_local[missing_nds,gpu_id] = self.local_sizes[gpu_id] + torch.arange(missing_nds.shape[0])
+            self.node_gpu_mask[missing_nds,gpu_id] = True
             assert(self.features.device == torch.device("cpu"))
             assert(self.batch_in[gpu_id].device == torch.device(gpu_id))
 

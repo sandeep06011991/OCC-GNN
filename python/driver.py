@@ -7,9 +7,19 @@
 # unit_test_local_bipartite()
 # print("Local bipartitie done !!")
 
-from utils.sampler import test_sampler
-test_sampler()
+# from utils.sampler import test_sampler
+# test_sampler()
 
+def train():
+    params = None
+    model = get_model()
+    
+    print("One forward and backward pass of GCN done successfully !!")
+
+if __name__ == "__main__":
+    # Add arg parser later
+    # Hardcode everything here.
+    train()
 # from utils.utils import get_dgl_graph
 # dg_graph, workload_map = get_dgl_graph("ogbn-arxiv")
 # cache_percentage = .20

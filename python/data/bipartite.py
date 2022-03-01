@@ -23,6 +23,9 @@ class BipartiteGraph:
         # To enforce consistency across layers
         # U and V have to be in the same order
         # Assume self edges have no duplicates
+        if(edge_src_u.shape[0] == 0 and edge_dest_v.shape[0]==0):
+            print("Empty graph")
+            return
         edge_src_u = edge_src_u.to(device)
         edge_dest_v = edge_dest_v.to(device)
         self_edges = torch.where(edge_src_u == edge_dest_v)[0]
@@ -31,8 +34,8 @@ class BipartiteGraph:
             reordered_to_orig_src,reordered_src = torch.unique(edge_src_u,return_inverse = True)
         else:
             reordered_to_orig_src = local_to_global
-            reordered_src = global_to_local[edge_src_u]
-
+            reordered_src = global_to_local[edge_src_u].to(device)
+            assert(not torch.any(reordered_src==-1))
         reordered_to_orig_dest,reordered_dest = torch.unique(edge_dest_v,return_inverse = True)
         # Handle self edges.
         self.self_u = reordered_src[self_edges]
@@ -43,7 +46,7 @@ class BipartiteGraph:
         # assert(self.graph.in_degree(0) == 0)
         self.num_nodes_u = self.graph.num_nodes('_U')
         self.num_nodes_v = self.graph.num_nodes('_V')
-        assert(self.num_nodes_u > self.num_nodes_v)
+        # assert(self.num_nodes_u >= self.num_nodes_v)
 
 
     def gather(self, f_in):
