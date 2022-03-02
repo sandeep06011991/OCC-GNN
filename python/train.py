@@ -21,8 +21,8 @@ def train(args):
     partition_map = partition_map.type(torch.LongTensor)
     features = torch.rand(dg_graph.num_nodes(),602)
     cache_percentage = .10
-    batch_size = 3
-    fanout = [4, 4, 4]
+    batch_size = 1024
+    fanout = [10, 10, 10]
     # Create main objects
     mm = MemoryManager(dg_graph, features, cache_percentage,fanout, batch_size,  partition_map)
     # # (graph, training_nodes, memory_manager, fanout)
@@ -33,20 +33,19 @@ def train(args):
     loss = torch.nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     for b in sampler:
+        optimizer.zero_grad()
         bipartite_graphs, shuffle_matrices, blocks, layers, classes = b
-    #     outputs = model(blocks)
-    #     outpus.
+        outputs = model(bipartite_graphs,shuffle_matrices,mm.batch_in)
+        print("Working forward pass !")
+        assert(False)
+        # total_loss = torch.reduce(loss(outputs,classes))
+        # total_loss.backward()
+        # optimizer.step()
 
-    # for input, target in dataset:
-    #     optimizer.zero_grad()
-    #     output = model(input)
-    #     loss = loss_fn(output, target)
-    #     loss.backward()
-    #     optimizer.step()
-    print("sampler gives all the data required")
-    print("model forward pass is working")
-    print("model back pass and overall accuracy")
-    print("Hello World")
+    print("sampler gives all the data required Done !!")
+    print("model forward pass is working (Not Done)")
+    print("model back pass and overall accuracy (Not Done)")
+    print("What are the other things that I need")
 
 def micro_test():
     dg_graph,p_map =  get_dgl_graph("ogbn-arxiv")

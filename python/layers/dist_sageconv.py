@@ -36,21 +36,31 @@ class DistSageConv(nn.Module):
             nn.init.xavier_uniform_(self.fc_self.weight, gain=gain)
         nn.init.xavier_uniform_(self.fc_neigh.weight, gain=gain)
 
-    def forward(self, distributed_graphs, distributed_input):
+    def forward(self, bipartite_graph, shuffle_matrix, x):
         # distributed_graphs = [bipartite_graphs(4)]
         # distributed_tensor = [tensor(4)]
         # Replicate all linear modules
-        replica_feat_drop = self.replicate(self.feat_drop, self.device_ids)
-        if aggregator_type == 'pool':
-            replica_fc_pool = self.replicate(self.fc_pool,self.device_ids)
-        if aggregator_type != 'gcn':
-            replica_fc_self = self.replicate(self.fc_self, self.device_ids)
-        replica_fc_neigh = self.replicate(self.fc_neigh, self.device_ids)
-        if bias:
-            replica_bias = self.replicate(self.bias, self.device_ids)
-        feat_src = feat_dst = self.apply_replica_on_tensor(replica_feat_drop, distributed_input)
-        # msg_fn = fn.copy_src('h','m')
-
+        print("Starting first layer forward pass !!!! ")
+        x = [self.feat_drop(xx)  for xx in x ]
+        # Compute H^{l+1}_n(i)
+        # Assume aggregator is sum.
+        out = []
+        for src_gpu in bipartite_graphs.keys():
+            out.append(bipartite_graphs[src_gpu].gather(x[gather]))
+        for src_gpu in shuffle_matrix.keys():
+            for dest_gpu in shuffle_matrix[src_gpu].keys():
+                t = bipartite_graph[src_gpu].pull_from_remotes(out[src_gpu], \
+                    shuffle_matrix[src_gpu][dest_gpu])
+                bipartite_graph[dest_gpu].push_from_remotes(out[dest_gpu],t)
+        # concat(h^l_i,h^{l+1}_N(i))
+        for src_gpu in shuffle_matrix.keys():
+            out.append(torch.concat(bipartite_graphs[src_gpu].gather(x[src_gpu]), \
+                        bipartite_graphs[src_gpu].gather(x[src_gpu]))))
+        #
+        repl_linear = self.replicate(self.fc,self.devices_ids)
+        out = []
+        for i in range(4):
+            out.append(repl_linear[i](out[self.fc]))
 
     def apply_message_passing(self, distributed_graphs, distributed_input):
         out = []

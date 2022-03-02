@@ -26,18 +26,14 @@ class DistSAGEModel(torch.nn.Module):
         self.activation = activation
 
     def forward(self, bipartite_graphs, x):
-        print("Not implemented.")
-        assert(False)
-        assert (type(x) is list)
-        h = x
-        for l, (layer, block) in enumerate(zip(self.layers, blocks)):
-            h = layer(block, h)
-            if l != len(self.layers) - 1:
-                for hh in h:
-                    h = self.activation(hh)
-                    h = self.dropout(h)
-            return h
+        for l,(layer, bipartite_graph, shuffle_matrix) in  \
+            enumerate(zip(self.layers,bipartite_graphs,shuffle_matrices)):
+            x = layer(bipartite_graph, shuffle_matrix, x)
+            if l != len(self.layers)-1:
+                x = [self.dropput(self.activation(i)) for i in x]
+        return x
 
+    
 
 
 def get_model():
