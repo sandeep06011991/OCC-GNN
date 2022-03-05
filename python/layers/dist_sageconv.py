@@ -11,32 +11,33 @@ class DistSageConv(nn.Module):
         super( DistSageConv, self).__init__()
         self.device_ids = [0,1,2,3]
         self._in_src_feats = in_feats
-        self._in_dst_feats = in_feats
+        # self._in_dst_feats = in_feats
         self._out_feats = out_feats
         self._aggre_type = aggregator_type
         self.feat_drop = nn.Dropout(feat_drop)
         # aggregator type: mean/pool/lstm/gcn
-        assert aggregator_type in ['mean','pool','gcn']
-        if aggregator_type == 'pool':
-            self.fc_pool = nn.Linear(self._in_src_feats, self._in_src_feats)
-        if aggregator_type != 'gcn':
-            self.fc_self = nn.Linear(self._in_dst_feats, out_feats, bias=False)
-        self.fc_neigh = nn.Linear(self._in_src_feats, out_feats, bias=False)
-        if bias:
-            self.bias = nn.parameter.Parameter(torch.zeros(self._out_feats))
-        else:
-            self.register_buffer('bias', None)
+        assert aggregator_type in ['sum']
+        self.fc = nn.Linear(self._in_src_feats * 2, out_feats)
+        # if aggregator_type == 'pool':
+        #     self.fc_pool = nn.Linear(self._in_src_feats, self._in_src_feats)
+        # if aggregator_type != 'gcn':
+        #     self.fc_self = nn.Linear(self._in_dst_feats, out_feats, bias=False)
+        # self.fc_neigh = nn.Linear(self._in_src_feats, out_feats, bias=False)
+        # if bias:
+        #     self.bias = nn.parameter.Parameter(torch.zeros(self._out_feats))
+        # else:
+            # self.register_buffer('bias', None)
         self.reset_parameters()
 
     def reset_parameters(self):
         gain = nn.init.calculate_gain('relu')
-        if self._aggre_type == 'pool':
-                    nn.init.xavier_uniform_(self.fc_pool.weight, gain=gain)
-        if self._aggre_type != 'gcn':
-            nn.init.xavier_uniform_(self.fc_self.weight, gain=gain)
-        nn.init.xavier_uniform_(self.fc_neigh.weight, gain=gain)
+        # if self._aggre_type == 'pool':
+        #             nn.init.xavier_uniform_(self.fc_pool.weight, gain=gain)
+        # if self._aggre_type != 'gcn':
+        #     nn.init.xavier_uniform_(self.fc_self.weight, gain=gain)
+        nn.init.xavier_uniform_(self.fc.weight, gain=gain)
 
-    def forward(self, bipartite_graph, shuffle_matrix, x):
+    def forward(self, bipartite_graphs, shuffle_matrix,owned_nodes,  x):
         # distributed_graphs = [bipartite_graphs(4)]
         # distributed_tensor = [tensor(4)]
         # Replicate all linear modules
@@ -44,39 +45,28 @@ class DistSageConv(nn.Module):
         x = [self.feat_drop(xx)  for xx in x ]
         # Compute H^{l+1}_n(i)
         # Assume aggregator is sum.
-        out = []
+        ng_gather = []
         for src_gpu in bipartite_graphs.keys():
-            out.append(bipartite_graphs[src_gpu].gather(x[gather]))
+            ng_gather.append(bipartite_graphs[src_gpu].gather(x[src_gpu]))
         for src_gpu in shuffle_matrix.keys():
             for dest_gpu in shuffle_matrix[src_gpu].keys():
-                t = bipartite_graph[src_gpu].pull_from_remotes(out[src_gpu], \
-                    shuffle_matrix[src_gpu][dest_gpu])
-                bipartite_graph[dest_gpu].push_from_remotes(out[dest_gpu],t)
+                t = bipartite_graphs[src_gpu].pull_for_remotes(ng_gather[src_gpu], \
+                    shuffle_matrix[src_gpu][dest_gpu].to(src_gpu))
+                bipartite_graphs[dest_gpu].push_from_remotes(ng_gather[dest_gpu],t.to(dest_gpu), \
+                    shuffle_matrix[src_gpu][dest_gpu].to(dest_gpu) )
         # concat(h^l_i,h^{l+1}_N(i))
-        for src_gpu in shuffle_matrix.keys():
-            out.append(torch.concat(bipartite_graphs[src_gpu].gather(x[src_gpu]), \
-                        bipartite_graphs[src_gpu].gather(x[src_gpu]))))
-        #
-        repl_linear = self.replicate(self.fc,self.devices_ids)
-        out = []
+        out1 = []
+        for src_gpu in bipartite_graphs.keys():
+            out1.append(torch.cat([bipartite_graphs[src_gpu].self_gather(x[src_gpu]), \
+                        ng_gather[src_gpu]],dim = 1))
+        out2 = []
+        for src_gpu in bipartite_graphs.keys():
+            out2.append(bipartite_graphs[src_gpu].\
+                slice_owned_nodes(out1[src_gpu],owned_nodes[src_gpu].to(src_gpu)))
+        repl_linear = torch.nn.parallel.replicate(self.fc.to(0),self.device_ids)
+        out3 = []
         for i in range(4):
-            out.append(repl_linear[i](out[self.fc]))
-
-    def apply_message_passing(self, distributed_graphs, distributed_input):
-        out = []
-        # Gather
-        for i in range(4):
-            graph = distributed_graphs[i]
-            out.append(graph.gather(distributed_input[i]))
-            return out
-        # Shuffle Indices
-        for src_id in range (4):
-            for dest_id, src, dest in graph.shuffle_pairs:
-                out[dest_id][dest] += distributed_input[src_id][offsets].to(dest_id)
-        return out
-
-    def apply_replica_on_tensor(self, replica_nn, dist_tensors):
-        out = []
-        for i in range(4):
-            out.append(replica_nn[i](dist_tensors[i]))
-        return out
+            print(out2[i].shape)
+            print(repl_linear[i].weight.shape)
+            out3.append(repl_linear[i](out2[i]))
+        return out3

@@ -77,6 +77,7 @@ class MemoryManager():
             prev_nds = self.clean_up[k]
             self.global_to_local[prev_nds,k] = -1
             self.node_gpu_mask[prev_nds,k] = False
+            self.local_to_global_id[k]= self.local_to_global_id[k][:-prev_nds.shape[0]]
         self.clean_up = {}
         for gpu_id in range(4):
             nodes_for_gpu = last_layer_nodes[\
@@ -94,6 +95,7 @@ class MemoryManager():
             self.batch_in[gpu_id][off_a:off_b] = self.features[missing_nds]
             assert(torch.all(self.global_to_local[missing_nds,gpu_id]==-1))
             self.global_to_local[missing_nds,gpu_id] = self.local_sizes[gpu_id] + torch.arange(missing_nds.shape[0])
+            self.local_to_global_id[gpu_id] = torch.cat([self.local_to_global_id[gpu_id],missing_nds])
             self.node_gpu_mask[missing_nds,gpu_id] = True
             assert(self.features.device == torch.device("cpu"))
             assert(self.batch_in[gpu_id].device == torch.device(gpu_id))

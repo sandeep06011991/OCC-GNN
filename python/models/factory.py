@@ -18,28 +18,32 @@ class DistSAGEModel(torch.nn.Module):
         self.n_hidden = n_hidden
         self.n_classes = n_classes
         self.layers = nn.ModuleList()
-        self.layers.append(DistSageConv(in_feats, n_hidden, 'mean'))
+        self.layers.append(DistSageConv(in_feats, n_hidden, 'sum'))
         for i in range(1, n_layers - 1):
-            self.layers.append(DistSageConv(n_hidden, n_hidden, 'mean'))
-        self.layers.append(DistSageConv(n_hidden, n_classes, 'mean'))
+            self.layers.append(DistSageConv(n_hidden, n_hidden, 'sum'))
+        self.layers.append(DistSageConv(n_hidden, n_classes, 'sum'))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
 
-    def forward(self, bipartite_graphs, x):
-        for l,(layer, bipartite_graph, shuffle_matrix) in  \
-            enumerate(zip(self.layers,bipartite_graphs,shuffle_matrices)):
-            x = layer(bipartite_graph, shuffle_matrix, x)
+    def forward(self, bipartite_graphs, shuffle_matrices,
+                model_owned_nodes, x):
+        for l,(layer, bipartite_graph, shuffle_matrix, owned_nodes) in  \
+            enumerate(zip(self.layers,bipartite_graphs,shuffle_matrices, \
+                            model_owned_nodes)):
+            print("layer attempt ",l)
+            x = layer(bipartite_graph, shuffle_matrix, owned_nodes, x)
+            print("layer done ", l)
             if l != len(self.layers)-1:
-                x = [self.dropput(self.activation(i)) for i in x]
+                x = [self.dropout(self.activation(i)) for i in x]
         return x
 
-    
+
 
 
 def get_model():
     # Todo: Add options as inputs and construct the correct model.
     dropout = .1
-    in_feats = 1024
+    in_feats = 602
     n_hidden = 128
     n_class = 40
     n_layers = 3

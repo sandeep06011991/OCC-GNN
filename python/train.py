@@ -30,14 +30,29 @@ def train(args):
                 mm, fanout, batch_size)
     model = get_model()
     print("Model constructed")
-    loss = torch.nn.NLLLoss()
+    loss = torch.nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     for b in sampler:
         optimizer.zero_grad()
-        bipartite_graphs, shuffle_matrices, blocks, layers, classes = b
-        outputs = model(bipartite_graphs,shuffle_matrices,mm.batch_in)
+        bipartite_graphs, shuffle_matrices, model_owned_nodes , blocks, layers, classes = b
+        bipartite_graphs.reverse()
+        shuffle_matrices.reverse()
+        model_owned_nodes.reverse()
+        outputs = model(bipartite_graphs,shuffle_matrices, \
+                    model_owned_nodes, mm.batch_in)
         print("Working forward pass !")
-        assert(False)
+        # for i in range(4):
+        #     print(outputs[i].shape)
+        #     print(classes[i].shape)
+        losses = []
+        for i in range(4):
+            losses.append(loss(outputs[i],classes[i]))
+        loss_gather = torch.nn.parallel.gather(losses,0)
+        total_loss = torch.sum(loss_gather,0)
+        print("Total loss is ", total_loss)
+        total_loss.backward()
+        optimizer.step()
+        print("Finished one pass !!!")
         # total_loss = torch.reduce(loss(outputs,classes))
         # total_loss.backward()
         # optimizer.step()

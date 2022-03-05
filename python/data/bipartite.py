@@ -19,7 +19,8 @@ Features:
 '''
 class BipartiteGraph:
 
-    def __init__(self, edge_src_u, edge_dest_v, device, global_to_local = None, local_to_global = None):
+    def __init__(self, edge_src_u, edge_dest_v, \
+        device, global_to_local = None, local_to_global = None, num_nodes_u = None):
         # To enforce consistency across layers
         # U and V have to be in the same order
         # Assume self edges have no duplicates
@@ -32,9 +33,11 @@ class BipartiteGraph:
         # assert(torch.unique(self_edges[edge_src_u]).shape == self_edges.shape)
         if global_to_local == None:
             reordered_to_orig_src,reordered_src = torch.unique(edge_src_u,return_inverse = True)
+
         else:
             reordered_to_orig_src = local_to_global
             reordered_src = global_to_local[edge_src_u].to(device)
+            # print(self.num_nodes_u)
             assert(not torch.any(reordered_src==-1))
         reordered_to_orig_dest,reordered_dest = torch.unique(edge_dest_v,return_inverse = True)
         # Handle self edges.
@@ -42,7 +45,13 @@ class BipartiteGraph:
         self.self_v = reordered_dest[self_edges]
         self.local_to_global_src = reordered_to_orig_src
         self.local_to_global_dest = reordered_to_orig_dest.to(device)
-        self.graph = dgl.heterograph({('_U','_E','_V'):(reordered_src,reordered_dest)},device = device)
+        if num_nodes_u == None:
+            self.graph = dgl.heterograph({('_U','_E','_V'):(reordered_src,reordered_dest)}, \
+                            device = device)
+        else:
+            self.graph = dgl.heterograph({('_U','_E','_V'):(reordered_src,reordered_dest)}, \
+                            {'_U':num_nodes_u, \
+                    '_V':self.local_to_global_dest.shape[0]},device = device)
         # assert(self.graph.in_degree(0) == 0)
         self.num_nodes_u = self.graph.num_nodes('_U')
         self.num_nodes_v = self.graph.num_nodes('_V')
@@ -51,10 +60,16 @@ class BipartiteGraph:
 
     def gather(self, f_in):
         with self.graph.local_scope():
+            print(f_in.shape[0], self.graph.number_of_nodes('_U'))
             assert(f_in.shape[0] == self.graph.number_of_nodes('_U'))
             self.graph.nodes['_U'].data['in'] = f_in
             self.graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
             return self.graph.nodes['_V'].data['out']
+
+    def slice_owned_nodes(self,f_in, owned_global_nds):
+        assert(f_in.shape[0] == self.graph.number_of_nodes('_V'))
+        reordered_ids = torch.searchsorted(self.local_to_global_dest, owned_global_nds)
+        return f_in[reordered_ids]
 
     def attention_gather(self, v_in, u_in):
         with self.graph.local_scope():
@@ -68,7 +83,8 @@ class BipartiteGraph:
             out = torch.zeros(self.num_nodes_v,local_in.shape[1],device =  self.graph.device)
             out[self.self_v] = local_in[self.self_u]
             return out
-    def pull_from_remotes(self,local_out, global_ids):
+
+    def pull_for_remotes(self,local_out, global_ids):
         with self.graph.local_scope():
             reordered_ids = torch.searchsorted(self.local_to_global_dest, global_ids)
             return local_out[reordered_ids]
