@@ -51,15 +51,21 @@ def get_dgl_graph(filename):
     indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.intc)
     num_nodes = indptr.shape[0] - 1
     num_edges = indices.shape[0]
-    fsize = 1024
-    features = torch.rand(num_nodes,fsize)
+    fsize = 128
+    features = torch.from_numpy(np.fromfile(("{}/{}/features.bin").format(DATA_DIR,graphname)\
+                                                    ,dtype = np.float32))
+    features = features.reshape(num_nodes,fsize)
+    assert(features.shape == num_nodes,fsize)
+    # features = torch.rand(num_nodes,fsize)
     sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
         shape = (num_nodes,num_nodes))
     dg_graph = DGLGraph(sp)
     dg_graph = dgl.to_homogeneous(dg_graph)
     dg_graph.ndata["features"] = features
     num_classes = 40
-    dg_graph.ndata["labels"] = torch.randint(0,40,(num_nodes,))
+    dg_graph.ndata["labels"] = torch.from_numpy(\
+            np.fromfile(("{}/{}/labels.bin".format(DATA_DIR, graphname)), dtype = np.intc)).to(\
+                torch.long)
     a = torch.rand((num_nodes,))
     dg_graph.ndata["train_mask"] = a < .80
     dg_graph.ndata["val_mask"] = (a >= .80) & (a <.90)
@@ -67,6 +73,7 @@ def get_dgl_graph(filename):
     p_map = np.fromfile("{}/{}/partition_map.bin".format(DATA_DIR,graphname),dtype = np.intc)
     # edges = dg_graph.edges()
     partition_map = torch.from_numpy(p_map)
+    # assert(False)
     return dg_graph, partition_map
     # , features, num_nodes, num_edges
 

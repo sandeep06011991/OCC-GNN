@@ -41,7 +41,7 @@ class DistSageConv(nn.Module):
         # distributed_graphs = [bipartite_graphs(4)]
         # distributed_tensor = [tensor(4)]
         # Replicate all linear modules
-        print("Starting first layer forward pass !!!! ")
+        # print("Starting first layer forward pass !!!! ")
         x = [self.feat_drop(xx)  for xx in x ]
         # Compute H^{l+1}_n(i)
         # Assume aggregator is sum.
@@ -66,7 +66,7 @@ class DistSageConv(nn.Module):
         repl_linear = torch.nn.parallel.replicate(self.fc.to(0),self.device_ids)
         out3 = []
         for i in range(4):
-            print(out2[i].shape)
-            print(repl_linear[i].weight.shape)
+            # print(out2[i].shape)
+            # print(repl_linear[i].weight.shape)
             out3.append(repl_linear[i](out2[i]))
         return out3

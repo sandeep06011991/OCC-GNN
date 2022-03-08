@@ -19,21 +19,21 @@ class SAGE(nn.Module):
         self.n_hidden = n_hidden
         self.n_classes = n_classes
         self.layers = nn.ModuleList()
-        self.layers.append(dglnn.SAGEConv(in_feats, n_hidden, 'mean'))
+        type = 'mean'
+        self.layers.append(dglnn.SAGEConv(in_feats, n_hidden, type))
         for i in range(1, n_layers - 1):
-            self.layers.append(dglnn.SAGEConv(n_hidden, n_hidden, 'mean'))
-        self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, 'mean'))
+            self.layers.append(dglnn.SAGEConv(n_hidden, n_hidden, type))
+        self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, type))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
 
-    def forward(self, x, blocks):
+    def forward(self,blocks,x):
         h = x
         for l, (layer, block) in enumerate(zip(self.layers, blocks)):
             h = layer(block, h)
             if l != len(self.layers) - 1:
-                for hh in h:
-                    h = self.activation(hh)
-                    h = self.dropout(h)
+                h = self.activation(h)
+                h = self.dropout(h)
         return h
 
 

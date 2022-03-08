@@ -19,40 +19,50 @@ def train(args):
     # Get input data
     dg_graph,partition_map = get_dgl_graph("ogbn-arxiv")
     partition_map = partition_map.type(torch.LongTensor)
-    features = torch.rand(dg_graph.num_nodes(),602)
-    cache_percentage = .10
-    batch_size = 1024
-    fanout = [10, 10, 10]
+    features = dg_graph.ndata["features"]
+    cache_percentage = 1
+    batch_size = 10000
+    fanout = [10, 10, 25]
     # Create main objects
     mm = MemoryManager(dg_graph, features, cache_percentage,fanout, batch_size,  partition_map)
     # # (graph, training_nodes, memory_manager, fanout)
     sampler = Sampler(dg_graph, torch.arange(dg_graph.num_nodes()), partition_map, \
                 mm, fanout, batch_size)
-    model = get_model()
+    model = get_model(features, dg_graph.ndata["labels"])
     print("Model constructed")
     loss = torch.nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-    for b in sampler:
-        optimizer.zero_grad()
-        bipartite_graphs, shuffle_matrices, model_owned_nodes , blocks, layers, classes = b
-        bipartite_graphs.reverse()
-        shuffle_matrices.reverse()
-        model_owned_nodes.reverse()
-        outputs = model(bipartite_graphs,shuffle_matrices, \
-                    model_owned_nodes, mm.batch_in)
-        print("Working forward pass !")
-        # for i in range(4):
-        #     print(outputs[i].shape)
-        #     print(classes[i].shape)
-        losses = []
-        for i in range(4):
-            losses.append(loss(outputs[i],classes[i]))
-        loss_gather = torch.nn.parallel.gather(losses,0)
-        total_loss = torch.sum(loss_gather,0)
-        print("Total loss is ", total_loss)
-        total_loss.backward()
-        optimizer.step()
-        print("Finished one pass !!!")
+    for m in (model.parameters()):
+        print(m.shape)
+    optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+    for epochs in range(100):
+        correct = 0
+        total = 0
+        for b in sampler:
+            optimizer.zero_grad()
+            bipartite_graphs, shuffle_matrices, model_owned_nodes , blocks, layers, classes = b
+            bipartite_graphs.reverse()
+            shuffle_matrices.reverse()
+            model_owned_nodes.reverse()
+            outputs = model(bipartite_graphs,shuffle_matrices, \
+                        model_owned_nodes, mm.batch_in)
+            if epochs%10 == 0:
+                for  i in range(4):
+                    values, indices = torch.max(outputs[i],1)
+                    correct = correct + torch.sum(indices == classes[i]).item()
+                    total = total + classes[i].shape[0]
+
+            losses = []
+            for i in range(4):
+                losses.append(loss(outputs[i],classes[i]))
+            loss_gather = torch.nn.parallel.gather(losses,0)
+            total_loss = torch.sum(loss_gather,0)
+            # print("Total loss is ", total_loss)
+            total_loss.backward()
+            optimizer.step()
+        if epochs%10 ==0:
+            print("Accuracy", correct, total)
+
+        # print("Finished one pass !!!")
         # total_loss = torch.reduce(loss(outputs,classes))
         # total_loss.backward()
         # optimizer.step()
@@ -62,49 +72,15 @@ def train(args):
     print("model back pass and overall accuracy (Not Done)")
     print("What are the other things that I need")
 
-def micro_test():
-    dg_graph,p_map =  get_dgl_graph("ogbn-arxiv")
-    batch_size = 4096
-    fanout = [10,10]
-    sampler = dgl.dataloading.MultiLayerNeighborSampler(fanout)
-        # [int(fanout) for fanout in args.fan_out.split(',')])
-    import time
-    dataloader = dgl.dataloading.NodeDataLoader(
-        dg_graph,
-        torch.arange(0,dg_graph.num_nodes()),
-        sampler,
-        batch_size=batch_size,
-        shuffle=True,
-        drop_last=False,
-        num_workers=1)
-    t1 = time.time()
-    for i in dataloader:
-        print(i)
-        pass
-    t2 = time.time()
-    print(t2 - t1)
-
-    t3 = time.time()
-    for i in range(0,dg_graph.num_nodes(), batch_size):
-        if(i+batch_size > dg_graph.num_nodes()):
-            continue
-        g1 = sample_neighbors(dg_graph,torch.arange(i,i+batch_size),fanout[0])
-        b = torch.unique(g1.edges()[0].sort()[0])
-        g2 = sample_neighbors(dg_graph,b,fanout[1])
-        # print(g2)
-    t4 = time.time()
-    print(t4-t3)
-
-
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("multi-gpu training")
     # Input data arguments parameters.
-    argparser.add_argument('--graph',type = str, default = "ogbn-arxiv")
-    argparser.add_argument('--fsize',type = int,default = 1024)
+    argparser.add_argument('--graph',type = str, default = "reddit")
+    argparser.add_argument('--fsize',type = int,default = 602)
     # training details
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
-    argparser.add_argument('--lr', type=float, default=0.003)
+    argparser.add_argument('--lr', type=float, default=0.01)
     argparser.add_argument('--num-workers', type=int, default=0,
        help="Number of sampling processes. Use 0 for no extra process.")
 

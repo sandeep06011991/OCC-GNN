@@ -12,9 +12,9 @@ import math
 import argparse
 from torch.nn.parallel import DistributedDataParallel
 import tqdm
-from utils import get_dgl_graph
+from utils.utils import get_dgl_graph
 
-from utils import thread_wrapped_func
+from utils.utils import thread_wrapped_func
 # from load_graph import load_reddit, inductive_split
 
 from models.sage import SAGE
@@ -176,7 +176,12 @@ def run(proc_id, n_gpus, args, devices, data):
                 batch_pred = model(blocks, batch_inputs)
                 t3 = time.time()
                 forward_time.append(t3-t2)
+
                 loss = loss_fcn(batch_pred, batch_labels)
+                if dev_id == 0:
+                    print("accuracy",\
+                        torch.sum(torch.max(batch_pred,1)[1]==batch_labels)/batch_pred.shape[0])
+                    print("loss",loss)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -185,32 +190,32 @@ def run(proc_id, n_gpus, args, devices, data):
             torch.cuda.nvtx.range_pop()
             if proc_id == 0:
                 iter_tput.append(len(seeds) * n_gpus / (time.time() - tic_step))
-            if step % args.log_every == 0 and proc_id == 0:
-                acc = compute_acc(batch_pred, batch_labels)
-                print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Train Acc {:.4f} | Speed (samples/sec) {:.4f} | GPU {:.1f} MB'.format(
-                    epoch, step, loss.item(), acc.item(), np.mean(iter_tput[3:]), th.cuda.max_memory_allocated() / 1000000))
+            # if step % args.log_every == 0 and proc_id == 0:
+            #     acc = compute_acc(batch_pred, batch_labels)
+            #     print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Train Acc {:.4f} | Speed (samples/sec) {:.4f} | GPU {:.1f} MB'.format(
+            #         epoch, step, loss.item(), acc.item(), np.mean(iter_tput[3:]), th.cuda.max_memory_allocated() / 1000000))
 
         if n_gpus > 1:
             th.distributed.barrier()
 
         toc = time.time()
-        if proc_id == 0:
-            print('Epoch Time(s): {:.4f}'.format(toc - tic))
-            if epoch >= 5:
-                avg += toc - tic
-            if epoch % args.eval_every == 0 and epoch != 0:
-                if n_gpus == 1:
-                    eval_acc = evaluate(
-                        model, val_g, val_nfeat, val_labels, val_nid, devices[0])
-                    test_acc = evaluate(
-                        model, test_g, test_nfeat, test_labels, test_nid, devices[0])
-                else:
-                    eval_acc = evaluate(
-                        model.module, val_g, val_nfeat, val_labels, val_nid, devices[0])
-                    test_acc = evaluate(
-                        model.module, test_g, test_nfeat, test_labels, test_nid, devices[0])
-                print('Eval Acc {:.4f}'.format(eval_acc))
-                print('Test Acc: {:.4f}'.format(test_acc))
+        # if proc_id == 0:
+        #     print('Epoch Time(s): {:.4f}'.format(toc - tic))
+        #     if epoch >= 5:
+        #         avg += toc - tic
+        #     if epoch % args.eval_every == 0 and epoch != 0:
+        #         if n_gpus == 1:
+        #             eval_acc = evaluate(
+        #                 model, val_g, val_nfeat, val_labels, val_nid, devices[0])
+        #             test_acc = evaluate(
+        #                 model, test_g, test_nfeat, test_labels, test_nid, devices[0])
+        #         else:
+        #             eval_acc = evaluate(
+        #                 model.module, val_g, val_nfeat, val_labels, val_nid, devices[0])
+        #             test_acc = evaluate(
+        #                 model.module, test_g, test_nfeat, test_labels, test_nid, devices[0])
+        #         print('Eval Acc {:.4f}'.format(eval_acc))
+        #         print('Test Acc: {:.4f}'.format(test_acc))
 
 
     if n_gpus > 1:
@@ -223,20 +228,20 @@ def run(proc_id, n_gpus, args, devices, data):
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("multi-gpu training")
     argparser.add_argument('--graph',type = str, default = "ogbn-arxiv")
-    argparser.add_argument('--fsize',type = int,default = 1024)
+    argparser.add_argument('--fsize',type = int,default = 128)
     argparser.add_argument('--gpu', type=str,
                             default = 0,
                             # default='0,1,2,3',
                            help="Comma separated list of GPU device IDs.")
-    argparser.add_argument('--num-epochs', type=int, default=2)
-    argparser.add_argument('--num-hidden', type=int, default=16)
-    argparser.add_argument('--num-layers', type=int, default=2)
-    argparser.add_argument('--fan-out', type=str, default='10,25')
-    argparser.add_argument('--batch-size', type=int, default=1000)
+    argparser.add_argument('--num-epochs', type=int, default=1000)
+    argparser.add_argument('--num-hidden', type=int, default=256)
+    argparser.add_argument('--num-layers', type=int, default=3)
+    argparser.add_argument('--fan-out', type=str, default='10,10,25')
+    argparser.add_argument('--batch-size', type=int, default=10000)
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
-    argparser.add_argument('--lr', type=float, default=0.003)
-    argparser.add_argument('--dropout', type=float, default=0.5)
+    argparser.add_argument('--lr', type=float, default=0.01)
+    argparser.add_argument('--dropout', type=float, default=0)
     argparser.add_argument('--num-workers', type=int, default=0,
                            help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--inductive', action='store_false',
@@ -249,8 +254,8 @@ if __name__ == '__main__':
     args = argparser.parse_args()
     n_gpus = 4
     devices = [0,1,2,3]
-    n_gpus = 1
-    devices = [0]
+    # n_gpus = 1
+    # devices = [0]
     # devices = list(map(int, args.gpu.split(',')))
     # n_gpus = len(devices)
     # assert(n_gpus > 0)

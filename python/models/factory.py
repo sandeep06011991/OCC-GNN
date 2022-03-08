@@ -30,9 +30,9 @@ class DistSAGEModel(torch.nn.Module):
         for l,(layer, bipartite_graph, shuffle_matrix, owned_nodes) in  \
             enumerate(zip(self.layers,bipartite_graphs,shuffle_matrices, \
                             model_owned_nodes)):
-            print("layer attempt ",l)
+            # print("layer attempt ",l)
             x = layer(bipartite_graph, shuffle_matrix, owned_nodes, x)
-            print("layer done ", l)
+            # print("layer done ", l)
             if l != len(self.layers)-1:
                 x = [self.dropout(self.activation(i)) for i in x]
         return x
@@ -40,12 +40,12 @@ class DistSAGEModel(torch.nn.Module):
 
 
 
-def get_model():
+def get_model(features, labels):
     # Todo: Add options as inputs and construct the correct model.
-    dropout = .1
-    in_feats = 602
-    n_hidden = 128
-    n_class = 40
+    dropout = 0
+    in_feats = features.shape[1]
+    n_hidden = 1024
+    n_class = (torch.max(labels).item()+1)
     n_layers = 3
     activation = torch.nn.ReLU()
     return DistSAGEModel(in_feats, n_hidden, n_class, n_layers , \

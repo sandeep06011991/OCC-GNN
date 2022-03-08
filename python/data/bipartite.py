@@ -60,7 +60,7 @@ class BipartiteGraph:
 
     def gather(self, f_in):
         with self.graph.local_scope():
-            print(f_in.shape[0], self.graph.number_of_nodes('_U'))
+            # print(f_in.shape[0], self.graph.number_of_nodes('_U'))
             assert(f_in.shape[0] == self.graph.number_of_nodes('_U'))
             self.graph.nodes['_U'].data['in'] = f_in
             self.graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
