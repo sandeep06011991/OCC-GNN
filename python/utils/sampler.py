@@ -28,7 +28,11 @@ class Sampler():
         if self.idx >= self.training_nodes.shape[0]:
             raise StopIteration
         batch_in = self.training_nodes[self.idx: self.idx + self.batch_size]
+
         blocks, layers = self.sample(batch_in)
+        # print("Sampling nodes",layers[0][:5])
+        # print("in_degrees",self.graph.in_degrees(layers[0][:5]))
+        # print("work load",self.workload_assignment[layers[0]][:5])
         # Refresh last layer cache
         self.memory_manager.refresh_cache(layers[-1])
         partitioned_edges = self.edge_partitioning(blocks,layers)
@@ -91,7 +95,7 @@ class Sampler():
             dest_local = torch.cat([dest_ids[natural_edges], dest_ids[extra_edges]])
             shuffle_nds = {}
             dest_nds = torch.unique(dest_ids)
-            owned_nds = torch.where(self.workload_assignment[dest_nds] == gpu_id)[0]
+            owned_nds = dest_nds[torch.where(self.workload_assignment[dest_nds] == gpu_id)[0]]
             if extra_edges.shape[0]:
                 for dest_gpu in range(4):
                     if dest_gpu == gpu_id:
@@ -101,7 +105,8 @@ class Sampler():
             partition_edges.append({"src":src_local,"dest":dest_local, \
                 "owned_nds":owned_nds, "shuffle_nds":shuffle_nds,"device":gpu_id})
         partitioned_blocks.append(partition_edges)
-        # Correctness
+        # Correctness test.
+        # Total number of edges across all cases must be the same.
         s = 0
         for i in partitioned_blocks:
             for j in i:
@@ -152,11 +157,17 @@ class Sampler():
         # Note. Dont forget self loops otherwise GAT doesnt work.
         # Create bipartite graphs for the first l-1 layers
         last_layer = batch_in
+        last_layer = last_layer.unique()
         layers.append(last_layer)
         for fanout in self.fanout:
             # Here src_ids and dest_ids are created from the point of sampler
             # Note data movement flows reverse.
             dest_ids,src_ids = sample_neighbors(self.graph, last_layer, fanout).edges()
+            # Correction test
+            # Check if all edges are being sampled
+            # assert((torch.where(src_ids[10] == src_ids)[0]).shape[0]
+            #     == self.graph.in_degrees(src_ids[10])[0])
+
             # Add a self loop
             self_loop_dests = torch.cat([last_layer, dest_ids])
             edges = self_loop_dests, torch.cat([last_layer, src_ids])
@@ -171,6 +182,16 @@ class Sampler():
         for gpu_id in range(4):
             local_first = first_layer[torch.where(self.workload_assignment[first_layer]==gpu_id)[0]]
             partitioned_labels[gpu_id] = self.labels[local_first].to(gpu_id)
+            # 2 Hop calculation used for correctness
+            # self.graph.in_degrees(local_first)
+            # ret = torch.zeros(local_first.shape)
+            # for tgt_id in range(local_first.shape[0]):
+            #     tgt = local_first[tgt_id]
+            #     s = self.graph.in_degrees(tgt)[0]
+            #     second_hop = torch.sum(self.graph.in_degrees(self.graph.in_edges(tgt)[0])).item()
+            #     s = s + second_hop
+            #     ret[tgt_id] = s
+            # partitioned_labels[gpu_id] = ret
         return partitioned_labels
 
 def test_sampler():

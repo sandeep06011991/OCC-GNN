@@ -29,6 +29,8 @@ class MemoryManager():
         for ff in fanout:
             f = f * ff
         self.fanout = f
+        if self.fanout == -1:
+            self.fanout = graph.num_edges()/graph.num_nodes()
         self.partition_map = partition_map
         self.batch_size = batch_size
         self.clean_up = {}
@@ -93,6 +95,7 @@ class MemoryManager():
             off_a = self.local_sizes[gpu_id]
             off_b = missing_nds.shape[0] + off_a
             self.batch_in[gpu_id][off_a:off_b] = self.features[missing_nds]
+            # assert(self.batch_in[gpu_id][:off_b] == 1)
             assert(torch.all(self.global_to_local[missing_nds,gpu_id]==-1))
             self.global_to_local[missing_nds,gpu_id] = self.local_sizes[gpu_id] + torch.arange(missing_nds.shape[0])
             self.local_to_global_id[gpu_id] = torch.cat([self.local_to_global_id[gpu_id],missing_nds])

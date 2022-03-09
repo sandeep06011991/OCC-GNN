@@ -2,7 +2,7 @@
 # primary codebase:
 # Key features:
 # 1. Varying models: GCN, GAT
-# 2. Can turn on micro benchmarking
+# 2. Can turn on micro benchmarking.
 
 import argparse
 import torch
@@ -16,13 +16,15 @@ from utils.sampler import Sampler
 import torch.optim as optim
 
 def train(args):
+    print("args are hardcoded, extract params from args")
     # Get input data
     dg_graph,partition_map = get_dgl_graph("ogbn-arxiv")
     partition_map = partition_map.type(torch.LongTensor)
     features = dg_graph.ndata["features"]
-    cache_percentage = 1
+    cache_percentage = .10
     batch_size = 10000
     fanout = [10, 10, 25]
+    # fanout = [-1,-1]
     # Create main objects
     mm = MemoryManager(dg_graph, features, cache_percentage,fanout, batch_size,  partition_map)
     # # (graph, training_nodes, memory_manager, fanout)
@@ -33,30 +35,36 @@ def train(args):
     loss = torch.nn.CrossEntropyLoss()
     for m in (model.parameters()):
         print(m.shape)
-    optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+
     for epochs in range(100):
         correct = 0
         total = 0
         for b in sampler:
             optimizer.zero_grad()
-            bipartite_graphs, shuffle_matrices, model_owned_nodes , blocks, layers, classes = b
+            bipartite_graphs, shuffle_matrices, model_owned_nodes ,\
+                blocks, layers, classes = b
             bipartite_graphs.reverse()
             shuffle_matrices.reverse()
             model_owned_nodes.reverse()
             outputs = model(bipartite_graphs,shuffle_matrices, \
                         model_owned_nodes, mm.batch_in)
+            # print(outputs[0][:10,:-10],classes[0][:10])
+            # print(outputs[1][:10,:-10],classes[1][:10])
+            # print(outputs[2][:10,:-10],classes[2][:10])
+            # print(outputs[3][:10,:-10],classes[3][:10])
             if epochs%10 == 0:
                 for  i in range(4):
                     values, indices = torch.max(outputs[i],1)
                     correct = correct + torch.sum(indices == classes[i]).item()
                     total = total + classes[i].shape[0]
-
+            #
             losses = []
             for i in range(4):
                 losses.append(loss(outputs[i],classes[i]))
             loss_gather = torch.nn.parallel.gather(losses,0)
             total_loss = torch.sum(loss_gather,0)
-            # print("Total loss is ", total_loss)
+            print("Total loss is ", total_loss)
             total_loss.backward()
             optimizer.step()
         if epochs%10 ==0:

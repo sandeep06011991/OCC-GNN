@@ -56,19 +56,20 @@ class BipartiteGraph:
         self.num_nodes_u = self.graph.num_nodes('_U')
         self.num_nodes_v = self.graph.num_nodes('_V')
         # assert(self.num_nodes_u >= self.num_nodes_v)
-
+        self.device = device
 
     def gather(self, f_in):
         with self.graph.local_scope():
             # print(f_in.shape[0], self.graph.number_of_nodes('_U'))
             assert(f_in.shape[0] == self.graph.number_of_nodes('_U'))
             self.graph.nodes['_U'].data['in'] = f_in
-            self.graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
+            self.graph.update_all(fn.copy_u('in', 'm'), fn.mean('m', 'out'))
             return self.graph.nodes['_V'].data['out']
 
     def slice_owned_nodes(self,f_in, owned_global_nds):
         assert(f_in.shape[0] == self.graph.number_of_nodes('_V'))
         reordered_ids = torch.searchsorted(self.local_to_global_dest, owned_global_nds)
+        assert(torch.all(self.local_to_global_dest[reordered_ids] == owned_global_nds))
         return f_in[reordered_ids]
 
     def attention_gather(self, v_in, u_in):
@@ -94,7 +95,7 @@ class BipartiteGraph:
             # global_ids is wrong !!
             reordered_ids = torch.searchsorted(self.local_to_global_dest, global_ids)
             assert(torch.all(self.local_to_global_dest[reordered_ids] == global_ids))
-            local_out[reordered_ids] += remote_out
+            local_out[reordered_ids] = (local_out[reordered_ids] + remote_out)/2
             return local_out
 
 def unit_test_local_bipartite():

@@ -42,9 +42,10 @@ class DistSAGEModel(torch.nn.Module):
 
 def get_model(features, labels):
     # Todo: Add options as inputs and construct the correct model.
+    print("Model configuration is hardcoded, read from options instead")
     dropout = 0
     in_feats = features.shape[1]
-    n_hidden = 1024
+    n_hidden = 256
     n_class = (torch.max(labels).item()+1)
     n_layers = 3
     activation = torch.nn.ReLU()

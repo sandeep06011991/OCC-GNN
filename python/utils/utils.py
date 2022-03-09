@@ -51,10 +51,13 @@ def get_dgl_graph(filename):
     indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.intc)
     num_nodes = indptr.shape[0] - 1
     num_edges = indices.shape[0]
+    print("Fixme: Hardcoding IO, read meta file instead")
     fsize = 128
     features = torch.from_numpy(np.fromfile(("{}/{}/features.bin").format(DATA_DIR,graphname)\
                                                     ,dtype = np.float32))
     features = features.reshape(num_nodes,fsize)
+    # print("Features is hacked here !")
+    # features = torch.ones(features.shape)
     assert(features.shape == num_nodes,fsize)
     # features = torch.rand(num_nodes,fsize)
     sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
