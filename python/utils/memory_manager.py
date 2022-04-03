@@ -22,6 +22,7 @@ class MemoryManager():
         self.graph = graph
         self.num_nodes = graph.num_nodes()
         self.features = features
+        self.features.pin_memory()
         self.fsize = features.shape[1]
         assert(cache_percentage <= 1 and cache_percentage>0)
         self.cache_percentage = cache_percentage
@@ -70,6 +71,7 @@ class MemoryManager():
             self.batch_in[i][:self.local_sizes[i]] = self.features[node_ids_cached]
             assert(self.batch_in[i].device == torch.device(i))
 
+    # @profile
     def refresh_cache(self, last_layer_nodes):
         if(self.cache_percentage >=.25):
             # Nothing to return
@@ -86,7 +88,7 @@ class MemoryManager():
                 torch.where(self.partition_map[last_layer_nodes] == gpu_id)[0]]
 
             missing_nds = nodes_for_gpu[torch.where(self.global_to_local[nodes_for_gpu,gpu_id]==-1)[0]]
-            assert(torch.all(~self.node_gpu_mask[missing_nds,gpu_id]))
+            # assert(torch.all(~self.node_gpu_mask[missing_nds,gpu_id]))
             # Fill in feature data calculating offsets
             if missing_nds.shape[0] == 0:
                 continue
@@ -96,12 +98,12 @@ class MemoryManager():
             off_b = missing_nds.shape[0] + off_a
             self.batch_in[gpu_id][off_a:off_b] = self.features[missing_nds]
             # assert(self.batch_in[gpu_id][:off_b] == 1)
-            assert(torch.all(self.global_to_local[missing_nds,gpu_id]==-1))
+            # assert(torch.all(self.global_to_local[missing_nds,gpu_id]==-1))
             self.global_to_local[missing_nds,gpu_id] = self.local_sizes[gpu_id] + torch.arange(missing_nds.shape[0])
             self.local_to_global_id[gpu_id] = torch.cat([self.local_to_global_id[gpu_id],missing_nds])
             self.node_gpu_mask[missing_nds,gpu_id] = True
-            assert(self.features.device == torch.device("cpu"))
-            assert(self.batch_in[gpu_id].device == torch.device(gpu_id))
+            # assert(self.features.device == torch.device("cpu"))
+            # assert(self.batch_in[gpu_id].device == torch.device(gpu_id))
 
 def unit_test_memory_manager():
     print("unit test 1")

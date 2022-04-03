@@ -2,6 +2,7 @@ import dgl
 import torch.nn as nn
 import torch
 from torch.nn.parallel import gather
+import time
 
 class DistSageConv(nn.Module):
 
@@ -47,15 +48,23 @@ class DistSageConv(nn.Module):
         # Compute H^{l+1}_n(i)
         # Assume aggregator is sum.
         ng_gather = []
+        t0 = time.time()
+        torch.cuda.nvtx.range_push("gather_local")
         for src_gpu in bipartite_graphs.keys():
             ng_gather.append(bipartite_graphs[src_gpu].gather(x[src_gpu]))
-
+        torch.cuda.nvtx.range_pop()
+        t1 = time.time()
+        torch.cuda.nvtx.range_push("shuffle")
+        shuffle_move_time = 0
         for src_gpu in shuffle_matrix.keys():
             for dest_gpu in shuffle_matrix[src_gpu].keys():
                 t = bipartite_graphs[src_gpu].pull_for_remotes(ng_gather[src_gpu], \
                     shuffle_matrix[src_gpu][dest_gpu].to(src_gpu))
                 bipartite_graphs[dest_gpu].push_from_remotes(ng_gather[dest_gpu],t.to(dest_gpu), \
                     shuffle_matrix[src_gpu][dest_gpu].to(dest_gpu) )
+        torch.cuda.nvtx.range_pop()
+        t2 = time.time()
+        print("shuffle", shuffle_move_time, "move time", t2 - t1)
         # concat(h^l_i,h^{l+1}_N(i))
         out1 = []
         for src_gpu in bipartite_graphs.keys():
@@ -69,4 +78,7 @@ class DistSageConv(nn.Module):
         out3 = []
         for i in range(4):
             out3.append(repl_linear[i](out2[i]))
+        t4 = time.time()
+        # print("total time",t4-t1)
+        # print("shuffle time",t2-t1)
         return out3

@@ -2,15 +2,19 @@ import torch
 from dgl.sampling import sample_neighbors
 from data.bipartite import BipartiteGraph
 import time
+import dgl
 
+# Otimized Sampler which pushes batch slicing on to the gpu
 class Sampler():
 
     def __init__(self,graph, training_nodes, workload_assignment, \
         memory_manager, fanout,batch_size):
+        self.device_ids = [0,1,2,3]
         self.graph = graph
         self.training_nodes = training_nodes
         # non overlapping workload assignment
         self.workload_assignment = workload_assignment
+        self.workload_assignment_gpu = [workload_assignment.to(i) for i in range(4)]
         self.batch_size = batch_size
         self.labels = graph.ndata["labels"]
         # storage assignment
@@ -20,18 +24,24 @@ class Sampler():
         self.sample_time = 0
         self.slice_time = 0
         self.cache_refresh_time = 0
+        self.move_batch_time = 0
+        self.extra_stuff = 0
+        self.gpu_slice = 0
 
     def clear_timers(self):
         self.sample_time = 0
         self.slice_time = 0
         self.cache_refresh_time = 0
+        self.move_batch_time = 0
+        self.extra_stuff = 0
+        self.gpu_slice = 0
 
     def __iter__(self):
         # shuffle training nodes
         self.training_nodes = self.training_nodes[torch.randperm(self.training_nodes.shape[0])]
         self.idx = 0
         return self
-
+    # @profile
     def __next__(self):
         # returns a bunch of bipartite graphs.
         if self.idx >= self.training_nodes.shape[0]:
@@ -52,76 +62,145 @@ class Sampler():
                 self.create_bipartite_graphs(partitioned_edges)
         t4 = time.time()
         self.sample_time += (t2-t1)
-        self.cache_refresh_time += t3-t2
-        self.slice_time +=t4-t3
+        self.slice_time += (t4-t3)
+        self.cache_refresh_time += (t3-t2)
+        # print("sample time", t2-t1)
+        # print("cache refresh time", t3 - t2)
         # print("splitting time",t4 -t3)
         self.idx = self.idx + batch_in.shape[0]
         assert(len(bipartite_graphs) == len(shuffle_matrix))
         # Return blocks and layers for correctness.
-        return bipartite_graphs, shuffle_matrix, model_owned_nodes, blocks, layers, partitioned_labels
+        return bipartite_graphs, shuffle_matrix, model_owned_nodes, \
+            blocks, layers, partitioned_labels
 
-    # Returns a dictionary of partitioned edge blocks.
-    def edge_partitioning(self,blocks,layers):
-        # No reordering takes place. In this part.
+    # Blocks and layers on this gpu
+    # @profile
+    def edge_partitioning_gpu(self,blocks, layers, gpu_id, \
+            last_layer_natural_edge, last_layer_remote_edge):
+        natural_edge_ids_gpu = last_layer_natural_edge
+        remote_edge_ids_gpu = last_layer_remote_edge
         no_layers = len(blocks)
         # Process except last layer.
         partitioned_blocks = []
         for layer_id in range(no_layers-1):
             # Read them reverse.
+            # print(blocks[layer_id])
             src_ids, dest_ids = blocks[layer_id]
-            partition_edges = []
+            partition_edges = None
             s = 0
-            for gpu_id in range(4):
-                selected_edges = torch.where(self.workload_assignment[src_ids] == gpu_id)[0]
-                # Used for bipartite graph construction.
-                s = s + selected_edges.shape[0]
-                shuffle_nds = {}
-                owned_nds = torch.unique(dest_ids[torch.where\
-                        (self.workload_assignment[dest_ids]==gpu_id)[0]])
-                dest_ids_select_edges = dest_ids[selected_edges]
-                for remote_gpu in range(4):
-                    if gpu_id == remote_gpu:
-                        continue
-                    shuffle_nds[remote_gpu] = torch.unique(dest_ids_select_edges\
-                            [torch.where(self.workload_assignment[dest_ids_select_edges] == remote_gpu)])
-                partition_edges.append({"src":src_ids[selected_edges], \
-                    "dest":dest_ids[selected_edges],"shuffle_nds":shuffle_nds,\
-                        "device":gpu_id, "owned_nds":owned_nds})
+            selected_edges = torch.where(self.workload_assignment_gpu[gpu_id][src_ids] == gpu_id)[0]
+            # Used for bipartite graph construction.
+            # s = s + selected_edges.shape[0]
+            shuffle_nds = {}
+            owned_nds = torch.unique(dest_ids[torch.where\
+                    (self.workload_assignment_gpu[gpu_id][dest_ids]==gpu_id)[0]])
+            dest_ids_select_edges = dest_ids[selected_edges]
+            for remote_gpu in range(4):
+                if gpu_id == remote_gpu:
+                    continue
+                shuffle_nds[remote_gpu] = torch.unique(dest_ids_select_edges\
+                        [torch.where(self.workload_assignment_gpu[gpu_id][dest_ids_select_edges] == remote_gpu)])
+            partition_edges = {"src":src_ids[selected_edges], \
+                "dest":dest_ids[selected_edges],"shuffle_nds":shuffle_nds,\
+                    "device":gpu_id, "owned_nds":owned_nds}
             partitioned_blocks.append(partition_edges)
-            assert(s == src_ids.shape[0])
+            # assert(s == src_ids.shape[0])
+
+        src_ids, dest_ids  = blocks[no_layers-1]
+        natural_edges = natural_edge_ids_gpu[torch.where(\
+            self.workload_assignment_gpu[gpu_id][dest_ids[natural_edge_ids_gpu]]== gpu_id)[0]]
+        extra_edges = remote_edge_ids_gpu[torch.where(\
+            self.workload_assignment_gpu[gpu_id][src_ids[remote_edge_ids_gpu]] == gpu_id)[0]]
+        src_local = torch.cat([src_ids[natural_edges], src_ids[extra_edges]])
+        # assert(torch.all(self.memory_manager.node_gpu_mask[src_local,gpu_id]))
+        dest_local = torch.cat([dest_ids[natural_edges], dest_ids[extra_edges]])
+        shuffle_nds = {}
+        dest_nds = torch.unique(dest_ids)
+        owned_nds = dest_nds[torch.where(self.workload_assignment_gpu[gpu_id][dest_nds] == gpu_id)[0]]
+        if extra_edges.shape[0]:
+            for dest_gpu in range(4):
+                if dest_gpu == gpu_id:
+                    continue
+                remote_edges = torch.where( \
+                    self.workload_assignment_gpu[gpu_id][dest_ids[extra_edges]] == dest_gpu)[0]
+                shuffle_nds[dest_gpu] = torch.unique(dest_ids[extra_edges[remote_edges]])
+        partition_edges = {"src":src_local,"dest":dest_local, \
+            "owned_nds":owned_nds, "shuffle_nds":shuffle_nds,"device":gpu_id}
+        partitioned_blocks.append(partition_edges)
+        return partitioned_blocks
+
+    # Returns a dictionary of partitioned edge blocks.
+    # @profile
+    def edge_partitioning(self,blocks,layers):
+        # No reordering takes place. In this part.
+        repl_blocks = []
+        repl_layers = []
+        t1 = time.time()
+        for i in range(4):
+            blocks_gpu = []
+            layers_gpu = []
+            for src,dest in blocks:
+                blocks_gpu.append((src.to(i),dest.to(i)))
+            for l in layers:
+                layers_gpu.append(l.to(i))
+            repl_blocks.append(blocks_gpu)
+            repl_layers.append(layers_gpu)
+        t2 = time.time()
+        no_layers = len(blocks)
         # Select edges  What about when there is overlap
         src_ids, dest_ids  = blocks[no_layers-1]
         # All remote edges
+        # Shuffle all this
         edge_mask = self.memory_manager.node_gpu_mask[src_ids,self.workload_assignment[dest_ids]]
         assert(edge_mask.shape == src_ids.shape)
         remote_edge_ids = torch.where(~ edge_mask)[0]
         natural_edge_ids = torch.where(edge_mask)[0]
-        assert(torch.all(self.memory_manager.node_gpu_mask[src_ids[natural_edge_ids], \
-                        self.workload_assignment[dest_ids[natural_edge_ids]]]))
-        # Special edge_ids
-
-        partition_edges = []
+        remote_edge_ids_gpus = []
+        natural_edge_ids_gpus = []
         for gpu_id in range(4):
+            natural_edge_ids_gpus.append(natural_edge_ids.to(gpu_id))
+            remote_edge_ids_gpus.append(remote_edge_ids.to(gpu_id))
+        t3 = time.time()
 
-            natural_edges = natural_edge_ids[torch.where(self.workload_assignment[dest_ids[natural_edge_ids]]== gpu_id)[0]]
-            extra_edges = remote_edge_ids[torch.where(self.workload_assignment[src_ids[remote_edge_ids]] == gpu_id)[0]]
-            src_local = torch.cat([src_ids[natural_edges], src_ids[extra_edges]])
-
-            assert(torch.all(self.memory_manager.node_gpu_mask[src_local,gpu_id]))
-            dest_local = torch.cat([dest_ids[natural_edges], dest_ids[extra_edges]])
-            shuffle_nds = {}
-            dest_nds = torch.unique(dest_ids)
-            owned_nds = dest_nds[torch.where(self.workload_assignment[dest_nds] == gpu_id)[0]]
-            if extra_edges.shape[0]:
-                for dest_gpu in range(4):
-                    if dest_gpu == gpu_id:
-                        continue
-                    remote_edges = torch.where(self.workload_assignment[dest_ids[extra_edges]] == dest_gpu)[0]
-                    shuffle_nds[dest_gpu] = torch.unique(dest_ids[extra_edges[remote_edges]])
-            partition_edges.append({"src":src_local,"dest":dest_local, \
-                "owned_nds":owned_nds, "shuffle_nds":shuffle_nds,"device":gpu_id})
-        partitioned_blocks.append(partition_edges)
-        # Correctness test.
+        partitioned_blocks_by_gpu = []
+        for gpu_id in range(4):
+            # blocks,layers,gpu_id, natural_edge, remote_edge
+            partitioned_blocks_by_gpu.append(self.edge_partitioning_gpu(\
+                repl_blocks[gpu_id], repl_blocks[gpu_id],gpu_id, natural_edge_ids_gpus[gpu_id], remote_edge_ids_gpus[gpu_id]))
+        t4 = time.time()
+        partitioned_blocks = []
+        for layers in range(no_layers):
+            partition_layer = []
+            for device_id in range(4):
+                partition_layer.append(partitioned_blocks_by_gpu[device_id][layers])
+            partitioned_blocks.append(partition_layer)
+        self.move_batch_time += (t2 - t1)
+        self.extra_stuff += (t3 - t2)
+        self.gpu_slice += (t4 - t3)
+        # assert(torch.all(self.memory_manager.node_gpu_mask[src_ids[natural_edge_ids], \
+        #                 self.workload_assignment[dest_ids[natural_edge_ids]]]))
+        # # Special edge_ids
+        # # Collect and reshuffle for bipartite graph construction.
+        # partition_edges = []
+        # for gpu_id in range(4):
+        #     natural_edges = natural_edge_ids[torch.where(self.workload_assignment[dest_ids[natural_edge_ids]]== gpu_id)[0]]
+        #     extra_edges = remote_edge_ids[torch.where(self.workload_assignment[src_ids[remote_edge_ids]] == gpu_id)[0]]
+        #     src_local = torch.cat([src_ids[natural_edges], src_ids[extra_edges]])
+        #     assert(torch.all(self.memory_manager.node_gpu_mask[src_local,gpu_id]))
+        #     dest_local = torch.cat([dest_ids[natural_edges], dest_ids[extra_edges]])
+        #     shuffle_nds = {}
+        #     dest_nds = torch.unique(dest_ids)
+        #     owned_nds = dest_nds[torch.where(self.workload_assignment[dest_nds] == gpu_id)[0]]
+        #     if extra_edges.shape[0]:
+        #         for dest_gpu in range(4):
+        #             if dest_gpu == gpu_id:
+        #                 continue
+        #             remote_edges = torch.where(self.workload_assignment[dest_ids[extra_edges]] == dest_gpu)[0]
+        #             shuffle_nds[dest_gpu] = torch.unique(dest_ids[extra_edges[remote_edges]])
+        #     partition_edges.append({"src":src_local,"dest":dest_local, \
+        #         "owned_nds":owned_nds, "shuffle_nds":shuffle_nds,"device":gpu_id})
+        # partitioned_blocks.append(partition_edges)
+        # # Correctness test.
         # Total number of edges across all cases must be the same.
         s = 0
         for i in partitioned_blocks:
@@ -130,9 +209,10 @@ class Sampler():
         ss = 0
         for src,dest in blocks:
             ss = ss + src.shape[0]
+        # print(ss,s)
         assert(ss == s)
         return partitioned_blocks
-
+    # @profile
     def create_bipartite_graphs(self,partitioned_blocks):
         model_graphs = []
         model_shuffles = []
@@ -173,6 +253,7 @@ class Sampler():
         Keep this agnostic to graph slicing.
         Allows me to try various sampling strategies.
     '''
+    # @profile
     def sample(self, batch_in):
         layers = []
         blocks = []
@@ -206,6 +287,7 @@ class Sampler():
             blocks.append(edges)
         return blocks,layers
 
+    # @profile
     def partition_labels(self, blocks, layers):
         partitioned_labels = {}
         first_layer = layers[0]
@@ -243,7 +325,7 @@ def test_sampler():
     it = iter(sampler)
     next(it)
     # cache_percentage = .60
-    # MemoryManager(dg_graph, features, cache_percentage,fanout, batch_size,  partition_map)
+    # Memory    Manager(dg_graph, features, cache_percentage,fanout, batch_size,  partition_map)
     print("Test refresh cache misses")
     print("sampler request nodes which are currently missing")
     print("Not clear yet.")

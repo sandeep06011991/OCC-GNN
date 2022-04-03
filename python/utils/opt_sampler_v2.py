@@ -10,18 +10,13 @@ class Sampler():
         self.graph = graph
         self.training_nodes = training_nodes
         # non overlapping workload assignment
-        self.workload_assignment = workload_assignment
+        self.workload_assignment = workload_assignment.to(0)
         self.batch_size = batch_size
         self.labels = graph.ndata["labels"]
         # storage assignment
         self.memory_manager = memory_manager
         self.fanout = fanout
         self.num_nodes = graph.num_nodes()
-        self.sample_time = 0
-        self.slice_time = 0
-        self.cache_refresh_time = 0
-
-    def clear_timers(self):
         self.sample_time = 0
         self.slice_time = 0
         self.cache_refresh_time = 0
@@ -52,9 +47,11 @@ class Sampler():
                 self.create_bipartite_graphs(partitioned_edges)
         t4 = time.time()
         self.sample_time += (t2-t1)
-        self.cache_refresh_time += t3-t2
         self.slice_time +=t4-t3
-        # print("splitting time",t4 -t3)
+        self.cache_refresh_time += t3-t2
+        print("sample time", t2-t1)
+        print("parititon time", t3 - t2)
+        print("splitting time", t4 -t3)
         self.idx = self.idx + batch_in.shape[0]
         assert(len(bipartite_graphs) == len(shuffle_matrix))
         # Return blocks and layers for correctness.
@@ -65,6 +62,15 @@ class Sampler():
         # No reordering takes place. In this part.
         no_layers = len(blocks)
         # Process except last layer.
+        i = 0
+        blocks_gpu = []
+        layers_gpu = []
+        for src,dest in blocks:
+            blocks_gpu.append((src.to(i),dest.to(i)))
+        for l in layers:
+            layers_gpu.append(l.to(i))
+        blocks = blocks_gpu
+        layers = layers_gpu
         partitioned_blocks = []
         for layer_id in range(no_layers-1):
             # Read them reverse.
@@ -157,10 +163,10 @@ class Sampler():
                                      self.memory_manager.batch_in[src_gpu].shape[0])
                 layer_shuffles[src_gpu] = local_layer["shuffle_nds"]
                 layer_owned_nodes[src_gpu] = local_layer["owned_nds"]
-            #     for k in local_layer["shuffle_nds"].keys():
-            #         total_shuffle_nodes += local_layer["shuffle_nds"][k].shape[0]
-            #     total_owned_nodes += local_layer["owned_nds"].shape[0]
-            # print("Statistics of shuffle",total_shuffle_nodes/total_owned_nodes)
+                for k in local_layer["shuffle_nds"].keys():
+                    total_shuffle_nodes += local_layer["shuffle_nds"][k].shape[0]
+                total_owned_nodes += local_layer["owned_nds"].shape[0]
+            print("Statistics of shuffle",total_shuffle_nodes/total_owned_nodes)
             model_owned_nodes.append(layer_owned_nodes)
             model_graphs.append(layer_graphs)
             model_shuffles.append(layer_shuffles)
