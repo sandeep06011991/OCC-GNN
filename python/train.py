@@ -13,7 +13,7 @@ from dgl.sampling import sample_neighbors
 from models.factory import get_model
 from utils.utils import get_process_graph
 from utils.memory_manager import MemoryManager
-from utils.opt_sampler_v3 import Sampler
+from utils.opt_sampler_v4 import Sampler
 import torch.optim as optim
 
 def train(args):
@@ -56,7 +56,7 @@ def train(args):
         for b in sampler:
             ii = ii + 1
             print(ii)
-            if ii > 30 and args.debug:
+            if ii > 120 and args.debug:
                 break
             optimizer.zero_grad()
             bipartite_graphs, shuffle_matrices, model_owned_nodes ,\
@@ -64,9 +64,8 @@ def train(args):
             bipartite_graphs.reverse()
             shuffle_matrices.reverse()
             model_owned_nodes.reverse()
-
+            # continue
             with nvtx.annotate("forward", color="red"):
-                continue
                 t1 = time.time()
                 outputs = model(bipartite_graphs,shuffle_matrices, \
                             model_owned_nodes, mm.batch_in)
@@ -127,7 +126,7 @@ if __name__ == '__main__':
     argparser.add_argument("--num-heads", type=int, default=8,
                         help="number of hidden attention heads if gat")
     argparser.add_argument('--fan-out', type=str, default='10,10,25')
-    argparser.add_argument('--batch-size', type=int, default=(4096 * 4))
+    argparser.add_argument('--batch-size', type=int, default=(1032))
     argparser.add_argument('--dropout', type=float, default=0)
     # We perform only transductive training
     # argparser.add_argument('--inductive', action='store_false',

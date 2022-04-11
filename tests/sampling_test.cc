@@ -3,22 +3,27 @@
 #include "dataset.h"
 #include <fstream>
 #include "util/tensor.hh"
-#include "samplers/neigh_sample.h"
+#include "samplers/neigh_sample_v1.h"
+// #include "samplers/neigh_sample.h"
 #include "gnn/sage.hh"
 #include "util/timer.h"
 // Not a test code runs.
 
 int main(){
 
-  std::string BIN_DIR = "/home/spolisetty/data";
-  Dataset * dataset = new Dataset(BIN_DIR + "/ogbn-arxiv");
+  std::string BIN_DIR = "/data/sandeep";
+  Dataset * dataset = new Dataset(BIN_DIR + "/ogbn-products");
   std::cout << dataset->num_edges <<"\n";
   std::cout << dataset->fsize << "\n";
   std::cout << " classes: " << dataset->noClasses << "\n";
-  int batch_size = 512;
-  auto * s = new ThreeHopNeighSampler(dataset->num_nodes, dataset->num_edges,
+  int batch_size = 4096;
+  int layers = 2;
+  auto * s = new NeighSampler(dataset->num_nodes, dataset->num_edges,
              dataset->indptr, dataset->indices, batch_size,dataset->features,
-              dataset->labels, dataset->fsize);
+              dataset->labels, dataset->fsize,2);
+  // auto * s = new TwoHopNeighSampler(dataset->num_nodes, dataset->num_edges,
+  //            dataset->indptr, dataset->indices, batch_size,dataset->features,
+  //             dataset->labels, dataset->fsize);
 
   float * aggr2 = (float *)malloc(sizeof(float) * batch_size * dataset->fsize);
   memset(aggr2, 0, sizeof(float) * batch_size * dataset->fsize);
@@ -75,6 +80,7 @@ int main(){
   for(int bid = 0; bid<noB;bid++){
     s->get_sample(bid);
   }
+
   // Test 2 print out all csr neighbourhoods.
 print_timer();
   std::cout << "Hello World ! \n";

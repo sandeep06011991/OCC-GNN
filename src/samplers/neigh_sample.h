@@ -10,18 +10,18 @@
 // with full 2 hop neighbourhood.
 // Fixme:: Move the graph class to different position.
 struct Graph{
-  int num_nodes;
-  int num_edges;
-  int *indptr;
-  int *indices;
+  long num_nodes;
+  long num_edges;
+  long *indptr;
+  long *indices;
 };
 
 class TwoHopNeighSampler{
 
   Graph graph;
   // Full graph
-  int no_nodes;
-  int no_edges;
+  long no_nodes;
+  long no_edges;
   // Instantitate from sample 1-n
 
   // Features of the last sampled_hop
@@ -34,7 +34,7 @@ class TwoHopNeighSampler{
   // int next_minibatch;
   int minibatch_size;
   int current_minibatch_size;
-  int * target_nodes;
+  long * target_nodes;
   int fsize;
 
 
@@ -43,7 +43,7 @@ public:
   float * batch_features = nullptr;
   int * batch_labels = nullptr;
 
-  TwoHopNeighSampler(int no_nodes, int no_edges, int *ind_ptr, int *indices,
+  TwoHopNeighSampler(long no_nodes, long no_edges, long *ind_ptr, long *indices,
       int max_batch_size, float *features, int * labels, int fsize){
     this->graph.num_nodes = no_nodes;
     this->graph.num_edges = no_edges;
@@ -51,10 +51,10 @@ public:
     this->graph.indices = indices;
     this->no_nodes = no_nodes;
     this->no_edges = no_edges;
-    this->target_nodes = (int *)malloc(sizeof(int) * no_nodes);
+    this->target_nodes = (long *)malloc(sizeof(long) * no_nodes);
     this->full_features = features;
     this->full_labels = labels;
-    for(int i =0;i<no_nodes;i++){
+    for(long i =0;i<no_nodes;i++){
       this->target_nodes[i] = i;
     }
     // this->next_minibatch=0;
@@ -205,8 +205,8 @@ class ThreeHopNeighSampler{
 
     Graph graph;
     // Full graph
-    int no_nodes;
-    int no_edges;
+    long no_nodes;
+    long no_edges;
     // Instantitate from sample 1-n
 
     // Features of the last sampled_hop
@@ -228,7 +228,7 @@ class ThreeHopNeighSampler{
     float * batch_features = nullptr;
     int * batch_labels = nullptr;
 
-    ThreeHopNeighSampler(int no_nodes, int no_edges, int *ind_ptr, int *indices,
+    ThreeHopNeighSampler(long no_nodes, long no_edges, long *ind_ptr, long *indices,
         int max_batch_size, float *features, int * labels, int fsize){
       this->graph.num_nodes = no_nodes;
       this->graph.num_edges = no_edges;
@@ -236,10 +236,10 @@ class ThreeHopNeighSampler{
       this->graph.indices = indices;
       this->no_nodes = no_nodes;
       this->no_edges = no_edges;
-      this->target_nodes = (int *)malloc(sizeof(int) * no_nodes);
+      this->target_nodes = (long *)malloc(sizeof(long) * no_nodes);
       this->full_features = features;
       this->full_labels = labels;
-      for(int i =0;i<no_nodes;i++){
+      for(long i =0;i<no_nodes;i++){
         this->target_nodes[i] = i;
       }
       // this->next_minibatch=0;
@@ -253,7 +253,7 @@ class ThreeHopNeighSampler{
       // next_minibatch = 0;
     }
 
-    void fill_batch_data(int* in_nodes, int no_in, int* out_nodes, int no_out){
+    void fill_batch_data(long* in_nodes, int no_in, long* out_nodes, int no_out){
       if(batch_features != nullptr){
         free(batch_features);
       }
@@ -282,8 +282,8 @@ class ThreeHopNeighSampler{
     void get_sample(int batchId){
       nvtxRangePushA("Sampling start");
       assert(batchId * this->minibatch_size < this->no_nodes);
-      int * tgt = &this->target_nodes[this->minibatch_size * batchId];
-      int no_nodes =  minibatch_size;
+      long * tgt = &this->target_nodes[this->minibatch_size * batchId];
+      long no_nodes =  minibatch_size;
       if(this->minibatch_size * (batchId + 1) > this->no_nodes){
         no_nodes = this->no_nodes - (this->minibatch_size * batchId);
       }
@@ -293,21 +293,21 @@ class ThreeHopNeighSampler{
       start_timer(SAMPLE_CREATION);
       // #pragma omp parallel for
       for(int i=0;i<no_nodes;i++){
-        int nd1 = tgt[i];
-        int edge_start = this->graph.indptr[nd1];
-        int edge_end = this->graph.indptr[nd1+1];
+        long nd1 = tgt[i];
+        long edge_start = this->graph.indptr[nd1];
+        long edge_end = this->graph.indptr[nd1+1];
         if(edge_end - edge_start>0)sample.l1.nd1.push_back(nd1);
-        int no_neighbours = edge_end - edge_start;
+        long no_neighbours = edge_end - edge_start;
         if(no_neighbours < 10){
-          for(int j=edge_start; j < edge_end ; j++ ){
-            int nd2 = this->graph.indices[j];
+          for(long j=edge_start; j < edge_end ; j++ ){
+            long nd2 = this->graph.indices[j];
             sample.l1.nd2.push_back(nd2);
             sample.l1.edges.push_back(std::make_pair(nd1,nd2));
           }
         }else{
           for(int j=0;j<10;j++){
             int rand_nb = rand()%no_neighbours;
-            int nd2 = this->graph.indices[edge_start+rand_nb];
+            long nd2 = this->graph.indices[edge_start+rand_nb];
             sample.l1.nd2.push_back(nd2);
             sample.l1.edges.push_back(std::make_pair(nd1,nd2));
           }
@@ -321,22 +321,22 @@ class ThreeHopNeighSampler{
       // #pragma omp parallel for
       start_timer(SAMPLE_CREATION);
       for(int i=0;i<nodes_l1;i++){
-        int nd1 = sample.l1.nd2[i];
-        int edge_start = this->graph.indptr[nd1];
-        int edge_end = this->graph.indptr[nd1+1];
+        long nd1 = sample.l1.nd2[i];
+        long edge_start = this->graph.indptr[nd1];
+        long edge_end = this->graph.indptr[nd1+1];
 
-        int no_neighbours = edge_end - edge_start;
+        long no_neighbours = edge_end - edge_start;
         if(edge_end - edge_start > 0)sample.l2.nd1.push_back(nd1);
         if(no_neighbours < 10){
-          for(int j=edge_start; j < edge_end ; j++ ){
-            int nd2 = this->graph.indices[j];
+          for(long j=edge_start; j < edge_end ; j++ ){
+            long nd2 = this->graph.indices[j];
             sample.l2.nd2.push_back(nd2);
             sample.l2.edges.push_back(std::make_pair(nd1,nd2));
           }
         }else{
           for(int j=0;j<10;j++){
             int rand_nb = rand()%no_neighbours;
-            int nd2 = this->graph.indices[edge_start+rand_nb];
+            long nd2 = this->graph.indices[edge_start+rand_nb];
             sample.l2.nd2.push_back(nd2);
             sample.l2.edges.push_back(std::make_pair(nd1,nd2));
           }
@@ -350,22 +350,22 @@ class ThreeHopNeighSampler{
       // #pragma omp parallel for
       start_timer(SAMPLE_CREATION);
       for(int i=0;i<nodes_l2;i++){
-        int nd1 = sample.l2.nd2[i];
-        int edge_start = this->graph.indptr[nd1];
-        int edge_end = this->graph.indptr[nd1+1];
+        long nd1 = sample.l2.nd2[i];
+        long edge_start = this->graph.indptr[nd1];
+        long edge_end = this->graph.indptr[nd1+1];
 
-        int no_neighbours = edge_end - edge_start;
+        long no_neighbours = edge_end - edge_start;
         if(edge_end - edge_start > 0)sample.l3.nd1.push_back(nd1);
         if(no_neighbours < 10){
-          for(int j=edge_start; j < edge_end ; j++ ){
-            int nd2 = this->graph.indices[j];
+          for(long j=edge_start; j < edge_end ; j++ ){
+            long nd2 = this->graph.indices[j];
             sample.l3.nd2.push_back(nd2);
             sample.l3.edges.push_back(std::make_pair(nd1,nd2));
           }
         }else{
           for(int j=0;j<10;j++){
             int rand_nb = rand()%no_neighbours;
-            int nd2 = this->graph.indices[edge_start+rand_nb];
+            long nd2 = this->graph.indices[edge_start+rand_nb];
             sample.l3.nd2.push_back(nd2);
             sample.l3.edges.push_back(std::make_pair(nd1,nd2));
           }

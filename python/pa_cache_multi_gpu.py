@@ -277,7 +277,7 @@ if __name__ == '__main__':
     argparser.add_argument('--num-hidden', type=int, default=256)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='10,10,25')
-    argparser.add_argument('--batch-size', type=int, default=5000)
+    argparser.add_argument('--batch-size', type=int, default=4096 * 4)
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.01)

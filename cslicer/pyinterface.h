@@ -1,0 +1,6 @@
+
+class PyObject {
+
+  void getPyObjectFromCpp();
+
+};

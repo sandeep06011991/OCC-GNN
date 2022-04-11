@@ -2,6 +2,7 @@
 // Data structures are not created here
 // As placement decisions are taken here.
 // Therefore contains some redundant data creation
+#pragma once
 
 #include <string>
 #ifndef DATASET_H

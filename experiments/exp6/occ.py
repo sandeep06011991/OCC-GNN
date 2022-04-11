@@ -42,7 +42,7 @@ def run_experiment_occ():
     hidden_size = 128
     # cache_rates = [".05",".10",".24",".5"]
     cache_rates = [".05",".24", ".5"]
-    # cache_rates = ["0"]
+    cache_rates = [".20"]
 
     with open('exp6.txt','a') as fp:
         fp.write("graph | hidden-size | cached-gper-gpu | occ-forward | occ-move | occ-slice-time \n")
