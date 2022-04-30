@@ -33,12 +33,12 @@ def run_pagraph(graphname, epochs,cache_per, hidden_size):
 
 def run_experiment_pagraph():
     settings = [\
-                # ("ogbn-arxiv",10), \
+                ("ogbn-arxiv",10), \
                 # ("com-youtube",10), \
-                ("ogbn-products",5), \
+                ("ogbn-products",2), \
                 # ("ogbn-papers100M",2), \
                 # ("com-friendster",2), \
-                ("com-orkut",5) \
+                # ("com-orkut",2) \
                 ]
     # settings = [("ogbn-papers100M",2)]
     hidden_size = 128

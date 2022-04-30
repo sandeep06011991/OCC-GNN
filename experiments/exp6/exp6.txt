@@ -38,7 +38,9 @@ ogbn-products | 128 | .5 | 9.541007217884061 | 6.7952526062726974 | 0.7418844908
 com-orkut | 128 | .05 | 56.20701260018348 | 28.96628214418888 | 0.06840316532159321
 com-orkut | 128 | .24 | 51.90019116783143 | 23.689932331442833 | 0.29424208882294045
 com-orkut | 128 | .5 | 41.59970789909362 | 14.086033701896667 | 0.5642501811952262
-graph | hidden-size | cached-gper-gpu | occ-forward | occ-move | occ-slice-time 
+graph | hidden-size | cached-gper-gpu | occ-forward | occ-move | occ-slice-time
 ogbn-arxiv | 128 | .20 | 3.700040260950724 | 0.7380282349056668 | 5.489631096522014
 com-youtube | 128 | .20 | 25.94079226255417 | 5.826405167579651 | 40.21361589431763
 ogbn-products | 128 | .20 | 56.373879849910736 | 76.90651381015778 | 178.3733969926834
+######################## New Run ########################333333
+graph | hidden-size | cached-gper-gpu | occ-forward | occ-move | occ-slice-time 

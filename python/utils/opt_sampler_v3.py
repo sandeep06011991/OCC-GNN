@@ -5,6 +5,8 @@ import time
 import dgl
 
 # Otimized Sampler which pushes batch slicing on to the gpu
+# Combine sampling and bipartite graph creationself.
+# Sampling partitions the edges.
 class Sampler():
 
     def __init__(self,graph, training_nodes, workload_assignment, \

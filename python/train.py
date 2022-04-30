@@ -13,7 +13,7 @@ from dgl.sampling import sample_neighbors
 from models.factory import get_model
 from utils.utils import get_process_graph
 from utils.memory_manager import MemoryManager
-from utils.opt_sampler_v4 import Sampler
+from utils.sampler import Sampler
 import torch.optim as optim
 
 def train(args):
@@ -91,9 +91,9 @@ def train(args):
         forward_time_per_epoch.append(forward_time)
         graph_slice_time_per_epoch.append(sampler.slice_time)
         cache_load_time_per_epoch.append(sampler.cache_refresh_time)
-        move_batch_time_per_epoch.append(sampler.move_batch_time)
-        extra_stuff_per_epoch.append(sampler.extra_stuff)
-        gpu_slice_per_epoch.append(sampler.gpu_slice)
+        # move_batch_time_per_epoch.append(sampler.move_batch_time)
+        # extra_stuff_per_epoch.append(sampler.extra_stuff)
+        # gpu_slice_per_epoch.append(sampler.gpu_slice)
         # print("Finished one pass !!!")
         # total_loss = torch.reduce(loss(outputs,classes))
         # total_loss.backward()
@@ -101,9 +101,9 @@ def train(args):
     print("avg forward time {}".format(sum(forward_time_per_epoch[1:])/(args.num_epochs - 1)))
     print("batch slice time {}".format(sum(graph_slice_time_per_epoch[1:])/(args.num_epochs -1)))
     print("cache refresh time {}".format(sum(cache_load_time_per_epoch[1:])/(args.num_epochs - 1)))
-    print("move_batch timer per epoch {}".format(sum(move_batch_time_per_epoch[1:])/(args.num_epochs - 1)))
-    print("extra_stuff_per_epoch {}".format(sum(extra_stuff_per_epoch[1:])/(args.num_epochs - 1)))
-    print("gpu_slice_per_epoch  {}".format(sum(gpu_slice_per_epoch[1:])/(args.num_epochs - 1)))
+    # print("move_batch timer per epoch {}".format(sum(move_batch_time_per_epoch[1:])/(args.num_epochs - 1)))
+    # print("extra_stuff_per_epoch {}".format(sum(extra_stuff_per_epoch[1:])/(args.num_epochs - 1)))
+    # print("gpu_slice_per_epoch  {}".format(sum(gpu_slice_per_epoch[1:])/(args.num_epochs - 1)))
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("multi-gpu training")

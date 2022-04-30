@@ -1,9 +1,18 @@
 
 
+
 all:
-	nvcc driver.cpp dataset.cpp -o ../build/cslicer
+	g++ -std=c++11 -pthread -O3 -std=c99 -Wall -Wextra \
+		driver.cpp dataset.cpp slicer.cpp bipartite.cpp util/duplicate.cpp WorkerPool.cpp \
+			util/conqueue.cpp \
+		   	-I . -o ../build/cslicer
 	../build/cslicer
 
+
+conqueue:
+		g++ -std=c++11 -pthread -O3 -std=c99 -Wall -Wextra \
+			-I . util/conqueue.cpp -o ../build/conqueue
+		../build/conqueue
 # sampling:
 # 	nvcc -I ../src/ ../src/util/tensor.cu ../src/gnn/sage.cu  \
 # 	  ../src/dataset.cpp sampling_test.cc ../src/util/timer.cpp \

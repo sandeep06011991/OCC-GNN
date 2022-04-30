@@ -10,7 +10,7 @@ Dataset::Dataset(std::string dir){
   read_meta_file();
   read_graph();
   read_node_data();
-  assert(noClasses != 0);
+  // assert(noClasses != 0);
   // read_training_splits();
 }
 

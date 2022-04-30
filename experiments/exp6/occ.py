@@ -32,17 +32,17 @@ def run_occ(graphname, epochs,cache_per, hidden_size):
 def run_experiment_occ():
     settings = [\
                 ("ogbn-arxiv",10), \
-                ("com-youtube",5), \
-                ("ogbn-products",5), \
+                # ("com-youtube",2), \
+                ("ogbn-products",2), \
                 # ("ogbn-papers100M",2), \
                 # ("com-friendster",2), \
-                ("com-orkut",5) \
+                # ("com-orkut",5) \
                 ]
     # settings = [("ogbn-papers100M",2)]
     hidden_size = 128
     # cache_rates = [".05",".10",".24",".5"]
     cache_rates = [".05",".24", ".5"]
-    cache_rates = [".20"]
+    cache_rates = [".24"]
 
     with open('exp6.txt','a') as fp:
         fp.write("graph | hidden-size | cached-gper-gpu | occ-forward | occ-move | occ-slice-time \n")

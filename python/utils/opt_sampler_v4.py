@@ -5,7 +5,7 @@ import time
 import dgl
 
 # Otimized Sampler which pushes batch slicing on to the gpu
-# Hard coded.
+# Hard coded for only 25% case.
 class Sampler():
 
     def __init__(self,graph, training_nodes, workload_assignment, \
