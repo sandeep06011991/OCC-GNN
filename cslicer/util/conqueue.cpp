@@ -11,6 +11,7 @@ ConQueue<T>::ConQueue(int max_size){
 }
 
 
+
 template <typename T>
 void ConQueue<T>::push_object(T  object){
     // Wait for space
@@ -41,6 +42,7 @@ T ConQueue<T>::pop_object(){
          has_space.notify_all();
          break;
        }else{
+         std::cout <<"waiting\n";
          not_empty.wait(lck);
        }
       }
@@ -88,6 +90,6 @@ int test_conqueue(){
   std::cout << "Hello world\n";
 }
 
-#include "sample.h"
-template class ConQueue<std::vector<long> *>;
-template class ConQueue<Sample *>;
+// #include "sample.h"
+// template class ConQueue<std::vector<long> *>;
+// template class ConQueue<Sample *>;

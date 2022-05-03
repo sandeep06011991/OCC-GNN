@@ -5,9 +5,9 @@
 
 class Layer{
   public:
-    BiPartite** bipartite;
+    BiPartite* bipartite[4];
     Layer(){
-      this->bipartite = (BiPartite **)malloc(sizeof(BiPartite) * 4);
+      // this->bipartite = (BiPartite **)malloc(sizeof(BiPartite *) * 4);
       for(int i=0;i<4;i++){
         this->bipartite[i] = new BiPartite(i);
       }

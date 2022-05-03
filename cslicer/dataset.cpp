@@ -10,6 +10,7 @@ Dataset::Dataset(std::string dir){
   read_meta_file();
   read_graph();
   read_node_data();
+  std::cout << "Check number of nodes " << num_nodes <<"\n";
   // assert(noClasses != 0);
   // read_training_splits();
 }

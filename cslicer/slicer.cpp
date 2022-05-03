@@ -28,12 +28,12 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l){
       neighbour_sample(nd1, neighbors);
       // neighbors.clear();
       // neighbour_sample(nd1, neighbors);
-      int to = this->workload[nd1];
+      int to = (*this->workload)[nd1];
       for(long nd2 : neighbors){
         if(nd1 == nd2){
               l.bipartite[to]->add_self_edge(nd1);
         }else{
-            int from = this->workload[nd2];
+            int from = (*this->workload)[nd2];
             if(to == from){
               l.bipartite[to]->add_edge(nd1,nd2,true);
             }else{
@@ -67,7 +67,7 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l){
 // Dont worry about overlap. Just move this.
 // Key challenge. I am mixing performance and variable expressibility.
   void Slicer::get_sample(vector<long> &batch){
-    int batch_size = batch_id.size();
+    int batch_size = batch.size();
     in.clear();
     for(int i=0;i<batch_size;i++){
       in.push_back(batch[i]);
@@ -119,14 +119,22 @@ void Slicer::clear(){
 
 void Slicer::run(){
   while(true){
-    std::vector<long> * queue = this->work_queue.pop();
-    if(queue.size()==0){
+    std::vector<long> * queue = this->work_queue->pop_object();
+    std::cout << "worker popeed \n";
+    if(queue->size()==0){
       // Serves end of sample signal.
+      std::cout << "recieved end sizgnal";
+      delete queue;
       return;
     }
     clear();
     get_sample(*queue);
-    this->generate_samples(new PySample(this->sample));
-    delete(queue);
+    std::cout << "sample created \n";
+    // Sample *sample1 = new Sample();
+    // PySample *sample = new PySample(sample1);
+    PySample *sample = new PySample(&this->sample);
+    this->generated_samples->push_object(sample);
+    std::cout << "push gen samples \n";
+    delete queue;
   }
 }

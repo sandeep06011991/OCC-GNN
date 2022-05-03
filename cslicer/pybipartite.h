@@ -3,69 +3,48 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <iostream>
+#include "util/conqueue.h"
+
 namespace py = pybind11;
 
 class PyBipartite{
 public:
-  py::list in_nodes;
-  py::list indptr;
-  py::list out_nodes;
-  py::list owned_out_nodes;
+  std::vector<long> in_nodes;
+  std::vector<long> indptr;
+  std::vector<long> out_nodes;
+  std::vector<long> owned_out_nodes;
 
   // Filled afer reordering
-  py::list indices;
+  std::vector<long> indices;
   // Easy fill
-  py::list from_ids;
-  py::list to_ids;
+  std::vector<std::vector<long>> from_ids;
+  std::vector<std::vector<long>> to_ids;
 
-  py::list self_ids_in;
-  py::list self_ids_out;
+  std::vector<long> self_ids_in;
+  std::vector<long> self_ids_out;
 
   int gpu_id = -1;
 
 
-  PyBipartite(BiPartite *bp){
-    this->gpu_id = bp->gpu_id;
-    in_nodes = py::cast(bp->in_nodes);
-    indptr = py::cast(bp->indptr);
-    out_nodes = py::cast(bp->out_nodes);
-    owned_out_nodes = py::cast(bp->owned_out_nodes);
-    indices = py::cast(bp->indices);
-    for(int i=0;i<4;i++){
-      from_ids.append(py::cast(bp->from_ids[i]));
-    }
-    for(int i=0;i<4;i++){
-      to_ids.append(py::cast(bp->to_ids[i]));
-    }
-    self_ids_in  = py::cast(bp->self_ids_in);
-    self_ids_out = py::cast(bp->self_ids_out);
-  }
+  PyBipartite(BiPartite *bp);
+
+  ~PyBipartite();
 };
 
 class PySample{
 public:
-  py::list layers;
+  std::vector<std::vector<PyBipartite *> *> layers;
 
-  int in_nodes = 0;
-  int out_nodes = 0;
+  long in_nodes = 0;
+  long out_nodes = 0;
 
-  PySample(Sample *s){
-    for(int i=0;i<3;i++){
-        py::list all_bipartites;
-        for(int j=0; j<4; j++){
-          all_bipartites.append(new PyBipartite(s->layers[i].bipartite[j]));
-          if(i==0){
-            in_nodes = in_nodes + s->layers[i].bipartite[j]->in_nodes;
-          }
-          if(j==2){
-            out_nodes = out_nodes + s->layers[i].bipartite[j]->out_nodes;
-          }
-        }
-      layers.append(all_bipartites);
-    }
-  }
+  PySample(Sample *s);
 
-  ~PySample(){
-    std::cout << "Code to check that destructor is being called\n";
-  }
+  ~PySample();
 };
+
+template class ConQueue<PySample *>;
+
+// void testconqueue(){
+//   ConQueue<PySample *> * obj = new ConQueue<PySample *>(10);
+// }
