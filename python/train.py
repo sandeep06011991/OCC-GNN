@@ -3,7 +3,6 @@
 # Key features:
 # 1. Varying models: GCN, GAT
 # 2. Can turn on micro benchmarking.
-
 import argparse
 import torch
 import dgl
@@ -20,7 +19,6 @@ def train(args):
     # Get input data
     dg_graph,partition_map,num_classes = get_process_graph(args.graph)
     #dg_graph.ndata["features"] = torch.rand(dg_graph.ndata["features"].shape[0],1024)
-
     partition_map = partition_map.type(torch.LongTensor)
     features = dg_graph.ndata["features"]
     features = features.pin_memory()
@@ -32,9 +30,10 @@ def train(args):
     # Create main objects
     mm = MemoryManager(dg_graph, features, cache_percentage, \
                     fanout, batch_size,  partition_map)
+    print("All memory positioned !!")
     # # (graph, training_nodes, memory_manager, fanout)
-    sampler = Sampler(dg_graph, torch.arange(dg_graph.num_nodes()), \
-        partition_map, mm, fanout, batch_size)
+    # sampler = Sampler(dg_graph, torch.arange(dg_graph.num_nodes()), \
+    #     partition_map, mm, fanout, batch_size)
 
     model = get_model(args.num_hidden, features, num_classes)
 
@@ -132,9 +131,4 @@ if __name__ == '__main__':
     # argparser.add_argument('--inductive', action='store_false',
     #                        help="Inductive learning setting")
     args = argparser.parse_args()
-    # n_classes = 40
-    # print("Hello world")
-    # micro_test()
-    # g,p_map =  get_dgl_graph(args.graph)
-    # train(g,p_map,args)
     train(args)

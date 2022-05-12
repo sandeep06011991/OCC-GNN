@@ -12,7 +12,6 @@ Key data structures are:
     global_to_local: torch.ones(num_nodes,4)
     node_gpu_mask: torch bool: (num_nodes, 4)
     local_to_global[4]: of size local_sizes[i].
-
 '''
 class MemoryManager():
 
@@ -39,7 +38,7 @@ class MemoryManager():
 
     def initialize(self):
         self.batch_in = []
-        self.num_nodes_cached = int(self.cache_percentage * self.graph.num_nodes())
+        self.num_nodes_cached = int(self.cache_percentage * self.graph.num_nodes() + 1)
         # float is 4 bytes
         print("GPU static cache {}:GB".format((self.num_nodes_cached * self.fsize * 4)/(1024 * 1024 * 1024)))
         self.num_nodes_alloc_per_device = int(self.fanout * 0.25 * self.batch_size) + self.num_nodes_cached
@@ -55,6 +54,7 @@ class MemoryManager():
                 subgraph_deg = self.graph.out_degree(subgraph_nds)
                 _, indices = torch.sort(subgraph_deg,descending = True)
                 node_ids_cached = subgraph_nds[indices[:self.num_nodes_cached]]
+                # What if num nodes is not a multiple of 4.
             else:
                 subgraph_nds = torch.where(self.partition_map == i)[0]
                 remaining_nds = torch.where(self.partition_map != i)[0]

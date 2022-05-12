@@ -8,13 +8,10 @@
 #include "WorkerPool.h"
 #include "dataset.h"
 
-
 namespace py = pybind11;
-
 // int add(int i, int j) {
 //     return i + j;
 // }
-
 // struct Pet {
 //     Pet(const std::string &name):name(name){}
 //     void setName(const std::string &name_){name = name_;};
@@ -22,30 +19,31 @@ namespace py = pybind11;
 //     std::string name;
 // };
 const string dir = "/data/sandeep/";
+
 class CSlicer{
     std::string name;
     int queue_size;
     int no_worker_threads;
     int number_of_epochs;
-    // int samples_per_epoch;
     int minibatch_size;
     int samples_generated = 0;
     long num_nodes;
     WorkerPool * pool;
-      std::vector<int> *storage_map[4];
-      std::vector<int> workload_map;
+    std::vector<int> *storage_map[4];
+    std::vector<int> *workload_map;
+    int capacity[4];
 public:
     // py::list v;
     std::thread *th;
 
     CSlicer(const std::string &name, int queue_size, int no_worker_threads \
-        , int number_of_epochs,  int minibatch_size){
+        , int number_of_epochs,  int minibatch_size, std::vector<std::vector<int>> gpu_map,
+           std::vector<int> capacities){
         this->name = dir + name;
         std::cout << this->name << "\n";
         this->queue_size = queue_size;
         this->no_worker_threads = no_worker_threads;
         this->number_of_epochs = number_of_epochs;
-        // this->samples_per_epoch = samples_per_epoch;
         this->minibatch_size = minibatch_size;
 
         Dataset * dataset = new Dataset(this->name);
@@ -53,8 +51,11 @@ public:
         for(int i=0;i<4;i++){
           storage_map[i] = new std::vector<int>();
         }
+        workload_map = new vector<int>();
         for(long j=0;j<dataset->num_nodes;j++){
-          workload_map.push_back(j%4);
+            assert(dataset->partition_map[j]<4);
+            workload_map->push_back(dataset->partition_map[j]);
+          // workload_map.push_back(j%4);
           for(int k=0;k<4;k++){
             if(k==j%4){
               storage_map[k]->push_back(1);
@@ -64,11 +65,10 @@ public:
           }
         }
         this->pool = new WorkerPool(num_nodes, number_of_epochs,
-           minibatch_size, no_worker_threads, dataset, &workload_map,
+           minibatch_size, no_worker_threads, dataset, workload_map,
             storage_map);
         th = new std::thread(&WorkerPool::run, this->pool);
     }
-    // Fix serialization issue.
 
     PySample * getSample(){
       // Sample *s = Sample::get_dummy_sample();
@@ -87,11 +87,8 @@ public:
       th->join();
     }
 };
-// Pet::Pet(const std::string &name) : name(name) { }
-// void Pet::setName(const std::string &name_) { name = name_; }
-// const std::string &Pet::getName() const { return name; }
 
-py::list testlist(py::list l) {
+py::list testlist(std::vector<std::vector<int>> l) {
     // l.attr("pop")();
     // std::cout << "List has length " << l.size() << std::endl;
     // for (py::handle obj : l) {  // iterators!
@@ -102,10 +99,9 @@ py::list testlist(py::list l) {
     test_vec.push_back(2);
     test_vec.push_back(3);
     test_vec.push_back(4);
-
-    py::list test_list3 = py::cast(test_vec);
-    l.append(10);  // automatic casting (through templating)!
-    return test_list3;
+    // py::list test_list3 = py::cast(test_vec);
+    l.push_back(test_vec);  // automatic casting (through templating)!
+    return py::cast(l);
 }
 
 PySample * testpysample(){
@@ -118,11 +114,6 @@ PYBIND11_MODULE(cslicer, m) {
     m.def("test_list", &testlist, "List testing ");
     m.def("test_pyfront", &testpysample, "List testing ",py::return_value_policy::take_ownership);
     // m.def("add", &add, "A function that adds two numbers");
-    // py::class_<Pet>(m, "Pet")
-    //     .def(py::init<const std::string &>())
-    //     .def("setName", &Pet::setName)
-    //     .def("getName", &Pet::getName);
-    //
     py::class_<PySample>(m,"sample")
     .def_readwrite("layers",&PySample::layers);
     py::class_<PyBipartite>(m,"bipatite")
@@ -141,7 +132,7 @@ PYBIND11_MODULE(cslicer, m) {
     // const std::string &name, int queue_size, int no_worker_threads \
     //     , int number_of_epochs, int samples_per_epoch, int minibatch_size
         .def(py::init<const std::string &,int, int\
-              ,int, int>())
+              ,int, int, std::vector<std::vector<int>>, std::vector<int>>())
         .def("getSample", &CSlicer::getSample,py::return_value_policy::take_ownership)
         .def("getNoSamples",&CSlicer::expected_number_of_samples);
         // .def_readwrite("v",&CSlicer::v);
