@@ -1,17 +1,30 @@
 import torch
+
 '''
-Memory manager manages the gpu memory on all devices
-Given the caching percentage and the graph, the memory manager distributes data
-on all devices.
-If it has non overlapping cache,from its partition it chooses the high degree vertices.
-Otherwise, it chooses the nodes in its partition along with highest degree of remaining nodes
-it can fit
+GNN has 2 sources of data. Graph Structure and Graph feature data.
+Memory manager manages the gpu memory on all devices with graph features.
+Given the caching percentage and the graph, the memory manager distributes feature data
+on all availble gpus.
+Memory manager decides what to data to place, in which gpu and in which order.
+There are 2 scearios:
+    1. The cache_per per gpu < .25:
+    This is a non overlapping cache, each gpu stores a non-overlapping set of vertices
+    If the cache_per_gpu = .25. The total graph is partitioned across all gpus.
+    If it has non overlapping cache,from its partition it chooses the high degree vertices.
+    2. If the cache_per gpu >.25:
+    Some vertices are replicated across gpus. The manager, for each device chooses the nodes
+    in its partition along with other highest degree of remaining nodes it can fit.
+After initialization:
+    The manager contains which nodes are in which gpu along with their index.
+    It also stores offset information, in case new nodes have to be refreshed into the cache.
+
 Key data structures are:
     batch_in[4] : The frames of tensor used by each gpu in the forward pass of the first layer
                   If caching percentage is less than <.25. This has to be refreshed
     global_to_local: torch.ones(num_nodes,4)
     node_gpu_mask: torch bool: (num_nodes, 4)
     local_to_global[4]: of size local_sizes[i].
+    offset[4]: The current number of nodes per gpu.
 '''
 class MemoryManager():
 
@@ -39,6 +52,10 @@ class MemoryManager():
     def initialize(self):
         self.batch_in = []
         self.num_nodes_cached = int(self.cache_percentage * self.graph.num_nodes() + 1)
+        if(self.num_nodes_cached > self.graph.num_nodes()):
+            print("Overlapping")
+        else:
+            print("Non-Overlapping")    
         # float is 4 bytes
         print("GPU static cache {}:GB".format((self.num_nodes_cached * self.fsize * 4)/(1024 * 1024 * 1024)))
         self.num_nodes_alloc_per_device = int(self.fanout * 0.25 * self.batch_size) + self.num_nodes_cached
