@@ -13,6 +13,8 @@ public:
   std::vector<long> indptr;
   std::vector<long> out_nodes;
   std::vector<long> owned_out_nodes;
+  int num_in_nodes;
+  int num_out_nodes;
 
   // Filled afer reordering
   std::vector<long> indices;

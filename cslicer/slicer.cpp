@@ -22,7 +22,7 @@ inline void Slicer::neighbour_sample(long nd1, vector<long>& neighbors){
 }
 
 
-void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l){
+void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l, int layer_id){
     for(long nd1: in){
       neighbors.clear();
       neighbour_sample(nd1, neighbors);
@@ -32,14 +32,15 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l){
       for(long nd2 : neighbors){
         if(nd1 == nd2){
               l.bipartite[to]->add_self_edge(nd1);
+              l.bipartite[to]->add_edge(nd1,nd2,true);
         }else{
             int from = (*this->workload)[nd2];
             if(to == from){
               l.bipartite[to]->add_edge(nd1,nd2,true);
             }else{
               l.bipartite[from]->add_edge(nd1,nd2,false);
-              l.bipartite[to]->add_to_node(nd1,to);
-              l.bipartite[from]->add_from_node(nd1,from);
+              l.bipartite[from]->add_to_node(nd1,to);
+              l.bipartite[to]->add_from_node(nd1,from);
             }
         }
         if(this->out_dr->mask[nd2]==0){
@@ -49,9 +50,16 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l){
         }
       }
     }
-    for(int i=0;i<4;i++){
-      l.bipartite[i]->reorder(dr);
+    if(layer_id != 2){
+      for(int i=0;i<4;i++){
+        l.bipartite[i]->reorder(dr);
+      }
+    }else{
+      for(int i=0;i<4;i++){
+        l.bipartite[i]->reorder_lastlayer(dr,*storage_map[i], gpu_capacity[i]);
+      }
     }
+
     this->out_dr->clear();
     // std::cout << "pre dup size" << out.size() <<"\n";
     // vector<long> backup = out;
@@ -73,7 +81,7 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l){
       in.push_back(batch[i]);
     }
     for(int i=0;i<3;i++){
-      this->slice_layer(in, out, sample.layers[i]);
+      this->slice_layer(in, out, sample.layers[i],i);
       in.clear();
       in = out;
       out.clear();

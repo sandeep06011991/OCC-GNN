@@ -14,6 +14,9 @@ PyBipartite::PyBipartite(BiPartite *bp){
     this->gpu_id = bp->gpu_id;
     in_nodes = bp->in_nodes;
     indptr = bp->indptr;
+    num_in_nodes = bp->num_in_nodes;
+    num_out_nodes = bp->num_out_nodes;
+    std::cout << "Cbipartite" << bp->indices.size() << "\n";
     out_nodes = bp->out_nodes;
     owned_out_nodes = bp->owned_out_nodes;
     indices = bp->indices;

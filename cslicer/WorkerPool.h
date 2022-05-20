@@ -18,6 +18,7 @@ class WorkerPool{
   int num_batches;
   std::vector<int>  *workload_map;
   std::vector<int>  *storage_map[4];
+  int gpu_capacity[4];
   Slicer ** samplers;
   Dataset *dataset;
   std::thread **th;
@@ -29,7 +30,8 @@ public:
       int minibatch_size, int num_workers,
       Dataset *dataset,
         std::vector<int>* workload_map,
-          std::vector<int>** storage_map
+          std::vector<int>** storage_map,
+           int gpu_capacity[4]
           );
 
   void run();

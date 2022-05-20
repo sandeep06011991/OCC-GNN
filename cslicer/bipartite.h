@@ -6,20 +6,28 @@ using namespace std;
 
 class BiPartite{
 public:
+  // sorted and no duplicate nodes using graph_ids.
+  // Used to find mapping between local id and global id
+  // nd2 is in_nodes as sampling is top down, but flow is bottom up.
   vector<long> in_nodes;
+  vector<long> out_nodes;
+  // Num in nodes can be much larger then in the actual graph, if we use
+  // cached node order on the gpu.
+  int num_in_nodes;
+  int num_out_nodes;
 
   vector<long> indptr;
+  vector<long> indices;
 
-  vector<long> out_nodes;
   vector<long> owned_out_nodes;
 
   // Filled afer reordering
-  vector<long> indices;
   // Easy fill
   vector<long> from_ids[4];
   // Refill.
   vector<long> to_ids[4];
 
+  // Used for self attention.
   vector<long> self_ids_in;
   vector<long> self_ids_out;
 
@@ -50,19 +58,31 @@ public:
       return;
     }
     to_ids[gpu_id].push_back(nd1);
+    if(((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
+      owned_out_nodes.push_back(nd1);
+    }
   }
+
 
   inline void add_edge(int nd1, int nd2, bool islocal){
       if(islocal && ((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
         owned_out_nodes.push_back(nd1);
       }
-      if(out_nodes.size() == 0 || out_nodes.back() != nd1){
+      if(out_nodes.size() == 0){
+        indptr.push_back(0);
+        indptr.push_back(0);
+        out_nodes.push_back(nd1);
+      }else{
+        if(out_nodes.back()!=nd1){
+          int l = indptr.size();
+          indptr.push_back(indptr[l-1]);
           out_nodes.push_back(nd1);
-          indptr.push_back(1);
+        }
       }
       in_nodes.push_back(nd2);
+      indices.push_back(nd2);
       int l = indptr.size();
-      indptr[l] = indptr[l] + 1;
+      indptr[l-1] = indptr[l-1] + 1;
   }
 
   void refresh(){
@@ -78,7 +98,11 @@ public:
     in_nodes.clear();
     out_nodes.clear();
     owned_out_nodes.clear();
+    num_in_nodes = 0;
+    num_out_nodes = 0;
   }
 
   void reorder(DuplicateRemover* dr);
+
+  void reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, int gpu_capacity);
 };

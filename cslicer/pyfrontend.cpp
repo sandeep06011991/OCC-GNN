@@ -31,14 +31,14 @@ class CSlicer{
     WorkerPool * pool;
     std::vector<int> *storage_map[4];
     std::vector<int> *workload_map;
+    int gpu_capacity[4];
     int capacity[4];
 public:
     // py::list v;
     std::thread *th;
 
     CSlicer(const std::string &name, int queue_size, int no_worker_threads \
-        , int number_of_epochs,  int minibatch_size, std::vector<std::vector<int>> gpu_map,
-           std::vector<int> capacities){
+        , int number_of_epochs,  int minibatch_size, std::vector<std::vector<long>> gpu_map){
         this->name = dir + name;
         std::cout << this->name << "\n";
         this->queue_size = queue_size;
@@ -48,32 +48,47 @@ public:
 
         Dataset * dataset = new Dataset(this->name);
         num_nodes = dataset->num_nodes;
+
         for(int i=0;i<4;i++){
           storage_map[i] = new std::vector<int>();
         }
         workload_map = new vector<int>();
+        vector<int> temp;
         for(long j=0;j<dataset->num_nodes;j++){
             assert(dataset->partition_map[j]<4);
             workload_map->push_back(dataset->partition_map[j]);
+            temp.push_back(-1);
           // workload_map.push_back(j%4);
           for(int k=0;k<4;k++){
-            if(k==j%4){
-              storage_map[k]->push_back(1);
-            }else{
-              storage_map[k]->push_back(0);
+              storage_map[k]->push_back(-1);
             }
+        }
+        for(int i=0;i<4;i++){
+          int order =0;
+          gpu_capacity[i] = gpu_map[i].size();
+          for(long nd: gpu_map[i]){
+            (*storage_map[i])[nd] = order;
+            order ++;
+            temp[nd] = 1;
+          }
+        }
+        for(int i=0;i<dataset->num_nodes;i++){
+          assert(temp[i] == 1);
+          if(temp[i]!= 1){
+            std::cout << "mising node " << i <<"\n";
           }
         }
         this->pool = new WorkerPool(num_nodes, number_of_epochs,
            minibatch_size, no_worker_threads, dataset, workload_map,
-            storage_map);
+            storage_map, gpu_capacity);
         th = new std::thread(&WorkerPool::run, this->pool);
+        std::cout << "pool is running \n";
     }
 
     PySample * getSample(){
       // Sample *s = Sample::get_dummy_sample();
       // return new PySample(s);
-      // std::cout << "Try to get a sample \n";
+      std::cout << "Try to get a sample \n";
       return this->pool->pop_object();
     }
 
@@ -115,8 +130,12 @@ PYBIND11_MODULE(cslicer, m) {
     m.def("test_pyfront", &testpysample, "List testing ",py::return_value_policy::take_ownership);
     // m.def("add", &add, "A function that adds two numbers");
     py::class_<PySample>(m,"sample")
-    .def_readwrite("layers",&PySample::layers);
-    py::class_<PyBipartite>(m,"bipatite")
+        .def_readwrite("layers",&PySample::layers)
+        .def_readwrite("in_nodes", &PySample::in_nodes)
+        .def_readwrite("out_nodes", &PySample::out_nodes);
+    py::class_<PyBipartite>(m,"bipartite")
+        .def_readwrite("num_in_nodes", &PyBipartite::num_in_nodes)
+        .def_readwrite("num_out_nodes", &PyBipartite::num_out_nodes)
         .def_readwrite("in_nodes",&PyBipartite::in_nodes)
         .def_readwrite("indptr",&PyBipartite::indptr)
         .def_readwrite("out_nodes",&PyBipartite::out_nodes)
@@ -129,10 +148,8 @@ PYBIND11_MODULE(cslicer, m) {
         .def_readwrite("gpu_id",&PyBipartite::gpu_id);
 
     py::class_<CSlicer>(m,"cslicer")
-    // const std::string &name, int queue_size, int no_worker_threads \
-    //     , int number_of_epochs, int samples_per_epoch, int minibatch_size
-        .def(py::init<const std::string &,int, int\
-              ,int, int, std::vector<std::vector<int>>, std::vector<int>>())
+        .def(py::init<const std::string &, int, int\
+              ,int, int, std::vector<std::vector<long>>>())
         .def("getSample", &CSlicer::getSample,py::return_value_policy::take_ownership)
         .def("getNoSamples",&CSlicer::expected_number_of_samples);
         // .def_readwrite("v",&CSlicer::v);

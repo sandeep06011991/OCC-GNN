@@ -4,7 +4,7 @@
 WorkerPool::WorkerPool(long num_nodes, int num_epochs,
     int minibatch_size, int num_workers, Dataset *dataset,
       std::vector<int> * workload_map,
-        std::vector<int> **storage_map){
+        std::vector<int> **storage_map, int gpu_capacity[4]){
   this->num_nodes = num_nodes;
   this->num_epochs = num_epochs;
   this->minibatch_size = minibatch_size;
@@ -17,7 +17,9 @@ WorkerPool::WorkerPool(long num_nodes, int num_epochs,
   this->workload_map = workload_map;
   for(int i=0; i<4; i++){
     this->storage_map[i] = storage_map[i];
+    this->gpu_capacity[i] = gpu_capacity[i];
   }
+
   std::cout << "data alloc \n";
   this->num_batches = (num_nodes-1)/minibatch_size + 1;
   this->work_queue = new ConQueue<std::vector<long> *>(10);
@@ -27,7 +29,7 @@ WorkerPool::WorkerPool(long num_nodes, int num_epochs,
   std::cout << "Start threads\n";
   // Start all worker threads on empty queue.
   for(int i=0;i<num_workers;i++){
-    this->samplers[i] = new Slicer(this->dataset, workload_map, storage_map, minibatch_size,
+    this->samplers[i] = new Slicer(this->dataset, workload_map, storage_map, gpu_capacity, minibatch_size, 
             this->generated_samples, this->work_queue);
     th[i] = new std::thread(&Slicer::run,this->samplers[i]);
   }
@@ -47,6 +49,7 @@ void WorkerPool::run(){
         assert(batch->size() !=0);
         batch->insert(batch->end(), &this->training_nodes[j], &this->training_nodes[end]);
         this->work_queue->push_object(batch);
+        break;
       }
   }
   for(int i=0;i<num_workers;i++){

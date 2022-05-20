@@ -15,6 +15,7 @@ private:
   Dataset *dataset;
   std::vector<int> *storage_map[4];
   std::vector<int> * workload;
+  int gpu_capacity[4];
   int batch_size = 0;
   Sample sample;
   long * target_nodes;
@@ -39,7 +40,7 @@ private:
   // std::uniform_int_distribution<> rng_coin(0, 10000);
 public:
   Slicer(Dataset * dataset, std::vector<int> *workload_map,
-        std::vector<int>** storage_map,
+        std::vector<int>** storage_map, int gpu_capacity[4],
           int batch_size, ConQueue<PySample *> * generated_samples,
             ConQueue<std::vector<long> *> * work_queue){
       std::cout << "cslicer 1\n";
@@ -50,6 +51,7 @@ public:
       for(int i=0;i<4;i++){
         std::cout << "cslicer 2\n";
         this->storage_map[i] = storage_map[i];
+        this->gpu_capacity[i] = gpu_capacity[i];
       }
       std::cout << "cslicer 2\n";
       this->workload = workload_map;
@@ -65,6 +67,7 @@ public:
       rng_coin = *(new std::uniform_int_distribution<>(0,10000));
       this->generated_samples = generated_samples;
       this->work_queue = work_queue;
+
       std::cout << "cslicer out\n";
 
   }
@@ -81,7 +84,7 @@ public:
 
   void neighbour_sample(long nd1, vector<long> &neighbours);
 
-  void slice_layer(vector<long>& in, vector<long>& out, Layer& l);
+  void slice_layer(vector<long>& in, vector<long>& out, Layer& l, int layer_id);
 
   void simple_3_hop_sample(int batch_id);
 

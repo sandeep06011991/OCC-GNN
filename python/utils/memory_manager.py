@@ -29,7 +29,7 @@ Key data structures are:
 class MemoryManager():
 
     # Partition map created from metis.
-    def __init__(self, graph, features, cache_percentage, \
+    def __init__(self, graph, features, class_map, cache_percentage, \
             fanout, batch_size, partition_map):
         self.graph = graph
         self.num_nodes = graph.num_nodes()
@@ -39,11 +39,13 @@ class MemoryManager():
         assert(cache_percentage <= 1 and cache_percentage>0)
         self.cache_percentage = cache_percentage
         f = 1
+        avg_degree = graph.num_edges()/graph.num_nodes()
         for ff in fanout:
+            if ff == -1:
+                ff = avg_degree
             f = f * ff
         self.fanout = f
-        if self.fanout == -1:
-            self.fanout = graph.num_edges()/graph.num_nodes()
+        self.class_map = class_map
         self.partition_map = partition_map
         self.batch_size = batch_size
         self.clean_up = {}
@@ -52,27 +54,46 @@ class MemoryManager():
     def initialize(self):
         self.batch_in = []
         self.num_nodes_cached = int(self.cache_percentage * self.graph.num_nodes() + 1)
-        if(self.num_nodes_cached > self.graph.num_nodes()):
+        if(self.num_nodes_cached * 4 >= self.graph.num_nodes()):
             print("Overlapping")
         else:
-            print("Non-Overlapping")    
+            print("Non-Overlapping")
         # float is 4 bytes
-        print("GPU static cache {}:GB".format((self.num_nodes_cached * self.fsize * 4)/(1024 * 1024 * 1024)))
-        self.num_nodes_alloc_per_device = int(self.fanout * 0.25 * self.batch_size) + self.num_nodes_cached
-        print("GPU Allocated total space including frame {}:GB".format((self.num_nodes_alloc_per_device * self.fsize * 4)/(1024 * 1024 * 1024)))
+        # Calculate how much space to save and reserve.
+        print("GPU static cache {}:GB".format(\
+                (self.num_nodes_cached * self.fsize * 4)/(1024 * 1024 * 1024)))
+        # Total space is cache + expected minibatch of nodes
+        self.num_nodes_alloc_per_device = int(self.fanout * 0.25 * self.batch_size) \
+                            + self.num_nodes_cached
+        print("GPU Allocated total space including frame {}:GB".\
+            format((self.num_nodes_alloc_per_device * self.fsize * 4)/(1024 * 1024 * 1024)))
         self.local_to_global_id = []
         self.local_sizes = []
+        self.check_missing = torch.zeros((self.num_nodes), dtype = torch.bool)
         self.node_gpu_mask = torch.zeros((self.num_nodes,4),dtype=torch.bool)
         self.global_to_local = torch.ones((self.num_nodes,4),dtype = torch.long) * -1
         for i in range(4):
-            self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize, device = i))
             if self.cache_percentage <= .25:
-                subgraph_nds = torch.where(self.partition_map == i)[0]
-                subgraph_deg = self.graph.out_degree(subgraph_nds)
-                _, indices = torch.sort(subgraph_deg,descending = True)
-                node_ids_cached = subgraph_nds[indices[:self.num_nodes_cached]]
-                # What if num nodes is not a multiple of 4.
+                if(self.cache_percentage == .25):
+                    # fixme: this rounding error should not happen
+                    subgraph_nds = torch.where(self.partition_map == i)[0]
+                    node_ids_cached = subgraph_nds
+                    self.batch_in.append(torch.zeros(node_ids_cached.shape[0], self.fsize, device = i))
+
+                else:
+                    assert(False)
+                    self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize, device = i))
+                    # fixme: batch_in has different size to total number of nodes
+                    # Be aware of this when constructing graphs
+                    subgraph_nds = torch.where(self.partition_map == i)[0]
+                    subgraph_deg = self.graph.out_degree(subgraph_nds)
+                    _, indices = torch.sort(subgraph_deg,descending = True)
+                    node_ids_cached = subgraph_nds[indices[:self.num_nodes_cached]]
             else:
+                assert(False)
+                self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize, device = i))
+                # fixme: batch_in has different size to total number of nodes
+                # Be aware of this when constructing graphs
                 subgraph_nds = torch.where(self.partition_map == i)[0]
                 remaining_nds = torch.where(self.partition_map != i)[0]
                 remaining_deg = self.graph.out_degree(remaining_nds)
@@ -87,7 +108,9 @@ class MemoryManager():
             self.global_to_local[node_ids_cached,i] = torch.arange(node_ids_cached.shape[0],dtype=torch.long)
             self.batch_in[i][:self.local_sizes[i]] = self.features[node_ids_cached]
             assert(self.batch_in[i].device == torch.device(i))
-
+            self.check_missing = self.check_missing | self.node_gpu_mask[:,i]
+        assert(torch.all(self.check_missing))
+        print("No missing nodes !!")
     # @profile
     def refresh_cache(self, last_layer_nodes):
         if(self.cache_percentage >=.25):
@@ -126,14 +149,16 @@ def unit_test_memory_manager():
     print("unit test 1")
     print("Takes in a graph and places all data at correct location")
     print("Test various caching percentages.!")
-    from utils.utils import get_dgl_graph
-    dg_graph,partition_map = get_dgl_graph("ogbn-arxiv")
+    from utils import get_process_graph
+    dg_graph,partition_map, num_classes = get_process_graph("ogbn-arxiv")
     features = torch.rand(dg_graph.num_nodes(),602)
     cache_percentage = .10
-    last_layer_fanout = 1000
     batch_size = 1024
     fanout = [10,10,10]
     training_nodes = torch.randperm(dg_graph.num_nodes())[:1024*10]
-    mm = MemoryManager(dg_graph, features, cache_percentage,fanout, batch_size,  partition_map)
-    mm.refresh_cache(training_nodes)
+    mm = MemoryManager(dg_graph, features, num_classes, cache_percentage,fanout, batch_size,  partition_map)
+    # mm.refresh_cache(training_nodes)
     print("Memory manager complete.")
+
+if __name__ == "__main__":
+    unit_test_memory_manager()

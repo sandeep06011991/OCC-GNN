@@ -14,9 +14,12 @@ from utils.utils import get_process_graph
 from utils.memory_manager import MemoryManager
 from utils.sampler import Sampler
 import torch.optim as optim
+from cslicer import cslicer
+from data.cbipartite import Bipartite, Sample
 
 def train(args):
     # Get input data
+
     dg_graph,partition_map,num_classes = get_process_graph(args.graph)
     #dg_graph.ndata["features"] = torch.rand(dg_graph.ndata["features"].shape[0],1024)
     partition_map = partition_map.type(torch.LongTensor)
@@ -28,13 +31,22 @@ def train(args):
     fanout = [(int(f)) for f in fanout]
     # fanout = [-1,-1]
     # Create main objects
-    mm = MemoryManager(dg_graph, features, cache_percentage, \
+    mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map)
-    print("All memory positioned !!")
-    # # (graph, training_nodes, memory_manager, fanout)
+    #(graph, training_nodes, memory_manager, fanout)
+    queue_size = 1
+    no_worker_threads = 1
+    number_of_epochs = 1
+    minibatch_size = 128
+    storage_vector = []
+    for i in range(4):
+        storage_vector.append(mm.local_to_global_id[i].tolist())
+    assert(len(storage_vector) == 4)
+    sampler = cslicer(args.graph, queue_size, no_worker_threads, number_of_epochs, minibatch_size, storage_vector)
     # sampler = Sampler(dg_graph, torch.arange(dg_graph.num_nodes()), \
     #     partition_map, mm, fanout, batch_size)
 
+    print("All memory sampled and one object popped")
     model = get_model(args.num_hidden, features, num_classes)
 
     loss = torch.nn.CrossEntropyLoss()
@@ -51,25 +63,28 @@ def train(args):
         total = 0
         ii = 0
         forward_time = 0
-        sampler.clear_timers()
-        for b in sampler:
+        # fixme: iterate through all samples
+        for b in range(1):
             ii = ii + 1
             print(ii)
             if ii > 120 and args.debug:
                 break
             optimizer.zero_grad()
-            bipartite_graphs, shuffle_matrices, model_owned_nodes ,\
-                blocks, layers, classes = b
-            bipartite_graphs.reverse()
-            shuffle_matrices.reverse()
-            model_owned_nodes.reverse()
+            csample = sampler.getSample()
+            tensorized_sample = Sample(csample)
+
             # continue
             with nvtx.annotate("forward", color="red"):
                 t1 = time.time()
-                outputs = model(bipartite_graphs,shuffle_matrices, \
-                            model_owned_nodes, mm.batch_in)
+                outputs = model(tensorized_sample.layers, mm.batch_in)
                 t2 = time.time()
                 forward_time += (t2-t1)
+            print("Forward Pass successful !!")
+            classes = []
+            for gpu in range(4):
+                gpu_nodes = sample.last_layer_nodes[gpu]
+                classes.append(dg_graph.ndata["labels"][gpu_nodes].to(torch.device(gpu)))
+
             # print("forward_time",t2-t1)
             # if epochs%10 == 0:
             #     for  i in range(4):
@@ -77,6 +92,7 @@ def train(args):
             #         correct = correct + torch.sum(indices == classes[i]).item()
             #         total = total + classes[i].shape[0]
             # #
+
             losses = []
             for i in range(4):
                 losses.append(loss(outputs[i],classes[i]))
@@ -107,7 +123,7 @@ def train(args):
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("multi-gpu training")
     # Input data arguments parameters.
-    argparser.add_argument('--graph',type = str)
+    argparser.add_argument('--graph',type = str, default= "ogbn-arxiv")
     # training details
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
@@ -117,7 +133,7 @@ if __name__ == '__main__':
 
     # model name and details
     argparser.add_argument('--debug',type = bool, default = False)
-    argparser.add_argument('--cache-per', type =float)
+    argparser.add_argument('--cache-per', type =float, default = .25)
     argparser.add_argument('--model-name',help="gcn|gat")
     argparser.add_argument('--num-epochs', type=int, default=2)
     argparser.add_argument('--num-hidden', type=int, default=256)
@@ -131,4 +147,5 @@ if __name__ == '__main__':
     # argparser.add_argument('--inductive', action='store_false',
     #                        help="Inductive learning setting")
     args = argparser.parse_args()
+    print("")
     train(args)
