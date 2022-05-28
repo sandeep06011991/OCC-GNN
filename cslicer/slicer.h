@@ -43,32 +43,23 @@ public:
         std::vector<int>** storage_map, int gpu_capacity[4],
           int batch_size, ConQueue<PySample *> * generated_samples,
             ConQueue<std::vector<long> *> * work_queue){
-      std::cout << "cslicer 1\n";
       this->dataset = dataset;
-      std::cout << "cslicer " << dataset->num_nodes <<"\n";
       this->num_nodes = dataset->num_nodes;
-      std::cout << "cslicer 2\n";
       for(int i=0;i<4;i++){
-        std::cout << "cslicer 2\n";
         this->storage_map[i] = storage_map[i];
         this->gpu_capacity[i] = gpu_capacity[i];
       }
-      std::cout << "cslicer 2\n";
       this->workload = workload_map;
       this->batch_size = batch_size;
-      std::cout << "cslicer 2\n";
       this->dr = new DuplicateRemover(dataset->num_nodes);
       this->out_dr = new DuplicateRemover(dataset->num_nodes);
       this->target_nodes = (long *)malloc(sizeof(long) * dataset->num_nodes);
       for(long i=0;i<this->num_nodes;i++){
         this->target_nodes[i] = i;
       }
-      std::cout << "cslicer 3\n";
       rng_coin = *(new std::uniform_int_distribution<>(0,10000));
       this->generated_samples = generated_samples;
       this->work_queue = work_queue;
-
-      std::cout << "cslicer out\n";
 
   }
 

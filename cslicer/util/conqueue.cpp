@@ -42,7 +42,7 @@ T ConQueue<T>::pop_object(){
          has_space.notify_all();
          break;
        }else{
-         std::cout <<"waiting\n";
+       std::cout <<"waiting\n";
          not_empty.wait(lck);
        }
       }

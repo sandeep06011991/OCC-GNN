@@ -17,6 +17,7 @@ public:
   int num_out_nodes;
 
   vector<long> indptr;
+  vector<long> expand_indptr;
   vector<long> indices;
 
   vector<long> owned_out_nodes;
@@ -51,6 +52,10 @@ public:
         return;
       }
       from_ids[gpu_id].push_back(nd1);
+     if(((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
+        owned_out_nodes.push_back(nd1);
+     }
+
   }
 
   inline void add_to_node(long nd1, int gpu_id){
@@ -58,15 +63,16 @@ public:
       return;
     }
     to_ids[gpu_id].push_back(nd1);
-    if(((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
-      owned_out_nodes.push_back(nd1);
-    }
+    //if(((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
+    //  owned_out_nodes.push_back(nd1);
+    //}
   }
 
 
   inline void add_edge(int nd1, int nd2, bool islocal){
-      if(islocal && ((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
-        owned_out_nodes.push_back(nd1);
+	
+	  if(islocal && ((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
+		  owned_out_nodes.push_back(nd1);
       }
       if(out_nodes.size() == 0){
         indptr.push_back(0);
@@ -80,6 +86,7 @@ public:
         }
       }
       in_nodes.push_back(nd2);
+      expand_indptr.push_back(nd1);
       indices.push_back(nd2);
       int l = indptr.size();
       indptr[l-1] = indptr[l-1] + 1;
@@ -94,7 +101,7 @@ public:
     indices.clear();
     self_ids_in.clear();
     self_ids_out.clear();
-
+    expand_indptr.clear();
     in_nodes.clear();
     out_nodes.clear();
     owned_out_nodes.clear();
@@ -105,4 +112,11 @@ public:
   void reorder(DuplicateRemover* dr);
 
   void reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, int gpu_capacity);
+  
+  void debug(){
+  
+ 	std::cout << "gpu" << gpu_id << "in_nodes" << in_nodes.size() << "out_nodes" << out_nodes.size() \
+		  << "owned_out_nodes" \
+		  << owned_out_nodes.size() << "\n"; 
+  }
 };

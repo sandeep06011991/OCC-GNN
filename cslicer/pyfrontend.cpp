@@ -88,7 +88,7 @@ public:
     PySample * getSample(){
       // Sample *s = Sample::get_dummy_sample();
       // return new PySample(s);
-      std::cout << "Try to get a sample \n";
+      //std::cout << "Try to get a sample \n";
       return this->pool->pop_object();
     }
 
@@ -98,8 +98,9 @@ public:
     }
 
     ~CSlicer(){
-      std::cout <<"clean up \n";
+      std::cout <<"cslicer clean up start\n";
       th->join();
+    	std::cout << "Worker Pool returned cleanly\n";
     }
 };
 
@@ -138,7 +139,8 @@ PYBIND11_MODULE(cslicer, m) {
         .def_readwrite("num_out_nodes", &PyBipartite::num_out_nodes)
         .def_readwrite("in_nodes",&PyBipartite::in_nodes)
         .def_readwrite("indptr",&PyBipartite::indptr)
-        .def_readwrite("out_nodes",&PyBipartite::out_nodes)
+        .def_readwrite("expand_indptr", &PyBipartite::expand_indptr)
+	.def_readwrite("out_nodes",&PyBipartite::out_nodes)
         .def_readwrite("owned_out_nodes",&PyBipartite::owned_out_nodes)
         .def_readwrite("indices",&PyBipartite::indices)
         .def_readwrite("from_ids",&PyBipartite::from_ids)

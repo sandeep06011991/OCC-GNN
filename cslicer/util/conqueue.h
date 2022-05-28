@@ -41,7 +41,6 @@ public:
 
   T pop_object(){
       T obj;
-      std::cout << "attemptiong a pop\n";
       while(true){
         {
          std::unique_lock<std::mutex> lck(mtx);
@@ -59,7 +58,19 @@ public:
       return obj;
   }
 
-
+  
+  void wait_for_all_sample_consumption(){
+    while(true){
+      std::unique_lock<std::mutex> lck(mtx);
+      int size = queue.size();
+      if(size !=0){
+	      std::cout << "queue cant be destroyed with size" << size <<"\n";
+	      has_space.wait(lck);
+      }else{
+          break;
+      }
+    }
+  }
 };
 
 template class ConQueue<std::vector<long> * >;

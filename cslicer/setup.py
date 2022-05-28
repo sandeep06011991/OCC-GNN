@@ -2,9 +2,12 @@ from glob import glob
 from setuptools import setup
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 import pybind11
+from setuptools import setup, Extension
+from torch.utils import cpp_extension
+
 
 ext_modules = [
-    Pybind11Extension(
+    cpp_extension.CppExtension(
         "cslicer",
         # sources = ["pyfrontend.cpp","dataset.cpp", "slicer.cpp", "bipartite.cpp", \
         #         "util/duplicate.cpp","WorkerPool.cpp","util/conqueue.cpp",
@@ -21,4 +24,4 @@ ext_modules = [
     ),
 ]
 
-setup( cmdclass={"build_ext": build_ext}, ext_modules=ext_modules)
+setup( cmdclass={"build_ext": cpp_extension.BuildExtension}, ext_modules=ext_modules)

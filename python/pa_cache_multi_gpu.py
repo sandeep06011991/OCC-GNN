@@ -183,6 +183,8 @@ def run(proc_id, n_gpus, args, devices, data):
                 # if ii>30:
                 #     break
                 torch.cuda.nvtx.range_push("sample")
+                sample = next(it)
+            
                 step, (input_nodes, seeds, blocks) = next(it)
                 nodes_done += seeds.shape[0]
                 print("nodes progress", nodes_done, num_nodes)
@@ -198,11 +200,13 @@ def run(proc_id, n_gpus, args, devices, data):
                                                             seeds, input_nodes, dev_id)
                 blocks = [block.int().to(dev_id) for block in blocks]
                 t2 = time.time()
-                move_time_epoch += diff_time
+                print("cache miss time ", t2 -t1)
+                move_time_epoch += (t2 - t1)
                 torch.cuda.nvtx.range_pop()
                 # Compute loss and prediction
                 torch.cuda.nvtx.range_push("train")
                 start.record()
+                t3 = time.time()
                 batch_pred = model(blocks, batch_inputs)
 
                 loss = loss_fcn(batch_pred, batch_labels)
@@ -213,8 +217,9 @@ def run(proc_id, n_gpus, args, devices, data):
                 optimizer.zero_grad()
                 loss.backward()
                 end.record()
-                t3 = time.time()
+                t4 = time.time()
                 torch.cuda.synchronize(end)
+                print("forward backward time",t4-t3)
                 forward_time_epoch += start.elapsed_time(end)/1000
                 optimizer.step()
                 torch.cuda.nvtx.range_pop()
@@ -271,13 +276,13 @@ def run(proc_id, n_gpus, args, devices, data):
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("multi-gpu training")
-    argparser.add_argument('--graph',type = str)
+    argparser.add_argument('--graph',type = str, default = "ogbn-products")
     argparser.add_argument('--cache-per', type = float)
-    argparser.add_argument('--num-epochs', type=int, default=40)
-    argparser.add_argument('--num-hidden', type=int, default=256)
+    argparser.add_argument('--num-epochs', type=int, default=2)
+    argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='10,10,25')
-    argparser.add_argument('--batch-size', type=int, default=4096 * 4)
+    argparser.add_argument('--batch-size', type=int, default=1032)
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.01)

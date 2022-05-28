@@ -128,7 +128,7 @@ void Slicer::clear(){
 void Slicer::run(){
   while(true){
     std::vector<long> * queue = this->work_queue->pop_object();
-    std::cout << "worker popeed \n";
+    // std::cout << "worker popeed \n";
     if(queue->size()==0){
       // Serves end of sample signal.
       std::cout << "recieved end sizgnal";
@@ -137,12 +137,19 @@ void Slicer::run(){
     }
     clear();
     get_sample(*queue);
-    std::cout << "sample created \n";
+    /* std::cout << "sample created \n";
+    for(int i=0;i<3;i++){
+    	std::cout << "Sample layers\n";
+	for(int j=0;j<4;j++){
+		std::cout << "Bipartite graph\n";
+		this->sample.layers[i].bipartite[j]->debug();
+	}
+    }
+    */
     // Sample *sample1 = new Sample();
     // PySample *sample = new PySample(sample1);
     PySample *sample = new PySample(&this->sample);
     this->generated_samples->push_object(sample);
-    std::cout << "push gen samples \n";
     delete queue;
   }
 }

@@ -13,51 +13,60 @@ import torch
 import dgl
 import torch
 import dgl.function as fn
-
+import time
 
 class Bipartite:
 
     def __init__(self, cobject):
         self.gpu_id = torch.device(cobject.gpu_id)
-        indptr = np.array(cobject.indptr)
-        indices = np.array(cobject.indices)
+        indptr = cobject.indptr
+        indices = cobject.indices
+        t1 = time.time()
         if(len(indices)!=0):
             N =  cobject.num_out_nodes
             M =  cobject.num_in_nodes
             self.num_nodes_v = N
-            print("graph created attempt", N, M)
-            print(indices[-1])
+            #print("graph created attempt", N, M)
+            #print(indices[-1])
             assert(indptr[-1] == len(indices))
-            sp_mat = sp.sparse.csr_matrix((np.ones(indices.shape),\
-                    indices, indptr), \
+            '''sp_mat = sp.sparse.csr_matrix((np.ones(indices.shape),\
+                    indices.numpy(), indptr.numpy()), \
                         shape = (N,M))
             self.graph = dgl.bipartite_from_scipy(sp_mat,  utype='_V', \
                                                 etype='_E', vtype='_U' ,device = self.gpu_id)
+            # Had to reverse graph to match sampling and conv directions
             self.graph = self.graph.reverse()
-            print(self.graph.num_nodes())
-            print("graph created", N, M)
+            '''
+            self.graph = dgl.heterograph({('_U','_E','_V'): \
+                        (cobject.indices, cobject.expand_indptr)},\
+                        {'_U': M, '_V': N}, device = self.gpu_id)
+            #print("graph created", N, M)
         else:
             self.num_nodes_v = 0
             # empty code such that other things dont break.
             self.graph = dgl.graph([])
-        self.in_nodes = torch.tensor(cobject.in_nodes, device = self.gpu_id)
-        self.out_nodes = torch.tensor(cobject.out_nodes, device = self.gpu_id)
-        self.owned_out_nodes = torch.tensor(cobject.owned_out_nodes, device = self.gpu_id)
+        t2 = time.time()
+        self.in_nodes = cobject.in_nodes.to(device = self.gpu_id)
+        self.out_nodes = cobject.out_nodes.to(device = self.gpu_id)
+        self.owned_out_nodes = cobject.owned_out_nodes.to(device = self.gpu_id)
 
         from_ids = []
         for i in range(4):
-            from_ids.append(torch.tensor(cobject.from_ids[i], device = self.gpu_id))
+            from_ids.append(cobject.from_ids[i].to(device = self.gpu_id))
         self.from_ids = from_ids
 
         to_ids = []
         for i in range(4):
-            to_ids.append(torch.tensor(cobject.to_ids[i], device = self.gpu_id))
+            to_ids.append(cobject.to_ids[i].to(device = self.gpu_id))
         self.to_ids = to_ids
-        self.self_ids_in = torch.tensor(cobject.self_ids_in, device = self.gpu_id)
-        self.self_ids_out = torch.tensor(cobject.self_ids_out, device = self.gpu_id)
+        self.self_ids_in = cobject.self_ids_in.to(device = self.gpu_id)
+        self.self_ids_out = cobject.self_ids_out.to(device = self.gpu_id)
+        t3 = time.time()
+        print("Graph construction time ",t2-t1)
+        print("tensorize everything", t3 - t2)
 
     def gather(self, f_in):
-        print(f_in.shape, self.graph.number_of_nodes('_U'))
+        #print(f_in.shape, self.graph.number_of_nodes('_U'))
         with self.graph.local_scope():
             # print(f_in.shape[0], self.graph.number_of_nodes('_U'))
             # FixME Todo: Fix this inconsistency in number of nodes
@@ -70,7 +79,6 @@ class Bipartite:
         with self.graph.local_scope():
             if self.owned_out_nodes.shape[0]==0:
                 return torch.zeros(0,f_in.shape[1],device = self.gpu_id)
-            print("owned_out nodes",self.owned_out_nodes)
             return f_in[self.owned_out_nodes]
 
     def attention_gather(self, v_in, u_in):
@@ -90,7 +98,6 @@ class Bipartite:
         with self.graph.local_scope():
             if(self.to_ids[gpu_id].shape[0]==0):
                 return None
-            print("pull ids", self.to_ids[gpu_id])
             return local_out[self.to_ids[gpu_id]]
 
     def push_from_remotes(self, local_out, remote_out, gpu_id):
@@ -99,8 +106,6 @@ class Bipartite:
             # Average out these outputs.
             if(self.from_ids[gpu_id].shape[0]==0):
                 return None
-            print("push_ids",self.from_ids[gpu_id].shape)
-            print(remote_out.shape)
             local_out[self.from_ids[gpu_id]] += remote_out.to(self.gpu_id)
             return local_out
 
@@ -118,11 +123,11 @@ class Sample:
             self.layers.append(l)
 
         self.last_layer_nodes = []
-        last_layer = self.layers[-1]
+        last_layer = self.layers[0]
         i = 0
         for l in last_layer:
              assert(torch.device(i) == l.gpu_id )
-             self.last_layer_nodes.append(l.out_nodes)
+             self.last_layer_nodes.append(l.out_nodes[l.owned_out_nodes])
              i= i+1
         self.layers.reverse()
-        print("Sample creation complete")
+        #print("Sample creation complete")

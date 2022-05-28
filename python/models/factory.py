@@ -29,16 +29,12 @@ class DistSAGEModel(torch.nn.Module):
     def forward(self, bipartite_graphs, x):
         for l,(layer, bipartite_graph) in  \
             enumerate(zip(self.layers,bipartite_graphs)):
-            print("layer attempt ",l)
             import time
             t1 = time.time()
             x = layer(bipartite_graph, x)
             t2 = time.time()
-            # print("layer time",t2-t1)
-            # print("layer done ", l)
             if l != len(self.layers)-1:
                 x = [self.dropout(self.activation(i)) for i in x]
-            print("first layer done !!!")    
         return x
 
 

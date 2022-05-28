@@ -50,13 +50,11 @@ class DistSageConv(nn.Module):
         ng_gather = []
         # t0 = time.time()
         # torch.cuda.nvtx.range_push("gather_local")
-        print("Self gather ")
         for src_gpu in range(4):
             ng_gather.append(bipartite_graphs[src_gpu].gather(x[src_gpu]))
         # torch.cuda.nvtx.range_pop()
         # t1 = time.time()
         # torch.cuda.nvtx.range_push("shuffle")
-        print("Shuffle")
         shuffle_move_time = 0
         for src_gpu in range(4):
             for dest_gpu in range(4):
