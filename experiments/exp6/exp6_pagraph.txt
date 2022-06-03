@@ -7,3 +7,5 @@ ogbn-products | 256 | 4096 | -1 | .25 | 14.01 | 35.30 | 73.75 | 0.42
 ogbn-products | 32 | 1024 | -1 | .25 | 6.95 | 128.25 | 151.21 | 0.53
 com-youtube | 32 | 4096 | 256 | .25 | 2.35 | 4.40 | 8.63 | 0.82
 com-youtube | 32 | 4096 | 1024 | .25 | 3.55 | 4.65 | 10.27 | 0.82
+graph | hidden-size | batch_size | fsize          | cached-gper-gpu | forward + backward(s)| pa-move(s) | epoch-time(s) | avg-cache hit rate 
+ogbn-arxiv | 32 | 4096 | -1 | .25 | 0.23 | 0.50 | 1.54 | 0.26

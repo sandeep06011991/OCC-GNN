@@ -9,3 +9,6 @@ ogbn-products | 256 | -1 | 4096 | .25 |  20.77 | 0 | 50.81
 ogbn-products | 32 | -1 | 1024 | .25 |  73.99 | 0 | 75.94
 com-youtube | 32 | 256 | 4096 | .25 |  9.59 | 0 | 6.16
 com-youtube | 32 | 1024 | 4096 | .25 |  9.28 | 0 | 6.27
+graph | hidden-size | fsize  | batch-size | cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) | epoch_time 
+graph | hidden-size | fsize  | batch-size | cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) | epoch_time 
+ogbn-arxiv | 32 | -1 | 4096 | .25 |  1.29 | 0 | 0.74 | 2.0659637451171875 

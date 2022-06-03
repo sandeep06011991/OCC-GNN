@@ -26,6 +26,7 @@ def run_occ(graphname, epochs,cache_per, hidden_size, fsize, minibatch_size):
     try:
         slice_time  = re.findall("batch slice time (\d+\.\d+)",out)[0]
         forward =  re.findall("avg forward time (\d+\.\d+)",out)[0]
+        epoch_time = re.findall("avg epoch time (\d+\.\d+)",out)[0]
         #movement = re.findall("cache refresh time (\d+\.\d+)",out)[0]
         slice_time = "{:.2f}".format(float(slice_time))
         forward = "{:.2f}".format(float(forward))
@@ -35,7 +36,7 @@ def run_occ(graphname, epochs,cache_per, hidden_size, fsize, minibatch_size):
         forward = "error"
         movement = "error"
     return {"forward":forward, "slice_time":slice_time, \
-        "movement":movement}
+            "movement":movement, "epoch_time":epoch_time}
 
 
 def run_experiment_occ():
@@ -59,11 +60,11 @@ def run_experiment_occ():
     # cache_rates = [".05",".10",".24",".5"]
     cache_rates = [".05",".24", ".5"]
     cache_rates = [".25"]
-    #settings = [settings[0]]
+    settings = [settings[0]]
     print(settings)
     with open('exp6_occ.txt','a') as fp:
         fp.write("graph | hidden-size | fsize  | batch-size |\
- cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) \n")
+ cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) | epoch_time \n")
     for graphname,no_epochs,hidden_size, fsize, batch_size in settings:
         for cache in cache_rates:
             if graphname in ["ogbn-papers100M","com-friendster"]:
@@ -71,9 +72,9 @@ def run_experiment_occ():
                     continue
             out = run_occ(graphname, no_epochs, cache, hidden_size,fsize, batch_size)
             with open('exp6_occ.txt','a') as fp:
-                fp.write("{} | {} | {} | {} | {} |  {} | {} | {}\n".format(graphname , \
+                fp.write("{} | {} | {} | {} | {} |  {} | {} | {} | {} \n".format(graphname , \
                                 hidden_size, fsize, batch_size, cache, \
-                    out["forward"], out["movement"],  out["slice_time"]))
+                    out["forward"], out["movement"],  out["slice_time"], out["epoch_time"]))
 
 
 

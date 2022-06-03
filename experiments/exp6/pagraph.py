@@ -56,7 +56,7 @@ def run_experiment_pagraph():
                 # ("com-orkut",2) \
                 ]
     # settings = [("ogbn-papers100M",2)]
-    # settings = [settings[0]]
+    settings = [settings[0]]
     print("run settings", settings)
     cache_rates = [".05",".10",".24",".5"]
     cache_rates = [".05",".24", ".5"]

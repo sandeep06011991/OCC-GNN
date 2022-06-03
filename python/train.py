@@ -15,7 +15,9 @@ from utils.memory_manager import MemoryManager
 from utils.sampler import Sampler
 import torch.optim as optim
 from cslicer import cslicer
-from data.cbipartite import Bipartite, Sample
+from data.compr_cbipartite import Bipartite, Sample
+import os
+os.environ["PYTHONPATH"] = "/home/spolisetty/OCC-GNN/cslicer/"
 
 def train(args):
     # Get input data
@@ -89,6 +91,7 @@ def train(args):
             # with nvtx.annotate("forward", color="red"):
             # if True:  
             t1 = time.time()
+            torch.cuda.set_device(0)
             start.record()
             outputs = model(tensorized_sample.layers, mm.batch_in)
            #     t2 = time.time()
@@ -116,6 +119,7 @@ def train(args):
             total_loss = torch.sum(loss_gather,0)
             # print("Total loss is ", total_loss)
             total_loss.backward()
+            torch.cuda.set_device(0)
             end.record()
             
             t2 = time.time()
@@ -144,6 +148,7 @@ def train(args):
     #print("batch slice time {}".format(graph_slice_time_per_epoch)) 
     #print("Forward tie {}".format(forward_time_per_epoch))
     #print("cache load time {}".format(cache_load_time_per_epoc))
+    print("avg epoch time {}".format(sum(total_time_per_epoch[1:])/(args.num_epochs - 1)))
     print("avg forward time {}".format(sum(forward_time_per_epoch[1:])/(args.num_epochs - 1)))
     print("batch slice time {}".format(sum(graph_slice_time_per_epoch[1:])/(args.num_epochs -1)))
     #print("cache refresh time {}".format(sum(cache_load_time_per_epoch[1:])/(args.num_epochs - 1)))
