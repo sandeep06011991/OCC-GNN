@@ -62,8 +62,20 @@ class Bipartite:
         self.self_ids_in = cobject.self_ids_in.to(device = self.gpu_id)
         self.self_ids_out = cobject.self_ids_out.to(device = self.gpu_id)
         t3 = time.time()
+        
         print("Graph construction time ",t2-t1)
         print("tensorize everything", t3 - t2)
+        data_moved = self.in_nodes.shape[0] + self.out_nodes.shape[0] + self.owned_out_nodes.shape[0]  
+        for i in range(4):
+            data_moved += self.to_ids[i].shape[0] + self.from_ids[i].shape[0] 
+        data_moved += self.self_ids_in.shape[0] + self.self_ids_out.shape[0]    
+        data_in_GB = data_moved * 4/ (1024 * 1024 * 1024)
+        dummy = torch.rand(data_moved)
+        t11 = time.time()
+        dummy.to(self.gpu_id)
+        t22 = time.time()
+        print("bandwidth {} GBps data size {} ishape".format(data_in_GB/(t22-t11), data_moved))
+        print("bnandwidth {} GBps data size{}GB".format(data_in_GB/(t3-t2), data_in_GB))
 
     def gather(self, f_in):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))

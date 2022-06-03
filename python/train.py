@@ -20,7 +20,7 @@ from data.cbipartite import Bipartite, Sample
 def train(args):
     # Get input data
 
-    dg_graph,partition_map,num_classes = get_process_graph(args.graph)
+    dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize)
     #dg_graph.ndata["features"] = torch.rand(dg_graph.ndata["features"].shape[0],1024)
     partition_map = partition_map.type(torch.LongTensor)
     features = dg_graph.ndata["features"]
@@ -34,7 +34,7 @@ def train(args):
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map)
     #(graph, training_nodes, memory_manager, fanout)
-    queue_size = 128
+    queue_size = 256
     no_worker_threads = 32
     number_of_epochs = args.num_epochs
     minibatch_size = args.batch_size
@@ -47,7 +47,6 @@ def train(args):
     #     partition_map, mm, fanout, batch_size)
     time.sleep(10)
 
-    print("All memory sampled and one object popped")
     model = get_model(args.num_hidden, features, num_classes)
 
     loss = torch.nn.CrossEntropyLoss()
@@ -59,8 +58,11 @@ def train(args):
     move_batch_time_per_epoch = []
     extra_stuff_per_epoch = []
     gpu_slice_per_epoch = []
+    total_time_per_epoch = []
     minibatches_per_epoch = int(sampler.getNoSamples()/args.num_epochs)
     print("minibatches per epoch ", minibatches_per_epoch)
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
     for epochs in range(args.num_epochs):
         correct = 0
         total = 0
@@ -68,9 +70,10 @@ def train(args):
         forward_time = 0
         slice_time = 0
         # fixme: iterate through all samples
+        t01 = time.time()
         for b in range(minibatches_per_epoch):
             ii = ii + 1
-            print("minibatch",ii)
+            # print("minibatch",ii)
             # if ii > 120 and args.debug:
             #    break
             optimizer.zero_grad()
@@ -84,13 +87,14 @@ def train(args):
             slice_time += (t2-t1)
             # continue
             # with nvtx.annotate("forward", color="red"):
-            if True:  
-                t1 = time.time()
-                outputs = model(tensorized_sample.layers, mm.batch_in)
-                t2 = time.time()
-                forward_time += (t2-t1)
-                print("Forward time", t2-t1)
-            print("Forward Pass successful !!")
+            # if True:  
+            t1 = time.time()
+            start.record()
+            outputs = model(tensorized_sample.layers, mm.batch_in)
+           #     t2 = time.time()
+           #     forward_time += (t2-t1)
+           #     print("Forward time", t2-t1)
+           # print("Forward Pass successful !!")
             classes = []
             for gpu in range(4):
                 gpu_nodes = tensorized_sample.last_layer_nodes[gpu]
@@ -106,15 +110,26 @@ def train(args):
 
             losses = []
             for i in range(4):
-                print(outputs[i].shape, classes[i].shape)
+                #print(outputs[i].shape, classes[i].shape)
                 losses.append(loss(outputs[i],classes[i]))
             loss_gather = torch.nn.parallel.gather(losses,0)
             total_loss = torch.sum(loss_gather,0)
             # print("Total loss is ", total_loss)
             total_loss.backward()
+            end.record()
+            
+            t2 = time.time()
+            torch.cuda.synchronize(end)
+            forward_time += (t2 - t1)
+
+            print("forward backward time", t2- t1)
+            print("forward backward time withj timers",start.elapsed_time(end)/1000)
             optimizer.step()
+        t02 = time.time()
+        total_time_per_epoch.append(t02 - t01)
         if epochs%10 ==0:
             print("Accuracy", correct, total)
+            
         forward_time_per_epoch.append(forward_time)
         graph_slice_time_per_epoch.append(slice_time)
         #cache_load_time_per_epoch.append(sampler.cache_refresh_time)
@@ -125,10 +140,13 @@ def train(args):
         # total_loss = torch.reduce(loss(outputs,classes))
         # total_loss.backward()
         # optimizer.step()
-    print("batch slice time {}".format(graph_slice_time_per_epoch)) 
+    #print("total time per epoch {}".format(total_time_per_epoch))
+    #print("batch slice time {}".format(graph_slice_time_per_epoch)) 
+    #print("Forward tie {}".format(forward_time_per_epoch))
+    #print("cache load time {}".format(cache_load_time_per_epoc))
     print("avg forward time {}".format(sum(forward_time_per_epoch[1:])/(args.num_epochs - 1)))
     print("batch slice time {}".format(sum(graph_slice_time_per_epoch[1:])/(args.num_epochs -1)))
-    print("cache refresh time {}".format(sum(cache_load_time_per_epoch[1:])/(args.num_epochs - 1)))
+    #print("cache refresh time {}".format(sum(cache_load_time_per_epoch[1:])/(args.num_epochs - 1)))
     # print("move_batch timer per epoch {}".format(sum(move_batch_time_per_epoch[1:])/(args.num_epochs - 1)))
     # print("extra_stuff_per_epoch {}".format(sum(extra_stuff_per_epoch[1:])/(args.num_epochs - 1)))
     # print("gpu_slice_per_epoch  {}".format(sum(gpu_slice_per_epoch[1:])/(args.num_epochs - 1)))
@@ -143,12 +161,12 @@ if __name__ == '__main__':
     argparser.add_argument('--lr', type=float, default=0.01)
     argparser.add_argument('--num-workers', type=int, default=0,
        help="Number of sampling processes. Use 0 for no extra process.")
-
+    argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
     # model name and details
     argparser.add_argument('--debug',type = bool, default = False)
     argparser.add_argument('--cache-per', type =float, default = .25)
     argparser.add_argument('--model-name',help="gcn|gat")
-    argparser.add_argument('--num-epochs', type=int, default=2)
+    argparser.add_argument('--num-epochs', type=int, default=5)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument("--num-heads", type=int, default=8,

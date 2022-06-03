@@ -58,7 +58,7 @@ def read_meta_file(filename):
             results[k] = v
     return results
 
-def get_process_graph(filename):
+def get_process_graph(filename, fsize):
     DATA_DIR = "/data/sandeep"
     # graphname = "ogbn-products"
     graphname = filename
@@ -68,6 +68,7 @@ def get_process_graph(filename):
     num_edges = indices.shape[0]
     print(num_nodes, num_edges)
     if graphname not in synthetic_graphs and not graphname.startswith("synth"):
+        assert(fsize == -1)
         results = read_meta_file(filename)
         fsize = results["feature_dim"]
         num_classes = results["num_classes"]
@@ -79,7 +80,7 @@ def get_process_graph(filename):
                     torch.long)
         labels = labels.reshape(num_nodes,)
     else:
-        fsize = 256
+        assert(fsize != -1) 
         features = torch.rand(num_nodes,fsize)
         num_classes = 48
         labels = torch.randint(0,num_classes,(num_nodes,))

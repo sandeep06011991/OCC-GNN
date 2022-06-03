@@ -44,3 +44,11 @@ com-youtube | 128 | .20 | 25.94079226255417 | 5.826405167579651 | 40.21361589431
 ogbn-products | 128 | .20 | 56.373879849910736 | 76.90651381015778 | 178.3733969926834
 ######################## New Run ########################333333
 graph | hidden-size | cached-gper-gpu | occ-forward | occ-move | occ-slice-time
+graph | hidden-size | batch_size | fsize          | cached-gper-gpu | forward + backward| pa-move | avg-cache hit rate 
+graph | hidden-size | batch_size | fsize          | cached-gper-gpu | forward + backward| pa-move | avg-cache hit rate 
+graph | hidden-size | batch_size | fsize          | cached-gper-gpu | forward + backward| pa-move | avg-cache hit rate 
+graph | hidden-size | batch_size | fsize          | cached-gper-gpu | forward + backward| pa-move | avg-cache hit rate 
+graph | hidden-size | batch_size | fsize          | cached-gper-gpu | forward + backward| pa-move | avg-cache hit rate 
+ogbn-arxiv | 32 | -1 | 4096 | .24 |  error | error | error
+ogbn-arxiv | 32 | -1 | 4096 | .255555 |  error | error | error
+ogbn-arxiv | 32 | -1 | 4096 | .25 |  1.389164924621582 | 0 | 0.9153751134872437
