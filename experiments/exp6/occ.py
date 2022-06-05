@@ -35,6 +35,7 @@ def run_occ(graphname, epochs,cache_per, hidden_size, fsize, minibatch_size):
         slice_time = "error"
         forward = "error"
         movement = "error"
+        epoch_time = "error"
     return {"forward":forward, "slice_time":slice_time, \
             "movement":movement, "epoch_time":epoch_time}
 
@@ -60,7 +61,7 @@ def run_experiment_occ():
     # cache_rates = [".05",".10",".24",".5"]
     cache_rates = [".05",".24", ".5"]
     cache_rates = [".25"]
-    settings = [settings[0]]
+    #settings = [settings[0]]
     print(settings)
     with open('exp6_occ.txt','a') as fp:
         fp.write("graph | hidden-size | fsize  | batch-size |\

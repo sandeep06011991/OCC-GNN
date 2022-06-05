@@ -215,7 +215,8 @@ def run(proc_id, n_gpus, args, devices, data):
                 t4 = time.time()
                 torch.cuda.synchronize(end)
                 #print("forward backward time",t4-t3)
-                #print("forward back time with cuda timers",start.elapsed_time(end)/1000)
+                if proc_id == 0:
+                    print("forward back time with cuda timers",start.elapsed_time(end)/1000)
                 forward_backward_time_epoch += start.elapsed_time(end)/1000
                 #forward_backward_time_epoch += (t4 - t3)
                 optimizer.step()

@@ -1,14 +1,9 @@
-graph | hidden-size | fsize  | batch-size | cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) 
-ogbn-arxiv | 32 | -1 | 4096 | .25 |  1.38 | 0 | 1.14
-graph | hidden-size | fsize  | batch-size | cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) 
-ogbn-arxiv | 32 | -1 | 4096 | .25 |  1.41 | 0 | 1.11
-ogbn-arxiv | 256 | -1 | 4096 | .25 |  1.46 | 0 | 1.08
-ogbn-arxiv | 32 | -1 | 1024 | .25 |  5.44 | 0 | 3.58
-ogbn-products | 32 | -1 | 4096 | .25 |  21.76 | 0 | 50.54
-ogbn-products | 256 | -1 | 4096 | .25 |  20.77 | 0 | 50.81
-ogbn-products | 32 | -1 | 1024 | .25 |  73.99 | 0 | 75.94
-com-youtube | 32 | 256 | 4096 | .25 |  9.59 | 0 | 6.16
-com-youtube | 32 | 1024 | 4096 | .25 |  9.28 | 0 | 6.27
 graph | hidden-size | fsize  | batch-size | cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) | epoch_time 
-graph | hidden-size | fsize  | batch-size | cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) | epoch_time 
-ogbn-arxiv | 32 | -1 | 4096 | .25 |  1.29 | 0 | 0.74 | 2.0659637451171875 
+ogbn-arxiv | 32 | -1 | 4096 | .25 |  1.42 | 0 | 0.86 | 2.321502447128296 
+ogbn-arxiv | 256 | -1 | 4096 | .25 |  1.45 | 0 | 0.85 | 2.3452861309051514 
+ogbn-arxiv | 32 | -1 | 1024 | .25 |  5.54 | 0 | 2.80 | 8.476035237312317 
+ogbn-products | 32 | -1 | 4096 | .25 |  21.66 | 0 | 22.62 | 44.8804931640625 
+ogbn-products | 256 | -1 | 4096 | .25 |  22.95 | 0 | 19.55 | 43.16724610328674 
+ogbn-products | 32 | -1 | 1024 | .25 |  81.22 | 0 | 49.14 | 132.6145303249359 
+com-youtube | 32 | 256 | 4096 | .25 |  10.10 | 0 | 5.31 | 15.727367639541626 
+com-youtube | 32 | 1024 | 4096 | .25 |  10.22 | 0 | 5.84 | 16.46593976020813 

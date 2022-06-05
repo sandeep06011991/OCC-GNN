@@ -47,7 +47,14 @@ class DistSageConv(nn.Module):
         # x = [self.feat_drop(xx)  for xx in x ]
         # Compute H^{l+1}_n(i)
         # Assume aggregator is sum.
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start_shuffle = torch.cuda.Event(enable_timing=True)
+        end_shuffle = torch.cuda.Event(enable_timing=True)
+
         ng_gather = []
+        torch.cuda.set_device(0)
+        start.record()
         # t0 = time.time()
         # torch.cuda.nvtx.range_push("gather_local")
         for src_gpu in range(4):
@@ -56,10 +63,14 @@ class DistSageConv(nn.Module):
         # t1 = time.time()
         # torch.cuda.nvtx.range_push("shuffle")
         shuffle_move_time = 0
+        torch.cuda.set_device(0)
+        start_shuffle.record()
         for src_gpu in range(4):
             for dest_gpu in range(4):
                 t = bipartite_graphs[src_gpu].pull_for_remotes(ng_gather[src_gpu], dest_gpu)
                 bipartite_graphs[dest_gpu].push_from_remotes(ng_gather[dest_gpu], t, src_gpu)
+        torch.cuda.set_device(0)
+        end_shuffle.record()
         # torch.cuda.nvtx.range_pop()
         # t2 = time.time()
         # print("shuffle", shuffle_move_time, "move time", t2 - t1)
@@ -77,6 +88,10 @@ class DistSageConv(nn.Module):
         for i in range(4):
             out3.append(repl_linear[i](out2[i]))
         t4 = time.time()
-        # print("total time",t4-t1)
-        # print("shuffle time",t2-t1)
+        torch.cuda.set_device(0)
+        end.record()
+        torch.cuda.synchronize(end_shuffle)
+        torch.cuda.synchronize(end)
+        print("total layer",start.elapsed_time(end)/1000)
+        print("shuffle time",start_shuffle.elapsed_time(end_shuffle)/(1000))
         return out3
