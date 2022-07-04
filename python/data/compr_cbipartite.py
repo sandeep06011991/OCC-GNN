@@ -19,7 +19,9 @@ class Bipartite:
 
     def __init__(self, cobject):
         self.gpu_id = torch.device(cobject.gpu_id)
-        data = cobject.data_tensor.to(device = self.gpu_id)
+        data = cobject.data_tensor.clone().to(device = self.gpu_id)
+        data.share_memory_()
+        self.data  = data
         indptr = data[cobject.indptr_start:cobject.indptr_end]
         expand_indptr = data[cobject.expand_indptr_start: cobject.expand_indptr_end]
         indices = data[cobject.indices_start:cobject.indices_end]
@@ -39,9 +41,22 @@ class Bipartite:
             # Had to reverse graph to match sampling and conv directions
             self.graph = self.graph.reverse()
             '''
-            self.graph = dgl.heterograph({('_U','_E','_V'): \
-                        (indices, expand_indptr)},\
-                        {'_U': M, '_V': N}, device = self.gpu_id)
+            self.graph = dgl.heterograph({('_V','_E','_U'):(expand_indptr.clone(),indices.clone())}, \
+                            {'_U':M, '_V':N}, device = self.gpu_id)
+            self.graph = self.graph.reverse()
+            self.graph.create_formats_()
+            assert ['csc' in self.graph.formats()]
+
+            # i1,i2,i3 = self.graph.adj_sparse('csr')
+            # assert(torch.all(i1==indptr))
+            # assert(torch.all(i2 == indices))
+            # print("All ok !")
+            # self.graph = dgl.heterograph({('_V','_E','_U'): \
+            #             ('csr',( indptr, indices ,[]))},\
+            #             {'_U': M, '_V': N}, device = self.gpu_id)
+            # ind,indices,edges = self.graph.adj_sparse('csr')
+            # assert(ind.shape[0] == M+1 )
+            # assert(torch.all(indices < N))
             #print("graph created", N, M)
         else:
             self.num_nodes_v = 0
@@ -52,24 +67,28 @@ class Bipartite:
         self.out_nodes = data[cobject.out_nodes_start: cobject.out_nodes_end]
         self.owned_out_nodes = data[cobject.owned_out_nodes_start:cobject.owned_out_nodes_end]
 
-        from_ids = []
+        from_ids = {}
         for i in range(4):
-            from_ids.append(data[cobject.from_ids_start[i]: cobject.from_ids_end[i]])
+            from_ids[i] = (data[cobject.from_ids_start[i]: cobject.from_ids_end[i]])
+            if i == self.gpu_id:
+                print(from_ids[i])
         self.from_ids = from_ids
 
-        to_ids = []
+        to_ids = {}
         for i in range(4):
-            to_ids.append(data[cobject.to_ids_start[i]:cobject.to_ids_end[i]])
+            to_ids[i] = (data[cobject.to_ids_start[i]:cobject.to_ids_end[i]])
+            if i == self.gpu_id:
+                print(from_ids[i])
         self.to_ids = to_ids
         self.self_ids_in = data[cobject.self_ids_in_start:cobject.self_ids_in_end]
         self.self_ids_out = data[cobject.self_ids_out_start: cobject.self_ids_out_end]
         t3 = time.time()
-        print("Graph construction time ",t2-t1)
-        print("tensorize everything", t3 - t2)
-        '''data_moved = self.in_nodes.shape[0] + self.out_nodes.shape[0] + self.owned_out_nodes.shape[0]  
+        # print("Graph construction time ",t2-t1)
+        # print("tensorize everything", t3 - t2)
+        '''data_moved = self.in_nodes.shape[0] + self.out_nodes.shape[0] + self.owned_out_nodes.shape[0]
         for i in range(4):
-            data_moved += self.to_ids[i].shape[0] + self.from_ids[i].shape[0] 
-        data_moved += self.self_ids_in.shape[0] + self.self_ids_out.shape[0]    
+            data_moved += self.to_ids[i].shape[0] + self.from_ids[i].shape[0]
+        data_moved += self.self_ids_in.shape[0] + self.self_ids_out.shape[0]
         data_in_GB = data_moved * 4/ (1024 * 1024 * 1024)
         dummy = torch.rand(data_moved)
         t11 = time.time()
@@ -78,6 +97,8 @@ class Bipartite:
         print("bandwidth {} GBps data size {} ishape".format(data_in_GB/(t22-t11), data_moved))
         print("bnandwidth {} GBps data size{}GB".format(data_in_GB/(t3-t2), data_in_GB))'''
 
+    def debug(self):
+        print("self data shape",self.data.shape)
     def gather(self, f_in):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
         with self.graph.local_scope():
@@ -85,7 +106,11 @@ class Bipartite:
             # FixME Todo: Fix this inconsistency in number of nodes
             assert(f_in.shape[0] ==  self.graph.number_of_nodes('_U'))
             self.graph.nodes['_U'].data['in'] = f_in
+            f = self.graph.formats()
             self.graph.update_all(fn.copy_u('in', 'm'), fn.mean('m', 'out'))
+            # No new formats must be created.
+            assert(f == self.graph.formats())
+            # print(self.graph.nodes['_V'].data['out'])
             return self.graph.nodes['_V'].data['out']
 
     def slice_owned_nodes(self,f_in):
@@ -144,3 +169,17 @@ class Sample:
              i= i+1
         self.layers.reverse()
         #print("Sample creation complete")
+
+class Gpu_Local_Sample:
+    def __init__(self, global_sample,device_id):
+        self.in_nodes = global_sample.in_nodes
+        self.out_nodes = global_sample.out_nodes
+        self.layers = []
+        for layer in global_sample.layers:
+            self.layers.append(layer[device_id])
+        self.last_layer_nodes = global_sample.last_layer_nodes[device_id]
+
+    def debug(self):
+        for l in self.layers:
+            l.debug()
+        print("last layer nodes",self.last_layer_nodes.shape)

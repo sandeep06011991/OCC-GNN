@@ -7,6 +7,7 @@
 #include "pybipartite.h"
 #include "WorkerPool.h"
 #include "dataset.h"
+#include "slicer.h"
 
 namespace py = pybind11;
 // int add(int i, int j) {
@@ -33,6 +34,8 @@ class CSlicer{
     std::vector<int> *workload_map;
     int gpu_capacity[4];
     int capacity[4];
+    Slicer *slicer;
+    Dataset *dataset;
 public:
     // py::list v;
     std::thread *th;
@@ -40,13 +43,13 @@ public:
     CSlicer(const std::string &name, int queue_size, int no_worker_threads \
         , int number_of_epochs,  int minibatch_size, std::vector<std::vector<long>> gpu_map){
         this->name = dir + name;
-        std::cout << this->name << "\n";
+        // std::cout << this->name << "\n";
         this->queue_size = queue_size;
         this->no_worker_threads = no_worker_threads;
         this->number_of_epochs = number_of_epochs;
         this->minibatch_size = minibatch_size;
 
-        Dataset * dataset = new Dataset(this->name);
+        this->dataset = new Dataset(this->name);
         num_nodes = dataset->num_nodes;
 
         for(int i=0;i<4;i++){
@@ -72,24 +75,32 @@ public:
             temp[nd] = 1;
           }
         }
+        // Used for debugging !
         for(int i=0;i<dataset->num_nodes;i++){
           assert(temp[i] == 1);
           if(temp[i]!= 1){
             std::cout << "mising node " << i <<"\n";
           }
         }
-        this->pool = new WorkerPool(num_nodes, number_of_epochs,
-           minibatch_size, no_worker_threads, dataset, workload_map,
-            storage_map, gpu_capacity);
-        th = new std::thread(&WorkerPool::run, this->pool);
-        std::cout << "pool is running \n";
+
+        this->slicer = new Slicer(this->dataset, workload_map, storage_map, \
+                  gpu_capacity, minibatch_size);
+        // this->pool = new WorkerPool(num_nodes, number_of_epochs,
+        //    minibatch_size, no_worker_threads, dataset, workload_map,
+        //     storage_map, gpu_capacity);
+        // th = new std::thread(&WorkerPool::run, this->pool);
+        // std::cout << "pool is running \n";
     }
 
-    PySample * getSample(){
+    PySample * getSample(vector<long> sample_nodes){
+      slicer->clear();
+      slicer->get_sample(sample_nodes);
+      PySample *sample = new PySample(&slicer->sample);
+      return sample;
       // Sample *s = Sample::get_dummy_sample();
       // return new PySample(s);
       //std::cout << "Try to get a sample \n";
-      return this->pool->pop_object();
+      // return this->pool->pop_object();
     }
 
     long expected_number_of_samples(){

@@ -124,7 +124,7 @@ void Slicer::clear(){
     this->sample.layers[i].clear();
   }
 }
-
+/*
 void Slicer::run(){
   while(true){
     std::vector<long> * queue = this->work_queue->pop_object();
@@ -145,7 +145,6 @@ void Slicer::run(){
 		this->sample.layers[i].bipartite[j]->debug();
 	}
     }
-    */
     // Sample *sample1 = new Sample();
     // PySample *sample = new PySample(sample1);
     PySample *sample = new PySample(&this->sample);
@@ -153,3 +152,4 @@ void Slicer::run(){
     delete queue;
   }
 }
+*/

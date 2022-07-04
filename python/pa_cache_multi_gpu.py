@@ -44,9 +44,9 @@ class PaCache:
             self.graph = graph
             self.max_size = max_size
             self.dev_id = dev_id
-            # Notes on  why in-degree measures greatest likely hood. 
-            # indptr degrees are out_degrees. 
-            # Hence node with highest in_degree will be sampled in first layer 
+            # Notes on  why in-degree measures greatest likely hood.
+            # indptr degrees are out_degrees.
+            # Hence node with highest in_degree will be sampled in first layer
             # g = dgl.graph(([0, 0, 0, 0, 0], [1, 2, 3, 4, 5]), num_nodes=6)
             # g.in_degrees()
             # tensor([0, 1, 1, 1, 1, 1])
@@ -70,7 +70,7 @@ class PaCache:
         """
         Extracts features and labels for a subset of nodes.
         """
-        # We measure total time including cost of processing cache values. 
+        # We measure total time including cost of processing cache values.
         t1 = time.time()
         input_index = torch.where(self.cache_mask[input_nodes])[0]
         cache_hit = input_nodes[input_index]
@@ -177,11 +177,14 @@ def run(proc_id, n_gpus, args, devices, data):
     epoch_time = []
     iter_tput = []
     move_time = []
-    forward_time = []
+    forward_backward_time = []
+    forward_time_epoch = []
+    back_time_epoch = []
+    sample_time = []
     ii = 0
     start = torch.cuda.Event(enable_timing=True)
     end = torch.cuda.Event(enable_timing=True)
-    
+
     for epoch in range(args.num_epochs):
         tic = time.time()
         # Loop over the dataloader to sample the computation dependency graph as a list of
@@ -189,21 +192,29 @@ def run(proc_id, n_gpus, args, devices, data):
         it = enumerate(dataloader)
         move_time_epoch = 0
         forward_backward_time_epoch = 0
+        forward_time = 0
+        back_time = 0
         nodes_done = 0
+        sample_get_time = 0
         while(True):
             try:
+                t0 = time.time()
                 step, (input_nodes, seeds, blocks) = next(it)
                 nodes_done += seeds.shape[0]
                 t1 = time.time()
+                sample_get_time += (t1 - t0)
                 batch_inputs, batch_labels,diff_time = cache.load_subtensor(train_nfeat, train_labels, seeds, input_nodes, dev_id)
                 blocks = [block.int().to(dev_id) for block in blocks]
                 t2 = time.time()
+
                 #print("total memory management time time ", t2 -t1)
                 #print("cache tranfer time", diff_time)
+
                 move_time_epoch += (diff_time)
                 t3 = time.time()
-                start.record() 
+                start.record()
                 batch_pred = model(blocks, batch_inputs)
+                t33 = time.time()
                 loss = loss_fcn(batch_pred, batch_labels)
                 # if dev_id == 0:
                 #     print("accuracy",\
@@ -215,10 +226,12 @@ def run(proc_id, n_gpus, args, devices, data):
                 t4 = time.time()
                 torch.cuda.synchronize(end)
                 #print("forward backward time",t4-t3)
-                if proc_id == 0:
-                    print("forward back time with cuda timers",start.elapsed_time(end)/1000)
+                # if proc_id == 0:
+                #     print("forward back time with cuda timers",start.elapsed_time(end)/1000)
                 forward_backward_time_epoch += start.elapsed_time(end)/1000
-                #forward_backward_time_epoch += (t4 - t3)
+                forward_time += (t33 - t3)
+                back_time += (t4-t33)
+                # forward_backward_time_epoch += (t4 - t3)
                 optimizer.step()
                     # break
                 #torch.cuda.nvtx.range_pop()
@@ -232,11 +245,13 @@ def run(proc_id, n_gpus, args, devices, data):
         print("Exiting main training loop")
         if n_gpus > 1:
             th.distributed.barrier()
-
         toc = time.time()
+        sample_time.append(sample_get_time)
         epoch_time.append(toc-tic)
         move_time.append(move_time_epoch)
-        forward_time.append(forward_backward_time_epoch)
+        forward_backward_time.append(forward_backward_time_epoch)
+        forward_time_epoch.append(forward_time)
+        back_time_epoch.append(back_time)
         # if proc_id == 0:
         #     print('Epoch Time(s): {:.4f}'.format(toc - tic))
         #     if epoch >= 5:
@@ -258,6 +273,9 @@ def run(proc_id, n_gpus, args, devices, data):
     num_epochs = args.num_epochs
     if n_gpus > 1:
         th.distributed.barrier()
+    print("forward_time_epoch",forward_time_epoch)
+    print("back_time_epoch",back_time_epoch)
+    print("forward_backward_time_epoch",forward_backward_time_epoch)
     if proc_id == 0:
         # assert(len(forward_time) == num_epochs)
         #if True:
@@ -265,18 +283,20 @@ def run(proc_id, n_gpus, args, devices, data):
         print("avg cache hit rate: {}".format(sum(cache.avg_cache_hit_rate)\
                /len(cache.avg_cache_hit_rate)))
 
-        print("Avg forward backward time: {}sec, device {}".format(sum(forward_time[1:])/(num_epochs - 1), dev_id))
-        print(forward_time)
+        # print("Avg forward backward time: {}sec, device {}".format(sum(forward_time[1:])/(num_epochs - 1), dev_id))
+
+
         print("avg move time: {}sec, device {}".format(sum(move_time[1:])/(num_epochs - 1), dev_id))
         print(move_time)
         print('avg epoch time: {}sec, device {}'.format(sum(epoch_time[1:])/(num_epochs - 1), dev_id))
         print(epoch_time)
+        print('avg sample time:{}sec'.format(sample_time))
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("multi-gpu training")
     argparser.add_argument('--graph',type = str, default = "ogbn-arxiv")
     argparser.add_argument('--fsize', type = int, default = -1 , help = "fsize only for synthetic graphs")
-    argparser.add_argument('--cache-per', type = float)
+    argparser.add_argument('--cache-per', type = float, default = .25)
     argparser.add_argument('--num-epochs', type=int, default=2)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
@@ -286,7 +306,7 @@ if __name__ == '__main__':
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.01)
     argparser.add_argument('--dropout', type=float, default=0)
-    argparser.add_argument('--num-workers', type=int, default=5,
+    argparser.add_argument('--num-workers', type=int, default=1,
                            help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--inductive', action='store_false',
                            help="Inductive learning setting")

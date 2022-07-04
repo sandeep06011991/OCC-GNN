@@ -17,7 +17,7 @@ private:
   std::vector<int> * workload;
   int gpu_capacity[4];
   int batch_size = 0;
-  Sample sample;
+
   long * target_nodes;
   DuplicateRemover *dr;
   DuplicateRemover *out_dr;
@@ -34,15 +34,17 @@ private:
   std::mt19937 random_number_engine;
   std::mt19937 gen;
   std::uniform_int_distribution<> rng_coin;
-  ConQueue<PySample *> * generated_samples;
-  ConQueue<std::vector<long> *> * work_queue;
+  // ConQueue<PySample *> * generated_samples;
+  // ConQueue<std::vector<long> *> * work_queue;
   // std::uniform_int_distribution<> random_number_engine(0, 10000);
   // std::uniform_int_distribution<> rng_coin(0, 10000);
 public:
+  Sample sample;
   Slicer(Dataset * dataset, std::vector<int> *workload_map,
         std::vector<int>** storage_map, int gpu_capacity[4],
-          int batch_size, ConQueue<PySample *> * generated_samples,
-            ConQueue<std::vector<long> *> * work_queue){
+          int batch_size){
+           // ConQueue<PySample *> * generated_samples,
+           //  ConQueue<std::vector<long> *> * work_queue){
       this->dataset = dataset;
       this->num_nodes = dataset->num_nodes;
       for(int i=0;i<4;i++){
@@ -58,8 +60,8 @@ public:
         this->target_nodes[i] = i;
       }
       rng_coin = *(new std::uniform_int_distribution<>(0,10000));
-      this->generated_samples = generated_samples;
-      this->work_queue = work_queue;
+      // this->generated_samples = generated_samples;
+      // this->work_queue = work_queue;
 
   }
 
@@ -67,9 +69,9 @@ public:
     return ((this->num_nodes - 1)/batch_size  + 1);
   }
 
-  void shuffle(){
-    std::random_shuffle(&this->target_nodes[0], &this->target_nodes[this->num_nodes]);
-  }
+  // void shuffle(){
+  //   std::random_shuffle(&this->target_nodes[0], &this->target_nodes[this->num_nodes]);
+  // }
 
   void get_sample(vector<long> &batch);
 
@@ -79,7 +81,7 @@ public:
 
   void simple_3_hop_sample(int batch_id);
 
-  void run();
+  // void run();
 
   void clear();
 };

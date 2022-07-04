@@ -5,6 +5,7 @@ import numpy as np
 import torch as th
 import torch
 import torch.nn as nn
+import time
 
 class SAGE(nn.Module):
     def __init__(self,
@@ -30,7 +31,12 @@ class SAGE(nn.Module):
     def forward(self,blocks,x):
         h = x
         for l, (layer, block) in enumerate(zip(self.layers, blocks)):
+            t1 = time.time()
             h = layer(block, h)
+            t2 = time.time()
+            if x.device == torch.device(0):
+                pass
+                # print("time per layer",l,t2-t1)
             if l != len(self.layers) - 1:
                 h = self.activation(h)
                 h = self.dropout(h)

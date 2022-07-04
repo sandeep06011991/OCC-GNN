@@ -17,8 +17,8 @@ PyBipartite::PyBipartite(BiPartite *bp){
     in_nodes_end = data.size() + in_nodes_v.size();
     data.insert(data.end(),in_nodes_v.begin(), in_nodes_v.end());
     auto opts = torch::TensorOptions().dtype(torch::kLong);
-    in_nodes = torch::from_blob(in_nodes_v.data(), {in_nodes_v.size()}, opts);	
-    
+    in_nodes = torch::from_blob(in_nodes_v.data(), {in_nodes_v.size()}, opts);
+
     indptr_v = bp->indptr;
     indptr = torch::from_blob(indptr_v.data(), {indptr_v.size()}, opts);
     indptr_start = data.size();
@@ -29,8 +29,8 @@ PyBipartite::PyBipartite(BiPartite *bp){
     expand_indptr_start = data.size();
     expand_indptr_end = data.size() + bp->expand_indptr.size();
     data.insert(data.end(), expand_indptr_v.begin(), expand_indptr_v.end());
-    expand_indptr = torch::from_blob(expand_indptr_v.data(), {expand_indptr_v.size()}, opts);    
-    
+    expand_indptr = torch::from_blob(expand_indptr_v.data(), {expand_indptr_v.size()}, opts);
+
     num_in_nodes = bp->num_in_nodes;
     num_out_nodes = bp->num_out_nodes;
     out_nodes_v = bp->out_nodes;
@@ -38,13 +38,13 @@ PyBipartite::PyBipartite(BiPartite *bp){
     out_nodes_end = out_nodes_v.size() + data.size();
     data.insert(data.end(), out_nodes_v.begin(), out_nodes_v.end());
     out_nodes = torch::from_blob(out_nodes_v.data(), {out_nodes_v.size()}, opts);
-    
+
     owned_out_nodes_v = bp->owned_out_nodes;
     owned_out_nodes = torch::from_blob(owned_out_nodes_v.data(), {owned_out_nodes_v.size()}, opts);
     owned_out_nodes_start = data.size();
     owned_out_nodes_end = owned_out_nodes_v.size() + data.size();
     data.insert(data.end(), owned_out_nodes_v.begin(), owned_out_nodes_v.end());
-    
+
     indices_v = bp->indices;
     indices_start = data.size();
     indices_end = data.size() +  indices_v.size();
@@ -57,7 +57,7 @@ PyBipartite::PyBipartite(BiPartite *bp){
       from_ids_v.push_back(bp->from_ids[i]);
       data.insert(data.end(), bp->from_ids[i].begin(), bp->from_ids[i].end());
       from_ids.push_back(torch::from_blob(from_ids_v[i].data(), {from_ids_v[i].size()}, opts));
-      
+
       to_ids_start.push_back(data.size());
       to_ids_end.push_back(data.size() + bp->to_ids[i].size());
       to_ids_v.push_back(bp->to_ids[i]);
@@ -93,7 +93,7 @@ PyBipartite::PyBipartite(BiPartite *bp){
     // self_ids_in  = py::cast(bp->self_ids_in);
     // self_ids_out = py::cast(bp->self_ids_out);
     // std::cout << "bipartite succeess\n";
-
+    // data_tensor.share_memory_();
 }
 
 PyBipartite::~PyBipartite(){
@@ -126,7 +126,7 @@ PySample::~PySample(){
       }
       delete l;
     }
-    std::cout << "Code to check that destructor is being called\n";
+    //std::cout << "Code to check that destructor is being called\n";
 }
 
 void testconqueue(){

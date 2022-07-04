@@ -16,12 +16,13 @@ from utils.sampler import Sampler
 import torch.optim as optim
 from cslicer import cslicer
 from data.compr_cbipartite import Bipartite, Sample
+from queue import Queue
+import threading
 import os
 os.environ["PYTHONPATH"] = "/home/spolisetty/OCC-GNN/cslicer/"
 
 def train(args):
     # Get input data
-
     dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize)
     #dg_graph.ndata["features"] = torch.rand(dg_graph.ndata["features"].shape[0],1024)
     partition_map = partition_map.type(torch.LongTensor)
@@ -49,11 +50,11 @@ def train(args):
     #     partition_map, mm, fanout, batch_size)
     time.sleep(10)
 
-    model = get_model(args.num_hidden, features, num_classes)
+    #model = get_model(args.num_hidden, features, num_classes)
 
     loss = torch.nn.CrossEntropyLoss()
 
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    #optimizer = optim.Adam(model.parameters(), lr=args.lr)
     forward_time_per_epoch = []
     cache_load_time_per_epoch = []
     graph_slice_time_per_epoch = []
@@ -73,26 +74,38 @@ def train(args):
         slice_time = 0
         # fixme: iterate through all samples
         t01 = time.time()
+        def prefetch(queue,sampler,minibatches_per_epoch):
+            for b in range(minibatches_per_epoch):
+                csample = sampler.getSample()
+                tensorized_sample = Sample(csample)
+                queue.put(tensorized_sample)
+        q = Queue(3)
+        th = threading.Thread(target = prefetch, args = (q,sampler,minibatches_per_epoch))
+        th.start()
         for b in range(minibatches_per_epoch):
             ii = ii + 1
             # print("minibatch",ii)
             # if ii > 120 and args.debug:
             #    break
-            optimizer.zero_grad()
+            #optimizer.zero_grad()
             t1 = time.time()
-            csample = sampler.getSample()
+            # csample = sampler.getSample()
             t3 = time.time()
-            tensorized_sample = Sample(csample)
+            # tensorized_sample = Sample(csample)
+            # print("Attempting pop")
+            tensorized_sample = q.get()
+            # assert(False)
+            continue
             t2 = time.time()
-            print("time to pop sample",t3-t1)
-            print("time to tensoerize",t2-t3)
+            # print("time to pop sample",t3-t1)
+            # print("time to tensoerize",t2-t3)
             slice_time += (t2-t1)
             # continue
             # with nvtx.annotate("forward", color="red"):
-            # if True:  
+            # if True:
             t1 = time.time()
-            torch.cuda.set_device(0)
-            start.record()
+            # torch.cuda.set_device(0)
+            # start.record()
             outputs = model(tensorized_sample.layers, mm.batch_in)
            #     t2 = time.time()
            #     forward_time += (t2-t1)
@@ -119,21 +132,21 @@ def train(args):
             total_loss = torch.sum(loss_gather,0)
             # print("Total loss is ", total_loss)
             total_loss.backward()
-            torch.cuda.set_device(0)
-            end.record()
-            
+            # end.record()
+            # torch.cuda.set_device(0)
+
             t2 = time.time()
-            torch.cuda.synchronize(end)
+            # torch.cuda.synchronize(end)
             forward_time += (t2 - t1)
 
             print("forward backward time", t2- t1)
-            print("forward backward time withj timers",start.elapsed_time(end)/1000)
+            # print("forward backward time withj timers",start.elapsed_time(end)/1000)
             optimizer.step()
         t02 = time.time()
         total_time_per_epoch.append(t02 - t01)
         if epochs%10 ==0:
             print("Accuracy", correct, total)
-            
+        th.join()
         forward_time_per_epoch.append(forward_time)
         graph_slice_time_per_epoch.append(slice_time)
         #cache_load_time_per_epoch.append(sampler.cache_refresh_time)
@@ -145,7 +158,7 @@ def train(args):
         # total_loss.backward()
         # optimizer.step()
     #print("total time per epoch {}".format(total_time_per_epoch))
-    #print("batch slice time {}".format(graph_slice_time_per_epoch)) 
+    #print("batch slice time {}".format(graph_slice_time_per_epoch))
     #print("Forward tie {}".format(forward_time_per_epoch))
     #print("cache load time {}".format(cache_load_time_per_epoc))
     print("avg epoch time {}".format(sum(total_time_per_epoch[1:])/(args.num_epochs - 1)))
