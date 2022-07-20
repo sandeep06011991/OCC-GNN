@@ -14,23 +14,25 @@ float p2p_copy (size_t size)
 {
   //size = sizeof(int);
   cudaSetDevice (0);
-  for(int i=1024;i<1024*1024*1024;i = i * 16){
+  for(size_t i=1;i< 1024 * 4;i = i * 4){
       cudaEvent_t begin, end;
       cudaEventCreate (&begin);
       cudaEventCreate (&end);
-      void *host = malloc(i);
+      void *host = malloc(i * 1024 * 1024);
       void *device;
-      gpuErrchk(cudaMalloc(&device,i));
+      gpuErrchk(cudaMalloc(&device,i * 1024 * 1024));
+      for(int j=0;j<4;j++){
       cudaEventRecord (begin);
-      cudaMemcpy(device, host, i,cudaMemcpyHostToDevice);
+      cudaMemcpy(device, host, i * 1024 * 1024,cudaMemcpyHostToDevice);
       cudaEventRecord (end);
       cudaEventSynchronize (end);
       float elapsed;
       cudaEventElapsedTime (&elapsed, begin, end);
       elapsed /= 1000;
+      std::cout << "Data movement" << i << ": " <<  elapsed << " : " << (i * (1.0)/1024)/elapsed <<" GBps\n";
+      }
       cudaFree(device);
       free(host);
-      std::cout << "Data movement" << i << " " << elapsed <<"\n";
       cudaEventDestroy (end);
       cudaEventDestroy (begin);
   }

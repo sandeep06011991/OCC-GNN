@@ -26,11 +26,11 @@ WorkerPool::WorkerPool(long num_nodes, int num_epochs,
   this->samplers = (Slicer **)malloc(sizeof(Slicer *) * num_workers);
   th = (std::thread **)malloc(sizeof(std::thread) * num_workers);
   // Start all worker threads on empty queue.
-  for(int i=0;i<num_workers;i++){
-    this->samplers[i] = new Slicer(this->dataset, workload_map, storage_map, gpu_capacity, minibatch_size, 
-            this->generated_samples, this->work_queue);
-    th[i] = new std::thread(&Slicer::run,this->samplers[i]);
-  }
+  // for(int i=0;i<num_workers;i++){
+  //   this->samplers[i] = new Slicer(this->dataset, workload_map, storage_map, gpu_capacity, minibatch_size,
+  //           this->generated_samples, this->work_queue);
+  //   th[i] = new std::thread(&Slicer::run,this->samplers[i]);
+  // }
   std::cout << "all threads ok!\n";
 }
 

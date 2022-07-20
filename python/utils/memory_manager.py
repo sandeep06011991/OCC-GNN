@@ -107,6 +107,7 @@ class MemoryManager():
             self.node_gpu_mask[node_ids_cached,i] = True
             self.global_to_local[node_ids_cached,i] = torch.arange(node_ids_cached.shape[0],dtype=torch.long)
             self.batch_in[i][:self.local_sizes[i]] = self.features[node_ids_cached]
+            self.batch_in[i].share_memory_()
             assert(self.batch_in[i].device == torch.device(i))
             self.check_missing = self.check_missing | self.node_gpu_mask[:,i]
         assert(torch.all(self.check_missing))

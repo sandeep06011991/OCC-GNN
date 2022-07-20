@@ -40,23 +40,23 @@ def run_occ(graphname, epochs,cache_per, hidden_size, fsize, minibatch_size):
             "movement":movement, "epoch_time":epoch_time}
 
 
-def run_experiment_occ():
+def run_experiment_occ(settings):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
-    settings = [
-                ("ogbn-arxiv",3, 32, -1, 4096), \
-                ("ogbn-arxiv",3, 256, -1, 4096),\
-                ("ogbn-arxiv",3, 32 , -1 , 1024), \
-                ("ogbn-products",3, 32, -1, 4096), \
-                ("ogbn-products",3, 256, -1, 4096), \
-                ("ogbn-products",3, 32 , -1 , 1024), \
-                ("com-youtube", 3, 32, 256, 4096),\
-                ("com-youtube",3,32,1024, 4096)\
+    # settings = [
+                # ("ogbn-arxiv",3, 32, -1, 4096), \
+                #("ogbn-arxiv",3, 256, -1, 4096),\
+                #("ogbn-arxiv",3, 32 , -1 , 1024), \
+                #("ogbn-products",3, 32, -1, 4096), \
+                # ("ogbn-products",3, 256, -1, 4096), \
+                #("ogbn-products",3, 32 , -1 , 1024), \
+                #("com-youtube", 3, 32, 256, 4096),\
+                #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
                 # ("ogbn-products",2), \
                 # ("ogbn-papers100M",2), \
                 # ("com-friendster",2), \
-                # ("com-orkut",5) \
-                ]
+                 # ("com-orkut",5, 256, 256, 4096) \
+                # ]
     # settings = [("ogbn-papers100M",2)]
     # cache_rates = [".05",".10",".24",".5"]
     cache_rates = [".05",".24", ".5"]

@@ -1,0 +1,153 @@
+from torch.multiprocessing import Queue
+import torch
+from torch import multiprocessing as mp
+import torch as th
+from torch.nn.parallel import DistributedDataParallel
+import time
+class Shuffle(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx, input_t, queues, device_id, to_dict, from_dict,layer_id):
+        temp = []
+        # assert(input_t.requires_grad)
+        temp_g = []
+        t1 = time.time()
+        data = 0
+        for i in range(4):
+            if i==device_id:
+                temp.append(None)
+                temp_g.append(None)
+            else:
+                data += from_dict[i].shape[0] + to_dict[i].shape[0]
+                temp.append(torch.empty((from_dict[i].shape[0], input_t.shape[1]) \
+                    , device = device_id))
+                temp_g.append(torch.empty((to_dict[i].shape[0], input_t.shape[1]) \
+                    , device = device_id))
+        for qid in range(4):
+            if qid != device_id:
+                to_id = qid
+                a = input_t[to_dict[qid]].detach().share_memory_()
+                torch.distributed.isend(a,to_id,tag = device_id)
+        irecv_queue = []
+        for from_id in range(4):
+            if from_id == device_id:
+                continue
+            irecv_queue.append(torch.distributed.irecv(temp[from_id], src=from_id, tag=from_id))
+        for obj in irecv_queue:
+            obj.wait()
+        for from_id in range(4):
+            if from_id == device_id:
+                continue
+            input_t[from_dict[from_id]] += temp[from_id]
+        ctx.queues = queues
+        ctx.device_id = device_id
+        ctx.from_dict = from_dict
+        ctx.to_dict = to_dict
+        ctx.temp_g = temp_g
+        ctx.grad_required = input_t.requires_grad
+        ctx.layer_id = layer_id
+        t2 = time.time()
+        # print("data movement",data/input_t.shape[0], "device", input_t.device)
+        # print("shuffle forward",t2-t1,"layer",layer_id,"device",input_t.device)
+        return input_t
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # if not ctx.grad_required:
+        #     return grad_output
+        queues = ctx.queues
+        device_id = ctx.device_id
+        from_dict = ctx.from_dict
+        to_dict = ctx.to_dict
+        temp = ctx.temp_g
+        layer_id = ctx.layer_id
+        # # temp = []
+        # t1 = time.time()
+        # for i in range(4):
+        #     if i==device_id:
+        #         temp.append(None)
+        #     else:
+        #         temp.append(torch.empty((to_dict[i].shape[0], grad_output.shape[1]) \
+        #             , device = device_id))
+        # print(grad_output.shape)
+        torch.distributed.barrier()
+        # return grad_output,None,None, None, None, None
+        print("Start backward shuffle",grad_output.device)
+        t1 = time.time()
+        for from_id in range(4):
+            if from_id != device_id:
+                a = grad_output[from_dict[from_id]].detach().share_memory_()
+                torch.distributed.isend(a,from_id,tag = device_id)
+        irecv_queue = []
+        t3 = time.time()
+        for i in range(4):
+            if i != device_id:
+                irecv_queue.append(torch.distributed.irecv(temp[i], src=i, tag=i))
+        # out = grad_output.clone()
+        out = grad_output
+        for obj in irecv_queue:
+            obj.wait()
+        for to_id in range(4):
+            if to_id == device_id:
+                continue
+            out[to_dict[to_id]] += temp[to_id]
+        t2 = time.time()
+        # if out.device == torch.device(0):
+        #     # print("part 1", t2-t1)
+        #     print("shuffle backward", t2-t1)
+        # print("shuffle backward",t2-t1,"layer",layer_id,"device",grad_output.device)
+        print("end backward shuffle",out.device)
+        return out,None,None, None, None, None
+
+
+class ToySingle(torch.nn.Module):
+
+    def __init__(self, queues, device_id):
+        super(ToySingle,self).__init__()
+        self.ll = torch.nn.Linear(100,100)
+        self.queues = queues
+        self.device_id = device_id
+
+    def forward(self, input, from_id, to_id):
+        a = self.ll(input)
+        b = Shuffle.apply(a, self.queues, self.device_id, to_id, from_id,0)
+        return b
+
+def test_single(proc_id, n_gpus, queues):
+    dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+            master_ip='127.0.0.1', master_port='12345')
+    world_size = n_gpus
+    th.distributed.init_process_group(backend="nccl",\
+             init_method=dist_init_method,  world_size=world_size,rank=proc_id)
+    from_id = {}
+    to_id = {}
+    for i in range(4):
+        if i!=proc_id:
+            from_id[i] = torch.tensor(range(100)).to(proc_id)
+            to_id[i] = torch.tensor(range(100)).to(proc_id)
+    model = ToySingle(queues, proc_id).to(proc_id)
+    model = DistributedDataParallel(model, device_ids = [proc_id])
+    X_t = torch.rand((1000,100), device = proc_id)
+    for i in range(10):
+        t1 = time.time()
+        out = model.forward(X_t,from_id, to_id)
+        t2 = time.time()
+        out.sum().backward()
+        t3 = time.time()
+        print("Forward pass", proc_id, "time", t2-t1)
+        print("Back pass", proc_id, "time", t3-t2)
+    print("Forward pass working")
+
+if __name__ == "__main__":
+    # Create unit test which can handle  shuffling
+    procs = []
+    n_gpus = 4
+    print("Launch multiple gpus")
+    queues = [Queue() for i in range(n_gpus)]
+    for proc_id in range(n_gpus):
+        p = mp.Process(target=(test_single),
+                       args=(proc_id, n_gpus,queues))
+        p.start()
+        procs.append(p)
+    for p in procs:
+        p.join()
