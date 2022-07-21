@@ -88,14 +88,15 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         # print("popped sample",gpu_local_sample)
         # gpu_local_sample.debug()
         t22 = time.time()
-        t = Gpu_Local_Sample.deserialize(alt_sample_queue.get())
+        t = (alt_sample_queue.get())
         # print(t)
         t33 = time.time()
-
+        t = Gpu_Local_Sample.deserialize(t)
+        t44 = time.time()
         if type(gpu_local_sample)== type('string'):
             print("SSSSSSTRING POP TIME",t22 - t11)
         else:
-            print("Pop sample time", t22-t11, "Integer size",gpu_local_sample.get_size(),"alt ",t33-t22)
+            print("Pop sample time", t22-t11, "Integer size",gpu_local_sample.get_size(),"pop ",t33-t22, "Deseriziare", t44-t33)
         sample_get_time += t22 - t11
         if(gpu_local_sample == "EPOCH"):
             t2 = time.time()
@@ -284,8 +285,8 @@ def train(args):
 
     # assert(len(storage_vector) == 4)
     # import multiprocessing
-    sample_queues = [mp.Queue(1) for i in range(4)]
-    alt_sample_queue = [mp.Queue(1) for i in range(4)]
+    sample_queues = [mp.Queue(2) for i in range(4)]
+    alt_sample_queue = [mp.Queue(2) for i in range(4)]
     # sample_queues = [Queue(7) for i in range(4)]
     communication_queues = [Queue(4) for i in range(4)]
     lock = torch.multiprocessing.Lock()

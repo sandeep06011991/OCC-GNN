@@ -126,7 +126,7 @@ class Bipartite:
             self.graph = dgl.heterograph({('_V', '_E', '_U'): (expand_indptr.clone(), indices.clone())},
                                          {'_U': M, '_V': N})
             self.graph = self.graph.reverse()
-            self.graph.create_formats_()
+            self.graph = self.graph.formats('csc')
             t22 = time.time()
             # g1 = dgl.heterograph({('_U', '_E', '_V'): (
             # 'csc', self.graph.adj_sparse('csc'))}, {'_U': M, '_V': N})
