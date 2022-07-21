@@ -19,9 +19,8 @@ import time
 
 class Bipartite:
 
-    def serializeThisToTensor(self):
+    def serialize(self):
         metadatalist = [
-            self.gpu_id,
             self.indptr_start,
             self.indptr_end,
             self.expand_indptr_start,
@@ -45,41 +44,52 @@ class Bipartite:
         metadatalist.extend(self.to_ids_end)
         tensor = torch.tensor(metadatalist, dtype=torch.long)
         tensorCatData = torch.cat([tensor, self.data])
-        return tensorCatData
+        return (tensorCatData, self.graph, self.gpu_id)
 
     @staticmethod
-    def from_tensor(tensor):
-        metadatalist = tensor[:20].tolist()
-        data = tensor[20:]
-        bipartite = Bipartite(metadatalist, data)
+    def deserialize(data):
+        tensor, graph, gpu_id = data
+        metadatalist = tensor[:32].tolist()
+        data = tensor[32:]
+        bipartite = Bipartite(metadatalist=metadatalist,
+                              data=data, graph=graph, gpu_id=gpu_id)
         return bipartite
 
-    # Init from Metadata
-    def __init__(self, metadatalist, data):
-        self.gpu_id = metadatalist[0]
-        self.indptr_start = metadatalist[1]
-        self.indptr_end = metadatalist[2]
-        self.expand_indptr_start = metadatalist[3]
-        self.expand_indptr_end = metadatalist[4]
-        self.indices_start = metadatalist[5]
-        self.indices_end = metadatalist[6]
-        self.in_nodes_start = metadatalist[7]
-        self.in_nodes_end = metadatalist[8]
-        self.out_nodes_start = metadatalist[9]
-        self.out_nodes_end = metadatalist[10]
-        self.owned_out_nodes_start = metadatalist[11]
-        self.owned_out_nodes_end = metadatalist[12]
-        self.self_ids_in_start = metadatalist[13]
-        self.self_ids_in_end = metadatalist[14]
-        self.self_ids_out_start = metadatalist[15]
-        self.self_ids_out_end = metadatalist[16]
-        self.from_ids_start = metadatalist[17:21]
-        self.from_ids_end = metadatalist[21:25]
-        self.to_ids_start = metadatalist[25:29]
-        self.to_ids_end = metadatalist[29:33]
-        self.data = data
+    def __init__(self, cobject=None,  metadatalist=None, data=None, graph=None, gpu_id=None):
+        if metadatalist is not None and data is not None and graph is not None and gpu_id is not None:
+            self.graph = graph
+            self.gpu_id = gpu_id
 
-    def __init__(self, cobject):
+            self.indptr_start = metadatalist[0]
+            self.indptr_end = metadatalist[1]
+            self.expand_indptr_start = metadatalist[2]
+            self.expand_indptr_end = metadatalist[3]
+            self.indices_start = metadatalist[4]
+            self.indices_end = metadatalist[5]
+            self.in_nodes_start = metadatalist[6]
+            self.in_nodes_end = metadatalist[7]
+            self.out_nodes_start = metadatalist[8]
+            self.out_nodes_end = metadatalist[9]
+            self.owned_out_nodes_start = metadatalist[10]
+            self.owned_out_nodes_end = metadatalist[11]
+            self.self_ids_in_start = metadatalist[12]
+            self.self_ids_in_end = metadatalist[13]
+            self.self_ids_out_start = metadatalist[14]
+            self.self_ids_out_end = metadatalist[15]
+
+            self.from_ids_start = {}
+            self.from_ids_end = {}
+            self.to_ids_start = {}
+            self.to_ids_end = {}
+            for i in range(4):
+                self.from_ids_start[i] = metadatalist[16 + i]
+                self.from_ids_end[i] = metadatalist[20 + i]
+                self.to_ids_start[i] = metadatalist[24 + i]
+                self.to_ids_end[i] = metadatalist[28 + i]
+            self.data = data
+            return
+
+        # Not From Serialization
         self.gpu_id = torch.device(cobject.gpu_id)
         self.data = cobject.data_tensor.clone()
         data = self.data
@@ -99,7 +109,7 @@ class Bipartite:
             M = cobject.num_in_nodes
             self.num_nodes_v = N
             #print("graph created attempt", N, M)
-            #print(indices[-1])
+            # print(indices[-1])
             assert(indptr[-1] == len(indices))
             '''sp_mat = sp.sparse.csr_matrix((np.ones(indices.shape),\
                     indices.numpy(), indptr.numpy()), \
@@ -115,8 +125,8 @@ class Bipartite:
             self.graph = self.graph.reverse()
             self.graph.create_formats_()
             t22 = time.time()
-            g1 = dgl.heterograph({('_U', '_E', '_V'): (
-                'csc', self.graph.adj_sparse('csc'))}, {'_U': M, '_V': N})
+            # g1 = dgl.heterograph({('_U', '_E', '_V'): (
+            # 'csc', self.graph.adj_sparse('csc'))}, {'_U': M, '_V': N})
             t33 = time.time()
             print("Check alternative", t22 - t11)
             print("From Tensor again", t33 - t22)
@@ -148,10 +158,10 @@ class Bipartite:
         # self.in_nodes = data[cobject.in_nodes_start:cobject.in_nodes_end]
         # self.out_nodes = data[cobject.out_nodes_start: cobject.out_nodes_end]
         # self.owned_out_nodes = data[cobject.owned_out_nodes_start:cobject.owned_out_nodes_end]
-        self.from_ids_start, = {}
-        self.from_ids_end, = {}
-        self.to_ids_start, = {}
-        self.to_ids_end, = {}
+        self.from_ids_start = {}
+        self.from_ids_end = {}
+        self.to_ids_start = {}
+        self.to_ids_end = {}
         for i in range(4):
             self.from_ids_start[i] = cobject.from_ids_start[i]
             self.from_ids_end[i] = cobject.from_ids_end[i]
@@ -231,7 +241,9 @@ class Bipartite:
             assert(f_in.shape[0] == self.graph.number_of_nodes('_U'))
             self.graph.nodes['_U'].data['in'] = f_in
             f = self.graph.formats()
+            print("before",f)
             self.graph.update_all(fn.copy_u('in', 'm'), fn.mean('m', 'out'))
+            print("after",self.graph.formats())
             # No new formats must be created.
             assert(f == self.graph.formats())
             # print(self.graph.nodes['_V'].data['out'])
@@ -299,7 +311,18 @@ class Sample:
 
 
 class Gpu_Local_Sample:
-    def __init__(self, global_sample, device_id):
+    def __init__(self, global_sample=None, device_id=None, in_nodes=None, out_nodes=None, serializedLayers=None):
+        if in_nodes is not None and out_nodes is not None and serializedLayers is not None and device_id is not None:
+            self.in_nodes = in_nodes
+            self.out_nodes = out_nodes
+            self.layers = []
+            for layer in serializedLayers:
+                self.layers.append(Bipartite.deserialize(layer))
+            self.device_id = device_id
+            return
+
+        # print(global_sample, in_nodes, out_nodes, serializedLayers, device_id,
+            #   in_nodes is None and out_nodes is not None and serializedLayers is not None and device_id is not None)
         self.in_nodes = global_sample.in_nodes
         self.out_nodes = global_sample.out_nodes
         self.layers = []
@@ -308,24 +331,27 @@ class Gpu_Local_Sample:
         # self.last_layer_nodes = global_sample.last_layer_nodes[device_id]
         self.device_id = device_id
 
-    def serializeToTensor(self):
-        serializedLayers = tuple([i.serializeToTensor() for i in self.layers])
+    def serialize(self):
+        serializedLayers = tuple([i.serialize() for i in self.layers])
         return (self.in_nodes, self.out_nodes, serializedLayers, self.device_id)
 
     @staticmethod
-    def deserializeFromTensor(tensor, in_nodes_length):
-        in_nodes = tensor[:in_nodes_length]
-        out_nodes = tensor[in_nodes_length:]
-        return Gpu_Local_Sample(in_nodes, out_nodes)
+    def deserialize(tensor):
+        in_nodes, out_nodes, serializedLayers, device_id = tensor
+        return Gpu_Local_Sample(device_id=device_id, in_nodes=in_nodes, out_nodes=out_nodes, serializedLayers=serializedLayers)
+
+    def __str__(self):
+        return "TEST: " + str(self.serialize())
 
     # Init from a serialized
-    def __init__(self, in_nodes, out_nodes, serializedLayers, device_id):
-        self.in_nodes = in_nodes
-        self.out_nodes = out_nodes
-        self.layers = []
-        for layer in serializedLayers:
-            self.layers.append(Bipartite.deserializeFromTensor(layer))
-        self.device_id = device_id
+    # @classmethod
+    # def __init__(self, in_nodes, out_nodes, serializedLayers, device_id):
+    #     self.in_nodes = in_nodes
+    #     self.out_nodes = out_nodes
+    #     self.layers = []
+    #     for layer in serializedLayers:
+    #         self.layers.append(Bipartite.deserializeFromTensor(layer))
+    #     self.device_id = device_id
 
     def debug(self):
         for l in self.layers:

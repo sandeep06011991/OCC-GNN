@@ -27,8 +27,9 @@ def producer(queue, size, proc_id, no_objects, reuse_queue, configure_O):
           o = dgl.rand_graph(10**5, 10**6)
         elif configure_O == "splitRandom":
           splitFactor = 4
-          o1 = dgl.rand_graph((10**5)/splitFactor, (10**6)/splitFactor)
-          o = [o1.clone() for _ in range(splitFactor)]
+          o = dgl.rand_graph(10**5, 10**6)
+          o.create_formats_()
+          print(o.formats())
         # if False:
         #     # if i>10:
         #     o1 = reuse_queue.get()
@@ -67,6 +68,7 @@ def consumer(queue, no_objects, proc_id, reuse_queue):
     for i in range(no_objects * proc_id):
         t0 = time.time()
         obj = queue.get()
+        print(obj.formats())
         t1 = time.time()
         # obj.clone().to(0)
         t2 = time.time()

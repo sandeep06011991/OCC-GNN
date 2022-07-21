@@ -88,7 +88,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         # print("popped sample",gpu_local_sample)
         # gpu_local_sample.debug()
         t22 = time.time()
-        t = alt_sample_queue.get()
+        t = Gpu_Local_Sample.deserialize(alt_sample_queue.get())
+        print(t)
         t33 = time.time()
 
         if type(gpu_local_sample)== type('string'):
@@ -224,7 +225,7 @@ def slice_producer(graph_name, work_queue, sample_queues,  \
         for gpu_id in range(4):
             gpu_local_samples.append(Gpu_Local_Sample(tensorized_sample, gpu_id))
             # dummy.append(torch.ones(gpu_local_samples[gpu_id].get_size()))
-            dummy.append(gpu_local_samples[gpu_id].get_tensor())
+            dummy.append(gpu_local_samples[gpu_id].serialize())
         lock.acquire()
         for qid,q in enumerate(sample_queues):
             print("PUTTING SAMPLE",qid)
