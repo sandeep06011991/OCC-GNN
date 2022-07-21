@@ -38,10 +38,13 @@ class Bipartite:
             self.self_ids_out_start,
             self.self_ids_out_end,
         ]
-        metadatalist.extend(self.from_ids_start)
-        metadatalist.extend(self.from_ids_end)
-        metadatalist.extend(self.to_ids_start)
-        metadatalist.extend(self.to_ids_end)
+
+        def listFromObj(obj):
+            return [obj[key] for key in range(4)]
+        metadatalist.extend(listFromObj(self.from_ids_start))
+        metadatalist.extend(listFromObj(self.from_ids_end))
+        metadatalist.extend(listFromObj(self.to_ids_start))
+        metadatalist.extend(listFromObj(self.to_ids_end))
         tensor = torch.tensor(metadatalist, dtype=torch.long)
         tensorCatData = torch.cat([tensor, self.data])
         return (tensorCatData, self.graph, self.gpu_id)
