@@ -17,6 +17,7 @@ from utils.utils import thread_wrapped_func
 # from load_graph import load_reddit, inductive_split
 
 from models.sage import SAGE
+from models.gat import GAT
 
 def compute_acc(pred, labels):
     """
@@ -40,33 +41,37 @@ def evaluate(model, g, nfeat, labels, val_nid, device):
 
 class PaCache:
 
-    def __init__(self,graph,nfeat,max_size,dev_id):
-            self.graph = graph
-            self.max_size = max_size
-            self.dev_id = dev_id
-            # Notes on  why in-degree measures greatest likely hood.
-            # indptr degrees are out_degrees.
-            # Hence node with highest in_degree will be sampled in first layer
-            # g = dgl.graph(([0, 0, 0, 0, 0], [1, 2, 3, 4, 5]), num_nodes=6)
-            # g.in_degrees()
-            # tensor([0, 1, 1, 1, 1, 1])
-            # g.out_degrees()
-            # tensor([5, 0, 0, 0, 0, 0])
-            # g.adj(scipy_fmt = 'csr').indptr
-            # array([0, 5, 5, 5, 5, 5, 5], dtype=int32)
-            in_degree = self.graph.in_degree(v='__ALL__')
-            values, indices = torch.sort(in_degree, descending = True)
-            assert(max_size <= 1 and max_size >=0)
-            print("cache size in GB:",max_size * graph.num_nodes() * nfeat.shape[1] * 4 / (1024 * 1024* 1024))
-            self.cached_indices = indices[:int(max_size * graph.num_nodes())].to('cpu')
-            self.cache_mask = torch.zeros(graph.num_nodes(),dtype= bool)
-            self.cache_mask[self.cached_indices] = True
-            self.cache_index = torch.zeros(graph.num_nodes(),dtype = torch.long)
-            self.cache_index[self.cached_indices] = torch.range(0,max(0,self.cached_indices.shape[0]-1),dtype = torch.long)
-            self.tocache = nfeat[self.cached_indices].to(dev_id)
-            self.avg_cache_hit_rate = []
+    def __init__(self, graph, nfeat, max_size, dev_id):
+        self.graph = graph
+        self.max_size = max_size
+        self.dev_id = dev_id
+        # Notes on  why in-degree measures greatest likely hood.
+        # indptr degrees are out_degrees.
+        # Hence node with highest in_degree will be sampled in first layer
+        # g = dgl.graph(([0, 0, 0, 0, 0], [1, 2, 3, 4, 5]), num_nodes=6)
+        # g.in_degrees()
+        # tensor([0, 1, 1, 1, 1, 1])
+        # g.out_degrees()
+        # tensor([5, 0, 0, 0, 0, 0])
+        # g.adj(scipy_fmt = 'csr').indptr
+        # array([0, 5, 5, 5, 5, 5, 5], dtype=int32)
+        in_degree = self.graph.in_degrees(v='__ALL__')
+        values, indices = torch.sort(in_degree, descending=True)
+        assert(max_size <= 1 and max_size >= 0)
+        print("cache size in GB:", max_size * graph.num_nodes()
+              * nfeat.shape[1] * 4 / (1024 * 1024 * 1024))
+        self.cached_indices = indices[:int(
+            max_size * graph.num_nodes())].to('cpu')
+        self.cache_mask = torch.zeros(graph.num_nodes(), dtype=bool)
+        self.cache_mask[self.cached_indices] = True
+        self.cache_index = torch.zeros(graph.num_nodes(), dtype=torch.long)
+        self.cache_index[self.cached_indices] = torch.range(
+            0, max(0, self.cached_indices.shape[0]-1), dtype=torch.long)
+        self.tocache = nfeat[self.cached_indices].to(dev_id)
+        self.avg_cache_hit_rate = []
     # @profile
-    def load_subtensor(self,nfeat, labels, seeds, input_nodes, dev_id):
+
+    def load_subtensor(self, nfeat, labels, seeds, input_nodes, dev_id):
         """
         Extracts features and labels for a subset of nodes.
         """
@@ -77,21 +82,25 @@ class PaCache:
         cache_index = self.cache_index[cache_hit]
         assert(input_index.shape == cache_index.shape)
         # cache_hit,input_index,cache_index = np.intersect1d(input_nodes, self.cached_indices,return_indices = True)
-        self.avg_cache_hit_rate.append(cache_hit.shape[0]/ input_nodes.shape[0])
+        self.avg_cache_hit_rate.append(
+            cache_hit.shape[0] / input_nodes.shape[0])
         if(cache_hit.shape[0] == 0):
             print("no cache hit")
             batch_inputs = nfeat[input_nodes].to(dev_id)
         else:
-            cache_mask = torch.zeros(input_nodes.shape[0],dtype = torch.bool)
-            cache_mask [input_index] = True
-            batch_inputs = torch.cuda.FloatTensor(input_nodes.shape[0],nfeat.shape[1],device=dev_id)
+            cache_mask = torch.zeros(input_nodes.shape[0], dtype=torch.bool)
+            cache_mask[input_index] = True
+            batch_inputs = torch.cuda.FloatTensor(
+                input_nodes.shape[0], nfeat.shape[1], device=dev_id)
             batch_inputs[input_index] = self.tocache[cache_index]
             cpu_indices = torch.where(~ cache_mask)[0]
-            batch_inputs[cpu_indices.to(dev_id) ] = nfeat[input_nodes[cpu_indices]].to(dev_id)
+            batch_inputs[cpu_indices.to(
+                dev_id)] = nfeat[input_nodes[cpu_indices]].to(dev_id)
         t2 = time.time()
         # batch_inputs = nfeat[input_nodes].to(dev_id)
         batch_labels = labels[seeds].to(dev_id)
         return batch_inputs, batch_labels, t2-t1
+
 
 def run(proc_id, n_gpus, args, devices, data):
     # Start up distributed training, if enabled.
@@ -130,8 +139,10 @@ def run(proc_id, n_gpus, args, devices, data):
     val_nid = val_mask.nonzero().squeeze()
     test_nid = test_mask.nonzero().squeeze()
     # Split train_nid
-    print("Training nodes {}, total nodes {}".format(train_nid.shape[0], train_mask.shape[0]))
-    train_nid = th.split(train_nid, math.ceil(len(train_nid) / n_gpus))[proc_id]
+    print("Training nodes {}, total nodes {}".format(
+        train_nid.shape[0], train_mask.shape[0]))
+    train_nid = th.split(train_nid, math.ceil(
+        len(train_nid) / n_gpus))[proc_id]
 
     # Create PyTorch DataLoader for constructing blocks
     # train_g = train_g.to(dev_id)
@@ -149,13 +160,26 @@ def run(proc_id, n_gpus, args, devices, data):
 
     assert(args.cache_per <= 1)
     print("Begin cache")
-    cache = PaCache(train_g,train_nfeat, args.cache_per ,dev_id)
+    cache = PaCache(train_g, train_nfeat, args.cache_per, dev_id)
     print("End cache")
+
     # Define model and optimizer
-    model = SAGE(in_feats, args.num_hidden, n_classes, args.num_layers, F.relu, args.dropout)
+    model = None
+    if args.model == 'gcn':
+        model = SAGE(in_feats, args.num_hidden, n_classes,
+                     args.num_layers, F.relu, args.dropout)
+    elif args.model == 'gat':
+        if args.num_heads < 1:
+            raise ValueError('num_heads must be greater than 0')
+        model = GAT(in_feats, args.num_hidden, n_classes,
+                    args.num_layers, F.relu, args.dropout, args.num_heads)
+    else:
+        raise ValueError("INVALID MODEL {}".format(args.model))
+
     model = model.to(dev_id)
     if n_gpus > 1:
-        model = DistributedDataParallel(model, device_ids=[dev_id], output_device=dev_id)
+        model = DistributedDataParallel(
+            model, device_ids=[dev_id], output_device=dev_id)
     loss_fcn = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
@@ -190,7 +214,8 @@ def run(proc_id, n_gpus, args, devices, data):
                 nodes_done += seeds.shape[0]
                 t1 = time.time()
                 sample_get_time += (t1 - t0)
-                batch_inputs, batch_labels,cache_mgmt_time = cache.load_subtensor(train_nfeat, train_labels, seeds, input_nodes, dev_id)
+                batch_inputs, batch_labels, cache_mgmt_time = cache.load_subtensor(
+                    train_nfeat, train_labels, seeds, input_nodes, dev_id)
                 blocks = [block.int().to(dev_id) for block in blocks]
                 t2 = time.time()
                 move_time += (t2 - t1)
@@ -202,7 +227,6 @@ def run(proc_id, n_gpus, args, devices, data):
                 # if dev_id == 0:
                 #     print("accuracy",\
                 #         torch.sum(torch.max(batch_pred,1)[1]==batch_labels)/batch_pred.shape[0])
-
                 optimizer.zero_grad()
                 loss.backward()
                 bp_end.record()
@@ -249,30 +273,36 @@ def run(proc_id, n_gpus, args, devices, data):
     num_epochs = args.num_epochs
     if n_gpus > 1:
         th.distributed.barrier()
-
     if proc_id == 0:
         # assert(len(forward_time) == num_epochs)
-        #if True:
+        # if True:
         assert(num_epochs > 1)
-        print("avg cache hit rate: {}".format(sum(cache.avg_cache_hit_rate)\
-               /len(cache.avg_cache_hit_rate)))
+        print("avg cache hit rate: {}".format(sum(cache.avg_cache_hit_rate)
+                                              / len(cache.avg_cache_hit_rate)))
         # print("Avg forward backward time: {}sec, device {}".format(sum(forward_time[1:])/(num_epochs - 1), dev_id))
-        print("avg forward time: {}sec, device {}".format(sum(forward_time_epoch[1:])/(num_epochs - 1), dev_id))
+        print("avg forward time: {}sec, device {}".format(
+            sum(forward_time_epoch[1:])/(num_epochs - 1), dev_id))
         print(forward_time_epoch)
-        print("avg backward time: {}sec, device {}".format(sum(backward_time_epoch[1:])/(num_epochs - 1), dev_id))
-        print("avg move time: {}sec, device {}".format(sum(move_time_epoch[1:])/(num_epochs - 1), dev_id))
+        print("avg backward time: {}sec, device {}".format(
+            sum(backward_time_epoch[1:])/(num_epochs - 1), dev_id))
+        print("avg move time: {}sec, device {}".format(
+            sum(move_time_epoch[1:])/(num_epochs - 1), dev_id))
         print(move_time)
-        print('avg epoch time: {}sec, device {}'.format(sum(time_epoch[1:])/(num_epochs - 1), dev_id))
+        print('avg epoch time: {}sec, device {}'.format(
+            sum(time_epoch[1:])/(num_epochs - 1), dev_id))
         print(time_epoch)
-        print('avg sample get time:{}sec, device {}'.format(sum(sample_get_time_epoch[1:])/(num_epochs - 1),dev_id))
+        print('avg sample get time:{}sec, device {}'.format(
+            sum(sample_get_time_epoch[1:])/(num_epochs - 1), dev_id))
         print(sample_get_time_epoch)
-        
+
+
 if __name__ == '__main__':
     mp.set_start_method("spawn")
     argparser = argparse.ArgumentParser("multi-gpu training")
-    argparser.add_argument('--graph',type = str, default = "ogbn-arxiv")
-    argparser.add_argument('--fsize', type = int, default = -1 , help = "fsize only for synthetic graphs")
-    argparser.add_argument('--cache-per', type = float, default = .25)
+    argparser.add_argument('--graph', type=str, default="ogbn-arxiv")
+    argparser.add_argument('--fsize', type=int, default=-1,
+                           help="fsize only for synthetic graphs")
+    argparser.add_argument('--cache-per', type=float, default=.25)
     argparser.add_argument('--num-epochs', type=int, default=2)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
@@ -286,10 +316,13 @@ if __name__ == '__main__':
                            help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--inductive', action='store_false',
                            help="Inductive learning setting")
+    argparser.add_argument('--model', type=str, required=True,
+                           default='gcn', choices=['gcn', 'gat'])
+    argparser.add_argument('--num_heads', type=int, default=1)
     args = argparser.parse_args()
     n_gpus = 4
-    devices = [0,1,2,3]
-    g,p_map,num_classes =  get_process_graph(args.graph, args.fsize)
+    devices = [0, 1, 2, 3]
+    g, p_map, num_classes = get_process_graph(args.graph, args.fsize)
     args.inductive = False
     # if args.inductive:
     #     train_g, val_g, test_g = inductive_split(g)
