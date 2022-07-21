@@ -21,13 +21,9 @@ from queue import Queue as Simple_Queue
 import threading
 import os
 os.environ["PYTHONPATH"] = "/home/spolisetty/OCC-GNN/cslicer/"
-# Command to kill stragglers
-# kill `ps |grep python3| awk '{print $1}'`
 import time
 
-class dummy_class:
-    def __init__(self,size):
-        a = torch.ones(size)
+
 
 def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, features, args, communication_queues\
                     ,num_classes,batch_in, labels, num_sampler_workers, alt_sample_queue):
@@ -286,7 +282,7 @@ def train(args):
     # assert(len(storage_vector) == 4)
     # import multiprocessing
     sample_queues = [mp.Queue(2) for i in range(4)]
-    alt_sample_queue = [mp.Queue(10) for i in range(4)]
+    alt_sample_queue = [mp.Queue(2) for i in range(4)]
     # sample_queues = [Queue(7) for i in range(4)]
     communication_queues = [Queue(4) for i in range(4)]
     lock = torch.multiprocessing.Lock()
