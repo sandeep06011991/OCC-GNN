@@ -104,17 +104,12 @@ PyBipartite::~PyBipartite(){
 PySample::PySample(Sample *s){
     for(int i=0;i<3;i++){
         auto all_bipartites = new std::vector<PyBipartite *>();
-
-        // Populate missing node ids
-        // auto temp  = all_bipartites[all_bipartites->size()-1];
-
-        // missing_node_ids = temp.missing_node_ids;
-        
-        // py::list all_bipartites;
         for(int j=0; j<4; j++){
           // std::cout <<"Working on" << j <<"\n";
           // std::cout << s->layers[i].bipartite[j] <<"\n";
-          all_bipartites->push_back(new PyBipartite(s->layers[i].bipartite[j]));
+          auto bipartite = new PyBipartite(s->layers[i].bipartite[j]);
+          all_bipartites->push_back(bipartite);
+          missing_node_ids.push_back(bipartite->missing_node_ids);
           if(i==0){
             in_nodes = in_nodes + s->layers[i].bipartite[j]->in_nodes.size();
           }
@@ -122,7 +117,6 @@ PySample::PySample(Sample *s){
             out_nodes = out_nodes + s->layers[i].bipartite[j]->out_nodes.size();
           }
         }
-        missing_node_ids = all_bipartites->back()->missing_node_ids;
         layers.push_back(all_bipartites);
     }
   }

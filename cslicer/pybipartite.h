@@ -82,7 +82,7 @@ public:
   std::vector<std::vector<PyBipartite *> *> layers;
 
   // Pass missing_node_ids
-  std::vector<long> missing_node_ids;
+  std::vector<vector<long>> missing_node_ids;
 
   long in_nodes = 0;
   long out_nodes = 0;

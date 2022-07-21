@@ -15,6 +15,7 @@ ext_modules = [
         sources = ["pyfrontend.cpp","dataset.cpp", "bipartite.cpp", \
                 "util/duplicate.cpp", "slicer.cpp","pybipartite.cpp","WorkerPool.cpp"
                 ],
+        extra_compile_args=["-s"],
         depends = ["bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
             ,"util/conqueue.h"]  ,
         include_dirs=[pybind11.get_include(),"."],
