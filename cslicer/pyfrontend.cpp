@@ -144,7 +144,8 @@ PYBIND11_MODULE(cslicer, m) {
     py::class_<PySample>(m,"sample")
         .def_readwrite("layers",&PySample::layers)
         .def_readwrite("in_nodes", &PySample::in_nodes)
-        .def_readwrite("out_nodes", &PySample::out_nodes);
+        .def_readwrite("out_nodes", &PySample::out_nodes)
+        .def_readwrite("missing_node_ids", &PySample::missing_node_ids);
     py::class_<PyBipartite>(m,"bipartite")
         .def_readwrite("num_in_nodes", &PyBipartite::num_in_nodes)
         .def_readwrite("num_out_nodes", &PyBipartite::num_out_nodes)

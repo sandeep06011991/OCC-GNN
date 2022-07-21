@@ -286,7 +286,7 @@ def train(args):
     # assert(len(storage_vector) == 4)
     # import multiprocessing
     sample_queues = [mp.Queue(2) for i in range(4)]
-    alt_sample_queue = [mp.Queue(2) for i in range(4)]
+    alt_sample_queue = [mp.Queue(10) for i in range(4)]
     # sample_queues = [Queue(7) for i in range(4)]
     communication_queues = [Queue(4) for i in range(4)]
     lock = torch.multiprocessing.Lock()

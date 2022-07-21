@@ -70,6 +70,7 @@ public:
 
   int gpu_id = -1;
 
+  std::vector<long> missing_node_ids;
 
   PyBipartite(BiPartite *bp);
 
@@ -79,6 +80,9 @@ public:
 class PySample{
 public:
   std::vector<std::vector<PyBipartite *> *> layers;
+
+  // Pass missing_node_ids
+  std::vector<long> missing_node_ids;
 
   long in_nodes = 0;
   long out_nodes = 0;
