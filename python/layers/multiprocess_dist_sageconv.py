@@ -63,6 +63,7 @@ class DistSageConv(nn.Module):
         # print(t1-t0,"target time")
         # out = bipartite_graph.slice_owned_nodes(out)
         # return out
+        print(torch.sum(self.fc1.weight))
         if self._in_src_feats  > self._out_feats:
             out = self.fc1(x)
             out1 = bipartite_graph.gather(out)
@@ -80,7 +81,7 @@ class DistSageConv(nn.Module):
         out6 = bipartite_graph.slice_owned_nodes(out2)
         final = out5 + out6
         t3 = time.time()
-        if out.device == torch.device(2):
-            print(t3-t2,"second half of nn",l,"layer",out.device,"device")
-            print(t2-t1,"first half of nn",l,"layer",out.device,"device")
+        # if out.device == torch.device(2):
+        #     print(t3-t2,"second half of nn",l,"layer",out.device,"device")
+        #     print(t2-t1,"first half of nn",l,"layer",out.device,"device")
         return final

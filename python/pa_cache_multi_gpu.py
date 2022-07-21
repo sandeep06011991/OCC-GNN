@@ -223,10 +223,8 @@ def run(proc_id, n_gpus, args, devices, data):
                 batch_pred = model(blocks, batch_inputs)
                 loss = loss_fcn(batch_pred, batch_labels)
                 fp_end.record()
-
-                # if dev_id == 0:
-                #     print("accuracy",\
-                #         torch.sum(torch.max(batch_pred,1)[1]==batch_labels)/batch_pred.shape[0])
+                print("accuracy",\
+                        torch.sum(torch.max(batch_pred,1)[1]==batch_labels)/batch_pred.shape[0])
                 optimizer.zero_grad()
                 loss.backward()
                 bp_end.record()
@@ -312,7 +310,7 @@ if __name__ == '__main__':
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.01)
     argparser.add_argument('--dropout', type=float, default=0)
-    argparser.add_argument('--num-workers', type=int, default=1,
+    argparser.add_argument('--num-workers', type=int, default=4,
                            help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--inductive', action='store_false',
                            help="Inductive learning setting")

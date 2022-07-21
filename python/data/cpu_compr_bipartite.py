@@ -79,7 +79,7 @@ class Bipartite:
             self.self_ids_in_end = metadatalist[13]
             self.self_ids_out_start = metadatalist[14]
             self.self_ids_out_end = metadatalist[15]
-
+            self.num_nodes_v = self.out_nodes_end - self.out_nodes_start
             self.from_ids_start = {}
             self.from_ids_end = {}
             self.to_ids_start = {}
@@ -127,26 +127,7 @@ class Bipartite:
                                          {'_U': M, '_V': N})
             self.graph = self.graph.reverse()
             self.graph = self.graph.formats('csc')
-            t22 = time.time()
-            # g1 = dgl.heterograph({('_U', '_E', '_V'): (
-            # 'csc', self.graph.adj_sparse('csc'))}, {'_U': M, '_V': N})
-            t33 = time.time()
-            print("Check alternative", t22 - t11)
-            print("From Tensor again", t33 - t22)
-
             assert ['csc' in self.graph.formats()]
-
-            # i1,i2,i3 = self.graph.adj_sparse('csr')
-            # assert(torch.all(i1==indptr))
-            # assert(torch.all(i2 == indices))
-            # print("All ok !")
-            # self.graph = dgl.heterograph({('_V','_E','_U'): \
-            #             ('csr',( indptr, indices ,[]))},\
-            #             {'_U': M, '_V': N}, device = self.gpu_id)
-            # ind,indices,edges = self.graph.adj_sparse('csr')
-            # assert(ind.shape[0] == M+1 )
-            # assert(torch.all(indices < N))
-            #print("graph created", N, M)
         else:
             self.num_nodes_v = 0
             # empty code such that other things dont break.
@@ -244,9 +225,7 @@ class Bipartite:
             assert(f_in.shape[0] == self.graph.number_of_nodes('_U'))
             self.graph.nodes['_U'].data['in'] = f_in
             f = self.graph.formats()
-            print("before",f)
             self.graph.update_all(fn.copy_u('in', 'm'), fn.mean('m', 'out'))
-            print("after",self.graph.formats())
             # No new formats must be created.
             assert(f == self.graph.formats())
             # print(self.graph.nodes['_V'].data['out'])

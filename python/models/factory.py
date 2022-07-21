@@ -1,4 +1,4 @@
-# Creates models  by parsing the model parametersself.
+    # Creates models  by parsing the model parametersself.
 import torch
 from torch import nn
 from layers.multiprocess_dist_sageconv import DistSageConv
@@ -36,8 +36,8 @@ class DistSAGEModel(torch.nn.Module):
             t1 = time.time()
             x = layer(bipartite_graph, x,l)
             t2 = time.time()
-            if x.device == torch.device(0):
-                print("layer ",l,"time", t2-t1)
+            # if x.device == torch.device(0):
+            #     print("layer ",l,"time", t2-t1)
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
         return x
@@ -56,7 +56,7 @@ def get_model(hidden, features, num_classes):
     return DistSAGEModel(in_feats, n_hidden, n_class, n_layers , \
         activation, dropout, queues = queues)
 
-def get_model_distributed(hidden, features, num_classes, queues, gpu_id):
+def get_model_distributed(hidden, features, num_classes, gpu_id):
     dropout = 0
     in_feats = features.shape[1]
     n_hidden = hidden
@@ -64,4 +64,4 @@ def get_model_distributed(hidden, features, num_classes, queues, gpu_id):
     n_layers = 3
     activation = torch.nn.ReLU()
     return DistSAGEModel(in_feats, n_hidden, n_classes, n_layers, activation, \
-            dropout, gpu_id , queues = queues)
+            dropout, gpu_id )
