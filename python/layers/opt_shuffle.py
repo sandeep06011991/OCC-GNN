@@ -26,7 +26,9 @@ class Shuffle(torch.autograd.Function):
         for qid in range(4):
             if qid != device_id:
                 to_id = qid
-                a = input_t[to_dict[qid]].detach().share_memory_()
+                a = input_t[to_dict[qid]]
+                if not a.is_shared():
+                    a.detach().share_memory_()
                 torch.distributed.isend(a,to_id,tag = device_id)
         irecv_queue = []
         for from_id in range(4):
@@ -76,7 +78,9 @@ class Shuffle(torch.autograd.Function):
         t1 = time.time()
         for from_id in range(4):
             if from_id != device_id:
-                a = grad_output[from_dict[from_id]].detach().share_memory_()
+                a = grad_output[from_dict[from_id]]
+                if not a.is_shared():
+                    a.detach().share_memory_()
                 torch.distributed.isend(a,from_id,tag = device_id)
         irecv_queue = []
         t3 = time.time()
