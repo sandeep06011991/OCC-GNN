@@ -8,4 +8,4 @@ venv/
 token
 *.so
 external/
-*.log
+logs/
