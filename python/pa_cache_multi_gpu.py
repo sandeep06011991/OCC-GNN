@@ -116,8 +116,8 @@ def run(proc_id, n_gpus, args, devices, data):
         val_labels = val_g.ndata.pop('labels')
         test_labels = test_g.ndata.pop('labels')
     else:
-        train_nfeat = val_nfeat = test_nfeat = g.ndata.pop('features')
-        train_labels = val_labels = test_labels = g.ndata.pop('labels')
+        train_nfeat = val_nfeat = test_nfeat = train_g.ndata.pop('features')
+        train_labels = val_labels = test_labels = train_g.ndata.pop('labels')
     train_nfeat = train_nfeat.pin_memory()
 
     assert(train_nfeat.device == torch.device('cpu'))
@@ -166,12 +166,12 @@ def run(proc_id, n_gpus, args, devices, data):
     sample_get_time_epoch = []
     move_time_epoch = []
     forward_time_epoch = []
-    back_time_epoch = []
+    backward_time_epoch = []
 
     ii = 0
     fp_start = torch.cuda.Event(enable_timing=True)
     fp_end = torch.cuda.Event(enable_timing=True)
-    bp_end = torch.cudaEvent(enable_timing=True)
+    bp_end = torch.cuda.Event(enable_timing=True)
 
     for epoch in range(args.num_epochs):
         tic = time.time()
@@ -193,7 +193,7 @@ def run(proc_id, n_gpus, args, devices, data):
                 batch_inputs, batch_labels,cache_mgmt_time = cache.load_subtensor(train_nfeat, train_labels, seeds, input_nodes, dev_id)
                 blocks = [block.int().to(dev_id) for block in blocks]
                 t2 = time.time()
-                move_time_epoch += (t2 - t1)
+                move_time += (t2 - t1)
                 fp_start.record()
                 batch_pred = model(blocks, batch_inputs)
                 loss = loss_fcn(batch_pred, batch_labels)
@@ -202,25 +202,19 @@ def run(proc_id, n_gpus, args, devices, data):
                 # if dev_id == 0:
                 #     print("accuracy",\
                 #         torch.sum(torch.max(batch_pred,1)[1]==batch_labels)/batch_pred.shape[0])
-                #print("loss",loss)
+
                 optimizer.zero_grad()
                 loss.backward()
                 bp_end.record()
                 torch.cuda.synchronize(bp_end)
 
-                #print("forward backward time",t4-t3)
-                # if proc_id == 0:
-                #     print("forward back time with cuda timers",start.elapsed_time(end)/1000)
-                forward_backward_time_epoch += fp_start.elapsed_time(fp_end)/1000
-                forward_time += (t33 - t3)
-                back_time += (t4-t33)
-                # forward_backward_time_epoch += (t4 - t3)
+                forward_time += fp_start.elapsed_time(fp_end)/1000
+                backward_time += fp_end.elapsed_time(bp_end)/1000
+
                 optimizer.step()
-                    # break
-                #torch.cuda.nvtx.range_pop()
+
             except StopIteration:
                 break
-                #torch.cuda.nvtx.range_pop()
             # if step % args.log_every == 0 and proc_id == 0:
             #     acc = compute_acc(batch_pred, batch_labels)
             #     print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Train Acc {:.4f} | Speed (samples/sec) {:.4f} | GPU {:.1f} MB'.format(
@@ -229,12 +223,11 @@ def run(proc_id, n_gpus, args, devices, data):
         if n_gpus > 1:
             th.distributed.barrier()
         toc = time.time()
-        sample_time.append(sample_get_time)
-        epoch_time.append(toc-tic)
-        move_time.append(move_time_epoch)
-        forward_backward_time.append(forward_backward_time_epoch)
+        sample_get_time_epoch.append(sample_get_time)
+        time_epoch.append(toc-tic)
+        move_time_epoch.append(move_time)
         forward_time_epoch.append(forward_time)
-        back_time_epoch.append(back_time)
+        backward_time_epoch.append(backward_time)
         # if proc_id == 0:
         #     print('Epoch Time(s): {:.4f}'.format(toc - tic))
         #     if epoch >= 5:
@@ -256,26 +249,26 @@ def run(proc_id, n_gpus, args, devices, data):
     num_epochs = args.num_epochs
     if n_gpus > 1:
         th.distributed.barrier()
-    print("forward_time_epoch",forward_time_epoch)
-    print("back_time_epoch",back_time_epoch)
-    print("forward_backward_time_epoch",forward_backward_time_epoch)
+
     if proc_id == 0:
         # assert(len(forward_time) == num_epochs)
         #if True:
         assert(num_epochs > 1)
         print("avg cache hit rate: {}".format(sum(cache.avg_cache_hit_rate)\
                /len(cache.avg_cache_hit_rate)))
-
         # print("Avg forward backward time: {}sec, device {}".format(sum(forward_time[1:])/(num_epochs - 1), dev_id))
-
-
-        print("avg move time: {}sec, device {}".format(sum(move_time[1:])/(num_epochs - 1), dev_id))
+        print("avg forward time: {}sec, device {}".format(sum(forward_time_epoch[1:])/(num_epochs - 1), dev_id))
+        print(forward_time_epoch)
+        print("avg backward time: {}sec, device {}".format(sum(backward_time_epoch[1:])/(num_epochs - 1), dev_id))
+        print("avg move time: {}sec, device {}".format(sum(move_time_epoch[1:])/(num_epochs - 1), dev_id))
         print(move_time)
-        print('avg epoch time: {}sec, device {}'.format(sum(epoch_time[1:])/(num_epochs - 1), dev_id))
-        print(epoch_time)
-        print('avg sample time:{}sec'.format(sample_time))
-
+        print('avg epoch time: {}sec, device {}'.format(sum(time_epoch[1:])/(num_epochs - 1), dev_id))
+        print(time_epoch)
+        print('avg sample get time:{}sec, device {}'.format(sum(sample_get_time_epoch[1:])/(num_epochs - 1),dev_id))
+        print(sample_get_time_epoch)
+        
 if __name__ == '__main__':
+    mp.set_start_method("spawn")
     argparser = argparse.ArgumentParser("multi-gpu training")
     argparser.add_argument('--graph',type = str, default = "ogbn-arxiv")
     argparser.add_argument('--fsize', type = int, default = -1 , help = "fsize only for synthetic graphs")
@@ -296,12 +289,6 @@ if __name__ == '__main__':
     args = argparser.parse_args()
     n_gpus = 4
     devices = [0,1,2,3]
-    #n_gpus = 1
-    #devices = [2]
-    # devices = list(map(int, args.gpu.split(',')))
-    # n_gpus = len(devices)
-    # assert(n_gpus > 0)
-    # print(n_gpus,devices)
     g,p_map,num_classes =  get_process_graph(args.graph, args.fsize)
     args.inductive = False
     # if args.inductive:
@@ -316,16 +303,15 @@ if __name__ == '__main__':
     # Pack data
     data = num_classes, train_g, val_g, test_g
     start_time = time.time()
-    # assert(False)
+
     if n_gpus == 1:
-        # assert(false)
         print("Running on single GPUs")
         run(0, n_gpus, args, devices, data)
     else:
         procs = []
         print("Launch multiple gpus")
         for proc_id in range(n_gpus):
-            p = mp.Process(target=thread_wrapped_func(run),
+            p = mp.Process(target=(run),
                            args=(proc_id, n_gpus, args, devices, data))
             p.start()
             procs.append(p)
