@@ -33,7 +33,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
                     ,num_classes,batch_in, labels, num_sampler_workers, alt_sample_queue):
     print("Num sampler workers ", num_sampler_workers)
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
-            master_ip='127.0.0.1', master_port='12345')
+        master_ip='127.0.0.1', master_port='12345')
     world_size = gpus
     torch.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
@@ -89,7 +89,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         # gpu_local_sample.debug()
         t22 = time.time()
         t = Gpu_Local_Sample.deserialize(alt_sample_queue.get())
-        print(t)
+        # print(t)
         t33 = time.time()
 
         if type(gpu_local_sample)== type('string'):

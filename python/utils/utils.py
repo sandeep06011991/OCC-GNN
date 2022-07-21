@@ -89,7 +89,7 @@ def get_process_graph(filename, fsize):
     # features = torch.rand(num_nodes,fsize)
     sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
         shape = (num_nodes,num_nodes))
-    dg_graph = DGLGraph(sp)
+    dg_graph = dgl.from_scipy(sp)
     dg_graph = dgl.to_homogeneous(dg_graph)
     # features = features.pin_memory()
     dg_graph.ndata["features"] = features
