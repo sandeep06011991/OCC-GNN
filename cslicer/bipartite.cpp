@@ -23,11 +23,13 @@ void BiPartite::reorder(DuplicateRemover* dr){
 }
 
 void BiPartite::reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, int gpu_capacity){
-
   //std::cout << "last layer before reordering" << indices[indices.size()-1] <<"\n";
   for(int i=0;i<indices.size();i++){
     indices[i] = gpu_order[indices[i]];
-    assert(indices[i] >=0);
+    if(indices[i] == -1){
+      gpu_capacity++;
+      missing_node_ids.push_back(i);
+    }
   }
   assert(indices[indices.size()-1] > 0);
   //std::cout << "last layer" << indices[indices.size()-1] <<"\n";

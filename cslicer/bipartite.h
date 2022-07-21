@@ -20,6 +20,8 @@ public:
   vector<long> expand_indptr;
   vector<long> indices;
 
+  vector<long> missing_node_ids;
+
   vector<long> owned_out_nodes;
 
   // Filled afer reordering

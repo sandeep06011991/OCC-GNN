@@ -10,6 +10,7 @@ namespace py = pybind11;
 PyBipartite::PyBipartite(BiPartite *bp){
     // std::cout << bp->gpu_id <<"\n";
     // std::cout << bp->in_nodes.size() <<"\n";
+    missing_node_ids = bp->missing_node_ids;
     this->gpu_id = bp->gpu_id;
     in_nodes_v = bp->in_nodes;
     data.clear();
@@ -103,11 +104,12 @@ PyBipartite::~PyBipartite(){
 PySample::PySample(Sample *s){
     for(int i=0;i<3;i++){
         auto all_bipartites = new std::vector<PyBipartite *>();
-        // py::list all_bipartites;
         for(int j=0; j<4; j++){
           // std::cout <<"Working on" << j <<"\n";
           // std::cout << s->layers[i].bipartite[j] <<"\n";
-          all_bipartites->push_back(new PyBipartite(s->layers[i].bipartite[j]));
+          auto bipartite = new PyBipartite(s->layers[i].bipartite[j]);
+          all_bipartites->push_back(bipartite);
+          missing_node_ids.push_back(bipartite->missing_node_ids);
           if(i==0){
             in_nodes = in_nodes + s->layers[i].bipartite[j]->in_nodes.size();
           }
