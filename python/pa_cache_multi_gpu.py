@@ -82,23 +82,16 @@ class PaCache:
             print("no cache hit")
             batch_inputs = nfeat[input_nodes].to(dev_id)
         else:
-            # print("cache hit",input_index.shape[0]/input_nodes.shape[0])
             cache_mask = torch.zeros(input_nodes.shape[0],dtype = torch.bool)
             cache_mask [input_index] = True
             batch_inputs = torch.cuda.FloatTensor(input_nodes.shape[0],nfeat.shape[1],device=dev_id)
             batch_inputs[input_index] = self.tocache[cache_index]
             cpu_indices = torch.where(~ cache_mask)[0]
-            # print(cpu_indices)
             batch_inputs[cpu_indices.to(dev_id) ] = nfeat[input_nodes[cpu_indices]].to(dev_id)
         t2 = time.time()
         # batch_inputs = nfeat[input_nodes].to(dev_id)
         batch_labels = labels[seeds].to(dev_id)
-
-        #print("cache miss time {} and bandwidth {} for device: {}".format(t2-t1, \
-        #        (input_nodes.shape[0] - cache_hit.shape[0])/((t2-t1) *(1024 * 1024 * 1024)), dev_id))
         return batch_inputs, batch_labels, t2-t1
-
-#### Entry point
 
 def run(proc_id, n_gpus, args, devices, data):
     # Start up distributed training, if enabled.
@@ -126,9 +119,7 @@ def run(proc_id, n_gpus, args, devices, data):
         train_nfeat = val_nfeat = test_nfeat = g.ndata.pop('features')
         train_labels = val_labels = test_labels = g.ndata.pop('labels')
     train_nfeat = train_nfeat.pin_memory()
-    # if not args.data_cpu:
-    #     train_nfeat = train_nfeat.to(dev_id)
-    #     train_labels = train_labels.to(dev_id)
+
     assert(train_nfeat.device == torch.device('cpu'))
     in_feats = train_nfeat.shape[1]
 
@@ -136,14 +127,12 @@ def run(proc_id, n_gpus, args, devices, data):
     val_mask = val_g.ndata['val_mask']
     test_mask = ~(test_g.ndata['train_mask'] | test_g.ndata['val_mask'])
     train_nid = train_mask.nonzero().squeeze()
-    #train_nid =torch.arange(train_g.num_nodes())
-    #print("Num Nodes",len(train_nid), train_g.num_nodes())
     val_nid = val_mask.nonzero().squeeze()
     test_nid = test_mask.nonzero().squeeze()
     # Split train_nid
-    print(train_nid.shape,"Train nid", len(train_nid), n_gpus)
+    print("Training nodes {}, total nodes {}".format(train_nid.shape[0], train_mask.shape[0]))
     train_nid = th.split(train_nid, math.ceil(len(train_nid) / n_gpus))[proc_id]
-    print(train_nid.shape, "trainin nid split")
+
     # Create PyTorch DataLoader for constructing blocks
     # train_g = train_g.to(dev_id)
     # train_nid = train_nid.to(dev_id)
@@ -157,8 +146,7 @@ def run(proc_id, n_gpus, args, devices, data):
         shuffle=True,
         drop_last=False,
         num_workers=args.num_workers)
-    ##### print("batch_size:",args.batch_size)
-    ##### Cache #######
+
     assert(args.cache_per <= 1)
     print("Begin cache")
     cache = PaCache(train_g,train_nfeat, args.cache_per ,dev_id)
@@ -174,28 +162,27 @@ def run(proc_id, n_gpus, args, devices, data):
     num_nodes = train_g.num_nodes()
 
     # Training loop
-    epoch_time = []
-    iter_tput = []
-    move_time = []
-    forward_backward_time = []
+    time_epoch = []
+    sample_get_time_epoch = []
+    move_time_epoch = []
     forward_time_epoch = []
     back_time_epoch = []
-    sample_time = []
+
     ii = 0
-    start = torch.cuda.Event(enable_timing=True)
-    end = torch.cuda.Event(enable_timing=True)
+    fp_start = torch.cuda.Event(enable_timing=True)
+    fp_end = torch.cuda.Event(enable_timing=True)
+    bp_end = torch.cudaEvent(enable_timing=True)
 
     for epoch in range(args.num_epochs):
         tic = time.time()
         # Loop over the dataloader to sample the computation dependency graph as a list of
         # blocks.
         it = enumerate(dataloader)
-        move_time_epoch = 0
-        forward_backward_time_epoch = 0
-        forward_time = 0
-        back_time = 0
-        nodes_done = 0
         sample_get_time = 0
+        move_time = 0
+        forward_time = 0
+        backward_time = 0
+        nodes_done = 0
         while(True):
             try:
                 t0 = time.time()
@@ -203,32 +190,28 @@ def run(proc_id, n_gpus, args, devices, data):
                 nodes_done += seeds.shape[0]
                 t1 = time.time()
                 sample_get_time += (t1 - t0)
-                batch_inputs, batch_labels,diff_time = cache.load_subtensor(train_nfeat, train_labels, seeds, input_nodes, dev_id)
+                batch_inputs, batch_labels,cache_mgmt_time = cache.load_subtensor(train_nfeat, train_labels, seeds, input_nodes, dev_id)
                 blocks = [block.int().to(dev_id) for block in blocks]
                 t2 = time.time()
-
-                #print("total memory management time time ", t2 -t1)
-                #print("cache tranfer time", diff_time)
-
-                move_time_epoch += (diff_time)
-                t3 = time.time()
-                start.record()
+                move_time_epoch += (t2 - t1)
+                fp_start.record()
                 batch_pred = model(blocks, batch_inputs)
-                t33 = time.time()
                 loss = loss_fcn(batch_pred, batch_labels)
+                fp_end.record()
+
                 # if dev_id == 0:
                 #     print("accuracy",\
                 #         torch.sum(torch.max(batch_pred,1)[1]==batch_labels)/batch_pred.shape[0])
                 #print("loss",loss)
                 optimizer.zero_grad()
                 loss.backward()
-                end.record()
-                t4 = time.time()
-                torch.cuda.synchronize(end)
+                bp_end.record()
+                torch.cuda.synchronize(bp_end)
+
                 #print("forward backward time",t4-t3)
                 # if proc_id == 0:
                 #     print("forward back time with cuda timers",start.elapsed_time(end)/1000)
-                forward_backward_time_epoch += start.elapsed_time(end)/1000
+                forward_backward_time_epoch += fp_start.elapsed_time(fp_end)/1000
                 forward_time += (t33 - t3)
                 back_time += (t4-t33)
                 # forward_backward_time_epoch += (t4 - t3)

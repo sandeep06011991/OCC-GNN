@@ -35,3 +35,8 @@ com-youtube | 32 | 256 | 4096 | .25 |  error | error | error | error
 com-youtube | 32 | 1024 | 4096 | .25 |  19.48 | 0 | 0.21 | 20.021690011024475
 ogbn-papers100M | 256 | -1 | 4096 | .25 |  2102.25 | 0 | 15.67 | 2155.1422488689423
 ogbn-papers100M | 32 | -1 | 4096 | .25 |  1999.09 | 0 | 15.08 | 2048.442713022232
+commit de14fa9791b7ea11a0a6a1673c6af54a2ee1f0e0 (HEAD -> new-pipeline, origin/new-pipeline)
+Author: sandeep06011991 <spolisetty@jupiter.cs.umass.edu>
+Date:   Thu Jul 21 12:48:49 2022 -0400
+
+    pre clean up snapshot

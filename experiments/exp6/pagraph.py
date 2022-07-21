@@ -16,11 +16,8 @@ def run_pagraph(graphname, epochs,cache_per, hidden_size, minibatch_size, fsize 
             ,"--fsize", str(fsize), "--batch-size", str(minibatch_size)], capture_output = True)
     out = str(output.stdout)
     error = str(output.stderr)
-    #print(out,error)
-    #if True:
     try:
         cache_hit  = re.findall("avg cache hit rate: (\d+\.\d+)",out)
-        print(cache_hit)
         cache_hit = average_string(cache_hit)
         cache_hit = "{:0.2f}".format(float(cache_hit))
         forward =  re.findall("Avg forward backward time: (\d+\.\d+)sec",out)
@@ -40,24 +37,6 @@ def run_pagraph(graphname, epochs,cache_per, hidden_size, minibatch_size, fsize 
 
 
 def run_experiment_pagraph(settings):
-    # Graph, num_epochs, hidden, fsize,  batch_size
-    # settings = [\
-    #            ("ogbn-arxiv",3, 32, -1, 4096),\
-    #            ("ogbn-arxiv",3, 256, -1, 4096),\
-    #            ("ogbn-arxiv",3, 32 , -1 , 1024),\
-    #            ("ogbn-products",3, 32, -1, 4096),\
-    #            ("ogbn-products",3, 256, -1, 4096),\
-    #            ("ogbn-products",3, 32 , -1 , 1024),\
-    #            ("com-youtube", 3, 32, 256, 4096),\
-    #            ("com-youtube",3,32 ,1024, 4096)\
-    #             #("ogbn-products",2), \
-    #             ("ogbn-papers100M",2,256,-1,4096), \
-    #             ("ogbn-papers100M",2,32,-1,4096), \
-    #             # ("com-friendster",2), \
-    #             # ("com-orkut",5, 256 , 256, 4096 ) \
-    #             ]
-    # settings = [("ogbn-papers100M",2)]
-    # settings = [settings[0]]
     print("run settings", settings)
     cache_rates = [".05",".10",".24",".5"]
     cache_rates = [".05",".24", ".5"]
@@ -81,4 +60,20 @@ def run_experiment_pagraph(settings):
 
 
 if __name__=="__main__":
+    # settings = [\
+    #            ("ogbn-arxiv",3, 32, -1, 4096),\
+    #            ("ogbn-arxiv",3, 256, -1, 4096),\
+    #            ("ogbn-arxiv",3, 32 , -1 , 1024),\
+    #            ("ogbn-products",3, 32, -1, 4096),\
+    #            ("ogbn-products",3, 256, -1, 4096),\
+    #            ("ogbn-products",3, 32 , -1 , 1024),\
+    #            ("com-youtube", 3, 32, 256, 4096),\
+    #            ("com-youtube",3,32 ,1024, 4096)\
+    #             #("ogbn-products",2), \
+    #             ("ogbn-papers100M",2,256,-1,4096), \
+    #             ("ogbn-papers100M",2,32,-1,4096), \
+    #             # ("com-friendster",2), \
+    #             # ("com-orkut",5, 256 , 256, 4096 ) \
+    #             ]
+    settings = [("ogbn-arxiv",3, 32, -1, 4096)]
     run_experiment_pagraph()
