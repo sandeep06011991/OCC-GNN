@@ -30,7 +30,6 @@ void BiPartite::reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, 
       gpu_capacity++;
       missing_node_ids.push_back(i);
     }
-    assert(indices[i] >=0);
   }
   assert(indices[indices.size()-1] > 0);
   //std::cout << "last layer" << indices[indices.size()-1] <<"\n";
