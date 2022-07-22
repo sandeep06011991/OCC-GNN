@@ -266,7 +266,7 @@ class Bipartite:
                 return None
             local_out[self.from_ids[gpu_id]] += remote_out.to(self.gpu_id)
             return local_out
-
+        
 
 class Sample:
     def __init__(self, csample):

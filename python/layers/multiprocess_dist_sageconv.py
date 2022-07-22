@@ -85,3 +85,29 @@ class DistSageConv(nn.Module):
         #     print(t3-t2,"second half of nn",l,"layer",out.device,"device")
         #     print(t2-t1,"first half of nn",l,"layer",out.device,"device")
         return final
+
+def get_base():
+    src_ids = []
+    dest_ids = []
+    for dest in range(4):
+        for source in range(8):
+            src_ids.append(source)
+            dest_ids.append(dest)
+
+    g = dgl.create_block((src_ids, dest_ids), 8, 4)
+    dglSage = SAGEConv(4, 8, 'mean')
+    dglSage.fc_self.weight = torch.nn.Parameter(
+        torch.ones(dglSage.fc_self.weight.shape))
+    dglSage.fc_neigh.weight = torch.nn.Parameter(
+        torch.ones(dglSage.fc_neigh.weight.shape))
+
+    ones = torch.ones(8)
+    res = dglSage(g, ones)
+    forward_correct = res
+    res.sum().backward()
+    fc1_grad = dglSage.fc_self.weight.grad
+    fc2_grad = dglSage.fc_neigh.weight.grad
+    return forward_correct, fc1_grad, fc2_grad
+
+if __name__ == "__main__":
+    unit_test()
