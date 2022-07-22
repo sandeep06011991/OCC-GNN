@@ -237,12 +237,12 @@ class Bipartite:
                 return torch.zeros(0, f_in.shape[1], device=self.gpu_id)
             return f_in[self.owned_out_nodes]
 
-    def attention_gather(self, v_in, u_in):
+    def attention_gather(self, attention, u_in):
         with self.graph.local_scope():
-            self.graph.nodes['_V'].data['in_v'] = v_in
+            self.graph.edges['_E'].data['in_e'] = attention
             self.graph.nodes['_U'].data['in'] = u_in
-            self.graph.update_all(fn.u_mul_v(
-                'in', 'in_v', 'h'), fn.sum('h', 'out'))
+            self.graph.update_all(fn.u_mul_e(
+                'in', 'in_e', 'h'), fn.sum('h', 'out'))
             return self.graph.nodes['_V'].data['out']
 
     def self_gather(self, local_in):
@@ -266,6 +266,25 @@ class Bipartite:
                 return None
             local_out[self.from_ids[gpu_id]] += remote_out.to(self.gpu_id)
             return local_out
+
+    def apply_edge(self, el, er):
+        with self.graph.local_scope():
+            self.graph.nodes['_V'].data['er'] = er
+            self.graph.nodes['_U'].data['el'] = el
+            self.graph.apply_edges(fn.u_add_v('el', 'er', 'e'))
+            return self.graph.edata['e']
+
+    def apply_node(self, nf):
+        with self.graph.local_scope():
+            self.graph.edges['_E'].data['nf'] = nf
+            self.graph.apply_nodes(fn.sum('nf', 'out'), ntype='_V')
+            return self.graph.nodes['_V'].data['out']
+
+    def copy_from_out_nodes(self, local_out):
+        with self.graph.local_scope():
+            self.graph.nodes['_V'].data['out'] = local_out
+            self.graph.update_all(lambda edges: {'m': edges.dest['nf']})
+            return self.graph.edata['m']
 
 
 class Sample:
