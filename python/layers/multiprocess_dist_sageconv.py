@@ -6,6 +6,8 @@ import time
 from layers.opt_shuffle import Shuffle
 import dgl.nn.pytorch.conv.sageconv as sgc
 import torch.multiprocessing as mp
+from data.test_bipartite import get_bipartite_graph
+from torch.nn.parallel import DistributedDataParallel
 
 class DistSageConv(nn.Module):
 
@@ -24,8 +26,9 @@ class DistSageConv(nn.Module):
         # aggregator type: mean/pool/lstm/gcn
         assert aggregator_type in ['sum']
         # self.fc = nn.Linear(self._in_src_feats * 2, out_feats)
-        self.fc1 = nn.Linear(self._in_src_feats, out_feats)
-        self.fc2 = nn.Linear(self._in_src_feats, out_feats)
+        self.fc1 = nn.Linear(self._in_src_feats, out_feats,bias=False)
+
+        self.fc2 = nn.Linear(self._in_src_feats, out_feats,bias=False)
         self.reset_parameters()
         # self.sgc = sgc.SAGEConv(self._in_src_feats, out_feats, aggregator_type = 'mean')
         # if aggregator_type == 'pool':
@@ -88,7 +91,7 @@ class DistSageConv(nn.Module):
         #     print(t2-t1,"first half of nn",l,"layer",out.device,"device")
         return final
 
-def get_base():
+def test_base():
     src_ids = []
     dest_ids = []
     for dest in range(4):
@@ -97,7 +100,7 @@ def get_base():
             dest_ids.append(dest)
 
     g = dgl.create_block((src_ids, dest_ids), 8, 4)
-    dglSage = SAGEConv(4, 8, 'mean')
+    dglSage = dgl.nn.SAGEConv(4, 8, 'mean')
     dglSage.fc_self.weight = torch.nn.Parameter(
         torch.ones(dglSage.fc_self.weight.shape))
     dglSage.fc_neigh.weight = torch.nn.Parameter(
@@ -109,16 +112,17 @@ def get_base():
     res.sum().backward()
     fc1_grad = dglSage.fc_self.weight.grad
     fc2_grad = dglSage.fc_neigh.weight.grad
+    print(fc1_grad,fc2_grad,forward_correct)
     return forward_correct, fc1_grad, fc2_grad
 
 class ToyModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self,gpu_id):
         super().__init__()
-        self.ll = DistSageConv(4,8)
+        self.ll = DistSageConv(8,4,gpu_id,aggregator_type = "sum")
 
-    def forward(self,bipartite_graphs,f):
-        return self.ll(bipartite_graph,f)
+    def forward(self,bipartite_graph,f):
+        return self.ll(bipartite_graph,f,0)
 
 def test_dist_bipartite_process(proc_id,n_gpus):
     print("starting sub process", proc_id)
@@ -131,25 +135,28 @@ def test_dist_bipartite_process(proc_id,n_gpus):
                                           init_method=dist_init_method,
                                           world_size=world_size,
                                           rank=proc_id)
-    th.cuda.set_device(dev_id)
+    torch.cuda.set_device(dev_id)
 
-    model = ToyModel()
-    model.ll.fc1.weight = torch.nn.Parameter(torch.ones(4,8))
-    model.ll.fc2.weight = torch.nn.Parameter(torch.ones(4,8))
+    model = ToyModel(proc_id)
+    model.ll.fc1.weight = torch.nn.Parameter(torch.ones(model.ll.fc1.weight.shape))
+    model.ll.fc2.weight = torch.nn.Parameter(torch.ones(model.ll.fc1.weight.shape))
+    model_saved = model
     model = model.to(dev_id)
-    model = DistributedDataParallel(model1, device_ids=[dev_id], output_device=dev_id)
-    bg = get_bipartite_graph(gpu_id)
+    model = DistributedDataParallel(model, device_ids=[dev_id], output_device=dev_id)
+    bg = get_bipartite_graph(proc_id)
     bg.to_gpu()
-    f = torch.ones((2,4),device = proc_id)
+    f = torch.ones((2,8),device = proc_id)
     out = model(bg,f)
+
     print(out)
     out.sum().backward()
-    print(model.ll.fc1.weight.grad)
-    print(model.ll.fc2.weight.grad)
+    print(model_saved.ll.fc1.weight.grad)
+    print(model_saved.ll.fc2.weight.grad)
 
 def test_dist_bipartite():
     print("Launch multiple gpus")
     n_gpus = 4
+    procs = []
     for proc_id in range(4):
         p = mp.Process(target=(test_dist_bipartite_process),
                        args=(proc_id, n_gpus))
@@ -158,4 +165,5 @@ def test_dist_bipartite():
     for p in procs:
         p.join()
 if __name__ == "__main__":
-    test_dist_bipartite()
+    # test_dist_bipartite()
+    test_base()

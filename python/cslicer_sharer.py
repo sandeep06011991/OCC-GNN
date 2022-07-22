@@ -249,7 +249,7 @@ def train(args):
                   args=(work_queue, train_nid, minibatch_size, no_epochs,no_worker_process))
     work_producer_process.start()
 
-    queue_size = 2
+    queue_size = 1
     sample_queues = [mp.Queue(queue_size) for i in range(4)]
     lock = torch.multiprocessing.Lock()
 
