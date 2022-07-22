@@ -5,6 +5,8 @@ from torch.nn.parallel import gather
 import time
 from layers.opt_shuffle import Shuffle
 import dgl.nn.pytorch.conv.sageconv as sgc
+import torch.multiprocessing as mp
+
 class DistSageConv(nn.Module):
 
     # Not exactly matching SageConv as normalization and activation as removed.
@@ -109,5 +111,51 @@ def get_base():
     fc2_grad = dglSage.fc_neigh.weight.grad
     return forward_correct, fc1_grad, fc2_grad
 
+class ToyModel(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.ll = DistSageConv(4,8)
+
+    def forward(self,bipartite_graphs,f):
+        return self.ll(bipartite_graph,f)
+
+def test_dist_bipartite_process(proc_id,n_gpus):
+    print("starting sub process", proc_id)
+    dev_id = proc_id
+    if n_gpus > 1:
+        dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+            master_ip='127.0.0.1', master_port='12345')
+        world_size = n_gpus
+        torch.distributed.init_process_group(backend="nccl",
+                                          init_method=dist_init_method,
+                                          world_size=world_size,
+                                          rank=proc_id)
+    th.cuda.set_device(dev_id)
+
+    model = ToyModel()
+    model.ll.fc1.weight = torch.nn.Parameter(torch.ones(4,8))
+    model.ll.fc2.weight = torch.nn.Parameter(torch.ones(4,8))
+    model = model.to(dev_id)
+    model = DistributedDataParallel(model1, device_ids=[dev_id], output_device=dev_id)
+    bg = get_bipartite_graph(gpu_id)
+    bg.to_gpu()
+    f = torch.ones((2,4),device = proc_id)
+    out = model(bg,f)
+    print(out)
+    out.sum().backward()
+    print(model.ll.fc1.weight.grad)
+    print(model.ll.fc2.weight.grad)
+
+def test_dist_bipartite():
+    print("Launch multiple gpus")
+    n_gpus = 4
+    for proc_id in range(4):
+        p = mp.Process(target=(test_dist_bipartite_process),
+                       args=(proc_id, n_gpus))
+        p.start()
+        procs.append(p)
+    for p in procs:
+        p.join()
 if __name__ == "__main__":
-    unit_test()
+    test_dist_bipartite()

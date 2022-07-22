@@ -1,3 +1,5 @@
+# What is the best format for communication between processes
+# Torch distributed sending which can potentially speed up using nvlink
 from torch.multiprocessing import Queue
 import torch as th
 import torch.multiprocessing as mp
@@ -26,7 +28,7 @@ def run_use_multi_queues_per_process(proc_id, n_gpus, args, queues, devices):
             input_t += data.to(device_id)
         t2 = time.time()
         if device_id == 0:
-            print("Total time using queues", t2-t1)
+            print("Total time using multiple queues per process", t2-t1)
 
 def run_use_single_queues_per_process(proc_id, n_gpus, args, queues, devices):
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
@@ -48,7 +50,7 @@ def run_use_single_queues_per_process(proc_id, n_gpus, args, queues, devices):
             input_t += data.to(device_id)
         t2 = time.time()
         if device_id == 0:
-            print("Total time using queues", t2-t1)
+            print("Total time using single queue per process", t2-t1)
 
 
 def using_dist_send(proc_id, n_gpus, args, queues, devices):
@@ -82,7 +84,7 @@ def using_dist_send(proc_id, n_gpus, args, queues, devices):
             input_t += temp[from_id]
         t2 = time.time()
         if device_id == 0:
-            print("Total time using distributed", t2-t1)
+            print("Total time using distributed send", t2-t1)
 
 if __name__ == "__main__":
     n_gpus = 4
@@ -90,10 +92,14 @@ if __name__ == "__main__":
     args = ()
     devices = 4
     procs =  []
-    for proc_id in range(n_gpus):
-        p = mp.Process(target=(run_use_multi_queues_per_process),
-                       args=(proc_id, n_gpus, args, communication_queues, devices))
-        p.start()
-        procs.append(p)
-    for p in procs:
-        p.join()
+    test_functions = [run_use_multi_queues_per_process,\
+            run_use_single_queues_per_process,\
+            using_dist_send]
+    for f in test_functions:
+        for proc_id in range(n_gpus):
+            p = mp.Process(target=(f),
+                           args=(proc_id, n_gpus, args, communication_queues, devices))
+            p.start()
+            procs.append(p)
+        for p in procs:
+            p.join()
