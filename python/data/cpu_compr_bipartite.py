@@ -61,6 +61,8 @@ class Bipartite:
     def __init__(self, cobject=None,  metadatalist=None, data=None, graph=None, gpu_id=None):
         if metadatalist is not None and data is not None and graph is not None and gpu_id is not None:
             self.graph = graph
+            self.graph = self.graph.formats(['csr', 'coo', 'csc'])
+            self.graph.create_formats_()
             self.gpu_id = gpu_id
 
             self.indptr_start = metadatalist[0]
@@ -111,17 +113,7 @@ class Bipartite:
             N = cobject.num_out_nodes
             M = cobject.num_in_nodes
             self.num_nodes_v = N
-            #print("graph created attempt", N, M)
-            # print(indices[-1])
             assert(indptr[-1] == len(indices))
-            '''sp_mat = sp.sparse.csr_matrix((np.ones(indices.shape),\
-                    indices.numpy(), indptr.numpy()), \
-                        shape = (N,M))
-            self.graph = dgl.bipartite_from_scipy(sp_mat,  utype='_V', \
-                                                etype='_E', vtype='_U' ,device = self.gpu_id)
-            # Had to reverse graph to match sampling and conv directions
-            self.graph = self.graph.reverse()
-            '''
             t11 = time.time()
             self.graph = dgl.heterograph({('_V', '_E', '_U'): (expand_indptr.clone(), indices.clone())},
                                          {'_U': M, '_V': N})
@@ -130,8 +122,6 @@ class Bipartite:
             assert ['csc' in self.graph.formats()]
         else:
             self.num_nodes_v = 0
-            # empty code such that other things dont break.
-            # self.graph = dgl.graph([])
         t2 = time.time()
         self.in_nodes_start = cobject.in_nodes_start
         self.in_nodes_end = cobject.in_nodes_end
@@ -139,9 +129,6 @@ class Bipartite:
         self.out_nodes_end = cobject.out_nodes_end
         self.owned_out_nodes_start = cobject.owned_out_nodes_start
         self.owned_out_nodes_end = cobject.owned_out_nodes_end
-        # self.in_nodes = data[cobject.in_nodes_start:cobject.in_nodes_end]
-        # self.out_nodes = data[cobject.out_nodes_start: cobject.out_nodes_end]
-        # self.owned_out_nodes = data[cobject.owned_out_nodes_start:cobject.owned_out_nodes_end]
         self.from_ids_start = {}
         self.from_ids_end = {}
         self.to_ids_start = {}
@@ -155,35 +142,6 @@ class Bipartite:
         self.self_ids_in_end = cobject.self_ids_in_end
         self.self_ids_out_start = cobject.self_ids_out_start
         self.self_ids_out_end = cobject.self_ids_out_end
-        # from_ids = {}
-        # for i in range(4):
-        #     from_ids[i] = (data[cobject.from_ids_start[i]: cobject.from_ids_end[i]])
-        #     if i == self.gpu_id:
-        #         print(from_ids[i])
-        # self.from_ids = from_ids
-        #
-        # to_ids = {}
-        # for i in range(4):
-        #     to_ids[i] = (data[cobject.to_ids_start[i]:cobject.to_ids_end[i]])
-        #     if i == self.gpu_id:
-        #         print(from_ids[i])
-        # self.to_ids = to_ids
-        # self.self_ids_in = data[cobject.self_ids_in_start:cobject.self_ids_in_end]
-        # self.self_ids_out = data[cobject.self_ids_out_start: cobject.self_ids_out_end]
-        # t3 = time.time()
-        # print("Graph construction time ",t2-t1)
-        # print("tensorize everything", t3 - t2)
-        '''data_moved = self.in_nodes.shape[0] + self.out_nodes.shape[0] + self.owned_out_nodes.shape[0]
-        for i in range(4):
-            data_moved += self.to_ids[i].shape[0] + self.from_ids[i].shape[0]
-        data_moved += self.self_ids_in.shape[0] + self.self_ids_out.shape[0]
-        data_in_GB = data_moved * 4/ (1024 * 1024 * 1024)
-        dummy = torch.rand(data_moved)
-        t11 = time.time()
-        dummy.to(self.gpu_id)
-        t22 = time.time()
-        print("bandwidth {} GBps data size {} ishape".format(data_in_GB/(t22-t11), data_moved))
-        print("bnandwidth {} GBps data size{}GB".format(data_in_GB/(t3-t2), data_in_GB))'''
 
     def get_size(self):
         return self.data.shape[0]
@@ -278,14 +236,24 @@ class Bipartite:
     def apply_node(self, nf):
         with self.graph.local_scope():
             self.graph.edges['_E'].data['nf'] = nf
-            self.graph.apply_nodes(fn.sum('nf', 'out'), ntype='_V')
+            self.graph.update_all(fn.copy_e('nf', 'm'), fn.sum('m', 'out'))
             return self.graph.nodes['_V'].data['out']
 
     def copy_from_out_nodes(self, local_out):
         with self.graph.local_scope():
             self.graph.nodes['_V'].data['out'] = local_out
-            self.graph.update_all(lambda edges: {'m': edges.dest['nf']})
+            self.graph.edges['_E'].data['temp'] = torch.zeros(
+                self.graph.num_edges('_E'), local_out[1].shape[1], device=self.gpu_id)
+            self.graph.apply_edges(fn.v_add_e('out', 'temp', 'm'))
             return self.graph.edata['m']
+
+    def set_remote_data_to_zero(self, data):
+        clonedData = data.clone()
+        for i in range(4):
+            if i != self.gpu_id:
+                clonedData[self.to_ids[i]] = torch.zeros(
+                    self.to_ids[i].shape[0], *clonedData.shape[1:], device=self.gpu_id)
+        return clonedData
 
 
 class Sample:
@@ -300,16 +268,6 @@ class Sample:
             for cbipartite in layer:
                 l.append(Bipartite(cbipartite))
             self.layers.append(l)
-
-        # self.last_layer_nodes = []
-        # last_layer = self.layers[0]
-        # i = 0
-        # for l in last_layer:
-        #      assert(torch.device(i) == l.gpu_id )
-        #      self.last_layer_nodes.append(l.out_nodes[l.owned_out_nodes])
-        #      i= i+1
-        # self.layers.reverse()
-        #print("Sample creation complete")
 
 
 class Gpu_Local_Sample:
