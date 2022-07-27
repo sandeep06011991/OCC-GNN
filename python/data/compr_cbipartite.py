@@ -75,10 +75,7 @@ class Bipartite:
         self.from_ids = from_ids
 
         to_ids = {}
-        for i in range(4):
-            to_ids[i] = (data[cobject.to_ids_start[i]:cobject.to_ids_end[i]])
-            if i == self.gpu_id:
-                print(from_ids[i])
+        
         self.to_ids = to_ids
         self.self_ids_in = data[cobject.self_ids_in_start:cobject.self_ids_in_end]
         self.self_ids_out = data[cobject.self_ids_out_start: cobject.self_ids_out_end]

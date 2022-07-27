@@ -52,6 +52,13 @@ PyBipartite::PyBipartite(BiPartite *bp){
     data.insert(data.end(), indices_v.begin(), indices_v.end());
     indices = torch::from_blob(indices_v.data(), {indices_v.size()}, opts);
     assert(expand_indptr_v.size() == indices_v.size());
+
+    indegree_v = bp->in_degree;
+    indegree_start = data.size();
+    indegree_end = data.size() + indegree_v.size();
+    data.insert(data.end(), indegree_v.begin(),indegree_v.end());
+    indegree = torch::from_blob(indegree_v.data(),{indegree_v.size()},opts);
+
     for(int i=0;i<4;i++){
       from_ids_start.push_back(data.size());
       from_ids_end.push_back(data.size() + bp->from_ids[i].size());

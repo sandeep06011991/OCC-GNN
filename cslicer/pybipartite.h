@@ -20,18 +20,24 @@ public:
 
 
   std::vector<long> expand_indptr_v;
-  torch::Tensor expand_indptr;  
+  torch::Tensor expand_indptr;
   int expand_indptr_start;
   int expand_indptr_end;
-  
+
   std::vector<long> indptr_v;
   torch::Tensor indptr;
   int indptr_start;
   int indptr_end;
+
+  std::vector<int> indegree_v;
+  torch::Tensor indegree;
+  int indegree_start;
+  int indegree_end;
+
   std::vector<long> out_nodes_v;
   torch::Tensor out_nodes;
   int out_nodes_start;
-  int out_nodes_end;  
+  int out_nodes_end;
 
 
   std::vector<long> owned_out_nodes_v;
@@ -57,8 +63,8 @@ public:
   std::vector<std::vector<long>> to_ids_v;
   std::vector<torch::Tensor> to_ids;
   std::vector<long> to_ids_start;
-  std::vector<long> to_ids_end;  
-  
+  std::vector<long> to_ids_end;
+
   std::vector<long> self_ids_in_v;
   torch::Tensor self_ids_in;
   int self_ids_in_start;

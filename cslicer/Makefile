@@ -3,9 +3,8 @@
 
 all:
 	g++ -std=c++11 -pthread -O3 -std=c99 -Wall -Wextra \
-		driver.cpp dataset.cpp slicer.cpp bipartite.cpp util/duplicate.cpp WorkerPool.cpp \
-			util/conqueue.cpp \
-		   	-I . -o ../build/cslicer
+		driver.cpp dataset.cpp slicer.cpp bipartite.cpp util/duplicate.cpp  \
+			 	-I . -o ../build/cslicer
 	../build/cslicer
 
 

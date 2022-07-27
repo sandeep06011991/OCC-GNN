@@ -40,6 +40,7 @@ class Shuffle(torch.autograd.Function):
         for from_id in range(4):
             if from_id == device_id:
                 continue
+            # print("device",device_id,"recieved",temp[from_id],"put into ",from_dict[from_id],"from",from_id)
             input_t[from_dict[from_id]] += temp[from_id]
         ctx.queues = queues
         ctx.device_id = device_id
@@ -74,7 +75,6 @@ class Shuffle(torch.autograd.Function):
         # print(grad_output.shape)
         torch.distributed.barrier()
         # return grad_output,None,None, None, None, None
-        print("Start backward shuffle",grad_output.device)
         t1 = time.time()
         for from_id in range(4):
             if from_id != device_id:
@@ -94,13 +94,12 @@ class Shuffle(torch.autograd.Function):
         for to_id in range(4):
             if to_id == device_id:
                 continue
-            out[to_dict[to_id]] += temp[to_id]
+            out[to_dict[to_id]] +=  temp[to_id]
         t2 = time.time()
         # if out.device == torch.device(0):
         #     # print("part 1", t2-t1)
         #     print("shuffle backward", t2-t1)
         # print("shuffle backward",t2-t1,"layer",layer_id,"device",grad_output.device)
-        print("end backward shuffle",out.device)
         return out,None,None, None, None, None
 
 

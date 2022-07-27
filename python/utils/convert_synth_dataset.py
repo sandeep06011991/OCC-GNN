@@ -5,6 +5,7 @@ import dgl
 import torch
 import subprocess
 import numpy as np
+import os
 from metis import *
 
 TARGET_DIR = "/data/sandeep/synthetic/"
@@ -55,6 +56,9 @@ def write_dataset(graph, TARGET_DIR):
     assert(np.array_equal(np.ones(sparse_mat.data.shape),sparse_mat.data))
     indptr = sparse_mat.indptr
     indices = sparse_mat.indices
+    c_spmat = graph.adj_sparse('csc')
+    c_indptr = c_spmat[0]
+    c_indices = c_spmat[1]
     num_edges = dataset.num_edges()
     num_nodes = dataset.num_nodes()
     assert indptr.shape == (num_nodes+1,)
@@ -68,6 +72,10 @@ def write_dataset(graph, TARGET_DIR):
     meta = {}
     # with open(TARGET_DIR + '/partition_map.bin','wb') as fp:
     #     fp.write(p_map.numpy().astype(np.int32).tobytes())
+    with open(TARGET_DIR+'/cindptr.bin','wb') as fp:
+        fp.write(c_indptr.numpy().astype(np.int64).tobytes())
+    with open(TARGET_DIR+'/cindices.bin','wb') as fp:
+        fp.write(c_indices.numpy().astype(np.int64).tobytes())
     with open(TARGET_DIR+'/indptr.bin','wb') as fp:
         fp.write(indptr.astype(np.int64).tobytes())
     with open(TARGET_DIR+'/indices.bin','wb') as fp:
@@ -90,20 +98,44 @@ def write_dataset(graph, TARGET_DIR):
             fp.write("{}={}\n".format(k,meta_structure[k]))
     print("All data written!")
 
-    # final graph is here graph
-    # Check metis partition.
-    # Run experiment show decrease in communication over pagrahself.
+# final graph is here graph
+# Check metis partition.
+# Run experiment show decrease in communication over pagrahself.
+# Synthetic data set to show variation with number of cross edges
+def create_synthetic_dataset():
+    N,M,C = 200,1000, 400
+    g = create_synthetic_dataset(N,M,C)
+    import os
+    graphname = "synth_{}_{}_{}".format(N,M,C)
+    TARGET_DIR = TARGET_DIR + graphname
+    os.makedirs(TARGET_DIR,exist_ok = True)
+    write_dataset(g, TARGET_DIR)
+    metis_graphname = "synthetic/{}".format(graphname)
+    create_metis_file(metis_graphname)
+    run_metis(metis_graphname)
 
-N,M,C = 200,1000, 400
-g = create_synthetic_dataset(N,M,C)
-import os
-graphname = "synth_{}_{}_{}".format(N,M,C)
-TARGET_DIR = TARGET_DIR + graphname
-os.makedirs(TARGET_DIR,exist_ok = True)
-write_dataset(g, TARGET_DIR)
-metis_graphname = "synthetic/{}".format(graphname)
-create_metis_file(metis_graphname)
-run_metis(metis_graphname)
-#
-# if __name__ == "__main__":
-#     create_synthetic_dataset(20,100,20)
+def small_clique_dataset(TARGET_DIR):
+    N = 8
+    src = []
+    dest = []
+    p_map = []
+    for i in range(N):
+        p_map.append(i%4)
+        for j in range(N):
+            if i==j:
+                continue
+            src.append(i)
+            dest.append(j)
+    graph = dgl.graph((src,dest))
+
+    graphname = "clique_{}".format(N)
+    TARGET_DIR = TARGET_DIR + graphname
+    os.makedirs(TARGET_DIR,exist_ok = True)
+    write_dataset(graph, TARGET_DIR)
+    p_map = np.array(p_map)
+
+    with open(TARGET_DIR + '/partition_map_opt.bin','wb') as fp:
+        fp.write(p_map.astype(np.intc).tobytes())
+    print("Write done !!!")
+if __name__ == "__main__":
+    small_clique_dataset(TARGET_DIR)

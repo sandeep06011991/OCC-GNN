@@ -66,14 +66,21 @@ public:
               storage_map[k]->push_back(-1);
             }
         }
+
         for(int i=0;i<4;i++){
+          int j = 0;
           int order =0;
           gpu_capacity[i] = gpu_map[i].size();
           for(long nd: gpu_map[i]){
+            if (j<10){
+              std::cout << nd <<" ";
+              j++;
+            }
             (*storage_map[i])[nd] = order;
             order ++;
             temp[nd] = 1;
           }
+          std::cout << "\n";
         }
         // Used for debugging !
         for(int i=0;i<dataset->num_nodes;i++){
@@ -180,7 +187,11 @@ PYBIND11_MODULE(cslicer, m) {
         .def_readwrite("self_ids_out",&PyBipartite::self_ids_out)
 	.def_readwrite("self_ids_out_start",&PyBipartite::self_ids_out_start)
 	.def_readwrite("self_ids_out_end", &PyBipartite::self_ids_out_end)
-        .def_readwrite("gpu_id",&PyBipartite::gpu_id);
+  .def_readwrite("self_ids_out_end", &PyBipartite::self_ids_out_end)
+  .def_readwrite("indegree_start", &PyBipartite::indegree_start)
+  .def_readwrite("indegree_end", &PyBipartite::indegree_end)
+
+  .def_readwrite("gpu_id",&PyBipartite::gpu_id);
 
     py::class_<CSlicer>(m,"cslicer")
         .def(py::init<const std::string &, int, int\

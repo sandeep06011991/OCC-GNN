@@ -19,6 +19,7 @@ public:
   vector<long> indptr;
   vector<long> expand_indptr;
   vector<long> indices;
+  vector<int> in_degree;
 
   vector<long> missing_node_ids;
 
@@ -41,12 +42,35 @@ public:
     this->gpu_id = gpu_id;
   }
 
-  inline void add_self_edge(long nd1){
+  inline void add_self_edge(long nd1, int degree){
     if((self_ids_in.size()!=0) && (self_ids_in.back() == nd1)){
       return;
     }
     self_ids_in.push_back(nd1);
     self_ids_out.push_back(nd1);
+    in_degree.push_back(degree);
+    in_nodes.push_back(nd1);
+    owned_out_nodes.push_back(nd1);
+    // std::cout << "Adding out node" << nd1 <<"\n";
+    // if(out_nodes.size() == 0){
+    //   indptr.push_back(0);
+    // }else{
+    //   int l = indptr.size();
+    //   indptr.push_back(indptr[l-1]);
+    // }
+    if(indptr.size() == 0){
+      indptr.push_back(0);
+      indptr.push_back(0);
+      if((out_nodes.size()==0) || (out_nodes.back() != nd1)){
+        out_nodes.push_back(nd1);
+      }
+    }else{
+      if(out_nodes.back()!=nd1){
+        int l = indptr.size();
+        indptr.push_back(indptr[l-1]);
+        out_nodes.push_back(nd1);
+      }
+    }
   }
 
   inline void add_from_node(long nd1, int gpu_id){
@@ -65,21 +89,27 @@ public:
       return;
     }
     to_ids[gpu_id].push_back(nd1);
-    //if(((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
+
+    // if(((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
     //  owned_out_nodes.push_back(nd1);
-    //}
+    // }
   }
 
 
   inline void add_edge(int nd1, int nd2, bool islocal){
-	
-	  if(islocal && ((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
+    if(nd1 == nd2){
+      std::cout << "Should never happen" << nd1 <<"\n";
+      assert(false);
+    }
+    if(islocal && ((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
 		  owned_out_nodes.push_back(nd1);
       }
-      if(out_nodes.size() == 0){
+      if(indptr.size() == 0){
         indptr.push_back(0);
         indptr.push_back(0);
-        out_nodes.push_back(nd1);
+        if((out_nodes.size()==0) || (out_nodes.back() != nd1)){
+          out_nodes.push_back(nd1);
+        }
       }else{
         if(out_nodes.back()!=nd1){
           int l = indptr.size();
@@ -107,6 +137,7 @@ public:
     in_nodes.clear();
     out_nodes.clear();
     owned_out_nodes.clear();
+    in_degree.clear();
     num_in_nodes = 0;
     num_out_nodes = 0;
   }
@@ -114,11 +145,11 @@ public:
   void reorder(DuplicateRemover* dr);
 
   void reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, int gpu_capacity);
-  
+
   void debug(){
-  
+
  	std::cout << "gpu" << gpu_id << "in_nodes" << in_nodes.size() << "out_nodes" << out_nodes.size() \
 		  << "owned_out_nodes" \
-		  << owned_out_nodes.size() << "\n"; 
+		  << owned_out_nodes.size() << "\n";
   }
 };

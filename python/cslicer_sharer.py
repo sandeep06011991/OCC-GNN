@@ -27,6 +27,11 @@ def compute_acc(pred, labels):
     """
     Compute the accuracy of prediction given the labels.
     """
+    # print("check accuracy",pred[:4],labels[:4])
+    false_labels = torch.where(torch.argmax(pred,dim = 1) != labels)[0]
+    # print("Miss",torch.argmax(pred[false_labels[:10]],dim = 1),labels[false_labels[:10]])
+    # print("Print Mistakes",pred[false_labels][:10],labels[false_labels][:10],"End of mistake")
+    # torch.where(torch.sum(pred,dim == 1))[0]
     return (torch.argmax(pred, dim=1) == labels).float().sum(),len(pred )
 
 
@@ -34,7 +39,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
                     ,num_classes,batch_in, labels, num_sampler_workers):
     print("Num sampler workers ", num_sampler_workers)
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
-        master_ip='127.0.0.1', master_port='12345')
+        master_ip='127.0.0.1', master_port='12349')
     world_size = gpus
     torch.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
@@ -113,8 +118,11 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
                 continue
         t33 = time.time()
         gpu_local_sample.to_gpu()
+        # gpu_local_sample.debug()
         t44 = time.time()
         sample_move_time += t44 - t33
+        # print("Check for sortingLabels proc_id:",gpu_local_sample.last_layer_nodes)
+        # classes = labels[gpu_local_sample.last_layer_nodes.sort()[0]].to(torch.device(proc_id))
         classes = labels[gpu_local_sample.last_layer_nodes].to(torch.device(proc_id))
 
         # with nvtx.annotate("forward",color="blue"):
@@ -124,17 +132,17 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         torch.cuda.set_device(proc_id)
         fp_end.record()
         loss = loss_fn(output,classes)
-        # If accuracy
-        if True:
-            acc = compute_acc(output,classes)
-            print("accuracy {}",acc)
         loss.backward()
         bp_end.record()
+        if True  and output.shape[0] !=0:
+            acc = compute_acc(output,classes)
+            print("accuracy {}",acc)
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
         # with nvtx.annotate("backward", color="red"):
         backward_time += fp_end.elapsed_time(bp_end)/1000
         optimizer.step()
+
     dev_id = proc_id
     if proc_id == 0:
         print("avg forward time: {}sec, device {}".format(sum(forward_time_epoch[1:])/(num_epochs - 1), dev_id))
@@ -237,7 +245,6 @@ def train(args):
     work_queue = mp.Queue(10)
     train_mask = dg_graph.ndata['train_mask']
     train_nid = train_mask.nonzero().squeeze()
-    train_nid = train_nid.clone()
     minibatches_per_epoch = int(len(train_nid)/minibatch_size)
 
     print("Training on num nodes = ",train_nid.shape)
@@ -249,7 +256,7 @@ def train(args):
                   args=(work_queue, train_nid, minibatch_size, no_epochs,no_worker_process))
     work_producer_process.start()
 
-    queue_size = 1
+    queue_size = 10
     sample_queues = [mp.Queue(queue_size) for i in range(4)]
     lock = torch.multiprocessing.Lock()
 

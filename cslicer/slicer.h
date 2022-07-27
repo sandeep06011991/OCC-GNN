@@ -2,12 +2,13 @@
 
 #include "dataset.h"
 #include <vector>
-#include "pybipartite.h"
 #include <stdlib.h>
 #include <algorithm>
 #include <random>
 #include <functional>
-#include "util/conqueue.h"
+#include "util/duplicate.h"
+#include "sample.h"
+using namespace std;
 
 class Slicer{
 
@@ -41,7 +42,8 @@ private:
 public:
   Sample sample;
   Slicer(Dataset * dataset, std::vector<int> *workload_map,
-        std::vector<int>** storage_map, int gpu_capacity[4],
+      std::vector<int>* storage_map[4], int gpu_capacity[4],
+        // std::vector<int>** storage_map, int gpu_capacity[4],
           int batch_size){
            // ConQueue<PySample *> * generated_samples,
            //  ConQueue<std::vector<long> *> * work_queue){
@@ -75,12 +77,13 @@ public:
 
   void get_sample(vector<long> &batch);
 
-  void neighbour_sample(long nd1, vector<long> &neighbours);
+  int neighbour_sample(long nd1, vector<long> &neighbours);
 
   void slice_layer(vector<long>& in, vector<long>& out, Layer& l, int layer_id);
 
   void simple_3_hop_sample(int batch_id);
 
+  void layer_consistency(Layer& l);
   // void run();
 
   void clear();

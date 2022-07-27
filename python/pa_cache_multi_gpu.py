@@ -14,6 +14,7 @@ from torch.nn.parallel import DistributedDataParallel
 import tqdm
 from utils.utils import get_process_graph
 from utils.utils import thread_wrapped_func
+import torch.autograd.profiler as profiler
 # from load_graph import load_reddit, inductive_split
 
 from models.sage import SAGE
@@ -102,7 +103,7 @@ class PaCache:
         return batch_inputs, batch_labels, t2-t1
 
 
-def run(proc_id, n_gpus, args, devices, data):
+def run(proc_id, n_gpus, args, devices, data,p_map):
     # Start up distributed training, if enabled.
     dev_id = devices[proc_id]
     if n_gpus > 1:
@@ -139,16 +140,23 @@ def run(proc_id, n_gpus, args, devices, data):
     val_nid = val_mask.nonzero().squeeze()
     test_nid = test_mask.nonzero().squeeze()
     # Split train_nid
+
     print("Training nodes {}, total nodes {}".format(
         train_nid.shape[0], train_mask.shape[0]))
+    # train_nid = train_nid[torch.where(p_map[train_nid] == proc_id)[0]]
+
     train_nid = th.split(train_nid, math.ceil(
         len(train_nid) / n_gpus))[proc_id]
-
     # Create PyTorch DataLoader for constructing blocks
     # train_g = train_g.to(dev_id)
     # train_nid = train_nid.to(dev_id)
-    sampler = dgl.dataloading.MultiLayerNeighborSampler(
-        [int(fanout) for fanout in args.fan_out.split(',')])
+    # if args.deterministic:
+    if False:
+        sampler = dgl.dataloading.MultiLayerNeighborSampler(\
+            [-1 for i in args.fan_out.split(',')])
+    else:
+        sampler = dgl.dataloading.MultiLayerNeighborSampler(
+            [int(fanout) for fanout in args.fan_out.split(',')])
     dataloader = dgl.dataloading.NodeDataLoader(
         train_g,
         train_nid,
@@ -196,60 +204,67 @@ def run(proc_id, n_gpus, args, devices, data):
     fp_start = torch.cuda.Event(enable_timing=True)
     fp_end = torch.cuda.Event(enable_timing=True)
     bp_end = torch.cuda.Event(enable_timing=True)
+    with profiler.profile(with_stack=True, profile_memory=True) as prof:
+        for epoch in range(args.num_epochs):
+            tic = time.time()
+            # Loop over the dataloader to sample the computation dependency graph as a list of
+            # blocks.
+            it = enumerate(dataloader)
+            sample_get_time = 0
+            move_time = 0
+            forward_time = 0
+            backward_time = 0
+            nodes_done = 0
+            while(True):
+                try:
 
-    for epoch in range(args.num_epochs):
-        tic = time.time()
-        # Loop over the dataloader to sample the computation dependency graph as a list of
-        # blocks.
-        it = enumerate(dataloader)
-        sample_get_time = 0
-        move_time = 0
-        forward_time = 0
-        backward_time = 0
-        nodes_done = 0
-        while(True):
-            try:
-                t0 = time.time()
-                step, (input_nodes, seeds, blocks) = next(it)
-                nodes_done += seeds.shape[0]
-                t1 = time.time()
-                sample_get_time += (t1 - t0)
-                batch_inputs, batch_labels, cache_mgmt_time = cache.load_subtensor(
-                    train_nfeat, train_labels, seeds, input_nodes, dev_id)
-                blocks = [block.int().to(dev_id) for block in blocks]
-                t2 = time.time()
-                move_time += (t2 - t1)
-                fp_start.record()
-                batch_pred = model(blocks, batch_inputs)
-                loss = loss_fcn(batch_pred, batch_labels)
-                fp_end.record()
-                print("accuracy",\
-                        torch.sum(torch.max(batch_pred,1)[1]==batch_labels)/batch_pred.shape[0])
-                optimizer.zero_grad()
-                loss.backward()
-                bp_end.record()
-                torch.cuda.synchronize(bp_end)
+                    optimizer.zero_grad()
+                    t0 = time.time()
+                    step, (input_nodes, seeds, blocks) = next(it)
+                    nodes_done += seeds.shape[0]
+                    t1 = time.time()
+                    sample_get_time += (t1 - t0)
+                    batch_inputs, batch_labels, cache_mgmt_time = cache.load_subtensor(
+                        train_nfeat, train_labels, seeds, input_nodes, dev_id)
+                    blocks = [block.int().to(dev_id) for block in blocks]
+                    t2 = time.time()
+                    move_time += (t2 - t1)
+                    fp_start.record()
+                    batch_pred = model(blocks, batch_inputs)
+                    loss = loss_fcn(batch_pred, batch_labels)
+                    fp_end.record()
+                    with profiler.record_function("LINEAR PASS"):
+                        loss.backward()
+                    bp_end.record()
+                    print("accuracy",\
+                            torch.sum(torch.max(batch_pred,1)[1]==batch_labels)/batch_pred.shape[0])
+                    torch.cuda.synchronize(bp_end)
 
-                forward_time += fp_start.elapsed_time(fp_end)/1000
-                backward_time += fp_end.elapsed_time(bp_end)/1000
+                    forward_time += fp_start.elapsed_time(fp_end)/1000
+                    backward_time += fp_end.elapsed_time(bp_end)/1000
+                    print("forward",proc_id, fp_start.elapsed_time(fp_end)/1000)
+                    print("backward",proc_id, fp_end.elapsed_time(bp_end)/1000)
+                    optimizer.step()
+                    # torch.distributed.barrier()
+                    # if(dev_id == 0):
+                    #     print("minibatch")
+                    # torch.distributed.barrier()
+                except StopIteration:
+                    break
+                # if step % args.log_every == 0 and proc_id == 0:
+                #     acc = compute_acc(batch_pred, batch_labels)
+                #     print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Train Acc {:.4f} | Speed (samples/sec) {:.4f} | GPU {:.1f} MB'.format(
+                #         epoch, step, loss.item(), acc.item(), np.mean(iter_tput[3:]), th.cuda.max_memory_allocated() / 1000000))
+            print("Exiting main training loop")
+            # if n_gpus > 1:
+            #     th.distributed.barrier()
+            toc = time.time()
+            sample_get_time_epoch.append(sample_get_time)
+            time_epoch.append(toc-tic)
+            move_time_epoch.append(move_time)
+            forward_time_epoch.append(forward_time)
+            backward_time_epoch.append(backward_time)
 
-                optimizer.step()
-
-            except StopIteration:
-                break
-            # if step % args.log_every == 0 and proc_id == 0:
-            #     acc = compute_acc(batch_pred, batch_labels)
-            #     print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Train Acc {:.4f} | Speed (samples/sec) {:.4f} | GPU {:.1f} MB'.format(
-            #         epoch, step, loss.item(), acc.item(), np.mean(iter_tput[3:]), th.cuda.max_memory_allocated() / 1000000))
-        print("Exiting main training loop")
-        if n_gpus > 1:
-            th.distributed.barrier()
-        toc = time.time()
-        sample_get_time_epoch.append(sample_get_time)
-        time_epoch.append(toc-tic)
-        move_time_epoch.append(move_time)
-        forward_time_epoch.append(forward_time)
-        backward_time_epoch.append(backward_time)
         # if proc_id == 0:
         #     print('Epoch Time(s): {:.4f}'.format(toc - tic))
         #     if epoch >= 5:
@@ -271,9 +286,11 @@ def run(proc_id, n_gpus, args, devices, data):
     num_epochs = args.num_epochs
     if n_gpus > 1:
         th.distributed.barrier()
-    if proc_id == 0:
+    # if proc_id == 0:
         # assert(len(forward_time) == num_epochs)
-        # if True:
+    if True:
+        print(prof.key_averages(group_by_stack_n=5).table(sort_by='self_cpu_time_total', row_limit=5))
+
         assert(num_epochs > 1)
         print("avg cache hit rate: {}".format(sum(cache.avg_cache_hit_rate)
                                               / len(cache.avg_cache_hit_rate)))
@@ -297,6 +314,7 @@ def run(proc_id, n_gpus, args, devices, data):
 if __name__ == '__main__':
     mp.set_start_method("spawn")
     argparser = argparse.ArgumentParser("multi-gpu training")
+    argparser.add_argument('--deterministic', action="store_true",default = False)
     argparser.add_argument('--graph', type=str, default="ogbn-arxiv")
     argparser.add_argument('--fsize', type=int, default=-1,
                            help="fsize only for synthetic graphs")
@@ -304,13 +322,13 @@ if __name__ == '__main__':
     argparser.add_argument('--num-epochs', type=int, default=2)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
-    argparser.add_argument('--fan-out', type=str, default='10,10,25')
+    argparser.add_argument('--fan-out', type=str, default='10,10,10')
     argparser.add_argument('--batch-size', type=int, default=1032)
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.01)
     argparser.add_argument('--dropout', type=float, default=0)
-    argparser.add_argument('--num-workers', type=int, default=4,
+    argparser.add_argument('--num-workers', type=int, default=1,
                            help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--inductive', action='store_false',
                            help="Inductive learning setting")
@@ -343,7 +361,7 @@ if __name__ == '__main__':
         print("Launch multiple gpus")
         for proc_id in range(n_gpus):
             p = mp.Process(target=(run),
-                           args=(proc_id, n_gpus, args, devices, data))
+                           args=(proc_id, n_gpus, args, devices, data,p_map))
             p.start()
             procs.append(p)
         for p in procs:

@@ -3,15 +3,20 @@
 #include <iostream>
 
 
-inline void Slicer::neighbour_sample(long nd1, vector<long>& neighbors){
+int  Slicer::neighbour_sample(long nd1, vector<long>& neighbors){
   neighbors.push_back(nd1);
   long nbs = this->dataset->indptr[nd1+1] - this->dataset->indptr[nd1];
   int offset = this->dataset->indptr[nd1];
+  // if(true){
+  int in_degree = 0;
+  // assert(nbs !=0);
   if(nbs < 10){
+    in_degree = nbs;
     for(int i=0;i<nbs;i++){
       neighbors.push_back(this->dataset->indices[offset + i]);
     }
   }else{
+    in_degree = 10;
     for(int i=0;i<10;i++){
       int rand_nb = this->random_number_engine()%nbs;
       // int rand_nb = this->rng_coin(gen) % nbs;
@@ -19,20 +24,28 @@ inline void Slicer::neighbour_sample(long nd1, vector<long>& neighbors){
       neighbors.push_back(this->dataset->indices[offset + rand_nb ]);
     }
   }
+  if (in_degree == 0){
+    in_degree = 1;
+    // std::cout << "node with zero degree" << nd1 <<"\n";
+  }
+
+  // in_degree = 1;
+  // assert(in_degree != 0);
+  return in_degree;
 }
 
 
 void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l, int layer_id){
     for(long nd1: in){
       neighbors.clear();
-      neighbour_sample(nd1, neighbors);
+      int in_degree = neighbour_sample(nd1, neighbors);
       // neighbors.clear();
       // neighbour_sample(nd1, neighbors);
       int to = (*this->workload)[nd1];
       for(long nd2 : neighbors){
         if(nd1 == nd2){
-              l.bipartite[to]->add_self_edge(nd1);
-              l.bipartite[to]->add_edge(nd1,nd2,true);
+            l.bipartite[to]->add_self_edge(nd1, in_degree);
+            // l.bipartite[to]->add_edge(nd1, nd1, true);
         }else{
             int from = (*this->workload)[nd2];
             if(to == from){
@@ -48,8 +61,10 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l, int laye
           this->out_dr->mask[nd2]=1;
           this->out_dr->used_nodes.push_back(nd2);
         }
+
       }
     }
+
     if(layer_id != 2){
       for(int i=0;i<4;i++){
         l.bipartite[i]->reorder(dr);
@@ -59,8 +74,10 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l, int laye
         l.bipartite[i]->reorder_lastlayer(dr,*storage_map[i], gpu_capacity[i]);
       }
     }
-
     this->out_dr->clear();
+    // std::cout << "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxx\n";
+    // layer_consistency(l);
+    // std::cout << "layer done\n";
     // std::cout << "pre dup size" << out.size() <<"\n";
     // vector<long> backup = out;
     // this->dr->order_and_remove_duplicates(out);
@@ -71,6 +88,49 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l, int laye
     // remove duplicates from nd2.
   }
 
+void Slicer::layer_consistency(Layer& l){
+  for(int gpu=0; gpu<4; gpu++ ){
+    BiPartite *bp = l.bipartite[gpu];
+    for(long o_id = 0; o_id<bp->owned_out_nodes.size() ;o_id++ ){
+        // local aggregation
+        long nd = bp->owned_out_nodes[o_id];
+        if(bp->out_nodes[nd] == 168394)std::cout << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n";
+        if(bp->out_nodes[nd] == 168394)std::cout << "working with" << bp->out_nodes[nd] << " ";
+        long start = bp->indptr[nd];
+        long end =  bp->indptr[nd  + 1];
+        long local_nbs = end - start;
+        if(bp->out_nodes[nd] == 168394)std::cout << "local nbs" << local_nbs <<" ";
+        for(int gpu_r = 0;gpu_r<4 ; gpu_r++){
+          if(gpu_r ==gpu)continue;
+          for(int p_id= 0;p_id < bp->from_ids[gpu_r].size(); p_id ++ ){
+            long remote_nd = bp->from_ids[gpu_r][p_id];
+            if(remote_nd == nd){
+              long remote_id = l.bipartite[gpu_r]->to_ids[gpu][p_id];
+              long remote_nbs = (l.bipartite[gpu_r]->indptr[remote_id+1] - l.bipartite[gpu_r]->indptr[remote_id]);
+              if(bp->out_nodes[nd] == 168394)std::cout << "found remote" << remote_nbs << " ";
+              // long offset = l.bipartite[gpu_r]->indptr[remote_id];
+              // for(long ii = 0;ii < remote_nbs; ii ++ ){
+              //   std::cout <<l.bipartite[gpu_r]->in_nodes[l.bipartite[gpu_r]->indices[offset + ii]] << " ";
+              // }
+              local_nbs += remote_nbs;
+            }
+          }
+        }
+        if(bp->out_nodes[nd] == 168394)std::cout << "\n";
+        if(local_nbs == 0){
+          if(bp->in_degree[o_id] != 1){
+            std::cout << "Degree" << bp->in_degree[o_id] <<" "<< local_nbs <<"\n";
+          }
+        }else{
+          if(bp->in_degree[o_id]!=local_nbs){
+            std::cout << "Degree" << bp->in_degree[o_id] <<" "<< local_nbs <<"\n";
+          }
+          // assert(bp->in_degree[o_id] == local_nbs);
+        }
+    }
+  }
+}
+
 // Challenge moving parts.
 // Dont worry about overlap. Just move this.
 // Key challenge. I am mixing performance and variable expressibility.
@@ -80,12 +140,15 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l, int laye
     for(int i=0;i<batch_size;i++){
       in.push_back(batch[i]);
     }
+    out.clear();
     for(int i=0;i<3;i++){
+      // std::cout << "Sample layer" <<in.size() <<"\n";
       this->slice_layer(in, out, sample.layers[i],i);
       in.clear();
       in = out;
       out.clear();
     }
+
 }
 
 void Slicer::simple_3_hop_sample(int batch_id){

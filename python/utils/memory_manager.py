@@ -79,7 +79,7 @@ class MemoryManager():
                     subgraph_nds = torch.where(self.partition_map == i)[0]
                     node_ids_cached = subgraph_nds
                     self.batch_in.append(torch.zeros(node_ids_cached.shape[0], self.fsize, device = i))
-
+                    print("Node ids cached",node_ids_cached[:10])
                 else:
                     assert(False)
                     self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize, device = i))
@@ -106,6 +106,8 @@ class MemoryManager():
             self.local_sizes.append(node_ids_cached.shape[0])
             self.node_gpu_mask[node_ids_cached,i] = True
             self.global_to_local[node_ids_cached,i] = torch.arange(node_ids_cached.shape[0],dtype=torch.long)
+            # print("DUMMY FEATURES FOR DEBUGGING")
+            # self.batch_in[i][:self.local_sizes[i]] = torch.ones(self.features[node_ids_cached].shape)
             self.batch_in[i][:self.local_sizes[i]] = self.features[node_ids_cached]
             if not self.batch_in[i].is_shared():
                 self.batch_in[i].detach().share_memory_()
@@ -113,6 +115,7 @@ class MemoryManager():
             self.check_missing = self.check_missing | self.node_gpu_mask[:,i]
         assert(torch.all(self.check_missing))
         print("No missing nodes !!")
+        # assert(False)
     # @profile
     def refresh_cache(self, last_layer_nodes):
         if(self.cache_percentage >=.25):

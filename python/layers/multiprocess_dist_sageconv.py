@@ -45,10 +45,11 @@ class DistSageConv(nn.Module):
 
     def reset_parameters(self):
         gain = nn.init.calculate_gain('relu')
-        nn.init.xavier_uniform_(self.fc1.weight, gain=gain)
-        nn.init.xavier_uniform_(self.fc2.weight, gain=gain)
+        nn.init.xavier_uniform_(self.fc1.weight,gain = gain)
+        nn.init.xavier_uniform_(self.fc2.weight,gain = gain)
 
     def old_forward(self, bipartite_graph,x):
+        print(torch.sum(self.fc1.weight))
         out1 = bipartite_graph.gather(x)
         out2 = out1
         # out2 = Shuffle.apply(out1, self.queues, self.gpu_id, bipartite_graph.from_ids, bipartite_graph.to_ids)
@@ -60,35 +61,24 @@ class DistSageConv(nn.Module):
             out5 = self.fc(out4)
 
     def forward(self, bipartite_graph, x, l):
-        # y =torch.rand((num_nodes,x.shape[1]),device = x.device)
-        # t0 = time.time()
-        # num_nodes = bipartite_graph.num_nodes_v
-        # out = self.sgc(bipartite_graph.graph,(x,y)))
-        t1 = time.time()
-        # print(t1-t0,"target time")
-        # out = bipartite_graph.slice_owned_nodes(out)
-        # return out
         print(torch.sum(self.fc1.weight))
+        t1 = time.time()
         if self._in_src_feats  > self._out_feats:
             out = self.fc1(x)
             out1 = bipartite_graph.gather(out)
-            # out2 = out1
-            out2 = Shuffle.apply(out1, self.queues, self.gpu_id, bipartite_graph.from_ids, bipartite_graph.to_ids,l)
+            out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
         else:
             out = bipartite_graph.gather(x)
-            out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.from_ids, bipartite_graph.to_ids,l)
-            # out2 = out
+            out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
             out2 = self.fc1(out2)
         t2 = time.time()
+        out6_b = bipartite_graph.slice_owned_nodes(out2)
+        out6 = out6_b/bipartite_graph.in_degree
         out3 = bipartite_graph.self_gather(x)
         out4 = bipartite_graph.slice_owned_nodes(out3)
         out5 = self.fc2(out4)
-        out6 = bipartite_graph.slice_owned_nodes(out2)
         final = out5 + out6
         t3 = time.time()
-        # if out.device == torch.device(2):
-        #     print(t3-t2,"second half of nn",l,"layer",out.device,"device")
-        #     print(t2-t1,"first half of nn",l,"layer",out.device,"device")
         return final
 
 def test_base():

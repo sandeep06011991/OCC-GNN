@@ -21,22 +21,29 @@ class SAGE(nn.Module):
         self.n_classes = n_classes
         self.layers = nn.ModuleList()
         type = 'mean'
-        self.layers.append(dglnn.SAGEConv(in_feats, n_hidden, type))
+        self.layers.append(dglnn.SAGEConv(in_feats, n_hidden, type,bias = False))
         for i in range(1, n_layers - 1):
-            self.layers.append(dglnn.SAGEConv(n_hidden, n_hidden, type))
-        self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, type))
+            self.layers.append(dglnn.SAGEConv(n_hidden, n_hidden, type,bias = False))
+        self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, type,bias = False))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
+        # self.set_ones()
+
+    def set_ones(self):
+        for l in self.layers:
+            l.fc_self.weight = torch.nn.Parameter(
+                torch.ones(l.fc_self.weight.shape))
+            l.fc_neigh.weight = torch.nn.Parameter(
+                torch.ones(l.fc_neigh.weight.shape))
+
 
     def forward(self,blocks,x):
         h = x
         for l, (layer, block) in enumerate(zip(self.layers, blocks)):
             t1 = time.time()
             h = layer(block, h)
+            # print("layer ",l,h)
             t2 = time.time()
-            if x.device == torch.device(0):
-                pass
-                # print("time per layer",l,t2-t1)
             if l != len(self.layers) - 1:
                 h = self.activation(h)
                 h = self.dropout(h)

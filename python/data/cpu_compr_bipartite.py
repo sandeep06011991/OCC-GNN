@@ -37,6 +37,8 @@ class Bipartite:
             self.self_ids_in_end,
             self.self_ids_out_start,
             self.self_ids_out_end,
+            self.indegree_start,
+            self.indegree_end
         ]
 
         def listFromObj(obj):
@@ -52,8 +54,8 @@ class Bipartite:
     @staticmethod
     def deserialize(data):
         tensor, graph, gpu_id = data
-        metadatalist = tensor[:32].tolist()
-        data = tensor[32:]
+        metadatalist = tensor[:34].tolist()
+        data = tensor[34:]
         bipartite = Bipartite(metadatalist=metadatalist,
                               data=data, graph=graph, gpu_id=gpu_id)
         return bipartite
@@ -79,16 +81,19 @@ class Bipartite:
             self.self_ids_in_end = metadatalist[13]
             self.self_ids_out_start = metadatalist[14]
             self.self_ids_out_end = metadatalist[15]
+            self.indegree_start = metadatalist[16]
+            self.indegree_end = metadatalist[17]
             self.num_nodes_v = self.out_nodes_end - self.out_nodes_start
             self.from_ids_start = {}
             self.from_ids_end = {}
             self.to_ids_start = {}
             self.to_ids_end = {}
             for i in range(4):
-                self.from_ids_start[i] = metadatalist[16 + i]
-                self.from_ids_end[i] = metadatalist[20 + i]
-                self.to_ids_start[i] = metadatalist[24 + i]
-                self.to_ids_end[i] = metadatalist[28 + i]
+                self.from_ids_start[i] = metadatalist[18 + i]
+                self.from_ids_end[i] = metadatalist[22 + i]
+                self.to_ids_start[i] = metadatalist[26 + i]
+                self.to_ids_end[i] = metadatalist[30 + i]
+
             self.data = data
             return
 
@@ -111,7 +116,7 @@ class Bipartite:
             N = cobject.num_out_nodes
             M = cobject.num_in_nodes
             self.num_nodes_v = N
-            #print("graph created attempt", N, M)
+            # print("graph created attempt", N, M)
             # print(indices[-1])
             assert(indptr[-1] == len(indices))
             '''sp_mat = sp.sparse.csr_matrix((np.ones(indices.shape),\
@@ -129,7 +134,14 @@ class Bipartite:
             self.graph = self.graph.formats('csc')
             assert ['csc' in self.graph.formats()]
         else:
-            self.num_nodes_v = 0
+            N = cobject.num_out_nodes
+            M = cobject.num_in_nodes
+            self.num_nodes_v = N
+            # print("graph created attempt", N, M)
+            self.graph = dgl.heterograph({('_V', '_E', '_U'): ([],[])}, \
+                                         {'_U': M, '_V': N})
+            self.graph = self.graph.reverse()
+            self.graph = self.graph.formats('csc')
             # empty code such that other things dont break.
             # self.graph = dgl.graph([])
         t2 = time.time()
@@ -139,6 +151,8 @@ class Bipartite:
         self.out_nodes_end = cobject.out_nodes_end
         self.owned_out_nodes_start = cobject.owned_out_nodes_start
         self.owned_out_nodes_end = cobject.owned_out_nodes_end
+        self.indegree_start = cobject.indegree_start
+        self.indegree_end = cobject.indegree_end
         # self.in_nodes = data[cobject.in_nodes_start:cobject.in_nodes_end]
         # self.out_nodes = data[cobject.out_nodes_start: cobject.out_nodes_end]
         # self.owned_out_nodes = data[cobject.owned_out_nodes_start:cobject.owned_out_nodes_end]
@@ -162,11 +176,12 @@ class Bipartite:
         #         print(from_ids[i])
         # self.from_ids = from_ids
         #
-        # to_ids = {}
-        # for i in range(4):
-        #     to_ids[i] = (data[cobject.to_ids_start[i]:cobject.to_ids_end[i]])
-        #     if i == self.gpu_id:
-        #         print(from_ids[i])
+        from_ids = {}
+        self.owned_out_nodes = data[cobject.owned_out_nodes_start: cobject.owned_out_nodes_end]
+            # for kk in from_ids[i]:
+            #     if (kk not in self.owned_out_nodes):
+            #         print("Pre tensorization putting info into wrong nodes", kk, self.owned_out_nodes)
+                   # assert(False)
         # self.to_ids = to_ids
         # self.self_ids_in = data[cobject.self_ids_in_start:cobject.self_ids_in_end]
         # self.self_ids_out = data[cobject.self_ids_out_start: cobject.self_ids_out_end]
@@ -203,7 +218,6 @@ class Bipartite:
             if i == self.gpu_id:
                 print(from_ids[i])
         self.from_ids = from_ids
-
         to_ids = {}
         for i in range(4):
             to_ids[i] = (data[self.to_ids_start[i]:self.to_ids_end[i]])
@@ -212,20 +226,33 @@ class Bipartite:
         self.to_ids = to_ids
         self.self_ids_in = data[self.self_ids_in_start:self.self_ids_in_end]
         self.self_ids_out = data[self.self_ids_out_start: self.self_ids_out_end]
+        self.in_degree = data[self.indegree_start:self.indegree_end]
+        self.in_degree = self.in_degree.reshape(self.in_degree.shape[0],1)
         t3 = time.time()
     #
-    # def debug(self):
-    #     print("self data shape",self.data.shape)
+    def debug(self):
+        print("gpu id",self.gpu_id)
+        print("Graph", self.graph)
+        print("in nodes",self.in_nodes.shape)
+        print("out nodes",self.out_nodes)
+        print("owned_out_nodes",self.owned_out_nodes)
+        print("from_ids",self.from_ids)
+        print("to ids",self.to_ids)
+        print("self ids in",self.self_ids_in)
+        print("self ids out",self.self_ids_in)
 
     def gather(self, f_in):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
+        if self.num_nodes_v == 0:
+            return f_in
         with self.graph.local_scope():
             # print(f_in.shape[0], self.graph.number_of_nodes('_U'))
             # FixME Todo: Fix this inconsistency in number of nodes
+            # print(f_in.shape, self.graph.number_of_nodes('_U'))
             assert(f_in.shape[0] == self.graph.number_of_nodes('_U'))
             self.graph.nodes['_U'].data['in'] = f_in
             f = self.graph.formats()
-            self.graph.update_all(fn.copy_u('in', 'm'), fn.mean('m', 'out'))
+            self.graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
             # No new formats must be created.
             assert(f == self.graph.formats())
             # print(self.graph.nodes['_V'].data['out'])
@@ -356,7 +383,8 @@ class Gpu_Local_Sample:
     #     self.device_id = device_id
 
     def debug(self):
-        for l in self.layers:
+        for id,l in enumerate(self.layers):
+            print("layer info ",id)
             l.debug()
         print("last layer nodes", self.last_layer_nodes.shape)
 

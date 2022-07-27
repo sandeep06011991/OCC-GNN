@@ -48,6 +48,9 @@ def write_dataset_dataset(dataset,labels, TARGET_DIR):
     assert(np.array_equal(np.ones(sparse_mat.data.shape),sparse_mat.data))
     indptr = sparse_mat.indptr
     indices = sparse_mat.indices
+    c_spmat = dataset.adj_sparse('csc')
+    c_indptr = c_spmat[0]
+    c_indices = c_spmat[1]
     print(indptr.shape)
     print(indices.shape)
     print("offset",indptr.sum())
@@ -96,6 +99,10 @@ def write_dataset_dataset(dataset,labels, TARGET_DIR):
     meta = {}
     # with open(TARGET_DIR + '/partition_map.bin','wb') as fp:
     #     fp.write(p_map.numpy().astype(np.int32).tobytes())
+    with open(TARGET_DIR+'/cindptr.bin','wb') as fp:
+        fp.write(c_indptr.numpy().astype(np.int64).tobytes())
+    with open(TARGET_DIR+'/cindices.bin','wb') as fp:
+        fp.write(c_indices.numpy().astype(np.int64).tobytes())
     with open(TARGET_DIR+'/indptr.bin','wb') as fp:
         fp.write(indptr.astype(np.int64).tobytes())
     with open(TARGET_DIR+'/indices.bin','wb') as fp:
@@ -131,7 +138,7 @@ def write_dataset_dataset(dataset,labels, TARGET_DIR):
 if __name__=="__main__":
     # assert(len(sys.argv) == 3)
     # nname = ["ogbn-products","ogbn-arxiv"]
-    nname = ["ogbn-papers100M"]
+    nname = ["ogbn-arxiv"]
     for name in nname:
         target = TARGET_DIR +"/" + name
         import os
