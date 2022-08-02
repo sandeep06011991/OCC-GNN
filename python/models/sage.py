@@ -14,7 +14,8 @@ class SAGE(nn.Module):
                  n_classes,
                  n_layers,
                  activation,
-                 dropout):
+                 dropout,
+                 deterministic):
         super().__init__()
         self.n_layers = n_layers
         self.n_hidden = n_hidden
@@ -27,7 +28,8 @@ class SAGE(nn.Module):
         self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, type,bias = False))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
-        # self.set_ones()
+        if deterministic:
+            self.set_ones()
 
     def set_ones(self):
         for l in self.layers:
@@ -35,7 +37,11 @@ class SAGE(nn.Module):
                 torch.ones(l.fc_self.weight.shape))
             l.fc_neigh.weight = torch.nn.Parameter(
                 torch.ones(l.fc_neigh.weight.shape))
-
+    def print_gradient(self):
+        for l in self.layers:
+            if l.fc_self.weight.device == torch.device(0):
+                print("layer self",l.fc_self.weight[:3,0], torch.sum(l.fc_self.weight), torch.sum(l.fc_self.weight.grad))
+                print("layer neigh",l.fc_neigh.weight[:3,0],torch.sum(l.fc_neigh.weight), torch.sum(l.fc_neigh.weight.grad))
 
     def forward(self,blocks,x):
         h = x

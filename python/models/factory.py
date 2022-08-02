@@ -14,17 +14,17 @@ class DistSAGEModel(torch.nn.Module):
                  activation,
                  dropout,
                  gpu_id,
-                 queues = None):
+                 queues = None, deterministic = False):
         super().__init__()
         self.n_layers = n_layers
         self.n_hidden = n_hidden
         self.n_classes = n_classes
         self.layers = nn.ModuleList()
         self.queues = queues
-        self.layers.append(DistSageConv(in_feats, n_hidden, gpu_id, aggregator_type = 'sum', queues = queues))
+        self.layers.append(DistSageConv(in_feats, n_hidden, gpu_id, aggregator_type = 'sum', queues = queues, deterministic = deterministic))
         for i in range(1, n_layers - 1):
-            self.layers.append(DistSageConv(n_hidden, n_hidden,  gpu_id, aggregator_type = 'sum', queues = queues))
-        self.layers.append(DistSageConv(n_hidden, n_classes, gpu_id, aggregator_type = 'sum', queues = queues))
+            self.layers.append(DistSageConv(n_hidden, n_hidden,  gpu_id, aggregator_type = 'sum', queues = queues, deterministic = deterministic))
+        self.layers.append(DistSageConv(n_hidden, n_classes, gpu_id, aggregator_type = 'sum', queues = queues, deterministic = deterministic))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
 
@@ -41,7 +41,9 @@ class DistSAGEModel(torch.nn.Module):
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
         return x
-
+    def print_grad(self):
+        for id,l in enumerate(self.layers):
+            l.print_grad()
 
 
 def get_model(hidden, features, num_classes):
@@ -51,12 +53,15 @@ def get_model(hidden, features, num_classes):
     in_feats = features.shape[1]
     n_hidden = hidden
     n_class = num_classes
+    # Fix me: Remove this later.
+    n_class   = 1
+    n_hidden = 1
     n_layers = 3
     activation = torch.nn.ReLU()
     return DistSAGEModel(in_feats, n_hidden, n_class, n_layers , \
         activation, dropout, queues = queues)
 
-def get_model_distributed(hidden, features, num_classes, gpu_id):
+def get_model_distributed(hidden, features, num_classes, gpu_id, deterministic):
     dropout = 0
     in_feats = features.shape[1]
     n_hidden = hidden
@@ -64,4 +69,4 @@ def get_model_distributed(hidden, features, num_classes, gpu_id):
     n_layers = 3
     activation = torch.nn.ReLU()
     return DistSAGEModel(in_feats, n_hidden, n_classes, n_layers, activation, \
-            dropout, gpu_id )
+            dropout, gpu_id, deterministic = deterministic )

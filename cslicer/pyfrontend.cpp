@@ -41,7 +41,8 @@ public:
     std::thread *th;
 
     CSlicer(const std::string &name, int queue_size, int no_worker_threads \
-        , int number_of_epochs,  int minibatch_size, std::vector<std::vector<long>> gpu_map){
+        , int number_of_epochs,  int minibatch_size, std::vector<std::vector<long>> gpu_map,
+            bool deterministic){
         this->name = dir + name;
         // std::cout << this->name << "\n";
         this->queue_size = queue_size;
@@ -91,7 +92,7 @@ public:
         }
 
         this->slicer = new Slicer(this->dataset, workload_map, storage_map, \
-                  gpu_capacity, minibatch_size);
+                  gpu_capacity, minibatch_size, deterministic);
         // this->pool = new WorkerPool(num_nodes, number_of_epochs,
         //    minibatch_size, no_worker_threads, dataset, workload_map,
         //     storage_map, gpu_capacity);
@@ -195,7 +196,7 @@ PYBIND11_MODULE(cslicer, m) {
 
     py::class_<CSlicer>(m,"cslicer")
         .def(py::init<const std::string &, int, int\
-              ,int, int, std::vector<std::vector<long>>>())
+              ,int, int, std::vector<std::vector<long>>, bool>())
         .def("getSample", &CSlicer::getSample,py::return_value_policy::take_ownership)
         .def("getNoSamples",&CSlicer::expected_number_of_samples);
         // .def_readwrite("v",&CSlicer::v);

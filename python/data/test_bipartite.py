@@ -18,6 +18,7 @@ def get_bipartite_graph(gpu_id):
     to_dict = {}
     self_ids_in = [0]
     self_ids_out = [gpu_id]
+    in_degrees = [2]
     for i in range(4):
         if i== gpu_id:
             from_dict[i] = []
@@ -27,7 +28,7 @@ def get_bipartite_graph(gpu_id):
             to_dict[i] = [i]
 
     data = [indptr, expand_indptr, indices, in_nodes, out_nodes, owned_out_nodes,
-            self_ids_in, self_ids_out, from_dict[0], from_dict[1], from_dict[2],
+            self_ids_in, self_ids_out, in_degrees, from_dict[0], from_dict[1], from_dict[2],
             from_dict[3], to_dict[0], to_dict[1], to_dict[2], to_dict[3]]
     metadatalist = []
     newData = []

@@ -9,8 +9,7 @@ int  Slicer::neighbour_sample(long nd1, vector<long>& neighbors){
   int offset = this->dataset->indptr[nd1];
   // if(true){
   int in_degree = 0;
-  // assert(nbs !=0);
-  if(nbs < 10){
+  if((nbs < 10) || (this->deterministic)){
     in_degree = nbs;
     for(int i=0;i<nbs;i++){
       neighbors.push_back(this->dataset->indices[offset + i]);

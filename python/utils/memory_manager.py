@@ -30,7 +30,7 @@ class MemoryManager():
 
     # Partition map created from metis.
     def __init__(self, graph, features, class_map, cache_percentage, \
-            fanout, batch_size, partition_map):
+            fanout, batch_size, partition_map, deterministic = False):
         self.graph = graph
         self.num_nodes = graph.num_nodes()
         self.features = features
@@ -49,6 +49,7 @@ class MemoryManager():
         self.partition_map = partition_map
         self.batch_size = batch_size
         self.clean_up = {}
+        self.deterministic = deterministic
         self.initialize()
 
     def initialize(self):
@@ -107,8 +108,10 @@ class MemoryManager():
             self.node_gpu_mask[node_ids_cached,i] = True
             self.global_to_local[node_ids_cached,i] = torch.arange(node_ids_cached.shape[0],dtype=torch.long)
             # print("DUMMY FEATURES FOR DEBUGGING")
-            # self.batch_in[i][:self.local_sizes[i]] = torch.ones(self.features[node_ids_cached].shape)
-            self.batch_in[i][:self.local_sizes[i]] = self.features[node_ids_cached]
+            if self.deterministic:
+                self.batch_in[i][:self.local_sizes[i]] = torch.ones(self.features[node_ids_cached].shape)
+            else:
+                self.batch_in[i][:self.local_sizes[i]] = self.features[node_ids_cached]
             if not self.batch_in[i].is_shared():
                 self.batch_in[i].detach().share_memory_()
             assert(self.batch_in[i].device == torch.device(i))

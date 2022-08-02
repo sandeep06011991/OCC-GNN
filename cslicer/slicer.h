@@ -39,12 +39,13 @@ private:
   // ConQueue<std::vector<long> *> * work_queue;
   // std::uniform_int_distribution<> random_number_engine(0, 10000);
   // std::uniform_int_distribution<> rng_coin(0, 10000);
+  bool deterministic = false;
 public:
   Sample sample;
   Slicer(Dataset * dataset, std::vector<int> *workload_map,
       std::vector<int>* storage_map[4], int gpu_capacity[4],
         // std::vector<int>** storage_map, int gpu_capacity[4],
-          int batch_size){
+          int batch_size, bool deterministic){
            // ConQueue<PySample *> * generated_samples,
            //  ConQueue<std::vector<long> *> * work_queue){
       this->dataset = dataset;
@@ -64,6 +65,7 @@ public:
       rng_coin = *(new std::uniform_int_distribution<>(0,10000));
       // this->generated_samples = generated_samples;
       // this->work_queue = work_queue;
+      this->deterministic = deterministic;
 
   }
 

@@ -36,14 +36,14 @@ def compute_acc(pred, labels):
 
 
 def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, features, args\
-                    ,num_classes,batch_in, labels, num_sampler_workers):
+                    ,num_classes,batch_in, labels, num_sampler_workers, deterministic):
     print("Num sampler workers ", num_sampler_workers)
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
         master_ip='127.0.0.1', master_port='12349')
     world_size = gpus
     torch.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
-    model = get_model_distributed(args.num_hidden, features, num_classes, proc_id)
+    model = get_model_distributed(args.num_hidden, features, num_classes, proc_id, args.deterministic)
     model = model.to(proc_id)
     model =  DistributedDataParallel(model, device_ids = [proc_id], output_device = proc_id)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -80,6 +80,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     # th = threading.Thread(target = func_prefetch, args = (sample_queue, num_sampler_workers\
     #         , simple_queue))
     # th.start()
+    ii = 0
     t1 = time.time()
     num_epochs = 0
     while(True):
@@ -123,25 +124,38 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         sample_move_time += t44 - t33
         # print("Check for sortingLabels proc_id:",gpu_local_sample.last_layer_nodes)
         # classes = labels[gpu_local_sample.last_layer_nodes.sort()[0]].to(torch.device(proc_id))
-        classes = labels[gpu_local_sample.last_layer_nodes].to(torch.device(proc_id))
 
+        classes = labels[gpu_local_sample.last_layer_nodes].to(torch.device(proc_id))
+        print("Last layer nodes",gpu_local_sample.last_layer_nodes)
         # with nvtx.annotate("forward",color="blue"):
         torch.cuda.set_device(proc_id)
         fp_start.record()
         output = model.forward(gpu_local_sample,batch_in)
         torch.cuda.set_device(proc_id)
         fp_end.record()
-        loss = loss_fn(output,classes)
-        loss.backward()
+        # loss = loss_fn(output,classes)
+        output.sum().backward()
+        # loss.backward()
+        # print("reached here !!",proc_id)
+        torch.distributed.barrier()
+        if deterministic and ii>3:
+            break
+        print("Batch id",ii)
+        ii = ii + 1
         bp_end.record()
-        if True  and output.shape[0] !=0:
-            acc = compute_acc(output,classes)
-            print("accuracy {}",acc)
+
+        # if True  and output.shape[0] !=0:
+        #     acc = compute_acc(output,classes)
+        #     print("accuracy {}",acc)
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
         # with nvtx.annotate("backward", color="red"):
         backward_time += fp_end.elapsed_time(bp_end)/1000
+        model.module.print_grad()
+        torch.distributed.barrier()
+        assert(False)
         optimizer.step()
+
 
     dev_id = proc_id
     if proc_id == 0:
@@ -157,14 +171,16 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")
 
-def work_producer(work_queue,training_nodes, batch_size, no_epochs, num_workers):
+def work_producer(work_queue,training_nodes, batch_size, no_epochs, num_workers, deterministic):
     # todo:
     training_nodes = training_nodes.tolist()
     num_nodes = len(training_nodes)
     for epoch in range(no_epochs):
         i = 0
-        random.shuffle(training_nodes)
+        if not deterministic:
+            random.shuffle(training_nodes)
         while(i < num_nodes):
+            print("First Work",training_nodes[i:i+batch_size][:10])
             work_queue.put(training_nodes[i:i+batch_size])
             i = i + batch_size
         work_queue.put("EPOCH")
@@ -177,12 +193,12 @@ def work_producer(work_queue,training_nodes, batch_size, no_epochs, num_workers)
     time.sleep(30)
     print("WORK PRODUCER TRIGGERING END")
 
-def slice_producer(graph_name, work_queue, sample_queues,  \
-        lock , minibatches_per_epoch, no_epochs, storage_vector):
+def slice_producer(graph_name, work_queue, sample_queues, \
+    lock , minibatches_per_epoch, no_epochs, storage_vector, deterministic):
     queue_size = 1
     no_worker_threads = 1
     sampler = cslicer(graph_name, queue_size, no_worker_threads,
-            no_epochs, minibatches_per_epoch, storage_vector)
+            no_epochs, minibatches_per_epoch, storage_vector,deterministic)
     # Todo clean up unnecessary iterations
     while(True):
         sample_nodes = work_queue.get()
@@ -237,14 +253,17 @@ def train(args):
     no_worker_process = 4
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
-                    fanout, batch_size,  partition_map)
+                    fanout, batch_size,  partition_map, deterministic = args.deterministic)
     storage_vector = []
     for i in range(4):
         storage_vector.append(mm.local_to_global_id[i].tolist())
 
-    work_queue = mp.Queue(10)
+    work_queue = mp.Queue(1)
     train_mask = dg_graph.ndata['train_mask']
     train_nid = train_mask.nonzero().squeeze()
+    if args.deterministic:
+        train_nid = torch.arange(dg_graph.num_nodes())
+    # train_nid = torch.tensor([0,162,108,112])
     minibatches_per_epoch = int(len(train_nid)/minibatch_size)
 
     print("Training on num nodes = ",train_nid.shape)
@@ -253,10 +272,11 @@ def train(args):
     # train_nid_list= train_nid.tolist()
 
     work_producer_process = mp.Process(target=(work_producer), \
-                  args=(work_queue, train_nid, minibatch_size, no_epochs,no_worker_process))
+                  args=(work_queue, train_nid, minibatch_size, no_epochs,\
+                    no_worker_process, args.deterministic))
     work_producer_process.start()
 
-    queue_size = 10
+    queue_size = 1
     sample_queues = [mp.Queue(queue_size) for i in range(4)]
     lock = torch.multiprocessing.Lock()
 
@@ -264,7 +284,7 @@ def train(args):
     for proc in range(no_worker_process):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, sample_queues, lock,\
-                                minibatches_per_epoch, no_epochs,storage_vector))
+                                minibatches_per_epoch, no_epochs,storage_vector, args.deterministic))
         slice_producer_process.start()
         slice_producer_processes.append(slice_producer_process)
 
@@ -276,7 +296,7 @@ def train(args):
         p = mp.Process(target=(run_trainer_process), \
                       args=(proc_id, n_gpus, sample_queues[proc_id], minibatches_per_epoch \
                        , features, args, \
-                       num_classes, mm.batch_in[proc_id], labels,no_worker_process))
+                       num_classes, mm.batch_in[proc_id], labels,no_worker_process, args.deterministic))
         p.start()
         procs.append(p)
     for sp in slice_producer_processes:
@@ -301,14 +321,15 @@ if __name__=="__main__":
     argparser.add_argument('--debug',type = bool, default = False)
     argparser.add_argument('--cache-per', type =float, default = .25)
     argparser.add_argument('--model-name',help="gcn|gat")
-    argparser.add_argument('--num-epochs', type=int, default=2)
+    argparser.add_argument('--num-epochs', type=int, default=1)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument("--num-heads", type=int, default=8,
                         help="number of hidden attention heads if gat")
     argparser.add_argument('--fan-out', type=str, default='10,10,25')
-    argparser.add_argument('--batch-size', type=int, default=(4096))
+    argparser.add_argument('--batch-size', type=int, default=(30))
     argparser.add_argument('--dropout', type=float, default=0)
+    argparser.add_argument('--deterministic', default = False, action="store_true")
     # We perform only transductive training
     # argparser.add_argument('--inductive', action='store_false',
     #                        help="Inductive learning setting")

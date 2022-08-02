@@ -13,7 +13,7 @@ class DistSageConv(nn.Module):
 
     # Not exactly matching SageConv as normalization and activation as removed.
     def __init__(self, in_feats, out_feats, gpu_id, aggregator_type = "gcn", \
-        feat_drop=0.1, bias=True, queues = None):
+        feat_drop=0.1, bias=True, queues = None, deterministic = False):
         super( DistSageConv, self).__init__()
         self.device_ids = [0,1,2,3]
         self._in_src_feats = in_feats
@@ -29,7 +29,9 @@ class DistSageConv(nn.Module):
         self.fc1 = nn.Linear(self._in_src_feats, out_feats,bias=False)
 
         self.fc2 = nn.Linear(self._in_src_feats, out_feats,bias=False)
+        self.deterministic = deterministic
         self.reset_parameters()
+
         # self.sgc = sgc.SAGEConv(self._in_src_feats, out_feats, aggregator_type = 'mean')
         # if aggregator_type == 'pool':
         #     self.fc_pool = nn.Linear(self._in_src_feats, self._in_src_feats)
@@ -45,8 +47,21 @@ class DistSageConv(nn.Module):
 
     def reset_parameters(self):
         gain = nn.init.calculate_gain('relu')
-        nn.init.xavier_uniform_(self.fc1.weight,gain = gain)
-        nn.init.xavier_uniform_(self.fc2.weight,gain = gain)
+        if self.deterministic:
+            self.fc1.weight = torch.nn.Parameter(
+                torch.ones(self.fc1.weight.shape))
+            self.fc2.weight = torch.nn.Parameter(
+                torch.ones(self.fc2.weight.shape))
+        else:
+            nn.init.xavier_uniform_(self.fc1.weight,gain = gain)
+            nn.init.xavier_uniform_(self.fc2.weight,gain = gain)
+
+    def print_grad(self):
+        # if self.fc1.weight.device == torch.device(0):
+        if self.fc1.weight.grad != None:
+            print("fc1",self.fc1.weight[:3,1],self.fc1.weight.grad[:3,1], torch.sum(self.fc1.weight), torch.sum(self.fc1.weight.grad))
+            # print("fc2",self.fc2.weight[:3,1], torch.sum(self.fc2.weight), torch.sum(self.fc2.weight.grad))
+
 
     def old_forward(self, bipartite_graph,x):
         print(torch.sum(self.fc1.weight))
@@ -61,25 +76,32 @@ class DistSageConv(nn.Module):
             out5 = self.fc(out4)
 
     def forward(self, bipartite_graph, x, l):
-        print(torch.sum(self.fc1.weight))
         t1 = time.time()
-        if self._in_src_feats  > self._out_feats:
+        # if self._in_src_feats  > self._out_feats:
+        if False:
             out = self.fc1(x)
             out1 = bipartite_graph.gather(out)
             out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
         else:
+            x = torch.ones(x.shape).to(self.gpu_id)
+            x = self.fc1(x)
             out = bipartite_graph.gather(x)
             out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
-            out2 = self.fc1(out2)
-        t2 = time.time()
+            # out2 = self.fc1(out2)
+        # t2 = time.time()
         out6_b = bipartite_graph.slice_owned_nodes(out2)
-        out6 = out6_b/bipartite_graph.in_degree
-        out3 = bipartite_graph.self_gather(x)
-        out4 = bipartite_graph.slice_owned_nodes(out3)
-        out5 = self.fc2(out4)
-        final = out5 + out6
-        t3 = time.time()
-        return final
+        # out6 = out6_b/bipartite_graph.in_degree
+        return out6_b
+
+        #
+        # out3 = bipartite_graph.self_gather(x)
+        # print("out 3 check", out3)
+        # out4 = bipartite_graph.slice_owned_nodes(out3)
+        # print("out4 check",out4)
+        # out5 = self.fc2(out4)
+        # final = out5 + out6
+        # t3 = time.time()
+        # return final
 
 def test_base():
     src_ids = []
@@ -140,8 +162,8 @@ def test_dist_bipartite_process(proc_id,n_gpus):
 
     print(out)
     out.sum().backward()
-    print(model_saved.ll.fc1.weight.grad)
-    print(model_saved.ll.fc2.weight.grad)
+    print("fc1 grad",model_saved.ll.fc1.weight.grad)
+    print("fc2 grad",model_saved.ll.fc2.weight.grad)
 
 def test_dist_bipartite():
     print("Launch multiple gpus")

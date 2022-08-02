@@ -3,7 +3,7 @@ import torch
 from torch import multiprocessing as mp
 import torch as th
 from torch.nn.parallel import DistributedDataParallel
-import time
+import time,datetime
 class Shuffle(torch.autograd.Function):
 
     @staticmethod
@@ -26,9 +26,10 @@ class Shuffle(torch.autograd.Function):
         for qid in range(4):
             if qid != device_id:
                 to_id = qid
-                a = input_t[to_dict[qid]]
+                a = input_t[to_dict[qid]].detach()
                 if not a.is_shared():
                     a.detach().share_memory_()
+                print("Forward pass send", torch.sum(a) )
                 torch.distributed.isend(a,to_id,tag = device_id)
         irecv_queue = []
         for from_id in range(4):
@@ -40,6 +41,7 @@ class Shuffle(torch.autograd.Function):
         for from_id in range(4):
             if from_id == device_id:
                 continue
+            print("Forward pass recieve", torch.sum(temp[from_id]) )
             # print("device",device_id,"recieved",temp[from_id],"put into ",from_dict[from_id],"from",from_id)
             input_t[from_dict[from_id]] += temp[from_id]
         ctx.queues = queues
@@ -56,46 +58,91 @@ class Shuffle(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        # if not ctx.grad_required:
-        #     return grad_output
-        queues = ctx.queues
         device_id = ctx.device_id
+        proc_id = device_id
+        send_queue = []
+        dummy = torch.tensor([10],device = device_id)
+        dummy_g = [torch.tensor([10],device = device_id) for i in range(4)]
+        for from_id in range(4):
+            if device_id == from_id:
+                continue
+            send_queue.append(torch.distributed.isend(dummy,from_id,tag = device_id))
+        recv_queue = []
+        for to_id in range(4):
+            if device_id == to_id:
+                continue
+            recv_queue.append(torch.distributed.irecv(dummy_g[to_id], src = to_id, tag = to_id))
+        for o in recv_queue:
+            o.wait()
+        for i in range(10):
+            if proc_id == 0:
+                a = torch.rand(100,100,dtype = torch.float32).to(0) * 10
+                print("forward pass blocking sending sum", torch.sum(a[:,10]))
+                fp = torch.distributed.send(a[:,10].clone() , 1, tag = 1)
+                # fp.wait()
+            if proc_id == 1:
+                b = torch.rand(100,10,dtype = torch.float32).to(1) * 2
+                print("forward pass before", torch.sum(b))
+                o = torch.distributed.recv(b, src = 0, tag = 1)
+                # o.wait()
+                print("recieved BLOCKING",torch.sum(b))
+                # print("recieved XXXXXXXXXXXXXX ",torch.sum(b), o.is_completed())
+        print("start back pass")
+        queues = ctx.queues
         from_dict = ctx.from_dict
         to_dict = ctx.to_dict
         temp = ctx.temp_g
         layer_id = ctx.layer_id
-        # # temp = []
-        # t1 = time.time()
-        # for i in range(4):
-        #     if i==device_id:
-        #         temp.append(None)
-        #     else:
-        #         temp.append(torch.empty((to_dict[i].shape[0], grad_output.shape[1]) \
-        #             , device = device_id))
-        # print(grad_output.shape)
         torch.distributed.barrier()
-        # return grad_output,None,None, None, None, None
         t1 = time.time()
-        for from_id in range(4):
-            if from_id != device_id:
-                a = grad_output[from_dict[from_id]]
-                if not a.is_shared():
-                    a.detach().share_memory_()
-                torch.distributed.isend(a,from_id,tag = device_id)
         irecv_queue = []
         t3 = time.time()
-        for i in range(4):
-            if i != device_id:
-                irecv_queue.append(torch.distributed.irecv(temp[i], src=i, tag=i))
-        # out = grad_output.clone()
-        out = grad_output
+
+        out = grad_output.clone()
+        # for obj in irecv_queue:
+        print("waiting for others", device_id)
+        #     print("Check completion pre ", obj.is_completed())
+        # print("starting sending", grad_output)
+        send_queue = []
+        for from_id in range(4):
+            if from_id != device_id:
+                a = grad_output[from_dict[from_id]].detach()
+                if layer_id == 2:
+                    print("sending XXXXXXXX", from_id, a.shape, torch.sum(a))
+                if not a.is_shared():
+                    a.detach().share_memory_()
+                send_queue.append(torch.distributed.isend(a, from_id, tag =  device_id))
+
+        for to_id in range(4):
+            # print("recv async", device_id, to_id)
+            if to_id != device_id:
+                temp[to_id] = torch.rand(temp[to_id].shape).to(device_id)
+                if device_id == 2:
+                    print("intermediate !!!!!", torch.sum(temp[to_id]))
+                irecv_queue.append(torch.distributed.irecv(temp[to_id], src=to_id, tag= device_id))
+        # print("recv async", device_id, to_id, irecv_queue)
+
+        # out = grad_output
         for obj in irecv_queue:
             obj.wait()
+            while(not obj.is_completed()):
+                print("Async wait")
+                obj.wait()
+                time.sleep(1)
+            print("Check completion", obj.is_completed(), device_id)
+            assert(obj.is_completed())
+        for obj in send_queue:
+            obj.wait()
+        torch.distributed.barrier()
         for to_id in range(4):
             if to_id == device_id:
                 continue
+            print("recieved slice !!!!!!!!!!!!",to_id, temp[to_id].shape, torch.sum(temp[to_id]))
             out[to_dict[to_id]] +=  temp[to_id]
         t2 = time.time()
+        print(device_id,"returns")
+        # if device_id == 2:
+        #     print("Flowing gradient back", out)
         # if out.device == torch.device(0):
         #     # print("part 1", t2-t1)
         #     print("shuffle backward", t2-t1)
@@ -120,7 +167,7 @@ def test_single(proc_id, n_gpus, queues):
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
             master_ip='127.0.0.1', master_port='12345')
     world_size = n_gpus
-    th.distributed.init_process_group(backend="nccl",\
+    pg = th.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     from_id = {}
     to_id = {}

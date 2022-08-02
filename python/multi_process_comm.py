@@ -46,8 +46,51 @@ def run_single(proc_id,n_gpus):
             print("time fixed kernel ",start.elapsed_time(end)/1000)
     print("Mark Done")
 
+class Shuffle(torch.autograd.Function):
 
-def multiprocess_with_comm(proc_id, n_gpus):
+    @staticmethod
+    def forward(ctx, input_t, proc_id):
+        if proc_id == 0:
+            a = torch.rand(100,100).to(0) * 10
+            print("forward pass sending sum", torch.sum(a[:,10]))
+            fp = dist.isend(a[:,10].clone() , 1, tag = 1)
+            fp.wait()
+        if proc_id == 1:
+            time.sleep(10)
+            b = torch.zeros(100,10).to(1) * 2
+            print("forward pass before", torch.sum(b))
+            o = dist.irecv(b, src = 0, tag = 0)
+            o.wait()
+            print("recieved ",torch.sum(b))
+        ctx.proc_id = proc_id
+        return input_t
+    @staticmethod
+    def backward(ctx, grad_output):
+        proc_id = ctx.proc_id
+        if proc_id == 0:
+            a = torch.rand(100,100).to(0) * 10
+            print("backpass sending", torch.sum(a[:,10]))
+            dist.isend(a[:,10].clone() , 1, tag = 1)
+        if proc_id == 1:
+            b = torch.zeros(100,10).to(1) * 2
+            o = dist.irecv(b, src = 0, tag = 0)
+            o.wait()
+            print("back pass recieved ",torch.sum(b))
+        return grad_output, None
+def multiprocess_with_comm_using_dist(proc_id, n_gpus):
+    dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+            master_ip='127.0.0.1', master_port='12345')
+    world_size = n_gpus
+
+    th.distributed.init_process_group(backend="nccl",\
+             init_method=dist_init_method,  world_size=world_size,rank=proc_id)
+    print(th.distributed.get_backend())
+    a = torch.nn.parameter.Parameter(torch.tensor([1,2.9])).to(proc_id)
+    f =Shuffle.apply(a,proc_id)
+    for i in range(10):
+        f.sum().backward()
+
+def multiprocess_with_comm_using_store(proc_id, n_gpus):
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
             master_ip='127.0.0.1', master_port='12345')
     world_size = n_gpus
@@ -117,7 +160,7 @@ def test_multiprocess():
     n_gpus = 4
     print("Launch multiple gpus")
     for proc_id in range(n_gpus):
-        p = mp.Process(target=(multiprocess_with_comm),
+        p = mp.Process(target=(multiprocess_with_comm_using_dist),
                        args=(proc_id, n_gpus ))
         p.start()
         procs.append(p)
@@ -158,6 +201,8 @@ def test_tensor_movement():
     p2.start()
     p1.join()
     p2.join()
-test_tensor_movement()
+
+# test_tensor_movement()
 # test_multiprocess()
 # test_singleprocess()
+test_multiprocess()

@@ -128,6 +128,9 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
     else:
         train_nfeat = val_nfeat = test_nfeat = train_g.ndata.pop('features')
         train_labels = val_labels = test_labels = train_g.ndata.pop('labels')
+    if args.deterministic:
+        train_nfeat = torch.ones(train_nfeat.shape)
+        train_labels = torch.ones(train_labels.shape,dtype = torch.long)
     train_nfeat = train_nfeat.pin_memory()
 
     assert(train_nfeat.device == torch.device('cpu'))
@@ -144,14 +147,17 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
     print("Training nodes {}, total nodes {}".format(
         train_nid.shape[0], train_mask.shape[0]))
     # train_nid = train_nid[torch.where(p_map[train_nid] == proc_id)[0]]
-
-    train_nid = th.split(train_nid, math.ceil(
-        len(train_nid) / n_gpus))[proc_id]
+    if args.deterministic:
+        train_nid = torch.arange(train_g.num_nodes())
+        print("training on ", train_nid)
+    else:
+        train_nid = th.split(train_nid, math.ceil(
+            len(train_nid) / n_gpus))[proc_id]
     # Create PyTorch DataLoader for constructing blocks
     # train_g = train_g.to(dev_id)
     # train_nid = train_nid.to(dev_id)
     # if args.deterministic:
-    if False:
+    if args.deterministic:
         sampler = dgl.dataloading.MultiLayerNeighborSampler(\
             [-1 for i in args.fan_out.split(',')])
     else:
@@ -175,7 +181,7 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
     model = None
     if args.model == 'gcn':
         model = SAGE(in_feats, args.num_hidden, n_classes,
-                     args.num_layers, F.relu, args.dropout)
+                     args.num_layers, F.relu, args.dropout, args.deterministic)
     elif args.model == 'gat':
         if args.num_heads < 1:
             raise ValueError('num_heads must be greater than 0')
@@ -204,7 +210,8 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
     fp_start = torch.cuda.Event(enable_timing=True)
     fp_end = torch.cuda.Event(enable_timing=True)
     bp_end = torch.cuda.Event(enable_timing=True)
-    with profiler.profile(with_stack=True, profile_memory=True) as prof:
+    # with profiler.profile(with_stack=True, profile_memory=True) as prof:
+    if True:
         for epoch in range(args.num_epochs):
             tic = time.time()
             # Loop over the dataloader to sample the computation dependency graph as a list of
@@ -217,7 +224,6 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
             nodes_done = 0
             while(True):
                 try:
-
                     optimizer.zero_grad()
                     t0 = time.time()
                     step, (input_nodes, seeds, blocks) = next(it)
@@ -231,11 +237,18 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
                     move_time += (t2 - t1)
                     fp_start.record()
                     batch_pred = model(blocks, batch_inputs)
+
                     loss = loss_fcn(batch_pred, batch_labels)
                     fp_end.record()
-                    with profiler.record_function("LINEAR PASS"):
-                        loss.backward()
+
+                    ii = ii + 1
+                    if ii > 3 and args.deterministic:
+                        break
+                    # with profiler.record_function("LINEAR PASS"):
+                    loss.backward()
                     bp_end.record()
+                    if args.deterministic:
+                        model.print_gradient()
                     print("accuracy",\
                             torch.sum(torch.max(batch_pred,1)[1]==batch_labels)/batch_pred.shape[0])
                     torch.cuda.synchronize(bp_end)
@@ -245,6 +258,7 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
                     print("forward",proc_id, fp_start.elapsed_time(fp_end)/1000)
                     print("backward",proc_id, fp_end.elapsed_time(bp_end)/1000)
                     optimizer.step()
+                    # model.module.print_gradient()
                     # torch.distributed.barrier()
                     # if(dev_id == 0):
                     #     print("minibatch")
@@ -289,7 +303,7 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
     # if proc_id == 0:
         # assert(len(forward_time) == num_epochs)
     if True:
-        print(prof.key_averages(group_by_stack_n=5).table(sort_by='self_cpu_time_total', row_limit=5))
+        # print(prof.key_averages(group_by_stack_n=5).table(sort_by='self_cpu_time_total', row_limit=5))
 
         assert(num_epochs > 1)
         print("avg cache hit rate: {}".format(sum(cache.avg_cache_hit_rate)
@@ -319,7 +333,7 @@ if __name__ == '__main__':
     argparser.add_argument('--fsize', type=int, default=-1,
                            help="fsize only for synthetic graphs")
     argparser.add_argument('--cache-per', type=float, default=.25)
-    argparser.add_argument('--num-epochs', type=int, default=2)
+    argparser.add_argument('--num-epochs', type=int, default=1)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='10,10,10')
@@ -352,10 +366,12 @@ if __name__ == '__main__':
     # Pack data
     data = num_classes, train_g, val_g, test_g
     start_time = time.time()
+    if args.deterministic:
+        n_gpus = 1
 
     if n_gpus == 1:
         print("Running on single GPUs")
-        run(0, n_gpus, args, devices, data)
+        run(0, n_gpus, args, devices, data, p_map)
     else:
         procs = []
         print("Launch multiple gpus")
