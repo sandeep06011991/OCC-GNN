@@ -4,46 +4,57 @@ from torch import multiprocessing as mp
 import torch as th
 from torch.nn.parallel import DistributedDataParallel
 import time,datetime
+
 class Shuffle(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, input_t, queues, device_id, to_dict, from_dict,layer_id):
         temp = []
-        # assert(input_t.requires_grad)
         temp_g = []
         t1 = time.time()
         data = 0
+        debug = False
+        # Wrong place coz there will be some remote nodes
+        # if(not torch.all(torch.sum(input_t,1) != 0)):
+        #     print(input_t[torch.where(torch.sum(input_t,1))[0]])
+        # assert(torch.all(torch.sum(input_t,1) != 0))
         for i in range(4):
             if i==device_id:
                 temp.append(None)
                 temp_g.append(None)
             else:
+                # data could be used for debugging
                 data += from_dict[i].shape[0] + to_dict[i].shape[0]
                 temp.append(torch.empty((from_dict[i].shape[0], input_t.shape[1]) \
                     , device = device_id))
                 temp_g.append(torch.empty((to_dict[i].shape[0], input_t.shape[1]) \
                     , device = device_id))
-        for qid in range(4):
-            if qid != device_id:
-                to_id = qid
-                a = input_t[to_dict[qid]].detach()
-                if not a.is_shared():
-                    a.detach().share_memory_()
-                print("Forward pass send", torch.sum(a) )
-                torch.distributed.isend(a,to_id,tag = device_id)
-        irecv_queue = []
+        remote_obj = []
+        for to_id in range(4):
+            for from_id in range(4):
+                if to_id == from_id:
+                    continue
+                if from_id == device_id and to_dict[to_id].shape[0] != 0:
+                    a = input_t[to_dict[to_id]].clone().detach()
+                    assert(not torch.all(a==0))
+                    remote_obj.append(torch.distributed.send(a,to_id,tag = device_id))
+                    if debug:
+                        print("sending", from_id, to_id, torch.sum(a))
+                if to_id == device_id and from_dict[from_id].shape[0] != 0:
+                    remote_obj.append(torch.distributed.recv(temp[from_id], src=from_id, tag=from_id))
+                    if debug:
+                        print("recieving", from_id, to_id, torch.sum(temp[from_id]))
+        torch.distributed.barrier()
+        # for obj in remote_obj:
+        #     obj.wait()
+        # torch.distributed.barrier()
+
         for from_id in range(4):
-            if from_id == device_id:
+            if from_id == device_id or from_dict[from_id].shape[0] == 0:
                 continue
-            irecv_queue.append(torch.distributed.irecv(temp[from_id], src=from_id, tag=from_id))
-        for obj in irecv_queue:
-            obj.wait()
-        for from_id in range(4):
-            if from_id == device_id:
-                continue
-            print("Forward pass recieve", torch.sum(temp[from_id]) )
-            # print("device",device_id,"recieved",temp[from_id],"put into ",from_dict[from_id],"from",from_id)
             input_t[from_dict[from_id]] += temp[from_id]
+
+        torch.distributed.barrier()
         ctx.queues = queues
         ctx.device_id = device_id
         ctx.from_dict = from_dict
@@ -51,102 +62,51 @@ class Shuffle(torch.autograd.Function):
         ctx.temp_g = temp_g
         ctx.grad_required = input_t.requires_grad
         ctx.layer_id = layer_id
-        t2 = time.time()
-        # print("data movement",data/input_t.shape[0], "device", input_t.device)
-        # print("shuffle forward",t2-t1,"layer",layer_id,"device",input_t.device)
+        ctx.debug = debug
         return input_t
 
     @staticmethod
     def backward(ctx, grad_output):
+        debug = ctx.debug
         device_id = ctx.device_id
-        proc_id = device_id
         send_queue = []
-        dummy = torch.tensor([10],device = device_id)
-        dummy_g = [torch.tensor([10],device = device_id) for i in range(4)]
-        for from_id in range(4):
-            if device_id == from_id:
-                continue
-            send_queue.append(torch.distributed.isend(dummy,from_id,tag = device_id))
-        recv_queue = []
-        for to_id in range(4):
-            if device_id == to_id:
-                continue
-            recv_queue.append(torch.distributed.irecv(dummy_g[to_id], src = to_id, tag = to_id))
-        for o in recv_queue:
-            o.wait()
-        for i in range(10):
-            if proc_id == 0:
-                a = torch.rand(100,100,dtype = torch.float32).to(0) * 10
-                print("forward pass blocking sending sum", torch.sum(a[:,10]))
-                fp = torch.distributed.send(a[:,10].clone() , 1, tag = 1)
-                # fp.wait()
-            if proc_id == 1:
-                b = torch.rand(100,10,dtype = torch.float32).to(1) * 2
-                print("forward pass before", torch.sum(b))
-                o = torch.distributed.recv(b, src = 0, tag = 1)
-                # o.wait()
-                print("recieved BLOCKING",torch.sum(b))
-                # print("recieved XXXXXXXXXXXXXX ",torch.sum(b), o.is_completed())
-        print("start back pass")
         queues = ctx.queues
         from_dict = ctx.from_dict
         to_dict = ctx.to_dict
         temp = ctx.temp_g
         layer_id = ctx.layer_id
-        torch.distributed.barrier()
         t1 = time.time()
         irecv_queue = []
         t3 = time.time()
-
         out = grad_output.clone()
-        # for obj in irecv_queue:
-        print("waiting for others", device_id)
-        #     print("Check completion pre ", obj.is_completed())
-        # print("starting sending", grad_output)
         send_queue = []
-        for from_id in range(4):
-            if from_id != device_id:
-                a = grad_output[from_dict[from_id]].detach()
-                if layer_id == 2:
-                    print("sending XXXXXXXX", from_id, a.shape, torch.sum(a))
-                if not a.is_shared():
-                    a.detach().share_memory_()
-                send_queue.append(torch.distributed.isend(a, from_id, tag =  device_id))
+        remote_obj = []
 
+        assert(torch.any(out != 0))
         for to_id in range(4):
-            # print("recv async", device_id, to_id)
-            if to_id != device_id:
-                temp[to_id] = torch.rand(temp[to_id].shape).to(device_id)
-                if device_id == 2:
-                    print("intermediate !!!!!", torch.sum(temp[to_id]))
-                irecv_queue.append(torch.distributed.irecv(temp[to_id], src=to_id, tag= device_id))
-        # print("recv async", device_id, to_id, irecv_queue)
-
-        # out = grad_output
-        for obj in irecv_queue:
-            obj.wait()
-            while(not obj.is_completed()):
-                print("Async wait")
-                obj.wait()
-                time.sleep(1)
-            print("Check completion", obj.is_completed(), device_id)
-            assert(obj.is_completed())
-        for obj in send_queue:
-            obj.wait()
+            for from_id in range(4):
+                if to_id == from_id:
+                    continue
+                if from_id == device_id and to_dict[to_id].shape[0] != 0:
+                    remote_obj.append(torch.distributed.recv(temp[to_id], src=to_id, tag= device_id))
+                    if debug:
+                        print("recieving", to_id, from_id, torch.sum(temp[to_id]))
+                if to_id == device_id and from_dict[from_id].shape[0] != 0:
+                    a = out[from_dict[from_id]].detach()
+                    remote_obj.append(torch.distributed.send(a, from_id, tag=from_id))
+                    if debug:
+                        print("sending", to_id, from_id, torch.sum(a))
         torch.distributed.barrier()
+
+        # for obj in remote_obj:
+        #     obj.wait()
+
+        torch.distributed.barrier()
+
         for to_id in range(4):
-            if to_id == device_id:
+            if to_id == device_id or to_dict[to_id].shape[0] == 0:
                 continue
-            print("recieved slice !!!!!!!!!!!!",to_id, temp[to_id].shape, torch.sum(temp[to_id]))
             out[to_dict[to_id]] +=  temp[to_id]
-        t2 = time.time()
-        print(device_id,"returns")
-        # if device_id == 2:
-        #     print("Flowing gradient back", out)
-        # if out.device == torch.device(0):
-        #     # print("part 1", t2-t1)
-        #     print("shuffle backward", t2-t1)
-        # print("shuffle backward",t2-t1,"layer",layer_id,"device",grad_output.device)
         return out,None,None, None, None, None
 
 
@@ -178,7 +138,7 @@ def test_single(proc_id, n_gpus, queues):
     model = ToySingle(queues, proc_id).to(proc_id)
     model = DistributedDataParallel(model, device_ids = [proc_id])
     X_t = torch.rand((1000,100), device = proc_id)
-    for i in range(10):
+    for i in range(1000):
         t1 = time.time()
         out = model.forward(X_t,from_id, to_id)
         t2 = time.time()

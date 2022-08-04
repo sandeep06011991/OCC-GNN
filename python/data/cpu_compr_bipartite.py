@@ -229,11 +229,11 @@ class Bipartite:
         self.in_degree = data[self.indegree_start:self.indegree_end]
         self.in_degree = self.in_degree.reshape(self.in_degree.shape[0],1)
 
-        if torch.all(self.out_nodes < 30):
-            print("Mark ",self.from_ids[2])
-            print(self.graph.num_edges(), self.gpu_id, self.from_ids, self.to_ids[2], self.self_ids_in,  self.self_ids_out, self.owned_out_nodes)
-            if self.gpu_id ==  torch.device(2):
-                print("Print edges",self.graph.formats('coo').edges())
+        # if torch.all(self.out_nodes < 30):
+        #     print("Mark ",self.from_ids[2])
+        #     print(self.graph.num_edges(), self.gpu_id, self.from_ids, self.to_ids[2], self.self_ids_in,  self.self_ids_out, self.owned_out_nodes)
+        #     if self.gpu_id ==  torch.device(2):
+        #         print("Print edges",self.graph.formats('coo').edges())
         t3 = time.time()
     #
     def debug(self):
@@ -282,7 +282,6 @@ class Bipartite:
         with self.graph.local_scope():
             out = torch.zeros(self.num_nodes_v,
                               local_in.shape[1], device=self.gpu_id)
-            print("self ids out",self.self_ids_out,self.gpu_id)
             out[self.self_ids_out] = local_in[self.self_ids_in]
             return out
 

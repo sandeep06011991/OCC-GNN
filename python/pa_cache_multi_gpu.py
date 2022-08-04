@@ -16,6 +16,17 @@ from utils.utils import get_process_graph
 from utils.utils import thread_wrapped_func
 import torch.autograd.profiler as profiler
 # from load_graph import load_reddit, inductive_split
+import random
+
+def set_all_seeds(seed):
+  random.seed(seed)
+  np.random.seed(seed)
+  torch.manual_seed(seed)
+  torch.cuda.manual_seed(seed)
+  torch.backends.cudnn.deterministic = True
+
+seed = 0
+set_all_seeds(seed)
 
 from models.sage import SAGE
 from models.gat import GAT
@@ -153,16 +164,20 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
     else:
         train_nid = th.split(train_nid, math.ceil(
             len(train_nid) / n_gpus))[proc_id]
+    train_nid = torch.arange(0,32)
     # Create PyTorch DataLoader for constructing blocks
     # train_g = train_g.to(dev_id)
     # train_nid = train_nid.to(dev_id)
     # if args.deterministic:
-    if args.deterministic:
-        sampler = dgl.dataloading.MultiLayerNeighborSampler(\
-            [-1 for i in args.fan_out.split(',')])
-    else:
-        sampler = dgl.dataloading.MultiLayerNeighborSampler(
-            [int(fanout) for fanout in args.fan_out.split(',')])
+    # if args.deterministic:
+    #     sampler = dgl.dataloading.MultiLayerNeighborSampler(\
+    #         [-1 for i in args.fan_out.split(',')])
+    # else:
+    #     sampler = dgl.dataloading.MultiLayerNeighborSampler(
+    #         [int(fanout) for fanout in args.fan_out.split(',')])
+    sampler = dgl.dataloading.MultiLayerNeighborSampler(\
+        [-1 for i in args.fan_out.split(',')])
+
     dataloader = dgl.dataloading.NodeDataLoader(
         train_g,
         train_nid,
@@ -180,6 +195,7 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
     # Define model and optimizer
     model = None
     if args.model == 'gcn':
+        set_all_seeds(seed)
         model = SAGE(in_feats, args.num_hidden, n_classes,
                      args.num_layers, F.relu, args.dropout, args.deterministic)
     elif args.model == 'gat':
@@ -233,19 +249,26 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
                     batch_inputs, batch_labels, cache_mgmt_time = cache.load_subtensor(
                         train_nfeat, train_labels, seeds, input_nodes, dev_id)
                     blocks = [block.int().to(dev_id) for block in blocks]
+                    print("Edges",[b.num_edges() for b in blocks])
                     t2 = time.time()
                     move_time += (t2 - t1)
                     fp_start.record()
+                    print("batch inputs",torch.sum(batch_inputs))
                     batch_pred = model(blocks, batch_inputs)
-
-                    loss = loss_fcn(batch_pred, batch_labels)
+                    print("Seeds",seeds)
+                    print("Predictions !!!!",batch_pred[:,0])
+                    print("Labels for correctness",batch_labels)
+                    # loss = loss_fcn(batch_pred, batch_labels)
+                    torch.sum(batch_pred).backward()
+                    print("total loss",torch.sum(batch_pred))
                     fp_end.record()
 
                     ii = ii + 1
                     if ii > 3 and args.deterministic:
                         break
                     # with profiler.record_function("LINEAR PASS"):
-                    loss.backward()
+                    # loss.backward()
+                    model.print_gradient()
                     bp_end.record()
                     if args.deterministic:
                         model.print_gradient()
@@ -333,7 +356,7 @@ if __name__ == '__main__':
     argparser.add_argument('--fsize', type=int, default=-1,
                            help="fsize only for synthetic graphs")
     argparser.add_argument('--cache-per', type=float, default=.25)
-    argparser.add_argument('--num-epochs', type=int, default=1)
+    argparser.add_argument('--num-epochs', type=int, default=4)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='10,10,10')
@@ -346,7 +369,7 @@ if __name__ == '__main__':
                            help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--inductive', action='store_false',
                            help="Inductive learning setting")
-    argparser.add_argument('--model', type=str, required=True,
+    argparser.add_argument('--model', type=str,
                            default='gcn', choices=['gcn', 'gat'])
     argparser.add_argument('--num_heads', type=int, default=1)
     args = argparser.parse_args()
@@ -369,6 +392,7 @@ if __name__ == '__main__':
     if args.deterministic:
         n_gpus = 1
 
+    n_gpus = 1
     if n_gpus == 1:
         print("Running on single GPUs")
         run(0, n_gpus, args, devices, data, p_map)

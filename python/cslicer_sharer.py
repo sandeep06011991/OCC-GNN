@@ -11,7 +11,8 @@ from utils.sampler import Sampler
 import torch.optim as optim
 from cslicer import cslicer
 from data.cpu_compr_bipartite import Bipartite, Sample, Gpu_Local_Sample
-# from queue import Queue
+import numpy as np
+
 import threading
 import torch.multiprocessing as mp
 import random
@@ -22,6 +23,16 @@ import threading
 import os
 os.environ["PYTHONPATH"] = "/home/spolisetty/OCC-GNN/cslicer/"
 import time
+
+def set_all_seeds(seed):
+  random.seed(seed)
+  np.random.seed(seed)
+  torch.manual_seed(seed)
+  torch.cuda.manual_seed(seed)
+  torch.backends.cudnn.deterministic = True
+
+seed = 0
+# set_all_seeds(seed)
 
 def compute_acc(pred, labels):
     """
@@ -39,14 +50,17 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
                     ,num_classes,batch_in, labels, num_sampler_workers, deterministic):
     print("Num sampler workers ", num_sampler_workers)
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
-        master_ip='127.0.0.1', master_port='12349')
+        master_ip='127.0.0.1', master_port='12345')
     world_size = gpus
     torch.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
+    # if deterministic:
+    # set_all_seeds(seed)
     model = get_model_distributed(args.num_hidden, features, num_classes, proc_id, args.deterministic)
     model = model.to(proc_id)
-    model =  DistributedDataParallel(model, device_ids = [proc_id], output_device = proc_id)
-    loss_fn = torch.nn.CrossEntropyLoss()
+    model =  DistributedDataParallel(model, device_ids = [proc_id],\
+                output_device = proc_id, find_unused_parameters=True)
+    loss_fn = torch.nn.CrossEntropyLoss(reduction = 'sum')
     labels= labels.to(proc_id)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     i = 0
@@ -82,6 +96,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     # th.start()
     ii = 0
     t1 = time.time()
+    print("Features ", features.device)
     num_epochs = 0
     while(True):
         t11 = time.time()
@@ -126,34 +141,41 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         # classes = labels[gpu_local_sample.last_layer_nodes.sort()[0]].to(torch.device(proc_id))
 
         classes = labels[gpu_local_sample.last_layer_nodes].to(torch.device(proc_id))
-        print("Last layer nodes",gpu_local_sample.last_layer_nodes)
+        # print("Last layer nodes",gpu_local_sample.last_layer_nodes)
         # with nvtx.annotate("forward",color="blue"):
         torch.cuda.set_device(proc_id)
         fp_start.record()
-        output = model.forward(gpu_local_sample,batch_in)
+
+        optimizer.zero_grad()
+        output = model.forward(gpu_local_sample,batch_in, features)
+
         torch.cuda.set_device(proc_id)
         fp_end.record()
-        # loss = loss_fn(output,classes)
-        output.sum().backward()
-        # loss.backward()
-        # print("reached here !!",proc_id)
-        torch.distributed.barrier()
-        if deterministic and ii>3:
-            break
-        print("Batch id",ii)
+        loss = loss_fn(output,classes)/args.batch_size
+        print("loss",loss)
+        loss.backward()
+        # torch.sum(output).backward()
+        for p in model.parameters():
+            p.grad *= 4
+        # model.module.print_grad()
+        # print("true nodes",gpu_local_sample.last_layer_nodes)
+        # print("Predictions !!!!", output[:,0])
+        # print("Labels",classes)
+        # print("Batch {} size {}".format(ii,classes.shape))
         ii = ii + 1
         bp_end.record()
 
-        # if True  and output.shape[0] !=0:
-        #     acc = compute_acc(output,classes)
-        #     print("accuracy {}",acc)
+        if True  and output.shape[0] !=0:
+            acc = compute_acc(output,classes)
+            print("accuracy {}",acc)
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
         # with nvtx.annotate("backward", color="red"):
         backward_time += fp_end.elapsed_time(bp_end)/1000
-        model.module.print_grad()
+        if deterministic:
+            model.module.print_grad()
         torch.distributed.barrier()
-        assert(False)
+
         optimizer.step()
 
 
@@ -180,7 +202,6 @@ def work_producer(work_queue,training_nodes, batch_size, no_epochs, num_workers,
         if not deterministic:
             random.shuffle(training_nodes)
         while(i < num_nodes):
-            print("First Work",training_nodes[i:i+batch_size][:10])
             work_queue.put(training_nodes[i:i+batch_size])
             i = i + batch_size
         work_queue.put("EPOCH")
@@ -199,6 +220,9 @@ def slice_producer(graph_name, work_queue, sample_queues, \
     no_worker_threads = 1
     sampler = cslicer(graph_name, queue_size, no_worker_threads,
             no_epochs, minibatches_per_epoch, storage_vector,deterministic)
+    # sampler = cslicer(graph_name, queue_size, no_worker_threads,
+    #         no_epochs, minibatches_per_epoch, storage_vector, True)
+
     # Todo clean up unnecessary iterations
     while(True):
         sample_nodes = work_queue.get()
@@ -250,7 +274,7 @@ def train(args):
     fanout = args.fan_out.split(',')
     fanout = [(int(f)) for f in fanout]
     fanout = [10,10,10]
-    no_worker_process = 4
+    no_worker_process = 1
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map, deterministic = args.deterministic)
@@ -258,11 +282,12 @@ def train(args):
     for i in range(4):
         storage_vector.append(mm.local_to_global_id[i].tolist())
 
-    work_queue = mp.Queue(1)
+    work_queue = mp.Queue(8)
     train_mask = dg_graph.ndata['train_mask']
     train_nid = train_mask.nonzero().squeeze()
     if args.deterministic:
         train_nid = torch.arange(dg_graph.num_nodes())
+    # train_nid = torch.arange(0,32)
     # train_nid = torch.tensor([0,162,108,112])
     minibatches_per_epoch = int(len(train_nid)/minibatch_size)
 
@@ -276,7 +301,7 @@ def train(args):
                     no_worker_process, args.deterministic))
     work_producer_process.start()
 
-    queue_size = 1
+    queue_size = 8
     sample_queues = [mp.Queue(queue_size) for i in range(4)]
     lock = torch.multiprocessing.Lock()
 
@@ -321,13 +346,13 @@ if __name__=="__main__":
     argparser.add_argument('--debug',type = bool, default = False)
     argparser.add_argument('--cache-per', type =float, default = .25)
     argparser.add_argument('--model-name',help="gcn|gat")
-    argparser.add_argument('--num-epochs', type=int, default=1)
+    argparser.add_argument('--num-epochs', type=int, default=2)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument("--num-heads", type=int, default=8,
                         help="number of hidden attention heads if gat")
     argparser.add_argument('--fan-out', type=str, default='10,10,25')
-    argparser.add_argument('--batch-size', type=int, default=(30))
+    argparser.add_argument('--batch-size', type=int, default=(1032))
     argparser.add_argument('--dropout', type=float, default=0)
     argparser.add_argument('--deterministic', default = False, action="store_true")
     # We perform only transductive training

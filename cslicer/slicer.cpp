@@ -7,9 +7,9 @@ int  Slicer::neighbour_sample(long nd1, vector<long>& neighbors){
   neighbors.push_back(nd1);
   long nbs = this->dataset->indptr[nd1+1] - this->dataset->indptr[nd1];
   int offset = this->dataset->indptr[nd1];
-  // if(true){
   int in_degree = 0;
   if((nbs < 10) || (this->deterministic)){
+  // if(true){
     in_degree = nbs;
     for(int i=0;i<nbs;i++){
       neighbors.push_back(this->dataset->indices[offset + i]);
@@ -70,7 +70,7 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l, int laye
       }
     }else{
       for(int i=0;i<4;i++){
-        l.bipartite[i]->reorder_lastlayer(dr,*storage_map[i], gpu_capacity[i]);
+          l.bipartite[i]->reorder_lastlayer(dr,*storage_map[i], gpu_capacity[i]);
       }
     }
     this->out_dr->clear();

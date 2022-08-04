@@ -53,16 +53,19 @@ class DistSageConv(nn.Module):
             self.fc2.weight = torch.nn.Parameter(
                 torch.ones(self.fc2.weight.shape))
         else:
-            nn.init.xavier_uniform_(self.fc1.weight,gain = gain)
             nn.init.xavier_uniform_(self.fc2.weight,gain = gain)
+            nn.init.xavier_uniform_(self.fc1.weight,gain = gain)
 
-    def print_grad(self):
-        # if self.fc1.weight.device == torch.device(0):
+
+    def print_grad(self,l):
+        if self.gpu_id != 0:
+            return
+        print("layer neigh ",l,self.fc1.weight[:3,0], torch.sum(self.fc1.weight))
+        print("layer self",l,self.fc2.weight[:3,0], torch.sum(self.fc2.weight))
         if self.fc1.weight.grad != None:
-            print("fc1",self.fc1.weight[:3,1],self.fc1.weight.grad[:3,1], torch.sum(self.fc1.weight), torch.sum(self.fc1.weight.grad))
-            # print("fc2",self.fc2.weight[:3,1], torch.sum(self.fc2.weight), torch.sum(self.fc2.weight.grad))
-
-
+            print("layer neigh grad",l,self.fc1.weight.grad[:3,0], torch.sum(self.fc1.weight.grad))
+            print("layer self grad",l,self.fc2.weight.grad[:3,0], torch.sum(self.fc2.weight.grad))
+        
     def old_forward(self, bipartite_graph,x):
         print(torch.sum(self.fc1.weight))
         out1 = bipartite_graph.gather(x)
@@ -77,31 +80,47 @@ class DistSageConv(nn.Module):
 
     def forward(self, bipartite_graph, x, l):
         t1 = time.time()
+        # assert(torch.all(self.fc1.weight!=0))
+        # assert(torch.all(self.fc2.weight!=0))
         # if self._in_src_feats  > self._out_feats:
         if False:
             out = self.fc1(x)
             out1 = bipartite_graph.gather(out)
             out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
         else:
-            x = torch.ones(x.shape).to(self.gpu_id)
-            x = self.fc1(x)
+            # Only for determinism
+            # x = torch.ones(x.shape).to(self.gpu_id)
             out = bipartite_graph.gather(x)
             out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
+            # out2 = x
             # out2 = self.fc1(out2)
-        # t2 = time.time()
+        t2 = time.time()
         out6_b = bipartite_graph.slice_owned_nodes(out2)
-        # out6 = out6_b/bipartite_graph.in_degree
-        return out6_b
+        out6 = out6_b/bipartite_graph.in_degree
+        print("layer neighbor",l,torch.sum(out6))
+        out6 = self.fc1(out6)
+        # For bug fixing
+        # return out6_b
+        out3 = bipartite_graph.self_gather(x)
+        out4 = bipartite_graph.slice_owned_nodes(out3)
+        out5 = self.fc2(out4)
+        print("self layer sum",l,torch.sum(out3),torch.sum(out4))
+        # final = out5
 
-        #
-        # out3 = bipartite_graph.self_gather(x)
-        # print("out 3 check", out3)
-        # out4 = bipartite_graph.slice_owned_nodes(out3)
-        # print("out4 check",out4)
-        # out5 = self.fc2(out4)
+        final = out5 + out6
         # final = out5 + out6
-        # t3 = time.time()
-        # return final
+        # if (not torch.all(final.sum(1) != 0)):
+        #     print("problem node in layer", l)
+        #     index_id = torch.where(final.sum(1)==0)[0]
+        #     print("neighbour",bipartite_graph.in_degree[index_id])
+        #     print(bipartite_graph.out_nodes[index_id ])
+        #     print("input",torch.where(torch.sum(x,1) == 0))
+        #     # print(out5[index_id],out6[index_id], out4[index_id])
+        # assert(torch.all(final.sum(1) != 0))
+        # # t3 = time.time()
+        # if self.gpu_id == 0:
+        #     print("layer ",l,"out",final[:3,0])
+        return final
 
 def test_base():
     src_ids = []
