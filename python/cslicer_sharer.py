@@ -249,7 +249,7 @@ def train(args):
     fanout = args.fan_out.split(',')
     fanout = [(int(f)) for f in fanout]
     fanout = [10,10,10]
-    no_worker_process = 4
+    no_worker_process = 1
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map, deterministic = args.deterministic)
@@ -327,7 +327,7 @@ if __name__=="__main__":
     argparser.add_argument("--num-heads", type=int, default=8,
                         help="number of hidden attention heads if gat")
     argparser.add_argument('--fan-out', type=str, default='10,10,25')
-    argparser.add_argument('--batch-size', type=int, default=(1032))
+    argparser.add_argument('--batch-size', type=int, default=(4096))
     argparser.add_argument('--dropout', type=float, default=0)
     argparser.add_argument('--deterministic', default = False, action="store_true")
     # We perform only transductive training

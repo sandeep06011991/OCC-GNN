@@ -27,7 +27,7 @@ class DistSAGEModel(torch.nn.Module):
         self.layers.append(DistSageConv(n_hidden, n_classes, gpu_id, aggregator_type = 'sum', queues = queues, deterministic = deterministic))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
-
+        self.deterministic = deterministic
 
     def forward(self, bipartite_graphs, x, features):
         for l,(layer, bipartite_graph) in  \
@@ -43,7 +43,7 @@ class DistSAGEModel(torch.nn.Module):
                 x = self.dropout(self.activation(x))
         return x
 
-        
+
     def print_grad(self):
         for id,l in enumerate(self.layers):
             l.print_grad(id)
