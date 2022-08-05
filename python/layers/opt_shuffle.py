@@ -9,22 +9,22 @@ import time,datetime
 class Shuffle(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input_t, queues, device_id, to_dict, from_dict,layer_id):
+    def forward(ctx, input_t, queues, device_id, to_dict, from_dict, layer_id):
         temp = []
         temp_g = []
         t1 = time.time()
         data = 0
         debug = False
         for i in range(4):
-            if i==device_id:
+            if i == device_id:
                 temp.append(None)
                 temp_g.append(None)
             else:
                 # data could be used for debugging
                 data += from_dict[i].shape[0] + to_dict[i].shape[0]
-                temp.append(torch.empty((from_dict[i].shape[0], input_t.shape[1]) \
+                temp.append(torch.empty((from_dict[i].shape[0], *input_t.shape[1:]) \
                     , device = device_id))
-                temp_g.append(torch.empty((to_dict[i].shape[0], input_t.shape[1]) \
+                temp_g.append(torch.empty((to_dict[i].shape[0], *input_t.shape[1:]) \
                     , device = device_id))
         remote_obj = []
         # Uses blocking commpunication
@@ -111,26 +111,26 @@ class Shuffle(torch.autograd.Function):
 class ToySingle(torch.nn.Module):
 
     def __init__(self, queues, device_id):
-        super(ToySingle,self).__init__()
-        self.ll = torch.nn.Linear(100,100)
+        super(ToySingle, self).__init__()
+        self.ll = torch.nn.Linear(100, 100)
         self.queues = queues
         self.device_id = device_id
 
     def forward(self, input, from_id, to_id):
         a = self.ll(input)
-        b = Shuffle.apply(a, self.queues, self.device_id, to_id, from_id,0)
+        b = Shuffle.apply(a, self.queues, self.device_id, to_id, from_id, 0)
         return b
 
 def test_single(proc_id, n_gpus, queues):
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
-            master_ip='127.0.0.1', master_port='12345')
+        master_ip='127.0.0.1', master_port='12345')
     world_size = n_gpus
     pg = th.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     from_id = {}
     to_id = {}
     for i in range(4):
-        if i!=proc_id:
+        if i != proc_id:
             from_id[i] = torch.tensor(range(100)).to(proc_id)
             to_id[i] = torch.tensor(range(100)).to(proc_id)
     model = ToySingle(queues, proc_id).to(proc_id)
@@ -138,7 +138,7 @@ def test_single(proc_id, n_gpus, queues):
     X_t = torch.rand((1000,100), device = proc_id)
     for i in range(1000):
         t1 = time.time()
-        out = model.forward(X_t,from_id, to_id)
+        out = model.forward(X_t, from_id, to_id)
         t2 = time.time()
         out.sum().backward()
         t3 = time.time()
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     queues = [Queue() for i in range(n_gpus)]
     for proc_id in range(n_gpus):
         p = mp.Process(target=(test_single),
-                       args=(proc_id, n_gpus,queues))
+                       args=(proc_id, n_gpus, queues))
         p.start()
         procs.append(p)
     for p in procs:
