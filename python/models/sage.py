@@ -52,28 +52,13 @@ class SAGE(nn.Module):
 
     def forward(self,blocks,x):
         h = x
-        msg_fn = fn.copy_src('h', 'm')
         for l, (layer, block) in enumerate(zip(self.layers, blocks)):
             t1 = time.time()
             f = h
-            self_features = f[:block.number_of_dst_nodes()]
-            print("layer self input", l ,torch.sum(self_features))
-            with torch.no_grad():
-                with block.local_scope():
-                    block.srcdata['h'] = h
-                    block.update_all(fn.copy_src('h', 'm'),fn.mean('m','neigh'))
-                    print("layer neighbour graph aggr",l, torch.sum(block.dstdata['neigh']))
-                    neigh_aggr = block.dstdata['neigh']
-                out = layer.fc_self(self_features) + layer.fc_neigh(neigh_aggr)
-                print("expected out",l,torch.sum(out))
-            h = layer(block, h)
-            print("sage out",l,torch.sum(h))
-            # print("layer ",l,h)
             t2 = time.time()
             if l != len(self.layers) - 1:
                 h = self.activation(h)
                 h = self.dropout(h)
-            print("layer sum",l, torch.sum(h))
         return h
 
 

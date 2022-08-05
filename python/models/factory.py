@@ -34,38 +34,16 @@ class DistSAGEModel(torch.nn.Module):
             enumerate(zip(self.layers,bipartite_graphs.layers)):
             import time
             t1 = time.time()
-            if l == 0:
-            #     print("checking")
-                indices = bipartite_graph.graph.adj_sparse('csc')[1]
-                self_ids_in = bipartite_graph.self_ids_in
-                # print("self ids in", self_ids_in)
-                in_nodes = torch.cat([indices,self_ids_in])
-                a = x[torch.unique(in_nodes)]
-                print("layer 0 input sum",torch.sum(a))
-            #     # print(features.shape)
-            #     d = torch.sort(bipartite_graph.in_nodes)[0]
-            #     # print(d)
-            #     b = features[torch.sort(bipartite_graph.in_nodes)[0]]
-            #     # print(a.shape,b.shape)
-            #     if not torch.all(a==b):
-            #         print("in_nodes",in_nodes)
-            #         print("self_ids_in")
-            #         print("Goof up", a ,b)
-            #     assert(torch.all(a == b))
-            if(l == 0):
-                if (torch.any(torch.sum(x,1))== 0):
-                    print("input features corrupted")
-                    print("gpu local id", torch.where(torch.sum(x,1))[0])
-                assert(not torch.any(torch.sum(x,1)==0))
-            print("layer edges",l,bipartite_graph.graph.num_edges())
-            x = layer(bipartite_graph, x,l)
             assert(not torch.any(torch.sum(x,1)==0))
+            if self.deterministic:
+                print("layer edges",l,bipartite_graph.graph.num_edges())
+            x = layer(bipartite_graph, x,l)
             t2 = time.time()
             if l != len(self.layers)-1:
-                # x = self.dropout(x)
                 x = self.dropout(self.activation(x))
-            print("layer sum",l, torch.sum(x))
         return x
+
+        
     def print_grad(self):
         for id,l in enumerate(self.layers):
             l.print_grad(id)

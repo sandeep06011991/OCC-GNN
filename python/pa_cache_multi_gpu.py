@@ -164,19 +164,17 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
     else:
         train_nid = th.split(train_nid, math.ceil(
             len(train_nid) / n_gpus))[proc_id]
-    train_nid = torch.arange(0,32)
     # Create PyTorch DataLoader for constructing blocks
-    # train_g = train_g.to(dev_id)
-    # train_nid = train_nid.to(dev_id)
-    # if args.deterministic:
-    # if args.deterministic:
-    #     sampler = dgl.dataloading.MultiLayerNeighborSampler(\
-    #         [-1 for i in args.fan_out.split(',')])
-    # else:
-    #     sampler = dgl.dataloading.MultiLayerNeighborSampler(
-    #         [int(fanout) for fanout in args.fan_out.split(',')])
-    sampler = dgl.dataloading.MultiLayerNeighborSampler(\
-        [-1 for i in args.fan_out.split(',')])
+    train_g = train_g.to(dev_id)
+    train_nid = train_nid.to(dev_id)
+
+    if args.deterministic:
+        sampler = dgl.dataloading.MultiLayerNeighborSampler(\
+            [-1 for i in args.fan_out.split(',')])
+    else:
+        sampler = dgl.dataloading.MultiLayerNeighborSampler(
+            [int(fanout) for fanout in args.fan_out.split(',')])
+
 
     dataloader = dgl.dataloading.NodeDataLoader(
         train_g,
@@ -249,26 +247,24 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
                     batch_inputs, batch_labels, cache_mgmt_time = cache.load_subtensor(
                         train_nfeat, train_labels, seeds, input_nodes, dev_id)
                     blocks = [block.int().to(dev_id) for block in blocks]
-                    print("Edges",[b.num_edges() for b in blocks])
+                    # print("Edges",[b.num_edges() for b in blocks])
                     t2 = time.time()
                     move_time += (t2 - t1)
                     fp_start.record()
-                    print("batch inputs",torch.sum(batch_inputs))
+                    # print("batch inputs",torch.sum(batch_inputs))
                     batch_pred = model(blocks, batch_inputs)
-                    print("Seeds",seeds)
-                    print("Predictions !!!!",batch_pred[:,0])
-                    print("Labels for correctness",batch_labels)
-                    # loss = loss_fcn(batch_pred, batch_labels)
-                    torch.sum(batch_pred).backward()
-                    print("total loss",torch.sum(batch_pred))
+                    # print("Seeds",seeds)
+                    # print("Predictions !!!!",batch_pred[:,0])
+                    # print("Labels for correctness",batch_labels)
+                    loss = loss_fcn(batch_pred, batch_labels)
+                    # print("total loss",torch.sum(batch_pred))
                     fp_end.record()
 
                     ii = ii + 1
                     if ii > 3 and args.deterministic:
                         break
-                    # with profiler.record_function("LINEAR PASS"):
-                    # loss.backward()
-                    model.print_gradient()
+                    if args.deterministic:
+                        model.print_gradient()
                     bp_end.record()
                     if args.deterministic:
                         model.print_gradient()
@@ -281,11 +277,6 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
                     print("forward",proc_id, fp_start.elapsed_time(fp_end)/1000)
                     print("backward",proc_id, fp_end.elapsed_time(bp_end)/1000)
                     optimizer.step()
-                    # model.module.print_gradient()
-                    # torch.distributed.barrier()
-                    # if(dev_id == 0):
-                    #     print("minibatch")
-                    # torch.distributed.barrier()
                 except StopIteration:
                     break
                 # if step % args.log_every == 0 and proc_id == 0:

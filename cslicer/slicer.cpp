@@ -9,7 +9,6 @@ int  Slicer::neighbour_sample(long nd1, vector<long>& neighbors){
   int offset = this->dataset->indptr[nd1];
   int in_degree = 0;
   if((nbs < 10) || (this->deterministic)){
-  // if(true){
     in_degree = nbs;
     for(int i=0;i<nbs;i++){
       neighbors.push_back(this->dataset->indices[offset + i]);
@@ -18,18 +17,14 @@ int  Slicer::neighbour_sample(long nd1, vector<long>& neighbors){
     in_degree = 10;
     for(int i=0;i<10;i++){
       int rand_nb = this->random_number_engine()%nbs;
-      // int rand_nb = this->rng_coin(gen) % nbs;
-      // int rand_nb = i;
       neighbors.push_back(this->dataset->indices[offset + rand_nb ]);
     }
   }
   if (in_degree == 0){
+    // To avoid zero/zero division when divide
     in_degree = 1;
-    // std::cout << "node with zero degree" << nd1 <<"\n";
   }
 
-  // in_degree = 1;
-  // assert(in_degree != 0);
   return in_degree;
 }
 
@@ -38,13 +33,10 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l, int laye
     for(long nd1: in){
       neighbors.clear();
       int in_degree = neighbour_sample(nd1, neighbors);
-      // neighbors.clear();
-      // neighbour_sample(nd1, neighbors);
       int to = (*this->workload)[nd1];
       for(long nd2 : neighbors){
         if(nd1 == nd2){
             l.bipartite[to]->add_self_edge(nd1, in_degree);
-            // l.bipartite[to]->add_edge(nd1, nd1, true);
         }else{
             int from = (*this->workload)[nd2];
             if(to == from){
@@ -74,17 +66,9 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l, int laye
       }
     }
     this->out_dr->clear();
-    // std::cout << "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxx\n";
-    // layer_consistency(l);
-    // std::cout << "layer done\n";
-    // std::cout << "pre dup size" << out.size() <<"\n";
-    // vector<long> backup = out;
-    // this->dr->order_and_remove_duplicates(out);
-    // this->dr->clear();
-    // this->dr->order_and_remove_duplicates(backup);
-    // // std::cout << "post dup size" << out.size() <<"\n";
-    // this->dr->clear();
-    // remove duplicates from nd2.
+    if (this->deterministic){
+      layer_consistency(l);
+    }
   }
 
 void Slicer::layer_consistency(Layer& l){

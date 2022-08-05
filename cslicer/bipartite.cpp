@@ -23,8 +23,10 @@ void BiPartite::reorder(DuplicateRemover* dr){
 }
 
 void BiPartite::reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, int gpu_capacity){
-  //std::cout << "last layer before reordering" << indices[indices.size()-1] <<"\n";
   dr->order_and_remove_duplicates(in_nodes);
+  // order and remove used only to remove duplicates
+  // This dr object is not used to replace
+  // The original indices are used to replace
   for(int i=0;i<indices.size();i++){
     indices[i] = gpu_order[indices[i]];
     if(indices[i] == -1){

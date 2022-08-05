@@ -5,6 +5,7 @@ import torch as th
 from torch.nn.parallel import DistributedDataParallel
 import time,datetime
 
+# FixMe: Currently blocking. Test with NVLink and asynchronous send/recv
 class Shuffle(torch.autograd.Function):
 
     @staticmethod
@@ -14,10 +15,6 @@ class Shuffle(torch.autograd.Function):
         t1 = time.time()
         data = 0
         debug = False
-        # Wrong place coz there will be some remote nodes
-        # if(not torch.all(torch.sum(input_t,1) != 0)):
-        #     print(input_t[torch.where(torch.sum(input_t,1))[0]])
-        # assert(torch.all(torch.sum(input_t,1) != 0))
         for i in range(4):
             if i==device_id:
                 temp.append(None)
@@ -30,6 +27,7 @@ class Shuffle(torch.autograd.Function):
                 temp_g.append(torch.empty((to_dict[i].shape[0], input_t.shape[1]) \
                     , device = device_id))
         remote_obj = []
+        # Uses blocking commpunication
         for to_id in range(4):
             for from_id in range(4):
                 if to_id == from_id:

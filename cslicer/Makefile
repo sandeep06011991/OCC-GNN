@@ -1,4 +1,5 @@
-
+# Used for local testing of slicer.
+# Add more unit tests here.
 
 
 all:
@@ -12,6 +13,7 @@ conqueue:
 		g++ -std=c++11 -pthread -O3 -std=c99 -Wall -Wextra \
 			-I . util/conqueue.cpp -o ../build/conqueue
 		../build/conqueue
+		
 # sampling:
 # 	nvcc -I ../src/ ../src/util/tensor.cu ../src/gnn/sage.cu  \
 # 	  ../src/dataset.cpp sampling_test.cc ../src/util/timer.cpp \

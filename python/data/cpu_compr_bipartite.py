@@ -169,23 +169,12 @@ class Bipartite:
         self.self_ids_in_end = cobject.self_ids_in_end
         self.self_ids_out_start = cobject.self_ids_out_start
         self.self_ids_out_end = cobject.self_ids_out_end
-        # from_ids = {}
-        # for i in range(4):
-        #     from_ids[i] = (data[cobject.from_ids_start[i]: cobject.from_ids_end[i]])
-        #     if i == self.gpu_id:
-        #         print(from_ids[i])
-        # self.from_ids = from_ids
-        #
         from_ids = {}
         self.owned_out_nodes = data[cobject.owned_out_nodes_start: cobject.owned_out_nodes_end]
             # for kk in from_ids[i]:
             #     if (kk not in self.owned_out_nodes):
             #         print("Pre tensorization putting info into wrong nodes", kk, self.owned_out_nodes)
                    # assert(False)
-        # self.to_ids = to_ids
-        # self.self_ids_in = data[cobject.self_ids_in_start:cobject.self_ids_in_end]
-        # self.self_ids_out = data[cobject.self_ids_out_start: cobject.self_ids_out_end]
-        # t3 = time.time()
         # print("Graph construction time ",t2-t1)
         # print("tensorize everything", t3 - t2)
         '''data_moved = self.in_nodes.shape[0] + self.out_nodes.shape[0] + self.owned_out_nodes.shape[0]
@@ -229,11 +218,6 @@ class Bipartite:
         self.in_degree = data[self.indegree_start:self.indegree_end]
         self.in_degree = self.in_degree.reshape(self.in_degree.shape[0],1)
 
-        # if torch.all(self.out_nodes < 30):
-        #     print("Mark ",self.from_ids[2])
-        #     print(self.graph.num_edges(), self.gpu_id, self.from_ids, self.to_ids[2], self.self_ids_in,  self.self_ids_out, self.owned_out_nodes)
-        #     if self.gpu_id ==  torch.device(2):
-        #         print("Print edges",self.graph.formats('coo').edges())
         t3 = time.time()
     #
     def debug(self):

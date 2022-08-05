@@ -45,11 +45,8 @@ int main(){
   const int threads = 8;
   // const int threads = 1;
   Slicer *slicer = new Slicer(dataset, &workload_map, storage_map, gpu_capacity, 4096);
-  // slicer->shuffle();
-  // slicer[0]->get_sample(0);
   vector<long int> vect{ 1000 };
   slicer->get_sample(vect);
-  // slicer[tid]->simple_3_hop_sample(i);
   slicer->clear();
 
   std::cout <<"all minibatches processed.\n";

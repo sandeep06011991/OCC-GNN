@@ -38,11 +38,7 @@ def compute_acc(pred, labels):
     """
     Compute the accuracy of prediction given the labels.
     """
-    # print("check accuracy",pred[:4],labels[:4])
     false_labels = torch.where(torch.argmax(pred,dim = 1) != labels)[0]
-    # print("Miss",torch.argmax(pred[false_labels[:10]],dim = 1),labels[false_labels[:10]])
-    # print("Print Mistakes",pred[false_labels][:10],labels[false_labels][:10],"End of mistake")
-    # torch.where(torch.sum(pred,dim == 1))[0]
     return (torch.argmax(pred, dim=1) == labels).float().sum(),len(pred )
 
 
@@ -54,8 +50,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     world_size = gpus
     torch.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
-    # if deterministic:
-    # set_all_seeds(seed)
+    if deterministic:
+        set_all_seeds(seed)
     model = get_model_distributed(args.num_hidden, features, num_classes, proc_id, args.deterministic)
     model = model.to(proc_id)
     model =  DistributedDataParallel(model, device_ids = [proc_id],\
@@ -79,21 +75,6 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     sample_move_time = 0
     torch.cuda.set_device(proc_id)
     nmb = 0
-    prefetch_queue = 0
-    # Prefetch queue just in case
-    # def func_prefetch(sample_queue,num_workers,local_queue):
-    #     while True:
-    #         gpu_local_sample = sample_queue.get()
-    #         w = num_workers
-    #         if gpu_local_sample == "END":
-    #             w -= 1
-    #         local_queue.put(gpu_local_sample)
-    #         if w==0:
-    #             break
-    # simple_queue = Simple_Queue(4)
-    # th = threading.Thread(target = func_prefetch, args = (sample_queue, num_sampler_workers\
-    #         , simple_queue))
-    # th.start()
     ii = 0
     t1 = time.time()
     print("Features ", features.device)
@@ -105,7 +86,6 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         if(type(t) == type("")):
             gpu_local_sample = t
         else:
-            # gpu_local_sample = t
             gpu_local_sample = Gpu_Local_Sample.deserialize(t)
         t22 = time.time()
         sample_get_time += t22 - t11
@@ -137,8 +117,6 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         # gpu_local_sample.debug()
         t44 = time.time()
         sample_move_time += t44 - t33
-        # print("Check for sortingLabels proc_id:",gpu_local_sample.last_layer_nodes)
-        # classes = labels[gpu_local_sample.last_layer_nodes.sort()[0]].to(torch.device(proc_id))
 
         classes = labels[gpu_local_sample.last_layer_nodes].to(torch.device(proc_id))
         # print("Last layer nodes",gpu_local_sample.last_layer_nodes)
@@ -152,16 +130,15 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         torch.cuda.set_device(proc_id)
         fp_end.record()
         loss = loss_fn(output,classes)/args.batch_size
-        print("loss",loss)
+        # print("loss",loss)
         loss.backward()
+        # Helpful trick to make manual calculation of gradients easy.
         # torch.sum(output).backward()
+        #
         for p in model.parameters():
             p.grad *= 4
-        # model.module.print_grad()
-        # print("true nodes",gpu_local_sample.last_layer_nodes)
-        # print("Predictions !!!!", output[:,0])
-        # print("Labels",classes)
-        # print("Batch {} size {}".format(ii,classes.shape))
+        if deterministic:
+            model.module.print_grad()
         ii = ii + 1
         bp_end.record()
 
@@ -220,8 +197,6 @@ def slice_producer(graph_name, work_queue, sample_queues, \
     no_worker_threads = 1
     sampler = cslicer(graph_name, queue_size, no_worker_threads,
             no_epochs, minibatches_per_epoch, storage_vector,deterministic)
-    # sampler = cslicer(graph_name, queue_size, no_worker_threads,
-    #         no_epochs, minibatches_per_epoch, storage_vector, True)
 
     # Todo clean up unnecessary iterations
     while(True):
@@ -274,7 +249,7 @@ def train(args):
     fanout = args.fan_out.split(',')
     fanout = [(int(f)) for f in fanout]
     fanout = [10,10,10]
-    no_worker_process = 1
+    no_worker_process = 4
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map, deterministic = args.deterministic)
@@ -287,8 +262,8 @@ def train(args):
     train_nid = train_mask.nonzero().squeeze()
     if args.deterministic:
         train_nid = torch.arange(dg_graph.num_nodes())
-    # train_nid = torch.arange(0,32)
-    # train_nid = torch.tensor([0,162,108,112])
+        # When debugging at node level
+        # train_nid = torch.arange(0,32)
     minibatches_per_epoch = int(len(train_nid)/minibatch_size)
 
     print("Training on num nodes = ",train_nid.shape)

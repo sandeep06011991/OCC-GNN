@@ -16,6 +16,7 @@ Dataset::Dataset(std::string dir){
 }
 
 void Dataset::read_graph(){
+  // Different file format as sampling needs csc format or indegree graph
   std::fstream file1(this->BIN_DIR + "/cindptr.bin",std::ios::in|std::ios::binary);
   this->indptr = (long *)malloc ((this->num_nodes + 1) * sizeof(long));
   file1.read((char *)this->indptr,(this->num_nodes + 1) * sizeof(long));

@@ -65,61 +65,30 @@ class DistSageConv(nn.Module):
         if self.fc1.weight.grad != None:
             print("layer neigh grad",l,self.fc1.weight.grad[:3,0], torch.sum(self.fc1.weight.grad))
             print("layer self grad",l,self.fc2.weight.grad[:3,0], torch.sum(self.fc2.weight.grad))
-        
-    def old_forward(self, bipartite_graph,x):
-        print(torch.sum(self.fc1.weight))
-        out1 = bipartite_graph.gather(x)
-        out2 = out1
-        # out2 = Shuffle.apply(out1, self.queues, self.gpu_id, bipartite_graph.from_ids, bipartite_graph.to_ids)
-        out3 = (torch.cat([bipartite_graph.self_gather(x), \
-                        out2],dim = 1))
-        out4 = (bipartite_graph.slice_owned_nodes(out3))
 
-        if self._in_src_feats <= self._out_feats:
-            out5 = self.fc(out4)
 
     def forward(self, bipartite_graph, x, l):
         t1 = time.time()
-        # assert(torch.all(self.fc1.weight!=0))
-        # assert(torch.all(self.fc2.weight!=0))
-        # if self._in_src_feats  > self._out_feats:
         if False:
+            # Could incur more communication potentially
+            # Makes backward pass mode complaceted
             out = self.fc1(x)
             out1 = bipartite_graph.gather(out)
             out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
         else:
-            # Only for determinism
-            # x = torch.ones(x.shape).to(self.gpu_id)
             out = bipartite_graph.gather(x)
             out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
-            # out2 = x
+            # BUG Fixed: Linear layer after in degree meaning
             # out2 = self.fc1(out2)
         t2 = time.time()
         out6_b = bipartite_graph.slice_owned_nodes(out2)
         out6 = out6_b/bipartite_graph.in_degree
-        print("layer neighbor",l,torch.sum(out6))
         out6 = self.fc1(out6)
-        # For bug fixing
-        # return out6_b
         out3 = bipartite_graph.self_gather(x)
         out4 = bipartite_graph.slice_owned_nodes(out3)
         out5 = self.fc2(out4)
-        print("self layer sum",l,torch.sum(out3),torch.sum(out4))
-        # final = out5
-
+        # print("self layer sum",l,torch.sum(out3),torch.sum(out4))
         final = out5 + out6
-        # final = out5 + out6
-        # if (not torch.all(final.sum(1) != 0)):
-        #     print("problem node in layer", l)
-        #     index_id = torch.where(final.sum(1)==0)[0]
-        #     print("neighbour",bipartite_graph.in_degree[index_id])
-        #     print(bipartite_graph.out_nodes[index_id ])
-        #     print("input",torch.where(torch.sum(x,1) == 0))
-        #     # print(out5[index_id],out6[index_id], out4[index_id])
-        # assert(torch.all(final.sum(1) != 0))
-        # # t3 = time.time()
-        # if self.gpu_id == 0:
-        #     print("layer ",l,"out",final[:3,0])
         return final
 
 def test_base():

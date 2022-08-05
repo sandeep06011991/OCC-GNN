@@ -49,15 +49,11 @@ public:
     self_ids_in.push_back(nd1);
     self_ids_out.push_back(nd1);
     in_degree.push_back(degree);
+    // in_nodes and out nodes are pushed here instead of at add_edge
+    // as self loops are not counted in the main graph
+    // 
     in_nodes.push_back(nd1);
     owned_out_nodes.push_back(nd1);
-    // std::cout << "Adding out node" << nd1 <<"\n";
-    // if(out_nodes.size() == 0){
-    //   indptr.push_back(0);
-    // }else{
-    //   int l = indptr.size();
-    //   indptr.push_back(indptr[l-1]);
-    // }
     if(indptr.size() == 0){
       indptr.push_back(0);
       indptr.push_back(0);
