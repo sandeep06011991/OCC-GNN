@@ -97,7 +97,7 @@ def get_process_graph(filename, fsize):
 
     idxs = ['train', 'val', 'test']
     for idx in idxs:
-        mask = torch.zeros((num_nodes,))
+        mask = torch.zeros((num_nodes,), dtype=torch.bool)
         idx_mask = np.fromfile(
             "{}/{}/{}_idx.bin".format(DATA_DIR, graphname, idx), dtype=np.int64)
         mask[idx_mask] = True
