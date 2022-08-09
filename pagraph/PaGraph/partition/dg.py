@@ -6,7 +6,7 @@ import torch
 import numpy as np
 import scipy.sparse as spsp
 import argparse
-# import PaGraph.data as data
+import PaGraph.data as data
 
 import ordering
 from utils import get_sub_graph
