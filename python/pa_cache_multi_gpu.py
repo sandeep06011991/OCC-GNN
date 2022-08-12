@@ -25,8 +25,8 @@ def set_all_seeds(seed):
   torch.cuda.manual_seed(seed)
   torch.backends.cudnn.deterministic = True
 
-seed = 0
-set_all_seeds(seed)
+# seed = 0
+# set_all_seeds(seed)
 
 from models.sage import SAGE
 from models.gat import GAT
@@ -193,7 +193,7 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
     # Define model and optimizer
     model = None
     if args.model == 'gcn':
-        set_all_seeds(seed)
+        # set_all_seeds(seed)
         model = SAGE(in_feats, args.num_hidden, n_classes,
                      args.num_layers, F.relu, args.dropout, args.deterministic)
     elif args.model == 'gat':
@@ -268,14 +268,16 @@ def run(proc_id, n_gpus, args, devices, data,p_map):
                     bp_end.record()
                     if args.deterministic:
                         model.print_gradient()
-                    print("accuracy",\
-                            torch.sum(torch.max(batch_pred,1)[1]==batch_labels)/batch_pred.shape[0])
+                    if proc_id == 0:
+                        print("accuracy",\
+                                torch.sum(torch.max(batch_pred,1)[1]==batch_labels)/batch_pred.shape[0])
                     torch.cuda.synchronize(bp_end)
 
                     forward_time += fp_start.elapsed_time(fp_end)/1000
                     backward_time += fp_end.elapsed_time(bp_end)/1000
-                    print("forward",proc_id, fp_start.elapsed_time(fp_end)/1000)
-                    print("backward",proc_id, fp_end.elapsed_time(bp_end)/1000)
+                    if proc_id == 0:
+                        print("forward",proc_id, fp_start.elapsed_time(fp_end)/1000)
+                        print("backward",proc_id, fp_end.elapsed_time(bp_end)/1000)
                     optimizer.step()
                 except StopIteration:
                     break
@@ -343,11 +345,11 @@ if __name__ == '__main__':
     mp.set_start_method("spawn")
     argparser = argparse.ArgumentParser("multi-gpu training")
     argparser.add_argument('--deterministic', action="store_true",default = False)
-    argparser.add_argument('--graph', type=str, default="ogbn-arxiv")
+    argparser.add_argument('--graph', type=str, default="ogbn-products")
     argparser.add_argument('--fsize', type=int, default=-1,
                            help="fsize only for synthetic graphs")
     argparser.add_argument('--cache-per', type=float, default=.25)
-    argparser.add_argument('--num-epochs', type=int, default=4)
+    argparser.add_argument('--num-epochs', type=int, default=2)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='10,10,10')
@@ -356,7 +358,7 @@ if __name__ == '__main__':
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.01)
     argparser.add_argument('--dropout', type=float, default=0)
-    argparser.add_argument('--num-workers', type=int, default=1,
+    argparser.add_argument('--num-workers', type=int, default=0,
                            help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--inductive', action='store_false',
                            help="Inductive learning setting")
@@ -382,8 +384,7 @@ if __name__ == '__main__':
     start_time = time.time()
     if args.deterministic:
         n_gpus = 1
-
-    n_gpus = 1
+    print("IS deterministic", args.deterministic)
     if n_gpus == 1:
         print("Running on single GPUs")
         run(0, n_gpus, args, devices, data, p_map)

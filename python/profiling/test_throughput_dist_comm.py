@@ -95,6 +95,7 @@ if __name__ == "__main__":
     test_functions = [run_use_multi_queues_per_process,\
             run_use_single_queues_per_process,\
             using_dist_send]
+    test_functions = [using_dist_send]
     for f in test_functions:
         for proc_id in range(n_gpus):
             p = mp.Process(target=(f),

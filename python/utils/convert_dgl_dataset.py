@@ -110,9 +110,12 @@ def write_dataset_dataset(name, TARGET_DIR):
             fp.write("{}={}\n".format(k, meta_structure[k]))
     print("All data written!")
 
-
-if __name__ == "__main__":
-    nname = ["ogbn-arxiv"]
+# arg0 = dgl dataset name
+# arg1 = full target directory
+if __name__=="__main__":
+    # assert(len(sys.argv) == 3)
+    # nname = ["ogbn-products","ogbn-arxiv"]
+    nname = ["ogbn-products"]
     for name in nname:
         target = TARGET_DIR + "/" + name
         os.makedirs(target, exist_ok=True)

@@ -9,8 +9,8 @@ import os
 
 ROOT_DIR = '/data/sandeep'
 PAGRAPH_DIR = '/data/sandeep/pagraph/'
-FILENAME = 'obgn_arxiv'
-dataset = DglNodePropPredDataset('ogbn-arxiv', root=ROOT_DIR)
+FILENAME = 'ogbn-products'
+dataset = DglNodePropPredDataset(FILENAME, root=ROOT_DIR)
 graph = dataset[0][0]
 graph = graph.add_self_loop()
 split_idx = dataset.get_idx_split()

@@ -84,6 +84,65 @@ def run_single(proc_id,n_gpus):
     print("Mark Done")
 
 import datetime
+#p2p bandwidth reached is 2 Gbps. 
+def dist_p2p_bandwidth(proc_id, n_gpus):
+    dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+            master_ip='127.0.0.1', master_port='12345')
+    world_size = n_gpus
+
+    th.distributed.init_process_group(backend="nccl",\
+             init_method=dist_init_method,  world_size=world_size,rank=proc_id,
+            )
+    a = torch.ones(1000 * 1000, 128, device = proc_id)
+    b = torch.rand(1000 * 1000, 128, device = proc_id)
+    for i in range(5):
+        if proc_id == 0:
+            t1 = time.time()
+            a[0][0] = i
+            dist.send(a,1,tag = 0)
+            t2 = time.time()
+            print("time send",t2 -t1)
+        if proc_id == 1:
+            time.sleep(4)
+            t1 = time.time()
+            dist.recv(b,0,tag = 0)
+            print(b[0][0].item(),i)
+            #assert(b[0][0].item() == i)
+            t2 = time.time()
+            print("time recv",t2 - t1, (1000 * 1000 * 128 * 4/((t2-t1)*1024 * 1024)))
+    torch.distributed.barrier()  
+
+
+def dist_shuffle_bandwidth(proc_id, n_gpus):
+    dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+            master_ip='127.0.0.1', master_port='12345')
+    world_size = n_gpus
+    th.distributed.init_process_group(backend="nccl",\
+             init_method=dist_init_method,  world_size=world_size,rank=proc_id)
+    #a = torch.rand(1000 * 1000, 128, device = proc_id)
+    #r = [torch.rand(1000 * 1000, 128, device = proc_id) for i in range(4)]
+    t1 = time.time()
+    for i in range(5):
+        a = torch.rand(1000 * 1000, 128, device = proc_id)
+        r = [torch.rand(1000 * 1000, 128, device = proc_id) for i in range(4)]
+        t1 = time.time()
+        for send in range(4):
+            for recv in range(4):
+                if send==recv:
+                    continue
+                if proc_id == send:
+                    dist.send(a,recv,tag = send)
+                if proc_id == recv:
+                    dist.recv(r[send],send,tag = send)
+                    print(r[send][0][0]) 
+        t2 = time.time()
+        torch.distributed.barrier(device_ids = [proc_id])
+        print("time recv",t2 - t1,"MBps", (1000 * 1000 * 128 * 4 * 3 * 4/((t2-t1)*1024 * 1024)))
+        del a
+        del r
+    torch.distributed.barrier()
+
+
 # Profiling dist process communication and bug fixing
 def multiprocess_with_comm_using_dist(proc_id, n_gpus):
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
@@ -100,15 +159,26 @@ def multiprocess_with_comm_using_dist(proc_id, n_gpus):
         a = [torch.ones(100,10000).to(proc_id)* proc_id for _ in range(4)]
         b = [torch.ones(100,10000).to(proc_id) * proc_id for _ in range(4)]
         r = []
+        print("start shuffle")
+        t1 = time.time()
         for j in range(4):
             if j != proc_id:
                 r.append(dist.isend(a[j],j,tag = proc_id))
+            print("send",proc_id, j)
         for j in range(4):
             if j != proc_id:
                 r.append(dist.irecv(b[j],src = j,tag = j))
-        for rr in r:
-            rr.wait()
-        torch.distributed.barrier()    
+        t2 = time.time()
+        for i,j in enumerate(b):
+            assert(j[0][0] ==i)
+        t2 = time.time()    
+        print("end shuffle")
+        #for rr in r:
+        #    rr.wait()
+        t3 = time.time()
+        time.sleep(2)
+        print("Send time", t2-t1, "wait time",t3-t2)
+        torch.distributed.barrier(device_ids = [proc_id])    
         print("success!")
         print("loop")
         continue
@@ -229,7 +299,9 @@ def test_multiprocess():
     n_gpus = 4
     print("Launch multiple gpus")
     for proc_id in range(n_gpus):
-        p = mp.Process(target=(multiprocess_with_comm_using_dist),
+        p = mp.Process(target=(dist_shuffle_bandwidth),
+                #multiprocess_with_comm_using_dist),
+                #dist_p2p_bandwidth),
                        args=(proc_id, n_gpus ))
         p.start()
         procs.append(p)

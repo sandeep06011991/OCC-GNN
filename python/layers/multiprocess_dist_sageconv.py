@@ -26,9 +26,8 @@ class DistSageConv(nn.Module):
         # aggregator type: mean/pool/lstm/gcn
         assert aggregator_type in ['sum']
         # self.fc = nn.Linear(self._in_src_feats * 2, out_feats)
-        self.fc1 = nn.Linear(self._in_src_feats, out_feats,bias=False)
-
-        self.fc2 = nn.Linear(self._in_src_feats, out_feats,bias=False)
+        self.fc1 = nn.Linear(self._in_src_feats, out_feats, bias = False)
+        self.fc2 = nn.Linear(self._in_src_feats, out_feats, bias = False)
         self.deterministic = deterministic
         self.reset_parameters()
 
@@ -67,28 +66,66 @@ class DistSageConv(nn.Module):
             print("layer self grad",l,self.fc2.weight.grad[:3,0], torch.sum(self.fc2.weight.grad))
 
 
-    def forward(self, bipartite_graph, x, l):
+    def forward(self, bipartite_graph, x, l, in_degree):
         t1 = time.time()
-        if False:
+        if l == 0 or l == 1:
+            num_nodes = bipartite_graph.graph.nodes('_V').shape[0]
+            node_degree = bipartite_graph.graph.in_degrees(\
+                torch.arange(num_nodes,device = self.gpu_id))
+            print("Node degree", node_degree.shape, "layer", torch.where(node_degree ==10)[0].shape, l)
+            # mask = torch.zeros(bipartite_graph.graph.nodes('_V').shape[0], dtype=torch.bool, device = x.device)
+            # mask[bipartite_graph.owned_out_nodes] = True
+            # mask = ~ mask
+            # ghost_nodes = torch.where(mask)[0]
+            # avg_degrees = bipartite_graph.graph.in_degrees(ghost_nodes)
+            # low_degree_nodes,indices = torch.sort(bipartite_graph.out_nodes[torch.where(avg_degrees == 1)[0]])
+            # print("Actual in degree", in_degree[low_degree_nodes[:10]], \
+            #             "Real ID ", low_degree_nodes[:10],
+            #             "local degrees", avg_degrees[indices[:10]],"layer ",l)
+            # print("avg degrees", avg_degrees, torch.sum(avg_degrees < 2), torch.sum(avg_degrees)/avg_degrees.shape[0])
+        if self.fc1.in_features > self.fc1.out_features:
             # Could incur more communication potentially
             # Makes backward pass mode complaceted
+            t00 = time.time()
             out = self.fc1(x)
+            t11 = time.time()
             out1 = bipartite_graph.gather(out)
+            out2 = out1
+            t22 = time.time()
             out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
+            t33 = time.time()
+
+            # if l == 0:
+            #     print(t11 - t00, "fc1")
+            #     print(t22 - t11, "bp gather")
+            #     print(t33 - t22, "shuffle time",l, self.gpu_id)
+
         else:
             out = bipartite_graph.gather(x)
+            out2 = out
+            t11 = time.time()
             out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
+            t22 = time.time()
+            # print(t22 - t11, "shuffle time",l, self.gpu_id)
+
             # BUG Fixed: Linear layer after in degree meaning
-            # out2 = self.fc1(out2)
         t2 = time.time()
+        t11 = time.time()
         out6_b = bipartite_graph.slice_owned_nodes(out2)
         out6 = out6_b/bipartite_graph.in_degree
-        out6 = self.fc1(out6)
+        if not self.fc1.in_features > self.fc1.out_features:
+            out6 = self.fc1(out6)
+        t22 = time.time()
         out3 = bipartite_graph.self_gather(x)
         out4 = bipartite_graph.slice_owned_nodes(out3)
         out5 = self.fc2(out4)
-        # print("self layer sum",l,torch.sum(out3),torch.sum(out4))
         final = out5 + out6
+        t33 = time.time()
+        t2 = time.time()
+
+        # print("layer second half",l,t33 - t22)
+        # print("layer first half", l , t22- t11)
+        # print("full layer",l, t2-t1)
         return final
 
 def test_base():
