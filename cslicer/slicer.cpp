@@ -33,15 +33,22 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l, int laye
     for(long nd1: in){
       neighbors.clear();
       int in_degree = neighbour_sample(nd1, neighbors);
+      long nbs = this->dataset->indptr[nd1+1] - this->dataset->indptr[nd1];
       int to = (*this->workload)[nd1];
+      int t[4];
+      for(int ii = 0;ii<4; ii ++ ){
+        t[ii] = 0;
+      }
       for(long nd2 : neighbors){
         if(nd1 == nd2){
             l.bipartite[to]->add_self_edge(nd1, in_degree);
         }else{
             int from = (*this->workload)[nd2];
             if(to == from){
+              t[to] ++;
               l.bipartite[to]->add_edge(nd1,nd2,true);
             }else{
+              t[from] ++;
               l.bipartite[from]->add_edge(nd1,nd2,false);
               l.bipartite[from]->add_to_node(nd1,to);
               l.bipartite[to]->add_from_node(nd1,from);

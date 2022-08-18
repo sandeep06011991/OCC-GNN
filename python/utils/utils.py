@@ -94,10 +94,15 @@ def get_process_graph(filename, fsize):
     # features = features.pin_memory()
     dg_graph.ndata["features"] = features
     dg_graph.ndata["labels"] = labels
-    a = torch.rand((num_nodes,))
-    dg_graph.ndata["train_mask"] = a < .80
-    dg_graph.ndata["val_mask"] = (a >= .80) & (a <.90)
-    dg_graph.ndata["test_mask"] = a >=.90
+
+    idxs = ['train', 'val', 'test']
+    for idx in idxs:
+        mask = torch.zeros((num_nodes,), dtype=torch.bool)
+        idx_mask = np.fromfile(
+            "{}/{}/{}_idx.bin".format(DATA_DIR, graphname, idx), dtype=np.int64)
+        mask[idx_mask] = True
+        dg_graph.ndata["{}_mask".format(idx)] = mask
+
     p_map = np.fromfile("{}/{}/partition_map_opt.bin".format(DATA_DIR,graphname),dtype = np.intc)
     # edges = dg_graph.edges()
     partition_map = torch.from_numpy(p_map)

@@ -63,8 +63,8 @@ class Bipartite:
     def __init__(self, cobject=None,  metadatalist=None, data=None, graph=None, gpu_id=None):
         if metadatalist is not None and data is not None and graph is not None and gpu_id is not None:
             self.graph = graph
-            self.graph = self.graph.formats(['csr', 'coo', 'csc'])
-            self.graph.create_formats_()
+            # self.graph = self.graph.formats(['csr', 'coo', 'csc'])
+            # self.graph.create_formats_()
             self.gpu_id = gpu_id
 
             self.indptr_start = metadatalist[0]
@@ -203,7 +203,7 @@ class Bipartite:
         self.self_ids_out = data[self.self_ids_out_start: self.self_ids_out_end]
         self.in_degree = data[self.indegree_start:self.indegree_end]
         self.in_degree = self.in_degree.reshape(self.in_degree.shape[0],1)
-
+        
         t3 = time.time()
     #
     def debug(self):

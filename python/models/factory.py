@@ -28,19 +28,33 @@ class DistSAGEModel(torch.nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
         self.deterministic = deterministic
+        self.fp_end = torch.cuda.Event(enable_timing=True)
+        self.bp_end = torch.cuda.Event(enable_timing=True)
 
-    def forward(self, bipartite_graphs, x, features):
+    def forward(self, bipartite_graphs, x, in_degrees):
+        print("input ",x.shape,x.device)
         for l,(layer, bipartite_graph) in  \
             enumerate(zip(self.layers,bipartite_graphs.layers)):
             import time
             t1 = time.time()
-            assert(not torch.any(torch.sum(x,1)==0))
+            # assert(not torch.any(torch.sum(x,1)==0))
             if self.deterministic:
                 print("layer edges",l,bipartite_graph.graph.num_edges())
-            x = layer(bipartite_graph, x,l)
+                if(torch.any(torch.sum(x,1)==0)):
+                    y = torch.where(torch.sum(x,1)==0)[0][0]
+                    print("features size", x.shape)
+                    print("is grad", features.requires_grad)
+                    print("Found zero in feats at ",l,"local_id",y)
+            self.fp_end.record()
+            x = layer(bipartite_graph, x,l, in_degrees)
+            self.bp_end.record()
+            torch.cuda.synchronize(self.bp_end)
             t2 = time.time()
+            if True:
+                print("layer time  @@@@@@@@@@@",l, x.shape, self.fp_end.elapsed_time(self.bp_end)/1000, t2-t1)
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
+
         return x
 
 
@@ -59,6 +73,7 @@ def get_model(hidden, features, num_classes):
     # Fix me: Remove this later.
     n_layers = 3
     activation = torch.nn.ReLU()
+    # activation = torch.nn.LeakyReLU()
     return DistSAGEModel(in_feats, n_hidden, n_class, n_layers , \
         activation, dropout, queues = queues)
 
