@@ -14,7 +14,7 @@ https://unity.rc.umass.edu/docs/index.html
 This will get you to the head node.
 Unity cluster uses slurm which is a cluster job scheduler.
 To test and build we need interactive jobs using srun
-srun -g=4 –pty bash
+srun -p gpu-preempt --gres=gpu:4 --mem=64G --pty bash
 Gives you a node with 4 gpus
 Load modules needed
 module load cuda/10.2

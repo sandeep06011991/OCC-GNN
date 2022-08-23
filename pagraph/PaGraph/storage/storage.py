@@ -14,6 +14,7 @@ import torch
 from dgl import DGLGraph
 from dgl.frame import Frame, FrameRef
 import dgl.utils
+import time
 
 class GraphCacheServer:
   """
@@ -54,7 +55,14 @@ class GraphCacheServer:
     self.log = False
     self.try_num = 0
     self.miss_num = 0
-
+    self.collect_start_e = torch.cuda.Event(enable_timing = True)
+    self.collect_end_e = torch.cuda.Event(enable_timing = True)
+    self.move_start_e = torch.cuda.Event(enable_timing = True)
+    self.move_end_e = torch.cuda.Event(enable_timing = True)
+    self.collect_cuda_time = 0
+    self.move_cuda_time = 0
+    self.collect_time = 0
+    self.move_time = 0
   
   def init_field(self, embed_names):
     with torch.cuda.device(self.gpuid):
@@ -74,6 +82,7 @@ class GraphCacheServer:
       g: DGLGraph for local graphs
       embed_names: field name list, e.g. ['features', 'norm']
     """
+    print("Auto cache creation", self.gpuid)
     # Step1: get available GPU memory
     peak_allocated_mem = torch.cuda.max_memory_allocated(device=self.gpuid)
     peak_cached_mem = torch.cuda.max_memory_cached(device=self.gpuid)
@@ -86,6 +95,8 @@ class GraphCacheServer:
     #self.capability = int(self.node_num * 0.8)
     print('Cache Memory: {:.2f}G. Capability: {}'
           .format(available / 1024 / 1024 / 1024, self.capability))
+    print("However, caching 25% of node capacity")
+    self.capability = int(self.node_num/4)
     # Step3: cache
     if self.capability >= self.node_num:
       # fully cache
@@ -152,6 +163,7 @@ class GraphCacheServer:
     # setup flags
     self.gpu_flag[nids] = True
     self.full_cached = is_full
+    print("cache fixed",self.gpuid)
 
   
   def fetch_data(self, nodeflow):
@@ -186,20 +198,32 @@ class GraphCacheServer:
           frame = {name: torch.cuda.FloatTensor(tnid.size(0), self.dims[name]) \
                     for name in self.dims}
       # for gpu cached tensors: ##NOTE: Make sure it is in-place update!
+      
       with torch.autograd.profiler.record_function('cache-gpu'):
         if nids_in_gpu.size(0) != 0:
           cacheid = self.localid2cacheid[nids_in_gpu]
           for name in self.dims:
             frame[name][gpu_mask] = self.gpu_fix_cache[name][cacheid]
       # for cpu cached tensors: ##NOTE: Make sure it is in-place update!
+      t1 = time.time()
+      self.collect_start_e.record()
       with torch.autograd.profiler.record_function('cache-cpu'):
         if nids_in_cpu.size(0) != 0:
           cpu_data_frame = self.get_feat_from_server(
             nids_in_cpu, list(self.dims), to_gpu=True)
           for name in self.dims:
             frame[name][cpu_mask] = cpu_data_frame[name]
+      self.collect_end_e.record()
+      t2 = time.time()
       with torch.autograd.profiler.record_function('cache-asign'):
         nodeflow._node_frames[i] = FrameRef(Frame(frame))
+      self.move_end_e.record()
+      t3 = time.time()
+      self.move_end_e.synchronize()
+      self.collect_time += (t2 - t1)
+      self.move_time += (t3- t2)
+      self.collect_cuda_time += self.collect_start_e.elapsed_time(self.collect_end_e)/1000
+      self.move_cuda_time += self.collect_end_e.elapsed_time(self.move_end_e)/1000
       if self.log:
         self.log_miss_rate(nids_in_cpu.size(0), tnid.size(0))
 
@@ -221,7 +245,20 @@ class GraphCacheServer:
     self.miss_num += miss_num
   
   def get_miss_rate(self):
+    if self.try_num == 0:
+          return 0
     miss_rate = float(self.miss_num) / self.try_num
     self.miss_num = 0
     self.try_num = 0
     return miss_rate
+
+  def get_time_and_reset_time(self):
+    a = self.collect_cuda_time
+    b = self.move_cuda_time
+    c = self.collect_time
+    d = self.move_time
+    self.collect_cuda_time = 0
+    self.move_cuda_time = 0
+    self.collect_time = 0
+    self.move_time = 0
+    return (a,b,c,d)

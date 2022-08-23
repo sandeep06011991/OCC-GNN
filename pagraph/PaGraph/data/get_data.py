@@ -24,7 +24,7 @@ def get_graph_data(dataname):
   except FileNotFoundError:
     print('random generate feat...')
     import torch
-    feat = torch.rand((adj.shape[0], 600))
+    feat = torch.rand((adj.shape[0], 100))
   
   return adj, feat
 

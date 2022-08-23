@@ -12,13 +12,18 @@ import multiprocessing
 import PaGraph.data as data
 from PaGraph.parallel import SampleDeliver
 
+ROOT_DIR = "/work/spolisetty_umass_edu/pagraph"
+
 def main(args):
-  coo_adj, feat = data.get_graph_data(args.dataset)
+  print("Start server")
+  
+  dataset = "{}/{}/".format(ROOT_DIR, args.dataset)
+  coo_adj, feat = data.get_graph_data(dataset)
 
   graph = dgl.DGLGraph(coo_adj, readonly=True)
   features = torch.FloatTensor(feat)
 
-  graph_name = os.path.basename(args.dataset)
+  graph_name = os.path.basename(dataset)
   vnum = graph.number_of_nodes()
   enum = graph.number_of_edges()
   feat_size = feat.shape[1]
@@ -28,7 +33,7 @@ def main(args):
         .format(graph_name, vnum, enum, feat_size)
   )
   print('=' * 30)
-
+  sys.stdout.flush()
   # create server
   g = dgl.contrib.graph_store.create_graph_store_server(
         graph, graph_name,
@@ -65,16 +70,17 @@ def main(args):
     subgraph = []
     sub_trainnid = []
     for rank in range(args.num_workers):
-      subadj, _ = data.get_sub_train_graph(args.dataset, rank, args.num_workers)
-      train_nid = data.get_sub_train_nid(args.dataset, rank, args.num_workers)
+      subadj, _ = data.get_sub_train_graph(dataset, rank, args.num_workers)
+      train_nid = data.get_sub_train_nid(dataset, rank, args.num_workers)
       subgraph.append(dgl.DGLGraph(subadj, readonly=True))
       sub_trainnid.append(train_nid)
     hops = args.gnn_layers - 1 if args.preprocess else args.gnn_layers
     print('Expected trainer#: {}. Start sampling at server end...'.format(args.num_workers))
     deliver = SampleDeliver(subgraph, sub_trainnid, args.num_neighbors, hops, args.num_workers)
     deliver.async_sample(args.n_epochs, args.batch_size, one2all=args.one2all)
-    
+
   print('start running graph server on dataset: {}'.format(graph_name))
+  sys.stdout.flush()
   g.run()
 
 
@@ -83,7 +89,7 @@ def main(args):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='GraphServer')
 
-  parser.add_argument("--dataset", type=str, default=None,
+  parser.add_argument("--dataset", type=str, default="None",
                       help="dataset folder path")
   
   parser.add_argument("--num-workers", type=int, default=1,
@@ -95,11 +101,11 @@ if __name__ == '__main__':
   # sample options
   parser.add_argument("--sample", dest='sample', action='store_true')
   parser.set_defaults(sample=False)
-  parser.add_argument("--num-neighbors", type=int, default=2)
-  parser.add_argument("--gnn-layers", type=int, default=2)
-  parser.add_argument("--batch-size", type=int, default=6000)
+  parser.add_argument("--num-neighbors", type=int, default=10)
+  parser.add_argument("--gnn-layers", type=int, default=3)
+  parser.add_argument("--batch-size", type=int, default=1032)
   #parser.add_argument("--num-workers", type=int, default=8)
-  parser.add_argument("--n-epochs", type=int, default=10)
+  parser.add_argument("--n-epochs", type=int, default=2)
   parser.add_argument("--one2all", dest='one2all', action='store_true')
   parser.set_defaults(one2all=False)
 

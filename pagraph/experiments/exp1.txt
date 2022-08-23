@@ -1,0 +1,4 @@
+Dirty:True Git hash: 588afbbf733babfdeebe375e66792b36c0f9cfd1
+File |  Collect | Move | Compute | Epoch | Miss rate 
+ogbn-arxiv|0.8488|0.0166|2.661|7.236|0.5399
+ogbn-products|49.21|0.05818|221.5|667.9|0.5153

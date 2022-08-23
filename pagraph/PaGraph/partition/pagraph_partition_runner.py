@@ -1,6 +1,7 @@
 # Put in PaGraph/partition/
 # Remove data import in both dg.py and ordering.py
-#
+# Run this file on jupiter as we this code is written with latest dgl and ogb version
+
 from cProfile import label
 from PaGraph.partition.ordering import reordering
 from PaGraph.partition.dg import dg
@@ -13,10 +14,10 @@ import os
 import dgl
 import torch
 
-ROOT_DIR = '/data/sandeep'
-PAGRAPH_DIR = '/data/sandeep/pagraph/arxiv/'
-FILENAME = 'obgn_arxiv'
-dataset = DglNodePropPredDataset('ogbn-arxiv', root=ROOT_DIR)
+ROOT_DIR = '/home/spolisetty_umass_edu/'
+FILENAME = "ogbn-products/"
+PAGRAPH_DIR = ROOT_DIR + 'pagraph/' +FILENAME
+dataset = DglNodePropPredDataset(FILENAME, root=ROOT_DIR)
 graph = dataset[0][0]
 graph = graph.add_self_loop()
 split_idx = dataset.get_idx_split()
@@ -48,7 +49,9 @@ labels = dataset[0][1]
 # ordering
 print('re-ordering graphs...')
 # adj = adj.tocsc()
-adj, vmap = reordering(scipyCSC, depth=3)  # vmap: orig -> new
+print("Skipping reordering")
+#adj, vmap = reordering(scipyCSC, depth=3)  # vmap: orig -> new
+vmap = torch.arange(graph.num_nodes())
 # np.save(PAGRAPH_DIR + 'adj', adj)
 np.save(PAGRAPH_DIR + 'vmap', vmap)
 # save to files
@@ -65,9 +68,9 @@ labels = get_labels(PAGRAPH_DIR)
 
 train_nids = split_idx['train']
 train_nids = np.sort(vmap[train_nids])
-
+print("start partition")
 p_v, p_trainv = dg(4, adj, train_nids, 3)
-
+print("end partition")
 np.save(PAGRAPH_DIR + 'p_v', p_v)
 np.save(PAGRAPH_DIR + 'p_trainv', p_trainv)
 
