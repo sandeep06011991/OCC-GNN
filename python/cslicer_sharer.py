@@ -7,7 +7,6 @@ from dgl.sampling import sample_neighbors
 from models.factory import get_model_distributed
 from utils.utils import get_process_graph
 from utils.memory_manager import MemoryManager
-from utils.sampler import Sampler
 import torch.optim as optim
 from cslicer import cslicer
 from data.cpu_compr_bipartite import Bipartite, Sample, Gpu_Local_Sample
@@ -17,14 +16,15 @@ import torch.multiprocessing as mp
 import random
 from torch.nn.parallel import DistributedDataParallel
 from torch.multiprocessing import Queue
-from queue import Queue as Simple_Queue
-import threading
+import torch.distributed as dist
 import os
 os.environ["PYTHONPATH"] = "/home/spolisetty/OCC-GNN/cslicer/"
 import time
 import inspect
 # https://teddykoker.com/2020/12/dataloader/
 # Go through this when I get stuck
+# prefetching is like a warm up so that there is something in the queue when the trainer start
+# It is not a seperate thread. 
 
 
 def set_all_seeds(seed):
@@ -48,18 +48,21 @@ def compute_acc(pred, labels):
 def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, features, args\
                     ,num_classes,batch_in, labels, num_sampler_workers, deterministic,in_degrees):
     print("Num sampler workers ", num_sampler_workers)
+    
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
         master_ip='127.0.0.1', master_port='12345')
     world_size = gpus
     torch.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     print("SEED",torch.seed())
+    
     if deterministic:
         set_all_seeds(seed)
     model = get_model_distributed(args.num_hidden, features, num_classes, proc_id, args.deterministic)
     model = model.to(proc_id)
     model =  DistributedDataParallel(model, device_ids = [proc_id],\
                 output_device = proc_id)
+                # find_unused_parameters = False
     loss_fn = torch.nn.CrossEntropyLoss(reduction = 'sum')
     labels= labels.to(proc_id)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -84,28 +87,64 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     t1 = time.time()
     print("Features ", features.device)
     num_epochs = 0
-    while(True):
-        t11 = time.time()
-        nmb += 1
-        t111 = time.time()
-        print("ATTEMPT POP", proc_id, "Queue size",sample_queue.qsize())
+    if proc_id == 0:
+        store = dist.TCPStore("127.0.0.1", 1234, 4, True)
+    else:
+        store = dist.TCPStore("127.0.0.1",1234, 4, False)
+    
+    sample_buffer = {}
+
+    def get_sample_and_deserialize(sample_queue):
         while True:
             try:
                 t = sample_queue.get_nowait()
                 break
             except:
                 time.sleep(1)
-                print("GET is BLOCKED")
-        print("POP SUCCESS", proc_id)
-        t222 = time.time()
+                print("QUEUE IS EMPTY. Increase workers to overlap")
         if(type(t) == type("")):
             gpu_local_sample = t
+            sample_id = t
         else:
             gpu_local_sample = Gpu_Local_Sample.deserialize(t)
-        t333 = time.time()
+            sample_id = gpu_local_sample.randid
+        return str(sample_id), gpu_local_sample
+       
+
+    while(True):
+        t11 = time.time()
+        nmb += 1
+        print("minibatch",nmb)
+        t111 = time.time()
+        #print("ATTEMPT POP", proc_id, "Queue size",sample_queue.qsize())
+        gpu_local_sample = None
+        sample_id = None
+        if proc_id == 0 or len(sample_buffer) == 0: 
+            sample_id, gpu_local_sample = get_sample_and_deserialize(sample_queue)
+        if sample_id  == None:
+            sample_id = list(sample_buffer.keys())[0]
+            gpu_local_sample = sample_buffer[sample_id]
+        # Handle race condition
         if proc_id == 0:
-            print("pop time", t222 - t111)
-            print("deserialize time", t333 - t222)
+            store.set("leader",str(sample_id))
+        torch.distributed.barrier()
+        if proc_id != 0:
+            try:
+                leader_id = store.get("leader")
+                leader_id = leader_id.decode("utf-8") 
+                while(sample_id != leader_id):
+                    #print("mismatch", sample_id, leader_id)
+                    sample_buffer[sample_id] = gpu_local_sample
+                    if leader_id not in sample_buffer:
+                        sample_id, gpu_local_sample = get_sample_and_deserialize(sample_queue)
+                    else:
+                        sample_id = leader_id
+                        gpu_local_sample = sample_buffer[leader_id]
+                if sample_id in sample_buffer:
+                    del sample_buffer[sample_id]
+            except:
+                print("gpu 0 is shut down")
+                gpu_local_sample = "EPOCH"
         t22 = time.time()
         sample_get_time += t22 - t11
         if(gpu_local_sample == "EPOCH"):
@@ -123,9 +162,9 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             num_epochs += 1
             continue
         if(gpu_local_sample == "END"):
-            print("GOT END OF FLAG")
+            #print("GOT END OF FLAG")
             num_sampler_workers -= 1
-            print("got end of epoch flag")
+            #print("got end of epoch flag")
             # Maintain num active sampler workers
             if num_sampler_workers == 0:
                 break
@@ -133,8 +172,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
                 continue
         t33 = time.time()
         gpu_local_sample.to_gpu()
-        assert(features.device == torch.device('cpu'))
-        # gpu_local_sample.debug()
+        #assert(features.device == torch.device('cpu'))
+        #gpu_local_sample.debug()
         t44 = time.time()
         sample_move_time += t44 - t33
         classes = labels[gpu_local_sample.last_layer_nodes].to(torch.device(proc_id))
@@ -142,18 +181,25 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         # with nvtx.annotate("forward",color="blue"):
         torch.cuda.set_device(proc_id)
         optimizer.zero_grad()
-        # with torch.autograd.profiler.profile(use_cuda=True, record_shapes=True) as prof:
+        #with torch.autograd.profiler.profile(use_cuda=True, record_shapes=True) as prof:
         fp_start.record()
         assert(features.device == torch.device('cpu'))
-        print("Start forward pass !")
+        #print("Start forward pass !")
         output = model.forward(gpu_local_sample,batch_in, in_degrees)
         # torch.cuda.set_device(proc_id)
         fp_end.record()
+        #print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
+        #print("torch.cuda.memory_reserved: %fGB"%(torch.cuda.memory_reserved(0)/1024/1024/1024))
+        #print("torch.cuda.max_memory_reserved: %fGB"%(torch.cuda.max_memory_reserved(0)/1024/1024/1024))
 
         # print(prof.key_averages(group_by_input_shape=True))
         loss = loss_fn(output,classes)/args.batch_size
-        # print("loss",loss)
+        #assert(classes.shape[0] != 0)
+        #print("loss",loss)
         loss.backward()
+        #print("backward complete",proc_id)
+        if(classes.shape[0]):
+            print("Backward not blocks when classes is zero")
         # Helpful trick to make manual calculation of gradients easy.
         # torch.sum(output).backward()
 
@@ -164,18 +210,16 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         ii = ii + 1
         bp_end.record()
 
-        if True  and output.shape[0] !=0:
+        if False  and output.shape[0] !=0:
             acc = compute_acc(output,classes)
             print("accuracy {}",acc)
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
-        print("Forward time",fp_start.elapsed_time(fp_end)/1000 )
+        #print("Forward time",fp_start.elapsed_time(fp_end)/1000 )
         # with nvtx.annotate("backward", color="red"):
         backward_time += fp_end.elapsed_time(bp_end)/1000
         if deterministic:
             model.module.print_grad()
-        torch.distributed.barrier()
-
         optimizer.step()
 
 
@@ -199,14 +243,11 @@ def work_producer(work_queue,training_nodes, batch_size, no_epochs, num_workers,
     num_nodes = len(training_nodes)
     for epoch in range(no_epochs):
         i = 0
-        ii = 0
         if not deterministic:
             random.shuffle(training_nodes)
         while(i < num_nodes):
             work_queue.put(training_nodes[i:i+batch_size])
             i = i + batch_size
-            ii  = ii+1
-
         work_queue.put("EPOCH")
     for n in range(num_workers):
         work_queue.put("END")
@@ -218,7 +259,7 @@ def work_producer(work_queue,training_nodes, batch_size, no_epochs, num_workers,
     print("WORK PRODUCER TRIGGERING END")
 
 def slice_producer(graph_name, work_queue, sample_queues, \
-    lock , minibatches_per_epoch, no_epochs, storage_vector, deterministic, queue_size):
+    lock , minibatches_per_epoch, no_epochs, storage_vector, deterministic, queue_size, worker_id):
 
     no_worker_threads = 1
     sampler = cslicer(graph_name, queue_size, no_worker_threads,
@@ -232,7 +273,7 @@ def slice_producer(graph_name, work_queue, sample_queues, \
             for qid,q in enumerate(sample_queues):
                 sample_queues[qid].put("END")
             lock.release()
-            print("WORK SLICER RESPONDING TO END")
+            #print("WORK SLICER RESPONDING TO END")
             break
         if sample_nodes == "EPOCH":
             lock.acquire()
@@ -242,25 +283,27 @@ def slice_producer(graph_name, work_queue, sample_queues, \
             continue
         csample = sampler.getSample(sample_nodes)
         tensorized_sample = Sample(csample)
+        sample_id = tensorized_sample.randid
         gpu_local_samples = []
         dummy = []
         for gpu_id in range(4):
             # gpu_local_samples.append(Gpu_Local_Sample(tensorized_sample, gpu_id))
             ref = Gpu_Local_Sample(tensorized_sample, gpu_id).serialize()
             gpu_local_samples.append(ref)
-        while(sample_queues[0].qsize() >= queue_size - 3):
-            time.sleep(.01)
+        #while(sample_queues[0].qsize() >= queue_size - 3):
+        #    time.sleep(.01)
         lock.acquire()
-        print("ATTEMPT TO PUT SAMPLE",sample_queues[0].qsize())
+        #print("ATTEMPT TO PUT SAMPLE",sample_queues[0].qsize(), "WORKER", worker_id)
+        #print("Worker puts sample",sample_id)
         for qid,q in enumerate(sample_queues):
             while True:
                 try:
                     sample_queues[qid].put_nowait(gpu_local_samples[qid])
+                    #print("Worker puts sample", sample_id,"in queue",qid)
                     break
                 except:
-                    time.sleep(1)
-                    print("Exception putting stuff")
-        print("ATTEMPT TO RELEASE LOCK SAMPLE")
+                    time.sleep(.0001)
+                    #print("Sampler is too fast, Exception putting stuff")
         lock.release()
 
     print("Waiting for sampler process to return")
@@ -286,7 +329,7 @@ def train(args):
     fanout = args.fan_out.split(',')
     fanout = [(int(f)) for f in fanout]
     fanout = [10,10,10]
-    no_worker_process = 2
+    no_worker_process = 4 
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map, deterministic = args.deterministic)
@@ -297,6 +340,8 @@ def train(args):
     work_queue = mp.Queue(8)
     train_mask = dg_graph.ndata['train_mask']
     train_nid = train_mask.nonzero().squeeze()
+    
+    print("Training nodes", train_nid.shape[0])
     if args.deterministic:
         train_nid = torch.arange(dg_graph.num_nodes())
         # When debugging at node level
@@ -307,13 +352,14 @@ def train(args):
 
     # global train_nid_list
     # train_nid_list= train_nid.tolist()
-    queue_size = 8
+    queue_size = 4
     work_producer_process = mp.Process(target=(work_producer), \
                   args=(work_queue, train_nid, minibatch_size, no_epochs,\
                     no_worker_process, args.deterministic))
     work_producer_process.start()
 
     sample_queues = [mp.Queue(queue_size) for i in range(4)]
+
     # sample_queues = [mp.SimpleQueue() for i in range(4)]
     lock = torch.multiprocessing.Lock()
 
@@ -322,7 +368,7 @@ def train(args):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, sample_queues, lock,\
                                 minibatches_per_epoch, no_epochs,storage_vector, args.deterministic,
-                                queue_size))
+                                queue_size, proc))
         slice_producer_process.start()
         slice_producer_processes.append(slice_producer_process)
 
@@ -359,7 +405,7 @@ if __name__=="__main__":
     argparser.add_argument('--debug',type = bool, default = False)
     argparser.add_argument('--cache-per', type =float, default = .25)
     argparser.add_argument('--model-name',help="gcn|gat")
-    argparser.add_argument('--num-epochs', type=int, default=2)
+    argparser.add_argument('--num-epochs', type=int, default=3)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument("--num-heads", type=int, default=8,

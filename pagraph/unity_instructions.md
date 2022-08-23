@@ -29,6 +29,8 @@ pip install numpy==1.18.5 (install numpy before dgl as dgl might choose a higher
 
 Install torch:
 Try removing the flag –no-cache-dir 
+pip install torch==1.8.1+cu102 torchvision==0.9.1+cu102 torchaudio==0.8.1 -f https://download.pytorch.org/whl/torch_stable.html
+
 pip install --no-cache-dir torch==1.11.0+cu102 torchvision==0.12.0+cu102 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu102
 pip install dgl-cu102==0.4.3
 

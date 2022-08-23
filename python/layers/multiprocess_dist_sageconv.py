@@ -68,11 +68,11 @@ class DistSageConv(nn.Module):
 
     def forward(self, bipartite_graph, x, l, in_degree):
         t1 = time.time()
-        if l == 0 or l == 1:
-            num_nodes = bipartite_graph.graph.nodes('_V').shape[0]
-            node_degree = bipartite_graph.graph.in_degrees(\
-                torch.arange(num_nodes,device = self.gpu_id))
-            print("Node degree", node_degree.shape, "layer", torch.where(node_degree ==10)[0].shape, l)
+        #if l == 0 or l == 1:
+        #    num_nodes = bipartite_graph.graph.nodes('_V').shape[0]
+        #    node_degree = bipartite_graph.graph.in_degrees(\
+        #        torch.arange(num_nodes,device = self.gpu_id))
+        #    print("Node degree", node_degree.shape, "layer", torch.where(node_degree ==10)[0].shape, l)
             # mask = torch.zeros(bipartite_graph.graph.nodes('_V').shape[0], dtype=torch.bool, device = x.device)
             # mask[bipartite_graph.owned_out_nodes] = True
             # mask = ~ mask
@@ -119,6 +119,7 @@ class DistSageConv(nn.Module):
         out3 = bipartite_graph.self_gather(x)
         out4 = bipartite_graph.slice_owned_nodes(out3)
         out5 = self.fc2(out4)
+        
         final = out5 + out6
         t33 = time.time()
         t2 = time.time()

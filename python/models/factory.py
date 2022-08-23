@@ -30,9 +30,9 @@ class DistSAGEModel(torch.nn.Module):
         self.deterministic = deterministic
         self.fp_end = torch.cuda.Event(enable_timing=True)
         self.bp_end = torch.cuda.Event(enable_timing=True)
-
+        
     def forward(self, bipartite_graphs, x, in_degrees):
-        print("input ",x.shape,x.device)
+        #print("input ",x.shape,x.device)
         for l,(layer, bipartite_graph) in  \
             enumerate(zip(self.layers,bipartite_graphs.layers)):
             import time
@@ -50,13 +50,11 @@ class DistSAGEModel(torch.nn.Module):
             self.bp_end.record()
             torch.cuda.synchronize(self.bp_end)
             t2 = time.time()
-            if True:
-                print("layer time  @@@@@@@@@@@",l, x.shape, self.fp_end.elapsed_time(self.bp_end)/1000, t2-t1)
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
 
         return x
-
+    
 
     def print_grad(self):
         for id,l in enumerate(self.layers):

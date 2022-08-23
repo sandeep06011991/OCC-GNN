@@ -36,7 +36,7 @@ def dg_max_score(score, p_vnum):
     return ids[0] if p_vnum[ids[0]] < p_vnum[ids[1]] else ids[1]
 
 
-def dg_ind(adj, neighbors, belongs, p_vnum, r_vnum, pnum):
+def dg_ind(adj, neighbors, belongs, p_vnum, r_vnum, pnum, no_train):
   """
   Params:
     neighbor: in-neighbor vertex set
@@ -52,8 +52,11 @@ def dg_ind(adj, neighbors, belongs, p_vnum, r_vnum, pnum):
   belonged = neighbor_belong[np.where(neighbor_belong != -1)]
   pid, freq = np.unique(belonged, return_counts=True)
   com_neighbor[pid] += freq
-  # need modify to match the train vertex num
-  avg_num = adj.shape[0] * 0.65 / pnum
+  # SANDEEP need modify to match the train vertex num
+  # Limits per partition training vertices to 65% of total no vertices.
+  # Not correct as per paper.
+  # avg_num = adj.shape[0] * 0.65 / pnum
+  avg_num = no_train/pnum
   score = com_neighbor * (-p_vnum + avg_num) / (r_vnum + 1)
   return score
 
@@ -66,14 +69,14 @@ def dg(partition_num, adj, train_nids, hops):
   r_belongs = [-np.ones(vnum, dtype=np.int8) for _ in range(partition_num)]
   p_vnum = np.zeros(partition_num, dtype=np.int64)
   r_vnum = np.zeros(partition_num, dtype=np.int64)
-
+    
   progress = 0
   #for nid in range(0, train_nids):
   print('total vertices: {} | train vertices: {}'.format(vnum, vtrain_num))
   for step, nid in enumerate(train_nids):
     #neighbors = in_neighbors(csc_adj, nid)
     neighbors = in_neighbors_hop(csc_adj, nid, hops)
-    score = dg_ind(csc_adj, neighbors, belongs, p_vnum, r_vnum, partition_num)
+    score = dg_ind(csc_adj, neighbors, belongs, p_vnum, r_vnum, partition_num,vtrain_num)
     ind = dg_max_score(score, p_vnum)
     if belongs[nid] == -1:
       belongs[nid] = ind

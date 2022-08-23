@@ -13,15 +13,18 @@ import scipy.sparse as spsp
 import os
 import dgl
 import torch
+import time
 
-ROOT_DIR = '/home/spolisetty_umass_edu/'
-FILENAME = "ogbn-products/"
-PAGRAPH_DIR = ROOT_DIR + 'pagraph/' +FILENAME
+ROOT_DIR = '/data/sandeep'
+FILENAME = 'ogbn-papers100M'
+PAGRAPH_DIR = '/data/sandeep/pagraph/{}/'.format(FILENAME)
 dataset = DglNodePropPredDataset(FILENAME, root=ROOT_DIR)
 graph = dataset[0][0]
 graph = graph.add_self_loop()
 split_idx = dataset.get_idx_split()
-
+features = graph.ndata['feat']
+np.save(os.path.join(PAGRAPH_DIR,'feat.npy'),features)
+assert(False)
 
 def getMask(nodes, graph):
   res = torch.zeros(graph.nodes().shape[0], dtype=torch.bool)
@@ -48,11 +51,14 @@ labels = dataset[0][1]
 
 # ordering
 print('re-ordering graphs...')
+print('skip reordering')
+adj = scipyCSC
 # adj = adj.tocsc()
 print("Skipping reordering")
 #adj, vmap = reordering(scipyCSC, depth=3)  # vmap: orig -> new
 vmap = torch.arange(graph.num_nodes())
 # np.save(PAGRAPH_DIR + 'adj', adj)
+vmap = torch.arange(graph.num_nodes())
 np.save(PAGRAPH_DIR + 'vmap', vmap)
 # save to files
 mapv = np.zeros(vmap.shape, dtype=np.int64)
@@ -68,9 +74,12 @@ labels = get_labels(PAGRAPH_DIR)
 
 train_nids = split_idx['train']
 train_nids = np.sort(vmap[train_nids])
-print("start partition")
+
+s = time.time()
 p_v, p_trainv = dg(4, adj, train_nids, 3)
-print("end partition")
+e = time.time()
+
+print("Total partitioning time", e-s)
 np.save(PAGRAPH_DIR + 'p_v', p_v)
 np.save(PAGRAPH_DIR + 'p_trainv', p_trainv)
 
@@ -81,7 +90,8 @@ np.save(PAGRAPH_DIR + 'p_trainv', p_trainv)
 # save to file
 partition_dataset = os.path.join(
     PAGRAPH_DIR, '{}naive'.format(4))
-os.mkdir(partition_dataset)
+if not os.path.exists(partition_dataset):
+    os.mkdir(partition_dataset)
 
 dgl_g = dgl.DGLGraphStale(scipyCSC, readonly=True)
 labels = get_labels(PAGRAPH_DIR)

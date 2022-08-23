@@ -79,8 +79,22 @@ void Slicer::slice_layer(vector<long>& in, vector<long>& out, Layer& l, int laye
   }
 
 void Slicer::layer_consistency(Layer& l){
-  for(int gpu=0; gpu<4; gpu++ ){
-    BiPartite *bp = l.bipartite[gpu];
+  for(int a=0; a<4; a++ ){
+    BiPartite *send = l.bipartite[a];
+    for(int b =0; b < 4; b ++){
+    	if (a==b)continue;
+	BiPartite *recv= l.bipartite[b];
+	if(send->to_ids[b].size() != recv->from_ids[a].size()){
+		std::cout << "FAILURE ALERT !!!!!!!!!!!!!!\n";
+	}
+	//cout << "send gpu:" << a << "shape" << send->to_ids[b].size() << "to_ids gpu:" << b << "shape" << recv->from_ids[a].size() <<"\n";
+	assert(send->to_ids[b].size() == recv->from_ids[a].size());
+
+    }
+  }
+ }
+/*  Used this code for debugging structure of bipartite graphs
+ *
     for(long o_id = 0; o_id<bp->owned_out_nodes.size() ;o_id++ ){
         // local aggregation
         long nd = bp->owned_out_nodes[o_id];
@@ -118,8 +132,9 @@ void Slicer::layer_consistency(Layer& l){
           // assert(bp->in_degree[o_id] == local_nbs);
         }
     }
-  }
+  
 }
+*/
 
 // Challenge moving parts.
 // Dont worry about overlap. Just move this.

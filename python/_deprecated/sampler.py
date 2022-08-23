@@ -1,228 +1,249 @@
-# Design of neighbour sampler
-# With novel data_structureself.
-import time
-import dgl
-import numpy as np
-import scipy
-from dgl._deprecate.graph import DGLGraph as DGLGraph
-from dgl.contrib.sampling import NeighborSampler as NeighborSampler
 import torch
-from dgl.nn import GraphConv
+from dgl.sampling import sample_neighbors
+from data.bipartite import BipartiteGraph
+import time
 
-def get_graph():
-    DATA_DIR = "/home/spolisetty/data"
-    graphname = "ogbn-products"
-    indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.intc)
-    indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.intc)
-    num_nodes = indptr.shape[0] - 1
-    num_edges = indices.shape[0]
-    fsize = 600
-    features = torch.rand(num_nodes,fsize)
-    sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
-    shape = (num_nodes,num_nodes))
-    dg_graph = DGLGraph(sp)
-    dg_graph.readonly()
-    p_map = np.fromfile("{}/{}/partition_map.bin".format(DATA_DIR,graphname),dtype = np.intc)
-    edges = dg_graph.edges()
-    partition_map = torch.from_numpy(p_map)
-    return dg_graph, partition_map, features, num_nodes, num_edges
+class Sampler():
 
-dg_graph,partition_map, features, num_nodes, num_edges = get_graph()
-fsize = features.shape[1]
-# Create distributed torch tensor
-class DistributedTensorMap():
-    def __init__(self,global_to_gpu_id):
-        # assert(tensor.shape[0] == global_to_gpu_id.shape[0])
-        self.global_to_gpu_id = global_to_gpu_id
-        self.local_to_global_id = []
-        self.local_sizes = []
-        for i in range(4):
-            self.local_to_global_id.append(torch.where(self.global_to_gpu_id == i)[0])
-            # print(local_to_global_id[i])
-            self.local_sizes.append(self.local_to_global_id[i].shape[0])
-        self.global_to_local_id = torch.zeros(global_to_gpu_id.shape,dtype = torch.int)
-        for i in range(4):
-            self.global_to_local_id.index_put_(indices = [self.local_to_global_id[i]],
-                values = torch.arange(self.local_sizes[i],dtype = torch.int))
+    def __init__(self,graph, training_nodes, workload_assignment, \
+        memory_manager, fanout,batch_size):
+        self.graph = graph
+        self.training_nodes = training_nodes
+        # non overlapping workload assignment
+        self.workload_assignment = workload_assignment
+        self.batch_size = batch_size
+        self.labels = graph.ndata["labels"]
+        # storage assignment
+        self.memory_manager = memory_manager
+        self.fanout = fanout
+        self.num_nodes = graph.num_nodes()
+        self.sample_time = 0
+        self.slice_time = 0
+        self.cache_refresh_time = 0
 
-# dist_map1 = DistributedTensorMap(partition_map)
-hops = 2
-dataloader = (NeighborSampler(
-        dg_graph, 4096, expand_factor = 10, num_hops = hops,
-        shuffle = True))
-total_1 = time.time()
-reordering_time = []
-forward_pass_time = []
-intermediate_data = []
-cost_of_data_movement = []
-pa_graph = []
-epoch_no = 0
-print("total batches",num_nodes/4096)
-# To avoud counting Dont count first epoch mem alloc
-for i in range(4):
-    a = torch.ones(1000 * 1000 * 1000,device=i)
-    del a
+    def clear_timers(self):
+        self.sample_time = 0
+        self.slice_time = 0
+        self.cache_refresh_time = 0
 
-for nf in dataloader:
-    print("epoch no",epoch_no)
-    epoch_no = epoch_no + 1
-    if epoch_no > 100:
-        break
-    # s1 = time.time()
-    # nf = next(dataloader)
-    # e1 = time.time()
-    # print("sample time",e1-s1)
-    num_layers = nf.num_layers
-    layer_offsets = [nf.layer_size(i) for i in range(num_layers)]
-    edge_offsets = [nf.block_size(i) for i in range(nf.num_blocks)]
-    s = 0
-    for i in range(num_layers):
-        t = s
-        s = s + layer_offsets[i]
-        layer_offsets[i] = t
-    s = 0
-    for i in range(nf.num_blocks):
-        t = s
-        s = s + edge_offsets[i]
-        edge_offsets[i] = t
+    def __iter__(self):
+        # shuffle training nodes
+        self.training_nodes = self.training_nodes[torch.randperm(self.training_nodes.shape[0])]
+        self.idx = 0
+        return self
 
-    # print(edge_offsets)
-        # { for value in variable}
-    # print(layer_offsets)
-    dist_maps = []
-    for i in range(hops + 1):
-        dist_maps.append(DistributedTensorMap(partition_map[nf.layer_parent_nid(i)]))
-    local_graphs = []
-    merge_indices = []
-    for i in range(hops):
-        local_graphs.append([[None for i in range(4)] for i in range(4)])
-        merge_indices.append([[None for i in range(4)] for i in range(4)])
+    def __next__(self):
+        # returns a bunch of bipartite graphs.
+        if self.idx >= self.training_nodes.shape[0]:
+            raise StopIteration
+        batch_in = self.training_nodes[self.idx: self.idx + self.batch_size]
+        t1 = time.time()
+        blocks, layers = self.sample(batch_in)
+        # print("Sampling nodes",layers[0][:5])
+        # print("in_degrees",self.graph.in_degrees(layers[0][:5]))
+        # print("work load",self.workload_assignment[layers[0]][:5])
+        # Refresh last layer cache
+        t2 = time.time()
+        self.memory_manager.refresh_cache(layers[-1])
+        t3 = time.time()
+        partitioned_edges = self.edge_partitioning(blocks,layers)
+        partitioned_labels = self.partition_labels(blocks,layers)
+        bipartite_graphs, shuffle_matrix, model_owned_nodes = \
+                self.create_bipartite_graphs(partitioned_edges)
+        t4 = time.time()
+        self.sample_time += (t2-t1)
+        self.cache_refresh_time += t3-t2
+        self.slice_time +=t4-t3
+        # print("splitting time",t4 -t3)
+        self.idx = self.idx + batch_in.shape[0]
+        assert(len(bipartite_graphs) == len(shuffle_matrix))
+        # Return blocks and layers for correctness.
+        return bipartite_graphs, shuffle_matrix, model_owned_nodes, blocks, layers, partitioned_labels
 
-    #
-    s1_time = time.time()
-    features[nf.layer_parent_nid(0)].to('cuda:0')
-    e1_time = time.time()
-    cost_of_data_movement.append(e1_time - s1_time)
-    # dist_map1 = DistributedTensorMap(partition_map[a.layer_parent_nid(0)])
-    # dist_map2 = DistributedTensorMap(partition_map[a.layer_parent_nid(1)])
-    # dist_map3 = DistributedTensorMap(partition_map[a.layer_parent_nid(2)])
-    #
-    # local_graphs1 = [[None for i in range(4)] for i in range(4)]
-    # merge_indices1 = [[None for i in range(4)] for i in range(4)]
-    # print("Beggining construction of local graphs")
-    # with torch.autograd.profiler.profile() as prof:
-    if(True):
-        start_time = time.time()
-        for i in range(hops):
-            # print("Working on hops !!")
-            current_layer_id = i
-            next_layer_id = i+1
-            src_parent_id = nf.layer_parent_nid(current_layer_id)
-            dest_parent_id = nf.layer_parent_nid(next_layer_id)
-            src, dest, edge_id = nf.block_edges(current_layer_id)
-            block_id = current_layer_id
-            # print(src)
-            # print(dest)
-            # print(dist_maps[current_layer_id].global_to_gpu_id.shape)
-            # print(dist_maps[next_layer_id].global_to_gpu_id.shape)
-            edge_map = (dist_maps[current_layer_id].global_to_gpu_id[src - layer_offsets[current_layer_id]]), \
-                dist_maps[next_layer_id].global_to_gpu_id[dest - layer_offsets[next_layer_id]]
-            dist_map1 = dist_maps[current_layer_id]
-            dist_map2 = dist_maps[next_layer_id]
-            for src_gpu in range(4):
+    # Returns a dictionary of partitioned edge blocks.
+    def edge_partitioning(self,blocks,layers):
+        # No reordering takes place. In this part.
+        no_layers = len(blocks)
+        # Process except last layer.
+        partitioned_blocks = []
+        for layer_id in range(no_layers-1):
+            # Read them reverse.
+            src_ids, dest_ids = blocks[layer_id]
+            partition_edges = []
+            s = 0
+            for gpu_id in range(4):
+                selected_edges = torch.where(self.workload_assignment[src_ids] == gpu_id)[0]
+                # Used for bipartite graph construction.
+                s = s + selected_edges.shape[0]
+                shuffle_nds = {}
+                owned_nds = torch.unique(dest_ids[torch.where\
+                        (self.workload_assignment[dest_ids]==gpu_id)[0]])
+                dest_ids_select_edges = dest_ids[selected_edges]
+                for remote_gpu in range(4):
+                    if gpu_id == remote_gpu:
+                        continue
+                    shuffle_nds[remote_gpu] = torch.unique(dest_ids_select_edges\
+                            [torch.where(self.workload_assignment[dest_ids_select_edges] == remote_gpu)])
+                partition_edges.append({"src":src_ids[selected_edges], \
+                    "dest":dest_ids[selected_edges],"shuffle_nds":shuffle_nds,\
+                        "device":gpu_id, "owned_nds":owned_nds})
+            partitioned_blocks.append(partition_edges)
+            assert(s == src_ids.shape[0])
+        # Select edges  What about when there is overlap
+        src_ids, dest_ids  = blocks[no_layers-1]
+        # All remote edges
+        edge_mask = self.memory_manager.node_gpu_mask[src_ids,self.workload_assignment[dest_ids]]
+        assert(edge_mask.shape == src_ids.shape)
+        remote_edge_ids = torch.where(~ edge_mask)[0]
+        natural_edge_ids = torch.where(edge_mask)[0]
+        assert(torch.all(self.memory_manager.node_gpu_mask[src_ids[natural_edge_ids], \
+                        self.workload_assignment[dest_ids[natural_edge_ids]]]))
+        # Special edge_ids
+
+        partition_edges = []
+        for gpu_id in range(4):
+
+            natural_edges = natural_edge_ids[torch.where(self.workload_assignment[dest_ids[natural_edge_ids]]== gpu_id)[0]]
+            extra_edges = remote_edge_ids[torch.where(self.workload_assignment[src_ids[remote_edge_ids]] == gpu_id)[0]]
+            src_local = torch.cat([src_ids[natural_edges], src_ids[extra_edges]])
+
+            assert(torch.all(self.memory_manager.node_gpu_mask[src_local,gpu_id]))
+            dest_local = torch.cat([dest_ids[natural_edges], dest_ids[extra_edges]])
+            shuffle_nds = {}
+            dest_nds = torch.unique(dest_ids)
+            owned_nds = dest_nds[torch.where(self.workload_assignment[dest_nds] == gpu_id)[0]]
+            if extra_edges.shape[0]:
                 for dest_gpu in range(4):
-                    if src_gpu == dest_gpu:
-                        local_edges = edge_id[torch.where((edge_map[0] == src_gpu) & (edge_map[1]==dest_gpu))] - edge_offsets[block_id]
-                        src_local_edges = dist_map1.global_to_local_id[src[local_edges]-layer_offsets[current_layer_id]]
-                        dest_local_edges = dist_map2.global_to_local_id[dest[local_edges]-layer_offsets[next_layer_id]]
-                        num_src_nodes = dist_map1.local_sizes[src_gpu]
-                        num_dest_nodes = dist_map2.local_sizes[dest_gpu]
-                        # print("local",num_dest_nodes)
-                        block = dgl.create_block((src_local_edges,dest_local_edges),num_src_nodes = num_src_nodes, \
-                                                num_dst_nodes = num_dest_nodes).to(src_gpu)
-                        local_graphs[current_layer_id][src_gpu][dest_gpu] = block
-                    else:
-                        non_local_edges = edge_id[torch.where((edge_map[0] == src_gpu) & (edge_map[1] == dest_gpu))] - edge_offsets[block_id]
-                        # print("edges",non_local_edges.shape[0],src_gpu)
-                        src_local_edges = dist_map1.global_to_local_id[src[non_local_edges]-layer_offsets[current_layer_id]]
-                        remote_dest_nodes = dest[non_local_edges]-layer_offsets[next_layer_id]
-                        no_dup,mapping = remote_dest_nodes.unique(return_inverse = True)
-                        merge_indices[current_layer_id][src_gpu][dest_gpu] = dist_map2.global_to_local_id[no_dup].long().to(dest_gpu)
-                        num_dest_nodes = no_dup.shape[0]
-                        num_src_nodes = dist_map1.local_sizes[src_gpu]
-                        dest_local_edges = mapping.type(torch.int32)
-                        # print("non-local dest",num_dest_nodes)
-                        # print("non-local src",num_src_nodes)
-                        block = dgl.create_block((src_local_edges,dest_local_edges),
-                                num_src_nodes = num_src_nodes, num_dst_nodes = num_dest_nodes).to(src_gpu)
-                        local_graphs[current_layer_id][src_gpu][dest_gpu] = block
-        end_time = time.time()
-        reordering_time.append(end_time-start_time)
+                    if dest_gpu == gpu_id:
+                        continue
+                    remote_edges = torch.where(self.workload_assignment[dest_ids[extra_edges]] == dest_gpu)[0]
+                    shuffle_nds[dest_gpu] = torch.unique(dest_ids[extra_edges[remote_edges]])
+            partition_edges.append({"src":src_local,"dest":dest_local, \
+                "owned_nds":owned_nds, "shuffle_nds":shuffle_nds,"device":gpu_id})
+        partitioned_blocks.append(partition_edges)
+        # Correctness test.
+        # Total number of edges across all cases must be the same.
+        s = 0
+        for i in partitioned_blocks:
+            for j in i:
+                s = s + j["src"].shape[0]
+        ss = 0
+        for src,dest in blocks:
+            ss = ss + src.shape[0]
+        assert(ss == s)
+        return partitioned_blocks
 
-    # print("local ordering ",end_time - start_time)
-    # print("local graphs all created")
-    # print("Begin forward pass !!")
-    global_f = features[nf.layer_parent_nid(0)]
-    local_features = []
-    conv1 = []
-    conv2 = []
-    conv3 = []
-    for i in range(4):
-        local_features.append(global_f[dist_maps[0].local_to_global_id[i]].to(i))
-        conv1.append(GraphConv(fsize,fsize, norm="none",allow_zero_in_degree = True).to(i))
-        conv2.append(GraphConv(fsize,fsize, norm="none",allow_zero_in_degree = True).to(i))
-        conv3.append(GraphConv(fsize,fsize, norm="none",allow_zero_in_degree = True).to(i))
-    # print("local slices done")
+    def create_bipartite_graphs(self,partitioned_blocks):
+        model_graphs = []
+        model_shuffles = []
+        model_owned_nodes = []
+        for layer in range(len(partitioned_blocks)):
+            partitioned_layer = partitioned_blocks[layer]
+            layer_graphs = {}
+            layer_shuffles = {}
+            # Fixme: Technically doest have to be another datastructure
+            # Doing a quick fix for speed.
+            layer_owned_nodes = {}
+            total_shuffle_nodes = 0
+            total_owned_nodes = 0
+            for local_layer in partitioned_layer:
+                src_gpu = local_layer["device"]
+                if layer != len(partitioned_blocks)-1:
+                    layer_graphs[src_gpu] = BipartiteGraph(local_layer["src"],local_layer["dest"], local_layer["device"])
+                else:
+                    layer_graphs[src_gpu] = BipartiteGraph(local_layer["src"], local_layer["dest"] \
+                                    , local_layer["device"], self.memory_manager.global_to_local[:,src_gpu], \
+                                     self.memory_manager.local_to_global_id[src_gpu],
+                                     self.memory_manager.batch_in[src_gpu].shape[0])
+                layer_shuffles[src_gpu] = local_layer["shuffle_nds"]
+                layer_owned_nodes[src_gpu] = local_layer["owned_nds"]
+            #     for k in local_layer["shuffle_nds"].keys():
+            #         total_shuffle_nodes += local_layer["shuffle_nds"][k].shape[0]
+            #     total_owned_nodes += local_layer["owned_nds"].shape[0]
+            # print("Statistics of shuffle",total_shuffle_nodes/total_owned_nodes)
+            model_owned_nodes.append(layer_owned_nodes)
+            model_graphs.append(layer_graphs)
+            model_shuffles.append(layer_shuffles)
+
+        return model_graphs, model_shuffles, model_owned_nodes
 
 
-    # features[a.layer_parent_nid(0)[:100]].to(0)
-    # s2 = time.time()
-    # f2 = features[a.layer_parent_nid(0)].to(0)
-    # e2 = time.time()
-    # print("total time feature transfer",e2 - s2)
-    def forward_pass(distributed_input, per_gpu_conv_list, local_graphs, merge_indices,timer):
-        # print("Working on fpass")
-        forward_pass_layer_1 = [[None for i in range(4)] for i in range(4)]
-        for src in range(4):
-            for dest in range(4):
-                forward_pass_layer_1[src][dest] =conv1[src](local_graphs[src][dest],distributed_input[src])
-        # print("Forward pass done !")
-        # print("shuffle and merge !!")
-        s1 = time.time()
-        for src in range(4):
-            for dest in range(4):
-                if(src != dest):
-                    temp = forward_pass_layer_1[src][dest].to(dest)
-                    final = forward_pass_layer_1[dest][dest]
-                    # print(merge_indices1)
-                    final[merge_indices[src][dest]] += temp
-        s2 = time.time()
-        timer.append(s2-s1)
-        out = []
-        for i in range(4):
-            out.append(forward_pass_layer_1[i][i])
-        return out
-    t1 = time.time()
-    out1 = forward_pass(local_features,conv1, local_graphs[0],merge_indices[0],intermediate_data)
-    out2 = forward_pass(out1,conv2, local_graphs[1],merge_indices[1],intermediate_data)
-    if hops==3:
-        out3 = forward_pass(out2,conv3,local_graphs[2],merge_indices[2],intermediate_data)
-    # for i in range(out2):
-    #     print(i.device)
-    #     i.sum().backward()
-    # print("shuffle and merge done")
-    t2 = time.time()
-    forward_pass_time.append(t2-t1)
-    # print("Total time for forward pass",t2-t1)
-    # print("hello world")
-print("total training time",time.time()-total_1)
-print("Total reordering_time",sum(reordering_time))
-print("total forward tiem",sum(forward_pass_time))
-print("total intermediate time",sum(intermediate_data))
-print("all data movement ",sum(cost_of_data_movement ))
-print(prof.key_averages().table(sort_by="self_cpu_time_total"))
-# assert(False)
-# except StopIteration:
-#     pass
-# except e:
-#     print(e)
+    '''
+        returns a list of blocks and edges
+        Keep this agnostic to graph slicing.
+        Allows me to try various sampling strategies.
+    '''
+    def sample(self, batch_in):
+        layers = []
+        blocks = []
+        # Note. Dont forget self loops otherwise GAT doesnt work.
+        # Create bipartite graphs for the first l-1 layers
+        last_layer = batch_in
+        last_layer = last_layer.unique()
+        layers.append(last_layer)
+        for fanout in self.fanout:
+            # Here src_ids and dest_ids are created from the point of sampler
+            # Note data movement flows reverse.
+            dest_ids,src_ids = sample_neighbors(self.graph, last_layer, fanout).edges()
+            # Correction test
+            # Check if all edges are being sampled
+            # assert((torch.where(src_ids[10] == src_ids)[0]).shape[0]
+            #     == self.graph.in_degrees(src_ids[10])[0])
+
+            # Add a self loop
+            # Minibatch edge Cut
+            # edge_cut_id = torch.where(self.workload_assignment[dest_ids] != self.workload_assignment[src_ids])[0]
+            # nodes = torch.unique(src_ids[edge_cut_id])
+            # total_nodes = torch.unique(src_ids).shape[0]
+            # print(torch.unique(src_ids[edge_cut_id])[:10])
+            # print(self.workload_assignment[dest_ids[edge_cut_id[:5]]])
+            # print(self.graph.in_degrees(nodes).sort()[:10])
+            # print("layer cut",nodes.shape[0]/total_nodes, edge_cut_id.shape[0]/dest_ids.shape[0])
+            self_loop_dests = torch.cat([last_layer, dest_ids])
+            edges = self_loop_dests, torch.cat([last_layer, src_ids])
+            last_layer = torch.unique(self_loop_dests)
+            layers.append(last_layer)
+            blocks.append(edges)
+        return blocks,layers
+
+    def partition_labels(self, blocks, layers):
+        partitioned_labels = {}
+        first_layer = layers[0]
+        for gpu_id in range(4):
+            local_first = first_layer[torch.where(self.workload_assignment[first_layer]==gpu_id)[0]]
+            partitioned_labels[gpu_id] = self.labels[local_first].to(gpu_id)
+            # 2 Hop calculation used for correctness
+            # self.graph.in_degrees(local_first)
+            # ret = torch.zeros(local_first.shape)
+            # for tgt_id in range(local_first.shape[0]):
+            #     tgt = local_first[tgt_id]
+            #     s = self.graph.in_degrees(tgt)[0]
+            #     second_hop = torch.sum(self.graph.in_degrees(self.graph.in_edges(tgt)[0])).item()
+            #     s = s + second_hop
+            #     ret[tgt_id] = s
+            # partitioned_labels[gpu_id] = ret
+        return partitioned_labels
+
+def test_sampler():
+    print("What am I doing, design unit test 2")
+    print("Takes in a graph and places all data at correct location")
+    print("Test various caching percentages.!")
+    from utils.utils import get_dgl_graph
+    from utils.memory_manager import MemoryManager
+    dg_graph,partition_map = get_dgl_graph("ogbn-arxiv")
+    partition_map = partition_map.type(torch.LongTensor)
+    features = torch.rand(dg_graph.num_nodes(),602)
+    cache_percentage = .10
+    batch_size = 1024
+    fanout = [10 , 10, 10]
+    mm = MemoryManager(dg_graph, features, cache_percentage,fanout, batch_size,  partition_map)
+    # # (graph, training_nodes, memory_manager, fanout)
+    sampler = Sampler(dg_graph, torch.arange(dg_graph.num_nodes()), partition_map, \
+                mm, [10,10,10], batch_size)
+    it = iter(sampler)
+    next(it)
+    # cache_percentage = .60
+    # MemoryManager(dg_graph, features, cache_percentage,fanout, batch_size,  partition_map)
+    print("Test refresh cache misses")
+    print("sampler request nodes which are currently missing")
+    print("Not clear yet.")

@@ -115,7 +115,7 @@ def write_dataset_dataset(name, TARGET_DIR):
 if __name__=="__main__":
     # assert(len(sys.argv) == 3)
     # nname = ["ogbn-products","ogbn-arxiv"]
-    nname = ["ogbn-products"]
+    nname = ["ogbn-papers100M"]
     for name in nname:
         target = TARGET_DIR + "/" + name
         os.makedirs(target, exist_ok=True)

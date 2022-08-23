@@ -62,6 +62,9 @@ def using_dist_send(proc_id, n_gpus, args, queues, devices):
     input_t = torch.rand(100,100, device = proc_id)
     temp = [torch.rand(100,100, device = proc_id) for i in range(4)]
     device_id = proc_id
+    if proc_id == 0:
+        #torch.distributed.barrier(device_ids = [proc_id])
+        print("Proof of useless barrier")
     for i in range(10):
         t1 = time.time()
         send_queue = []
