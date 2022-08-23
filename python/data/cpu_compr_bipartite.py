@@ -15,7 +15,7 @@ import dgl
 import torch
 import dgl.function as fn
 import time
-
+import random
 
 class Bipartite:
 
@@ -43,18 +43,24 @@ class Bipartite:
 
         def listFromObj(obj):
             return [obj[key] for key in range(4)]
+        mark = len(metadatalist)
         metadatalist.extend(listFromObj(self.from_ids_start))
         metadatalist.extend(listFromObj(self.from_ids_end))
         metadatalist.extend(listFromObj(self.to_ids_start))
         metadatalist.extend(listFromObj(self.to_ids_end))
+        #print("pre serialize calculate",from_d , to_d)
+        assert(len(metadatalist)==34)
         tensor = torch.tensor(metadatalist, dtype=torch.long)
         tensorCatData = torch.cat([tensor, self.data])
-        return (tensorCatData, self.graph, self.gpu_id)
+        checksum = torch.sum(tensor)
+        return (tensorCatData, self.graph, self.gpu_id, checksum)
 
     @staticmethod
     def deserialize(data):
-        tensor, graph, gpu_id = data
+        tensor, graph, gpu_id, checksum = data
         metadatalist = tensor[:34].tolist()
+        #print("post serialize calculate",from_d, to_d)
+        #print("Check sum", checksum, sum(metadatalist))
         data = tensor[34:]
         bipartite = Bipartite(metadatalist=metadatalist,
                               data=data, graph=graph, gpu_id=gpu_id)
@@ -90,11 +96,16 @@ class Bipartite:
             self.from_ids_end = {}
             self.to_ids_start = {}
             self.to_ids_end = {}
+            from_size = {}
+            to_size = {}
             for i in range(4):
                 self.from_ids_start[i] = metadatalist[18 + i]
                 self.from_ids_end[i] = metadatalist[22 + i]
                 self.to_ids_start[i] = metadatalist[26 + i]
                 self.to_ids_end[i] = metadatalist[30 + i]
+                from_size[i] = self.from_ids_end[i] - self.from_ids_start[i]
+                to_size[i] = self.to_ids_end[i] - self.to_ids_start[i]
+            #print("post serialization gpu id",self.gpu_id, from_size, to_size)
 
             self.data = data
             return
@@ -152,11 +163,16 @@ class Bipartite:
         self.from_ids_end = {}
         self.to_ids_start = {}
         self.to_ids_end = {}
+        from_size = {}
+        to_size = {}
         for i in range(4):
             self.from_ids_start[i] = cobject.from_ids_start[i]
             self.from_ids_end[i] = cobject.from_ids_end[i]
             self.to_ids_start[i] = cobject.to_ids_start[i]
             self.to_ids_end[i] = cobject.to_ids_end[i]
+            from_size[i] = self.from_ids_end[i] - self.from_ids_start[i]
+            to_size[i] = self.to_ids_end[i] - self.to_ids_start[i]
+        #print("pre serialziation gpu id",self.gpu_id, from_size, to_size)    
         self.self_ids_in_start = cobject.self_ids_in_start
         self.self_ids_in_end = cobject.self_ids_in_end
         self.self_ids_out_start = cobject.self_ids_out_start
@@ -208,14 +224,20 @@ class Bipartite:
     #
     def debug(self):
         print("gpu id",self.gpu_id)
-        print("Graph", self.graph)
-        print("in nodes",self.in_nodes.shape)
-        print("out nodes",self.out_nodes)
-        print("owned_out_nodes",self.owned_out_nodes)
-        print("from_ids",self.from_ids)
-        print("to ids",self.to_ids)
-        print("self ids in",self.self_ids_in)
-        print("self ids out",self.self_ids_in)
+        #print("Graph", self.graph)
+        #print("in nodes",self.in_nodes.shape)
+        #print("out nodes",self.out_nodes)
+        #print("owned_out_nodes",self.owned_out_nodes)
+        #print("from_ids",self.from_ids)
+        to = {}
+        fr = {}
+        for i in self.from_ids.keys():
+            to[i] = self.to_ids[i].shape[0]
+            fr[i] = self.from_ids[i].shape[0]
+        print("to",to,"from",fr)    
+        #print("to ids",self.to_ids)
+        #print("self ids in",self.self_ids_in)
+        #print("self ids out",self.self_ids_in)
 
     def gather(self, f_in):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
@@ -237,7 +259,9 @@ class Bipartite:
     def slice_owned_nodes(self, f_in):
         with self.graph.local_scope():
             if self.owned_out_nodes.shape[0] == 0:
-                return torch.zeros(0, f_in.shape[1], device=self.gpu_id)
+                return f_in[0:0,:]
+                # Horrible bug caused autograd to fail
+                # return torch.zeros(0, f_in.shape[1], device=self.gpu_id)
             return f_in[self.owned_out_nodes]
 
     def attention_gather(self, attention, u_in):
@@ -306,6 +330,8 @@ class Sample:
         self.in_nodes = csample.in_nodes
         self.out_nodes = csample.out_nodes
         self.layers = []
+        
+        self.randid = random.randint(0,10000)
         # print(len(csample.layers))
         for layer in csample.layers:
             l = []
@@ -316,10 +342,11 @@ class Sample:
 
 
 class Gpu_Local_Sample:
-    def __init__(self, global_sample=None, device_id=None, in_nodes=None, out_nodes=None, serializedLayers=None):
+    def __init__(self, global_sample=None, device_id=None, randid = None,  in_nodes=None, out_nodes=None, serializedLayers=None):
         if in_nodes is not None and out_nodes is not None and serializedLayers is not None and device_id is not None:
             self.in_nodes = in_nodes
             self.out_nodes = out_nodes
+            self.randid = randid
             self.layers = []
             for layer in serializedLayers:
                 self.layers.append(Bipartite.deserialize(layer))
@@ -330,6 +357,7 @@ class Gpu_Local_Sample:
             #   in_nodes is None and out_nodes is not None and serializedLayers is not None and device_id is not None)
         self.in_nodes = global_sample.in_nodes
         self.out_nodes = global_sample.out_nodes
+        self.randid = global_sample.randid
         self.layers = []
         for layer in global_sample.layers:
             self.layers.append(layer[device_id])
@@ -338,12 +366,13 @@ class Gpu_Local_Sample:
 
     def serialize(self):
         serializedLayers = tuple([i.serialize() for i in self.layers])
-        return (self.in_nodes, self.out_nodes, serializedLayers, self.device_id)
+        return (self.in_nodes, self.out_nodes, self.randid, serializedLayers, self.device_id)
 
     @staticmethod
     def deserialize(tensor):
-        in_nodes, out_nodes, serializedLayers, device_id = tensor
-        return Gpu_Local_Sample(device_id=device_id, in_nodes=in_nodes, out_nodes=out_nodes, serializedLayers=serializedLayers)
+        in_nodes, out_nodes, randid , serializedLayers, device_id = tensor
+        return Gpu_Local_Sample(device_id=device_id, in_nodes=in_nodes, \
+                        randid = randid, out_nodes=out_nodes, serializedLayers=serializedLayers)
 
     def __str__(self):
         return "TEST: " + str(self.serialize())
@@ -359,10 +388,11 @@ class Gpu_Local_Sample:
     #     self.device_id = device_id
 
     def debug(self):
-        for id,l in enumerate(self.layers):
-            print("layer info ",id)
-            l.debug()
-        print("last layer nodes", self.last_layer_nodes.shape)
+        print("Working on ",self.randid, "gpu", self.device_id)
+        #for id,l in enumerate(self.layers):
+        #    print("layer info ",id)
+        #    l.debug()
+        #print("last layer nodes", self.last_layer_nodes.shape)
 
     def get_tensor(self):
         tt = []
