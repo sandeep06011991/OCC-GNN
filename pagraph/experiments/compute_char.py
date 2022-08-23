@@ -91,7 +91,7 @@ def run_experiment():
     check_path()
     check_no_stale()
     with open('exp1.txt','a') as fp:
-        fp.write("Dirty: {}, Git hash:{}".format(sha, dirty))
+        fp.write("Git hash:{}, Dirty:{}".format(sha, dirty))
         fp.write("File |  Collect | Move | Compute | Epoch | Miss rate \n")
     for i in graphs:
         #if (True):
