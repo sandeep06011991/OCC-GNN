@@ -87,6 +87,7 @@ def run_experiment_on_graph(filename):
 
 def run_experiment():
     graphs = ['ogbn-arxiv','ogbn-products','ogbn-papers100M']
+    graphs = ['ogbn-papers100M']
     sha, dirty = get_git_info()
     check_path()
     check_no_stale()
