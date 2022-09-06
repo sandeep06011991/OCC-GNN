@@ -9,10 +9,22 @@ from dgl.contrib.sampling import SamplerPool
 import dgl.function as fn
 import multiprocessing
 
+
+ROOT_DIR = "/work/spolisetty_umass_edu/pagraph"
+
+PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
+path_set = False
+for p in sys.path:
+    print(p)
+    if PATH_DIR ==  p:
+       path_set = True
+if (not path_set):
+    print("Setting Path")
+    sys.path.append(PATH_DIR)
+
 import PaGraph.data as data
 from PaGraph.parallel import SampleDeliver
 
-ROOT_DIR = "/work/spolisetty_umass_edu/pagraph"
 
 def main(args):
   print("Start server")
@@ -85,8 +97,9 @@ def main(args):
 
 
 
-
 if __name__ == '__main__':
+  print("Attemting to start pa server")
+  sys.stdout.flush()
   parser = argparse.ArgumentParser(description='GraphServer')
 
   parser.add_argument("--dataset", type=str, default="None",
@@ -110,7 +123,9 @@ if __name__ == '__main__':
   parser.set_defaults(one2all=False)
 
   parser.add_argument("--preprocess", dest='preprocess', action='store_true')
-  parser.set_defaults(preprocess=False)
   
   args = parser.parse_args()
+  
+  parser.set_defaults(preprocess = False)
+
   main(args)

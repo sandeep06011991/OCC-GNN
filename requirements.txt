@@ -1,17 +1,17 @@
-""" 
-NOTES:
-
-PYTORCH: Installed latest for CUDA 11.3 
-         Pytorch doesn't store a version for CUDA 11.0 that fits the 
-         requirements for DGL
-
-DGL: Installed latest for CUDA 11.3
-     DGL doesn't store previous versions of itself, and has been updated
-     to require a newer version of pytorch (torch >= 1.9.0 see 
-     https://www.dgl.ai/pages/start.html). Newer versions of pytorch don't
-     support CUDA 11.0, so the CUDA 11.3 version of DGL was used.
-
-"""
+#""" 
+#NOTES:
+#
+#PYTORCH: Installed latest for CUDA 11.3 
+#         Pytorch doesn't store a version for CUDA 11.0 that fits the 
+#         requirements for DGL
+#
+#DGL: Installed latest for CUDA 11.3
+#     DGL doesn't store previous versions of itself, and has been updated
+#     to require a newer version of pytorch (torch >= 1.9.0 see 
+#     https://www.dgl.ai/pages/start.html). Newer versions of pytorch don't
+#     support CUDA 11.0, so the CUDA 11.3 version of DGL was used.
+#
+#"""
 
 alabaster==0.7.12
 autopep8==1.6.0

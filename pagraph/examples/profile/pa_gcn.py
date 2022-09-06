@@ -10,11 +10,22 @@ import numpy as np
 import dgl
 from dgl import DGLGraph
 
+PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
+path_set = False
+for p in sys.path:
+    print(p)
+    if PATH_DIR ==  p:
+       path_set = True
+if (not path_set):
+    print("Setting Path")
+    sys.path.append(PATH_DIR)
+
+
 from PaGraph.model.gcn_nssc import GCNSampling
 import PaGraph.data as data
 import PaGraph.storage as storage
 from PaGraph.parallel import SampleLoader
-
+import nvtx
 def init_process(rank, world_size, backend):
   os.environ['MASTER_ADDR'] = '127.0.0.1'
   os.environ['MASTER_PORT'] = '29501'
@@ -27,7 +38,6 @@ ROOT_DIR = "/work/spolisetty_umass_edu/pagraph"
 
 def avg(ls):
     return (sum(ls[1:])/(len(ls)-1))
-
 
 def trainer(rank, world_size, args, backend='nccl'):
   dataset = "{}/{}/".format(ROOT_DIR, args.dataset)
@@ -95,6 +105,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   time_cache_move = []
   event_cache_move = []
   compute_time = []
+  sample_time = []
   e1 = torch.cuda.Event(enable_timing = True)
   e2 = torch.cuda.Event(enable_timing = True)
   with torch.autograd.profiler.profile(enabled=(False), use_cuda=True) as prof:
@@ -103,16 +114,35 @@ def trainer(rank, world_size, args, backend='nccl'):
       model.train()
       epoch_start_time = time.time()
       epoch_compute_time = 0
+      epoch_sample_time = 0
       step = 0
-      print("start epoch",rank)
-      for nf in sampler:
-        with torch.autograd.profiler.record_function('gpu-load'):
+      #print("start epoch",rank)
+      #for nf in sampler:
+      it = iter(sampler)
+      while True:
+        try:
+            with nvtx.annotate('sample',color = 'yellow'):
+                s1 = time.time()
+                nf = next(it)
+                s2 = time.time()
+                epoch_sample_time += (s2 - s1)
+        except StopIteration:
+            break
+        #torch.distributed.barrier()
+        with nvtx.annotate("cache",color = 'blue'):
+        #with torch.autograd.profiler.record_function('gpu-load'):
+        #if True:
+          s1 = time.time()
           cacher.fetch_data(nf)
           batch_nids = nf.layer_parent_nid(-1)
           label = labels[batch_nids]
           label = label.cuda(rank, non_blocking=True)
+          s2 = time.time()
+          #print("Cache time",s2-s1)
         e1.record()
-        with torch.autograd.profiler.record_function('gpu-compute'):
+        #with torch.autograd.profiler.record_function('gpu-compute'):
+        with nvtx.annotate('compute', color = 'red'):
+        #if True: 
           pred = model(nf)
           loss = loss_fcn(pred, label)
           optimizer.zero_grad()
@@ -120,9 +150,10 @@ def trainer(rank, world_size, args, backend='nccl'):
           optimizer.step()
         e2.record()
         e2.synchronize()
+        #print("Compute time without sync", e1.elapsed_time(e2)/1000)
         epoch_compute_time += (e1.elapsed_time(e2)/1000)
         step += 1
-        print("current minibatch",step,rank)
+        #print("current minibatch",step,rank)
         if epoch == 0 and step == 1:
             pass
             #cacher.auto_cache(g, embed_names)
@@ -131,6 +162,7 @@ def trainer(rank, world_size, args, backend='nccl'):
                 .format(epoch + 1, step, loss.item()))
       if rank == 0:
         compute_time.append(epoch_compute_time)
+        sample_time.append(epoch_sample_time)
         epoch_dur.append(time.time() - epoch_start_time)
         collect_c, move_c, coll_t, mov_t = cacher.get_time_and_reset_time()
         time_cache_gather.append(coll_t)
@@ -144,6 +176,7 @@ def trainer(rank, world_size, args, backend='nccl'):
     toc = time.time()
   print("Exiting training working to collect profiler results")
   if rank == 0:
+      print("Sample time: {:.4}s\n".format(avg(sample_time)))
       print("Compute time: {:.4}s\n".format(avg(compute_time)))
       print("CPU collect: {:.4}s\n".format(avg(time_cache_gather)))
       print("CUDA collect: {:.4}s\n".format(avg(event_cache_gather)))
@@ -162,6 +195,14 @@ def trainer(rank, world_size, args, backend='nccl'):
 
   print("All cleaned up")
 
+def train_hook(*args):
+  import line_profiler
+  from line_profiler import LineProfiler
+  prof = LineProfiler()
+  train_w = prof(trainer)
+  train_w(*args)
+  prof.dump_stats('train.lprof')
+
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='GCN')
 
@@ -177,14 +218,14 @@ if __name__ == '__main__':
                       help="dropout probability")
   parser.add_argument("--n-hidden", type=int, default=16,
                       help="number of hidden gcn units")
-  parser.add_argument("--n-layers", type=int, default=3,
+  parser.add_argument("--n-layers", type=int, default=2,
                       help="number of hidden gcn layers")
   parser.add_argument("--preprocess", dest='preprocess', action='store_true')
   parser.set_defaults(preprocess=False)
   # training hyper-params
   parser.add_argument("--lr", type=float, default=3e-2,
                       help="learning rate")
-  parser.add_argument("--n-epochs", type=int, default=3,
+  parser.add_argument("--n-epochs", type=int, default=2,
                       help="number of training epochs")
   parser.add_argument("--batch-size", type=int, default=1032,
                       help="batch size")

@@ -9,4 +9,6 @@ token
 *.so
 external/
 logs/
+*.log
 graphs/
+*.err

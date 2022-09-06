@@ -1,4 +1,4 @@
-#include "util/duplicate.h"
+#include "duplicate.h"
 #include <vector>
 #include <cassert>
 #include <cstdlib>

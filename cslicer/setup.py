@@ -16,7 +16,7 @@ ext_modules = [
                 "util/duplicate.cpp", "slicer.cpp","pybipartite.cpp","WorkerPool.cpp"
                 ],
         extra_compile_args=["-s"],
-        depends = ["bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
+        depends = ["util/environment.h","bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
             ,"util/conqueue.h"]  ,
         include_dirs=[pybind11.get_include(),"."],
         language='c++'

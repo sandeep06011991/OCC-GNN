@@ -56,6 +56,8 @@ class GCNSampling(nn.Module):
       self.layers.append(NodeUpdate(n_hidden, n_hidden, activation, concat=skip_start))
     # output layer
     self.layers.append(NodeUpdate(2*n_hidden, n_classes))
+    self.e1 = torch.cuda.Event(enable_timing = True)
+    self.e2 = torch.cuda.Event(enable_timing = True)
 
   def forward(self, nf):
     if self.preprocess:
@@ -64,6 +66,7 @@ class GCNSampling(nn.Module):
     nf.layers[0].data['activation'] = nf.layers[0].data['features']
 
     for i, layer in enumerate(self.layers):
+      #self.e1.record()
       h = nf.layers[i].data.pop('activation')
       if self.dropout:
           h = self.dropout(h)
@@ -72,7 +75,9 @@ class GCNSampling(nn.Module):
                        fn.copy_src(src='h', out='m'),
                        fn.mean(msg='m', out='h'),
                        layer)
-
+      #self.e2.record()
+      #self.e2.synchronize()
+      #print("layer",i,"time",self.e1.elapsed_time(self.e2)/1000)
     h = nf.layers[-1].data.pop('activation')
     return h
 

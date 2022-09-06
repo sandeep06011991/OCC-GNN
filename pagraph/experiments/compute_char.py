@@ -19,9 +19,11 @@ def get_git_info():
 def check_path():
     path_set = False
     for p in sys.path:
-        if ROOT_DIR in p:
+        print(p)
+        if ROOT_DIR ==  p:
             path_set = True
     if (not path_set):
+        print("Setting Path")
         sys.path.append(ROOT_DIR)
 def avg(ls):
     return (sum(ls[1:]/(len(ls)-1)))
@@ -51,13 +53,15 @@ def start_server(filename):
     os.set_blocking(fp.stderr.fileno(),False)
     while(True):
         out = fp.stdout.readline()
-        #if out.split()  != []:
-        #    print("read out",out)
-        # print("read err",err)
+        err = fp.stderr.readline()
+        print(out,err) 
+        sys.stdout.flush()
         if 'start running graph' in str(out):
+            print("Breaking")
             break
         time.sleep(1)
     print("Server is running can start client Finally")
+    sys.stdout.flush()
     return fp
 
 def start_client(filename):
@@ -67,40 +71,50 @@ def start_client(filename):
     output = subprocess.run(cmd, capture_output=True)
     out = str(output.stdout)
     err = str(output.stderr)
-    #print(out,err)
+    print(out,err)
     output = out
+    sample = float(re.findall("Sample time: (\d+\.\d+)s",output)[0])
     compute  = float(re.findall("Compute time: (\d+\.\d+)s",output)[0])
     collect  = float(re.findall("CPU collect: (\d+\.\d+)s",output)[0])
     move  = float(re.findall("CUDA move: (\d+\.\d+)s",output)[0])
     epoch  = float(re.findall("Epoch time: (\d+\.\d+)s",output)[0])
     miss_rate = float(re.findall("Miss rate: (\d+\.\d+)s",output)[0])
 
-    return {"compute":compute, "collect":collect, "move":move, "epoch":epoch, "miss_rate": miss_rate}
+    return {"sample":sample, "compute":compute, "collect":collect,\
+            "move":move, "epoch":epoch, "miss_rate": miss_rate}
             
 def run_experiment_on_graph(filename):
     fp = start_server(filename)
     res = start_client(filename)
-    with open('exp1.txt','a') as fp:
-        fp.write("{}|{}|{}|{}|{}|{}\n".format(filename,res["collect"],res["move"], res["compute"], \
+    WRITE = "{}/experiments/exp1.txt".format(ROOT_DIR)
+
+    with open(WRITE,'a') as fp:
+        fp.write("{}|{}|{}|{}|{}|{}|{}\n".format(filename,res["sample"], res["collect"],res["move"], res["compute"], \
                         res["epoch"], res["miss_rate"]))
     fp.close()
 
 def run_experiment():
-    graphs = ['ogbn-arxiv','ogbn-products','ogbn-papers100M']
-    graphs = ['ogbn-papers100M']
+    graphs = ['ogbn-arxiv','ogbn-products']
+    #graphs = ['ogbn-papers100M']
+    #graphs = ['ogbn-arxiv']
     sha, dirty = get_git_info()
     check_path()
     check_no_stale()
-    with open('exp1.txt','a') as fp:
-        fp.write("Git hash:{}, Dirty:{}".format(sha, dirty))
-        fp.write("File |  Collect | Move | Compute | Epoch | Miss rate \n")
+    filename = "{}/experiments/exp1.txt".format(ROOT_DIR)
+    with open(filename,'a') as fp:
+        fp.write("Git hash:{}, Dirty:{}\n".format(sha, dirty))
+        fp.write("File |  Sample | Collect | Move | Compute | Epoch | Miss rate \n")
     for i in graphs:
-        #if (True):
         try:
             run_experiment_on_graph(i)
         except:
-            with open('exp1.txt','a') as fp:
-                fp.write("{}| fail | fail | fail | fail | fail \n".format(i))
+            import traceback
+            with open(filename,'a') as fp:
+                import sys
+                ex_type, ex, tb = sys.exc_info()
+                traceback.print_exception(ex_type, ex, tb)
+                traceback.print_tb( tb, file = fp)
+                traceback.print_exception(ex_type, ex, tb, file = fp)
 
 if __name__ == "__main__":
     run_experiment()

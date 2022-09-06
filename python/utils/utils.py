@@ -18,7 +18,18 @@ from dgl import DGLGraph
 import dgl
 from os.path import exists
 
-DATA_DIR = "/data/sandeep"
+def get_data_dir():
+    import os
+    username = os.environ['USER']
+    if username == 'spolisetty_umass_edu':
+        DATA_DIR = "/work/spolisetty_umass_edu/data"
+    if username == "spolisetty":
+        DATA_DIR = "/data/sandeep"
+    if username == "q91":
+        DATA_DIR = "/tmp/pagraph"
+    return DATA_DIR
+
+DATA_DIR = get_data_dir()
 
 def thread_wrapped_func(func):
     """
@@ -59,7 +70,7 @@ def read_meta_file(filename):
     return results
 
 def get_process_graph(filename, fsize):
-    DATA_DIR = "/data/sandeep"
+    # DATA_DIR = "/data/sandeep"
     # graphname = "ogbn-products"
     graphname = filename
     indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.int64)

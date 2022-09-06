@@ -1,4 +1,6 @@
-Dirty:True Git hash: 588afbbf733babfdeebe375e66792b36c0f9cfd1
-File |  Collect | Move | Compute | Epoch | Miss rate 
-ogbn-arxiv|0.8488|0.0166|2.661|7.236|0.5399
-ogbn-products|49.21|0.05818|221.5|667.9|0.5153
+Git hash:f65e525afa98ee15f1292e4606d21a417ad88ad8, Dirty:True
+File |  Sample | Collect | Move | Compute | Epoch | Miss rate 
+ogbn-arxiv|0.02473|0.5277|0.09939|1.587|3.912|0.5613
+Git hash:f65e525afa98ee15f1292e4606d21a417ad88ad8, Dirty:True
+File |  Sample | Collect | Move | Compute | Epoch | Miss rate 
+ogbn-arxiv|0.1426|0.374|0.1002|1.604|3.862|0.5621

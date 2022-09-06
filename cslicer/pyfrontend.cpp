@@ -8,7 +8,7 @@
 #include "WorkerPool.h"
 #include "dataset.h"
 #include "slicer.h"
-
+#include "util/environment.h"
 namespace py = pybind11;
 // int add(int i, int j) {
 //     return i + j;
@@ -19,7 +19,7 @@ namespace py = pybind11;
 //     const std::string &getName() const{return name;}
 //     std::string name;
 // };
-const string dir = "/data/sandeep/";
+
 
 class CSlicer{
     std::string name;
@@ -43,7 +43,7 @@ public:
     CSlicer(const std::string &name, int queue_size, int no_worker_threads \
         , int number_of_epochs,  int minibatch_size, std::vector<std::vector<long>> gpu_map,
             bool deterministic){
-        this->name = dir + name;
+        this->name = get_dataset_dir() + name;
         // std::cout << this->name << "\n";
         this->queue_size = queue_size;
         this->no_worker_threads = no_worker_threads;

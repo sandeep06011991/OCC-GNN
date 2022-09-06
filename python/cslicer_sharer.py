@@ -18,7 +18,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.multiprocessing import Queue
 import torch.distributed as dist
 import os
-os.environ["PYTHONPATH"] = "/home/spolisetty/OCC-GNN/cslicer/"
+#os.environ["PYTHONPATH"] = "/home/spolisetty/OCC-GNN/cslicer/"
 import time
 import inspect
 # https://teddykoker.com/2020/12/dataloader/

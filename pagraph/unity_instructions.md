@@ -19,12 +19,16 @@ Gives you a node with 4 gpus
 Load modules needed
 module load cuda/10.2
 module load miniconda
+
+
 Create a conda environment to locally manipulate similar to virtual env
 mkdir packages
 conda config --add  pkgs_dirs packages
 [Adding a package directory was a problem I had, conda is a standardized library. Do try to debug for other issues]
 conda create -p myenv
 conda activate myenv/
+conda install pip==20.0.2 
+
 pip install numpy==1.18.5 (install numpy before dgl as dgl might choose a higher version of numpy causing broken dependencies)
 
 Install torch:

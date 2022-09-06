@@ -10,13 +10,14 @@
 #include<thread>
 #include<random>
 #include<functional>
+#include "util/environment.h"
 using namespace std;
 using namespace std::chrono;
 
 // Keep this completely seperate.
 int main(){
   std::string filename = "ogbn-arxiv";
-  std::string DATA_DIR = "/data/sandeep/";
+  std::string DATA_DIR = get_dataset_dir();
   Dataset *dataset = new Dataset(DATA_DIR + filename);
   std::vector<int> *storage_map[4];
   long n = dataset->num_nodes;

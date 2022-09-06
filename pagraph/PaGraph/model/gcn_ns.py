@@ -43,6 +43,7 @@ class GCNSampling(nn.Module):
     # output layer
     self.layers.append(NodeUpdate(n_hidden, n_classes))
 
+
   def forward(self, nf):
     nf.layers[0].data['activation'] = nf.layers[0].data['features']
 
@@ -55,7 +56,6 @@ class GCNSampling(nn.Module):
                        fn.copy_src(src='h', out='m'),
                        fn.mean(msg='m', out='h'),
                        layer)
-
     h = nf.layers[-1].data.pop('activation')
     return h
 
