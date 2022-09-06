@@ -4,3 +4,6 @@ ogbn-arxiv|0.02473|0.5277|0.09939|1.587|3.912|0.5613
 Git hash:f65e525afa98ee15f1292e4606d21a417ad88ad8, Dirty:True
 File |  Sample | Collect | Move | Compute | Epoch | Miss rate 
 ogbn-arxiv|0.1426|0.374|0.1002|1.604|3.862|0.5621
+Git hash:4b11a0829b23d1a28e3ab22d38302888d18882c3, Dirty:False
+File |  Sample | Collect | Move | Compute | Epoch | Miss rate 
+ogbn-arxiv|0.1572|0.7648|0.2289|1.408|3.94|0.5616
