@@ -40,3 +40,29 @@ Author: sandeep06011991 <spolisetty@jupiter.cs.umass.edu>
 Date:   Thu Jul 21 12:48:49 2022 -0400
 
     pre clean up snapshot
+graph | hidden-size | fsize  | batch-size | cached-gper-gpu | sample_get | move | forward | backward  | epoch_time 
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size | cached-gper-gpu | sample_get | move | forward | backward  | epoch_time 
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size | cached-gper-gpu | sample_get | move | forward | backward  | epoch_time 
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
+ogbn-arxiv | 32 | -1 | 4096 | 2.786308765411377 |                           error | error | error | error  
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size |                sample_get | move | forward | backward  | epoch_time 
+sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
+graph | hidden-size | fsize  | batch-size |                sample_get | move | forward | backward  | epoch_time 

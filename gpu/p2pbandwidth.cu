@@ -22,8 +22,10 @@ float p2p_copy (size_t size)
       cudaEventCreate (&end);
 	void * host;
       //void *host = malloc(i * 1024 * 1024);
-      cudaMallocHost(&host, i * 1024 * 1024);
+      	cudaSetDevice(0);
+	cudaMalloc(&host, i * 1024 * 1024);
       void *device;
+      cudaSetDevice(1);
       gpuErrchk(cudaMalloc(&device,i * 1024 * 1024));
       for(int j=0;j<4;j++){
       cudaEventRecord (begin);

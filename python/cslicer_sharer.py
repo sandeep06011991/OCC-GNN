@@ -25,7 +25,7 @@ import inspect
 # Go through this when I get stuck
 # prefetching is like a warm up so that there is something in the queue when the trainer start
 # It is not a seperate thread. 
-
+import line_profiler
 
 def set_all_seeds(seed):
   random.seed(seed)
@@ -43,7 +43,53 @@ def compute_acc(pred, labels):
     """
     false_labels = torch.where(torch.argmax(pred,dim = 1) != labels)[0]
     return (torch.argmax(pred, dim=1) == labels).float().sum(),len(pred )
+global get_sample_and_deserialize 
+def get_sample_and_deserialize(sample_queue):    
+    while True:
+        try:
+            t = sample_queue.get_nowait()
+            break
+        except:
+            time.sleep(1)
+            print("QUEUE IS EMPTY. Increase workers to overlap")
+    if(type(t) == type("")):
+        gpu_local_sample = t
+        sample_id = t
+    else:
+        gpu_local_sample = Gpu_Local_Sample.deserialize(t)
+        sample_id = gpu_local_sample.randid
+    return str(sample_id), gpu_local_sample
 
+def get_sample_and_sync(proc_id, sample_buffer, store, sample_queue, get_sample_and_deserialize):
+    sample_id = None
+    if proc_id == 0 or len(sample_buffer) == 0:
+        sample_id, gpu_local_sample = get_sample_and_deserialize(sample_queue)
+    if sample_id  == None:
+        sample_id = list(sample_buffer.keys())[0]
+        gpu_local_sample = sample_buffer[sample_id]
+    # Handle race condition
+    if proc_id == 0:
+        store.set("leader",str(sample_id))
+    torch.distributed.barrier()
+    if proc_id != 0:
+        try:
+            leader_id = store.get("leader")
+            leader_id = leader_id.decode("utf-8")
+            while(sample_id != leader_id):
+                print("mismatch", sample_id, leader_id)
+                sample_buffer[sample_id] = gpu_local_sample
+                if leader_id not in sample_buffer:
+                    sample_id, gpu_local_sample = get_sample_and_deserialize(sample_queue)
+                else:
+                    sample_id = leader_id
+                    gpu_local_sample = sample_buffer[leader_id]
+            if sample_id in sample_buffer:
+                del sample_buffer[sample_id]
+        except:
+            print("gpu 0 is shut down")
+            gpu_local_sample = "EPOCH"
+            sample_id = "EPOCH"
+    return sample_id, gpu_local_sample        
 
 def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, features, args\
                     ,num_classes,batch_in, labels, num_sampler_workers, deterministic,in_degrees):
@@ -93,58 +139,20 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         store = dist.TCPStore("127.0.0.1",1234, 4, False)
     
     sample_buffer = {}
-
-    def get_sample_and_deserialize(sample_queue):
-        while True:
-            try:
-                t = sample_queue.get_nowait()
-                break
-            except:
-                time.sleep(1)
-                print("QUEUE IS EMPTY. Increase workers to overlap")
-        if(type(t) == type("")):
-            gpu_local_sample = t
-            sample_id = t
-        else:
-            gpu_local_sample = Gpu_Local_Sample.deserialize(t)
-            sample_id = gpu_local_sample.randid
-        return str(sample_id), gpu_local_sample
-       
-
+    
+    if proc_id == 1:
+        prof = line_profiler.LineProfiler()
+        f = prof(get_sample_and_deserialize)
+    else:
+        f = get_sample_and_deserialize
     while(True):
+        
         t11 = time.time()
         nmb += 1
-        print("minibatch",nmb)
-        t111 = time.time()
-        #print("ATTEMPT POP", proc_id, "Queue size",sample_queue.qsize())
-        gpu_local_sample = None
-        sample_id = None
-        if proc_id == 0 or len(sample_buffer) == 0: 
-            sample_id, gpu_local_sample = get_sample_and_deserialize(sample_queue)
-        if sample_id  == None:
-            sample_id = list(sample_buffer.keys())[0]
-            gpu_local_sample = sample_buffer[sample_id]
-        # Handle race condition
         if proc_id == 0:
-            store.set("leader",str(sample_id))
-        torch.distributed.barrier()
-        if proc_id != 0:
-            try:
-                leader_id = store.get("leader")
-                leader_id = leader_id.decode("utf-8") 
-                while(sample_id != leader_id):
-                    #print("mismatch", sample_id, leader_id)
-                    sample_buffer[sample_id] = gpu_local_sample
-                    if leader_id not in sample_buffer:
-                        sample_id, gpu_local_sample = get_sample_and_deserialize(sample_queue)
-                    else:
-                        sample_id = leader_id
-                        gpu_local_sample = sample_buffer[leader_id]
-                if sample_id in sample_buffer:
-                    del sample_buffer[sample_id]
-            except:
-                print("gpu 0 is shut down")
-                gpu_local_sample = "EPOCH"
+            print("minibatch",nmb)
+        t111 = time.time()
+        sample_id, gpu_local_sample = get_sample_and_sync(proc_id, sample_buffer, store, sample_queue, f) 
         t22 = time.time()
         sample_get_time += t22 - t11
         if(gpu_local_sample == "EPOCH"):
@@ -198,8 +206,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         #print("loss",loss)
         loss.backward()
         #print("backward complete",proc_id)
-        if(classes.shape[0]):
-            print("Backward not blocks when classes is zero")
+        #if(classes.shape[0]):
+        #    print("Backward not blocks when classes is zero")
         # Helpful trick to make manual calculation of gradients easy.
         # torch.sum(output).backward()
 
@@ -222,8 +230,11 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             model.module.print_grad()
         optimizer.step()
 
-
+    print("Exiting main training loop")
     dev_id = proc_id
+
+    if proc_id == 1:
+        prof.dump_stats('worker.lprof')
     if proc_id == 0:
         print("avg forward time: {}sec, device {}".format(sum(forward_time_epoch[1:])/(num_epochs - 1), dev_id))
         print(forward_time_epoch)
@@ -232,7 +243,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print(sample_move_time)
         print('avg epoch time: {}sec, device {}'.format(sum(epoch_time[1:])/(num_epochs - 1), dev_id))
         print(epoch_time)
-        print('avg sample get time:{}sec, device {}'.format(sum(sample_get_time_epoch[1:])/(num_epochs - 1),dev_id))
+        print('avg sample get time: {}sec, device {}'.format(sum(sample_get_time_epoch[1:])/(num_epochs - 1),dev_id))
         print(sample_get_time_epoch)
     # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")
@@ -329,7 +340,7 @@ def train(args):
     fanout = args.fan_out.split(',')
     fanout = [(int(f)) for f in fanout]
     fanout = [10,10,10]
-    no_worker_process = 4 
+    no_worker_process = 4
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map, deterministic = args.deterministic)
@@ -352,7 +363,7 @@ def train(args):
 
     # global train_nid_list
     # train_nid_list= train_nid.tolist()
-    queue_size = 4
+    queue_size =8 
     work_producer_process = mp.Process(target=(work_producer), \
                   args=(work_queue, train_nid, minibatch_size, no_epochs,\
                     no_worker_process, args.deterministic))
@@ -398,7 +409,7 @@ if __name__=="__main__":
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.01)
-    argparser.add_argument('--num-workers', type=int, default=0,
+    argparser.add_argument('--num-workers', type=int, default=4,
        help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
     # model name and details

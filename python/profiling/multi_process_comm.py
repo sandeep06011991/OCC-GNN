@@ -128,6 +128,8 @@ def dist_shuffle_bandwidth(proc_id, n_gpus):
         t1 = time.time()
         for send in range(4):
             for recv in range(4):
+                if not (send == 0 and recv == 1):
+                    continue                    
                 if send==recv:
                     continue
                 if proc_id == send:
@@ -137,7 +139,7 @@ def dist_shuffle_bandwidth(proc_id, n_gpus):
                     print(r[send][0][0]) 
         t2 = time.time()
         torch.distributed.barrier(device_ids = [proc_id])
-        print("time recv",t2 - t1,"MBps", (1000 * 1000 * 128 * 4 * 3 * 4/((t2-t1)*1024 * 1024)))
+        print("time recv",t2 - t1,"MBps", (1000 * 1000 * 128 * 4 /((t2-t1)*1024 * 1024)))
         del a
         del r
     torch.distributed.barrier()

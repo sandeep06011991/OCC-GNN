@@ -1,31 +1,24 @@
-import torch
 import time
-import torch.multiprocessing as mp
-import dgl
-import queue as py_queue
+import multiprocessing as mp
 import threading
 
-
-class object():
-    def __init__(self, size, proc_id):
-        self.data = torch.ones(size,)
-        # self.data.share_memory_()
-        self.size = size
-        self.proc_id = proc_id
-
-    def to(self, device):
-        self.data = self.data.to(self.proc_id)
-        assert(torch.sum(self.data).item() == self.size)
+from multiprocessing.shared_memory import SharedMemory
+import numpy as np
 
 
 def producer(queue, size, proc_id, no_objects, reuse_queue, configure_O):
     creation_time = 0
     producer_time = 0
     q = []
+    mg = []
     for i in range(no_objects):
-        a = torch.ones(100000)
-        a.share_memory_()
-        q.append(a)
+        mmg = SharedMemory(name = 'id{}'.format(i),create= True, size =8 * 100000)
+        a = np.ndarray((100000),dtype = int,  buffer = mmg.buf)
+        b = np.ones(100000,dtype = int)
+        a[:] = b[:]
+        print(np.sum(a))
+        q.append(i)
+        mg.append(mmg)
     for i in range(no_objects):
         t0 = time.time()
         #if configure_O == "largeRandom":
@@ -57,12 +50,12 @@ def producer(queue, size, proc_id, no_objects, reuse_queue, configure_O):
     print("queue put time", producer_time)
     while(queue.qsize() != 0):
         time.sleep(2)
-
-
+    for m in mg:
+        m.close()
+        m.unlink()
 def consumer(queue, no_objects, proc_id, reuse_queue):
     pop_time = 0
     move_time = 0
-    local_queue = py_queue.Queue(10)
     # def prefetch_func(local_queue,global_queue):
     #     while True:
     #         a = global_queue.get()
@@ -74,7 +67,13 @@ def consumer(queue, no_objects, proc_id, reuse_queue):
     for i in range(no_objects * proc_id):
         t0 = time.time()
         obj = queue.get()
-    #    print(obj.shape)
+        #print(obj.shape)
+        t0 = time.time()
+        #mmg = SharedMemory(name = 'id{}'.format(obj), size = 8 * 100000)
+        #a = np.ndarray((100000),dtype = int,  buffer = mmg.buf)
+        #a = np.ndarray((100000),dtype = int,  buffer = mmg.buf)
+        #print(np.sum(a))
+        #mmg.close()
         t1 = time.time()
         # obj.clone().to(0)
         t2 = time.time()
@@ -92,7 +91,7 @@ if __name__ == "__main__":
     # import multiprocessing
     queue = mp.Queue(30)
     reuse_queue = mp.Queue(100)
-    no_objects = 20
+    no_objects = 2
     no_procs = 1 
     size = 3500000
     pp = []
