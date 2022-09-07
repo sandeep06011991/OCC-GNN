@@ -1,3 +1,12 @@
+# DEPRECATED
+# Added a serialization layer
+# We need to be able to move this Datastructure into tensors and
+# recover all the data properly.
+
+
+
+
+
 
 # Performs all tensorization and equivalent transformations.
 # csr_matrix((data, indices, indptr), [shape=(M, N)])
@@ -75,7 +84,7 @@ class Bipartite:
         self.from_ids = from_ids
 
         to_ids = {}
-        
+
         self.to_ids = to_ids
         self.self_ids_in = data[cobject.self_ids_in_start:cobject.self_ids_in_end]
         self.self_ids_out = data[cobject.self_ids_out_start: cobject.self_ids_out_end]

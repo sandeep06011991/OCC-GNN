@@ -1,3 +1,9 @@
+# Deprecated Has other better ways of doing this.
+Current code can sort of measure this code better. 
+I  am not using this experiment.
+
+
+
 Measure the relative cost of sampling, feature format creation and movement to gpu.
 Expectation is that in neighbour naive sampling. Feature format creation and movement is will be higher. Measure the following for dgl.
 
