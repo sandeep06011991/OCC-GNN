@@ -21,11 +21,13 @@ import os
 #os.environ["PYTHONPATH"] = "/home/spolisetty/OCC-GNN/cslicer/"
 import time
 import inspect
+from utils.shared_mem_manager import *
+
 # https://teddykoker.com/2020/12/dataloader/
 # Go through this when I get stuck
 # prefetching is like a warm up so that there is something in the queue when the trainer start
-# It is not a seperate thread. 
-import line_profiler
+# It is not a seperate thread.
+# import line_profiler
 
 def set_all_seeds(seed):
   random.seed(seed)
@@ -43,27 +45,32 @@ def compute_acc(pred, labels):
     """
     false_labels = torch.where(torch.argmax(pred,dim = 1) != labels)[0]
     return (torch.argmax(pred, dim=1) == labels).float().sum(),len(pred )
-global get_sample_and_deserialize 
-def get_sample_and_deserialize(sample_queue):    
-    while True:
-        try:
-            t = sample_queue.get_nowait()
-            break
-        except:
-            time.sleep(1)
-            print("QUEUE IS EMPTY. Increase workers to overlap")
+global get_sample_and_deserialize
+def get_sample_and_deserialize(sample_queue, sm_filename_queue):
+    t = sample_queue.get()
+    # while True:
+    #     try:
+    #         t = sample_queue.get_nowait()
+    #         break
+    #     except:
+    #         time.sleep(1)
+    #         print("QUEUE IS EMPTY. Increase workers to overlap")
     if(type(t) == type("")):
         gpu_local_sample = t
         sample_id = t
     else:
-        gpu_local_sample = Gpu_Local_Sample.deserialize(t)
+        # Unpack
+        t1 = time.time()
+        gpu_local_sample = Gpu_Local_Sample.deserialize(t, sm_filename_queue)
+        t2 = time.time()
+        print("Deserialization cost", t2-t1)
         sample_id = gpu_local_sample.randid
     return str(sample_id), gpu_local_sample
 
-def get_sample_and_sync(proc_id, sample_buffer, store, sample_queue, get_sample_and_deserialize):
+def get_sample_and_sync(proc_id, sample_buffer, store, sample_queue, get_sample_and_deserialize, sm_filename_queue):
     sample_id = None
     if proc_id == 0 or len(sample_buffer) == 0:
-        sample_id, gpu_local_sample = get_sample_and_deserialize(sample_queue)
+        sample_id, gpu_local_sample = get_sample_and_deserialize(sample_queue, sm_filename_queue)
     if sample_id  == None:
         sample_id = list(sample_buffer.keys())[0]
         gpu_local_sample = sample_buffer[sample_id]
@@ -79,7 +86,7 @@ def get_sample_and_sync(proc_id, sample_buffer, store, sample_queue, get_sample_
                 print("mismatch", sample_id, leader_id)
                 sample_buffer[sample_id] = gpu_local_sample
                 if leader_id not in sample_buffer:
-                    sample_id, gpu_local_sample = get_sample_and_deserialize(sample_queue)
+                    sample_id, gpu_local_sample = get_sample_and_deserialize(sample_queue, sm_filename_queue)
                 else:
                     sample_id = leader_id
                     gpu_local_sample = sample_buffer[leader_id]
@@ -89,19 +96,20 @@ def get_sample_and_sync(proc_id, sample_buffer, store, sample_queue, get_sample_
             print("gpu 0 is shut down")
             gpu_local_sample = "EPOCH"
             sample_id = "EPOCH"
-    return sample_id, gpu_local_sample        
+    return sample_id, gpu_local_sample
 
 def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, features, args\
-                    ,num_classes,batch_in, labels, num_sampler_workers, deterministic,in_degrees):
+                    ,num_classes,batch_in, labels, num_sampler_workers, deterministic,in_degrees
+                    , sm_filename_queue):
     print("Num sampler workers ", num_sampler_workers)
-    
+
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
         master_ip='127.0.0.1', master_port='12345')
     world_size = gpus
     torch.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     print("SEED",torch.seed())
-    
+
     if deterministic:
         set_all_seeds(seed)
     model = get_model_distributed(args.num_hidden, features, num_classes, proc_id, args.deterministic)
@@ -137,22 +145,22 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         store = dist.TCPStore("127.0.0.1", 1234, 4, True)
     else:
         store = dist.TCPStore("127.0.0.1",1234, 4, False)
-    
+
     sample_buffer = {}
-    
-    if proc_id == 1:
+
+    if proc_id == 10:
         prof = line_profiler.LineProfiler()
         f = prof(get_sample_and_deserialize)
     else:
         f = get_sample_and_deserialize
     while(True):
-        
+
         t11 = time.time()
         nmb += 1
         if proc_id == 0:
             print("minibatch",nmb)
         t111 = time.time()
-        sample_id, gpu_local_sample = get_sample_and_sync(proc_id, sample_buffer, store, sample_queue, f) 
+        sample_id, gpu_local_sample = get_sample_and_sync(proc_id, sample_buffer, store, sample_queue, f, sm_filename_queue)
         t22 = time.time()
         sample_get_time += t22 - t11
         if(gpu_local_sample == "EPOCH"):
@@ -223,7 +231,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             print("accuracy {}",acc)
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
-        #print("Forward time",fp_start.elapsed_time(fp_end)/1000 )
+        print("Forward time",fp_start.elapsed_time(fp_end)/1000 )
         # with nvtx.annotate("backward", color="red"):
         backward_time += fp_end.elapsed_time(bp_end)/1000
         if deterministic:
@@ -233,8 +241,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     print("Exiting main training loop")
     dev_id = proc_id
 
-    if proc_id == 1:
-        prof.dump_stats('worker.lprof')
+    # if proc_id == 1:
+    #     prof.dump_stats('worker.lprof')
     if proc_id == 0:
         print("avg forward time: {}sec, device {}".format(sum(forward_time_epoch[1:])/(num_epochs - 1), dev_id))
         print(forward_time_epoch)
@@ -270,7 +278,8 @@ def work_producer(work_queue,training_nodes, batch_size, no_epochs, num_workers,
     print("WORK PRODUCER TRIGGERING END")
 
 def slice_producer(graph_name, work_queue, sample_queues, \
-    lock , minibatches_per_epoch, no_epochs, storage_vector, deterministic, queue_size, worker_id):
+    lock , minibatches_per_epoch, no_epochs, storage_vector, \
+        deterministic, queue_size, worker_id, sm_filename_queue):
 
     no_worker_threads = 1
     sampler = cslicer(graph_name, queue_size, no_worker_threads,
@@ -299,7 +308,8 @@ def slice_producer(graph_name, work_queue, sample_queues, \
         dummy = []
         for gpu_id in range(4):
             # gpu_local_samples.append(Gpu_Local_Sample(tensorized_sample, gpu_id))
-            ref = Gpu_Local_Sample(tensorized_sample, gpu_id).serialize()
+            ref = Gpu_Local_Sample(tensorized_sample, gpu_id).serialize(sm_filename_queue)
+            print(ref)
             gpu_local_samples.append(ref)
         #while(sample_queues[0].qsize() >= queue_size - 3):
         #    time.sleep(.01)
@@ -310,7 +320,7 @@ def slice_producer(graph_name, work_queue, sample_queues, \
             while True:
                 try:
                     sample_queues[qid].put_nowait(gpu_local_samples[qid])
-                    #print("Worker puts sample", sample_id,"in queue",qid)
+                    print("Worker puts sample", sample_id,"in queue",qid)
                     break
                 except:
                     time.sleep(.0001)
@@ -340,7 +350,9 @@ def train(args):
     fanout = args.fan_out.split(',')
     fanout = [(int(f)) for f in fanout]
     fanout = [10,10,10]
-    no_worker_process = 4
+    sm_filename_queue = mp.Queue(NUM_BUCKETS)
+    sm_manager = SharedMemManager(sm_filename_queue)
+    no_worker_process = 1
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map, deterministic = args.deterministic)
@@ -351,7 +363,7 @@ def train(args):
     work_queue = mp.Queue(8)
     train_mask = dg_graph.ndata['train_mask']
     train_nid = train_mask.nonzero().squeeze()
-    
+
     print("Training nodes", train_nid.shape[0])
     if args.deterministic:
         train_nid = torch.arange(dg_graph.num_nodes())
@@ -363,7 +375,7 @@ def train(args):
 
     # global train_nid_list
     # train_nid_list= train_nid.tolist()
-    queue_size =8 
+    queue_size =2
     work_producer_process = mp.Process(target=(work_producer), \
                   args=(work_queue, train_nid, minibatch_size, no_epochs,\
                     no_worker_process, args.deterministic))
@@ -379,7 +391,7 @@ def train(args):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, sample_queues, lock,\
                                 minibatches_per_epoch, no_epochs,storage_vector, args.deterministic,
-                                queue_size, proc))
+                                queue_size, proc, sm_filename_queue))
         slice_producer_process.start()
         slice_producer_processes.append(slice_producer_process)
 
@@ -391,7 +403,8 @@ def train(args):
         p = mp.Process(target=(run_trainer_process), \
                       args=(proc_id, n_gpus, sample_queues[proc_id], minibatches_per_epoch \
                        , features, args, \
-                       num_classes, mm.batch_in[proc_id], labels,no_worker_process, args.deterministic, dg_graph.in_degrees()))
+                       num_classes, mm.batch_in[proc_id], labels,no_worker_process, args.deterministic,\
+                        dg_graph.in_degrees(), sm_filename_queue))
         p.start()
         procs.append(p)
     for sp in slice_producer_processes:
@@ -421,7 +434,7 @@ if __name__=="__main__":
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument("--num-heads", type=int, default=8,
                         help="number of hidden attention heads if gat")
-    argparser.add_argument('--fan-out', type=str, default='10,10,25')
+    argparser.add_argument('--fan-out', type=str, default='10,10,10')
     argparser.add_argument('--batch-size', type=int, default=(4096))
     argparser.add_argument('--dropout', type=float, default=0)
     argparser.add_argument('--deterministic', default = False, action="store_true")

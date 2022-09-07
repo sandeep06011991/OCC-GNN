@@ -13,11 +13,12 @@ const std::string ERROR = "dir_error";
 std::string get_dataset_dir(){
 
 	char * u = getenv("USER");
-	
+
 	std::string user = std::string(u);
-	if (user == "spolisetty_umass_edu") return unity;
-	
+  std::cout << "Found user" << user <<"\n";
+  if (user == "spolisetty_umass_edu") return unity;
+	if (user == "spolisetty") return jupiter;
+  if (user == "q91") return ornl;
 	std::cout << "Datadir not found !!\n";
 	return ERROR;
-} 
-
+}

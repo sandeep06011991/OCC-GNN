@@ -7,6 +7,8 @@
 # If the shape parameter is not supplied, the matrix dimensions
 # are inferred from the index arrays.
 
+from utils.shared_mem_manager import *
+# Todo Very bad design Fix: THIS Later
 from importlib.metadata import metadata
 import numpy as np
 import scipy as sp
@@ -16,10 +18,12 @@ import torch
 import dgl.function as fn
 import time
 import random
+from dgl import heterograph_index
+from dgl.utils  import Index
 
 class Bipartite:
 
-    def serialize(self):
+    def serialize(self, sm_filename_queue):
         metadatalist = [
             self.indptr_start,
             self.indptr_end,
@@ -38,7 +42,9 @@ class Bipartite:
             self.self_ids_out_start,
             self.self_ids_out_end,
             self.indegree_start,
-            self.indegree_end
+            self.indegree_end,
+            self.M,
+            self.N,
         ]
 
         def listFromObj(obj):
@@ -49,26 +55,54 @@ class Bipartite:
         metadatalist.extend(listFromObj(self.to_ids_start))
         metadatalist.extend(listFromObj(self.to_ids_end))
         #print("pre serialize calculate",from_d , to_d)
-        assert(len(metadatalist)==34)
+        assert(len(metadatalist)==36)
         tensor = torch.tensor(metadatalist, dtype=torch.long)
         tensorCatData = torch.cat([tensor, self.data])
         checksum = torch.sum(tensor)
-        return (tensorCatData, self.graph, self.gpu_id, checksum)
+        np_data = (tensorCatData).numpy()
+        name = write_to_shared_memory(np_data, sm_filename_queue)
+
+        return ((name, np_data.shape, np_data.dtype.name), self.gpu_id, checksum)
+        # return (tensorCatData, self.graph, self.gpu_id, checksum)
+
 
     @staticmethod
-    def deserialize(data):
-        tensor, graph, gpu_id, checksum = data
-        metadatalist = tensor[:34].tolist()
+    def deserialize(data, sm_filename_queue):
+        (name, shape, dtype_str), gpu_id, checksum = data
+        dtype = np.dtype(dtype_str)
+        tensor = read_from_shared_memory(name, shape, dtype, sm_filename_queue )
+        graph = None
+        metadatalist = tensor[:36].tolist()
         #print("post serialize calculate",from_d, to_d)
         #print("Check sum", checksum, sum(metadatalist))
-        data = tensor[34:]
+        data = tensor[36:]
         bipartite = Bipartite(metadatalist=metadatalist,
                               data=data, graph=graph, gpu_id=gpu_id)
         return bipartite
 
     def __init__(self, cobject=None,  metadatalist=None, data=None, graph=None, gpu_id=None):
-        if metadatalist is not None and data is not None and graph is not None and gpu_id is not None:
+        if metadatalist is not None and data is not None and gpu_id is not None:
             self.graph = graph
+            assert(self.graph == None)
+            # Construct graph from data instead of this.
+            self.M = metadatalist[18]
+            self.N = metadatalist[19]
+            self.expand_indptr_start = metadatalist[2]
+            self.expand_indptr_end = metadatalist[3]
+            self.indices_start = metadatalist[4]
+            self.indices_end = metadatalist[5]
+
+            # Move
+            arrays = [data[self.expand_indptr_start:self.expand_indptr_end],\
+                data[self.indices_start:self.indices_end]]
+
+            metagraph_index = heterograph_index.create_metagraph_index(['_U','_V'],[('_V','_E','_U')])
+            hg = heterograph_index.create_unitgraph_from_coo(\
+                                2,  self.N, self.M, arrays[0], arrays[1], ['coo'])
+            graph = heterograph_index.create_heterograph_from_relations(metagraph_index[0], [hg], Index([self.M,self.N]))
+            self.graph = dgl.DGLHeteroGraph(graph,['_U','_V'],['_E'])
+            self.graph = self.graph.reverse()
+            self.graph = self.graph.formats('csc')
             # self.graph = self.graph.formats(['csr', 'coo', 'csc'])
             # self.graph.create_formats_()
             self.gpu_id = gpu_id
@@ -91,6 +125,8 @@ class Bipartite:
             self.self_ids_out_end = metadatalist[15]
             self.indegree_start = metadatalist[16]
             self.indegree_end = metadatalist[17]
+            self.M = metadatalist[18]
+            self.N = metadatalist[19]
             self.num_nodes_v = self.out_nodes_end - self.out_nodes_start
             self.from_ids_start = {}
             self.from_ids_end = {}
@@ -99,10 +135,10 @@ class Bipartite:
             from_size = {}
             to_size = {}
             for i in range(4):
-                self.from_ids_start[i] = metadatalist[18 + i]
-                self.from_ids_end[i] = metadatalist[22 + i]
-                self.to_ids_start[i] = metadatalist[26 + i]
-                self.to_ids_end[i] = metadatalist[30 + i]
+                self.from_ids_start[i] = metadatalist[20 + i]
+                self.from_ids_end[i] = metadatalist[24 + i]
+                self.to_ids_start[i] = metadatalist[28 + i]
+                self.to_ids_end[i] = metadatalist[32 + i]
                 from_size[i] = self.from_ids_end[i] - self.from_ids_start[i]
                 to_size[i] = self.to_ids_end[i] - self.to_ids_start[i]
             #print("post serialization gpu id",self.gpu_id, from_size, to_size)
@@ -128,6 +164,8 @@ class Bipartite:
         if(len(indices) != 0):
             N = cobject.num_out_nodes
             M = cobject.num_in_nodes
+            self.M = M
+            self.N = N
             self.num_nodes_v = N
             assert(indptr[-1] == len(indices))
             t11 = time.time()
@@ -139,6 +177,8 @@ class Bipartite:
         else:
             N = cobject.num_out_nodes
             M = cobject.num_in_nodes
+            self.M = M
+            self.N = N
             self.num_nodes_v = N
             # print("graph created attempt", N, M)
             self.graph = dgl.heterograph({('_V', '_E', '_U'): ([],[])}, \
@@ -172,7 +212,7 @@ class Bipartite:
             self.to_ids_end[i] = cobject.to_ids_end[i]
             from_size[i] = self.from_ids_end[i] - self.from_ids_start[i]
             to_size[i] = self.to_ids_end[i] - self.to_ids_start[i]
-        #print("pre serialziation gpu id",self.gpu_id, from_size, to_size)    
+        #print("pre serialziation gpu id",self.gpu_id, from_size, to_size)
         self.self_ids_in_start = cobject.self_ids_in_start
         self.self_ids_in_end = cobject.self_ids_in_end
         self.self_ids_out_start = cobject.self_ids_out_start
@@ -219,7 +259,7 @@ class Bipartite:
         self.self_ids_out = data[self.self_ids_out_start: self.self_ids_out_end]
         self.in_degree = data[self.indegree_start:self.indegree_end]
         self.in_degree = self.in_degree.reshape(self.in_degree.shape[0],1)
-        
+
         t3 = time.time()
     #
     def debug(self):
@@ -234,7 +274,7 @@ class Bipartite:
         for i in self.from_ids.keys():
             to[i] = self.to_ids[i].shape[0]
             fr[i] = self.from_ids[i].shape[0]
-        print("to",to,"from",fr)    
+        print("to",to,"from",fr)
         #print("to ids",self.to_ids)
         #print("self ids in",self.self_ids_in)
         #print("self ids out",self.self_ids_in)
@@ -330,7 +370,7 @@ class Sample:
         self.in_nodes = csample.in_nodes
         self.out_nodes = csample.out_nodes
         self.layers = []
-        
+
         self.randid = random.randint(0,10000)
         # print(len(csample.layers))
         for layer in csample.layers:
@@ -342,14 +382,15 @@ class Sample:
 
 
 class Gpu_Local_Sample:
-    def __init__(self, global_sample=None, device_id=None, randid = None,  in_nodes=None, out_nodes=None, serializedLayers=None):
+    def __init__(self, global_sample=None, device_id=None, randid = None, \
+        in_nodes=None, out_nodes=None, serializedLayers=None, sm_filename_queue = None):
         if in_nodes is not None and out_nodes is not None and serializedLayers is not None and device_id is not None:
             self.in_nodes = in_nodes
             self.out_nodes = out_nodes
             self.randid = randid
             self.layers = []
             for layer in serializedLayers:
-                self.layers.append(Bipartite.deserialize(layer))
+                self.layers.append(Bipartite.deserialize(layer, sm_filename_queue))
             self.device_id = device_id
             return
 
@@ -364,15 +405,16 @@ class Gpu_Local_Sample:
         # self.last_layer_nodes = global_sample.last_layer_nodes[device_id]
         self.device_id = device_id
 
-    def serialize(self):
-        serializedLayers = tuple([i.serialize() for i in self.layers])
+    def serialize(self, sm_filename_queue):
+        serializedLayers = tuple([i.serialize(sm_filename_queue) for i in self.layers])
         return (self.in_nodes, self.out_nodes, self.randid, serializedLayers, self.device_id)
 
     @staticmethod
-    def deserialize(tensor):
+    def deserialize(tensor, sm_filename_queue):
         in_nodes, out_nodes, randid , serializedLayers, device_id = tensor
         return Gpu_Local_Sample(device_id=device_id, in_nodes=in_nodes, \
-                        randid = randid, out_nodes=out_nodes, serializedLayers=serializedLayers)
+                        randid = randid, out_nodes=out_nodes, serializedLayers=serializedLayers,
+                            sm_filename_queue = sm_filename_queue)
 
     def __str__(self):
         return "TEST: " + str(self.serialize())
