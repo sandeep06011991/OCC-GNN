@@ -9,12 +9,9 @@ from torch.utils import cpp_extension
 ext_modules = [
     cpp_extension.CppExtension(
         "cslicer",
-        # sources = ["pyfrontend.cpp","dataset.cpp", "slicer.cpp", "bipartite.cpp", \
-        #         "util/duplicate.cpp","WorkerPool.cpp","util/conqueue.cpp",
-        #         ],
-        sources = ["pyfrontend.cpp","dataset.cpp", "bipartite.cpp", \
-                "util/duplicate.cpp", "slicer.cpp","pybipartite.cpp","WorkerPool.cpp"
-                ],
+        sources = ["transform/slice.cpp",
+            "samplers/ns.cpp", "pyobj/pybipartite.cpp", "pyobj/pyfrontend.cpp",
+                    "graph/bipartite.cpp", "util/duplicate.cpp", "graph/dataset.cpp"],
         extra_compile_args=["-s"],
         depends = ["util/environment.h","bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
             ,"util/conqueue.h"]  ,
@@ -25,4 +22,5 @@ ext_modules = [
     ),
 ]
 
+#  Use Dist dir to change the output directory location.
 setup( cmdclass={"build_ext": cpp_extension.BuildExtension}, ext_modules=ext_modules)

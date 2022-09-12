@@ -1,7 +1,7 @@
 #pragma once
 #include <iostream>
 #include <string>
-
+#include <spdlog/spdlog.h>
 
 const std::string jupiter = "/data/sandeep/";
 

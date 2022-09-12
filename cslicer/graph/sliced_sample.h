@@ -3,10 +3,10 @@
 #include <cassert>
 #include "bipartite.h"
 
-class Layer{
+class PartitionedLayer{
   public:
     BiPartite* bipartite[4];
-    Layer(){
+    PartitionedLayer(){
       // this->bipartite = (BiPartite **)malloc(sizeof(BiPartite *) * 4);
       for(int i=0;i<4;i++){
         this->bipartite[i] = new BiPartite(i);
@@ -20,14 +20,21 @@ class Layer{
     }
 };
 
-class Sample{
+class PartitionedSample{
 public:
   int num_layers;
   // Fixed max layers == 4
   // Can be made a compile time constant. Do later.
-  Layer layers[3];
+  // Can allocate max possible layers or use compiler directives.
+  PartitionedLayer layers[3];
   std::vector<long> refresh_map[4];
-  static Sample * get_dummy_sample(){
-    return new Sample();
+
+  void clear(){
+    for(int i=0;i<3;i++){
+      layers[i].clear();
+    }
+    for(int i=0;i<4;i++){
+      refresh_map[i].clear();
+    }
   }
 };

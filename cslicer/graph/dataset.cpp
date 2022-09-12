@@ -1,15 +1,16 @@
-#include "dataset.h"
+#include "graph/dataset.h"
 #include <iostream>
 #include <vector>
 #include <string>
 #include <fstream>
 #include <assert.h>
-
+#include <spdlog/spdlog.h>
 Dataset::Dataset(std::string dir){
   this->BIN_DIR = dir;
   read_meta_file();
   read_graph();
   read_node_data();
+  spdlog::info("Read graph with num nodes {}",(num_nodes));
   std::cout << "Check number of nodes " << num_nodes <<"\n";
   // assert(noClasses != 0);
   // read_training_splits();
@@ -24,6 +25,7 @@ void Dataset::read_graph(){
   for(long i=0;i<this->num_nodes + 1;i++){
     s = s + this->indptr[i];
   }
+  std::cout << "Checksum of indptr and indices skipped \n";
   std::cout << "indptr" << s << " " << csum_offsets << "\n";
   // Fixme: ADD correct checksums
   // assert(s == csum_offsets );

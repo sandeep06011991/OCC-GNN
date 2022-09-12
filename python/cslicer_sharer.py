@@ -23,6 +23,10 @@ import time
 import inspect
 from utils.shared_mem_manager import *
 
+import logging
+logging.basicConfig(filename='example.log', level=logging.INFO)
+
+
 # https://teddykoker.com/2020/12/dataloader/
 # Go through this when I get stuck
 # prefetching is like a warm up so that there is something in the queue when the trainer start
@@ -282,8 +286,7 @@ def slice_producer(graph_name, work_queue, sample_queues, \
         deterministic, queue_size, worker_id, sm_filename_queue):
 
     no_worker_threads = 1
-    sampler = cslicer(graph_name, queue_size, no_worker_threads,
-            no_epochs, minibatches_per_epoch, storage_vector,deterministic)
+    sampler = cslicer(graph_name,storage_vector,10, deterministic)
 
     # Todo clean up unnecessary iterations
     while(True):

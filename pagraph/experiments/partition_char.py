@@ -11,12 +11,12 @@ def print_char(filename):
     for partition in p_v:
         union_p_v[partition] = 1
         p_size.append(partition.shape[0])
-    used_vertices = np.sum(union_p_v)    
-    frac_used = used_vertices/total_vertices    
+    used_vertices = np.sum(union_p_v)
+    frac_used = used_vertices/total_vertices
     avg_overlap = sum(p_size)/(4 * used_vertices)
     print("Graph | total_vertices | frac_used | avg_overlap")
     print("{} | {} | {} | {}".format(filename, total_vertices, frac_used, avg_overlap))
-    
+
 
 
 '''

@@ -5,7 +5,7 @@ import time
 import multiprocessing as nmp
 
 def producer(queues, lock,wid, consensus ):
-    
+
     for i in range(100):
         with lock:
             #print("has lock",wid)
@@ -16,7 +16,7 @@ def producer(queues, lock,wid, consensus ):
                 queues[j].put(t)
             #print("put",t)
             time.sleep(.00001)
-        #time.sleep(.001)    
+        #time.sleep(.001)
     for i in range(4):
         queues[i].close()
 def consumer(no_workers, queues):
@@ -34,9 +34,9 @@ def consumer(no_workers, queues):
                 #print("found error")
         if error:
            print("popped",l)
-        
+
 if __name__ == "__main__":
-    no_workers = 8 
+    no_workers = 8
     mp.set_start_method('spawn')
     queues = [mp.Queue(3) for i in range(4)]
     consensus = mp.Queue(3)
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     for i in range(no_workers):
         p = mp.Process(target = producer, args = (queues, lock, i, consensus))
         p.start()
-        
+
     c = mp.Process(target = consumer, args = (no_workers, queues, consensus))
     c.start()
     c.join()

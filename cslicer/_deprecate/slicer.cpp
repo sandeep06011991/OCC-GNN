@@ -1,3 +1,4 @@
+
 #include "slicer.h"
 #include <stdlib.h>
 #include <iostream>
@@ -132,7 +133,7 @@ void Slicer::layer_consistency(Layer& l){
           // assert(bp->in_degree[o_id] == local_nbs);
         }
     }
-  
+
 }
 */
 

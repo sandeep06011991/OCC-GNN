@@ -2,6 +2,9 @@
 #include <vector>
 #include <cassert>
 
+// A Simple way to remove duplicates without using sorting or hashmaps.
+// Only works as the max node size is already known and is finite
+// Trading space for efficiency. 
 class DuplicateRemover{
 
 public:
