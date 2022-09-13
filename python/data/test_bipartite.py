@@ -5,7 +5,7 @@ from data.cpu_compr_bipartite import *
 #  [0 1 2 3] layer l+1
 # [0,5,1,6,2,7,1,8] layer l
 # everything is connected to everything
-def get_bipartite_graph(gpu_id):
+class cobject:
     indptr = [0, 2, 4, 6, 8]
     # Fix me:
     # Self nodes are now handled inpependent of the data graph
@@ -30,6 +30,9 @@ def get_bipartite_graph(gpu_id):
         else:
             from_dict[i] = [gpu_id]
             to_dict[i] = [i]
+
+
+def get_bipartite_graph(gpu_id):
 
     data = [indptr, expand_indptr, indices, in_nodes, out_nodes, owned_out_nodes,
             self_ids_in, self_ids_out, in_degree]
@@ -64,7 +67,7 @@ def get_bipartite_graph(gpu_id):
                             {'_U': num_in_nodes, '_V': num_out_nodes})
     graph = graph.reverse()
     graph = graph.formats('csc')
-
+    # Test serialize and de-seriazlieself.
     return Bipartite.deserialize(
         (torch.tensor(metadatalist+newData), graph, gpu_id))
 
