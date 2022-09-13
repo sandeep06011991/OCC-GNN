@@ -33,44 +33,10 @@ class cobject:
 
 
 def get_bipartite_graph(gpu_id):
-
-    data = [indptr, expand_indptr, indices, in_nodes, out_nodes, owned_out_nodes,
-            self_ids_in, self_ids_out, in_degree]
-    metadatalist = []
-    newData = []
-    for dataset in data:
-        metadatalist.append(len(newData))
-        newData.extend(dataset)
-        metadatalist.append(len(newData))
-
-    lenCount = len(newData)
-    start = []
-    end = []
-    for i in range(4):
-        start.append(lenCount)
-        lenCount += len(from_dict[i])
-        newData.extend(from_dict[i])
-        end.append(lenCount)
-    metadatalist.extend(start)
-    metadatalist.extend(end)
-    start = []
-    end = []
-    for i in range(4):
-        start.append(lenCount)
-        lenCount += len(to_dict[i])
-        newData.extend(to_dict[i])
-        end.append(lenCount)
-    metadatalist.extend(start)
-    metadatalist.extend(end)
-
-    graph = dgl.heterograph({('_V', '_E', '_U'): (expand_indptr, indices)},
-                            {'_U': num_in_nodes, '_V': num_out_nodes})
-    graph = graph.reverse()
-    graph = graph.formats('csc')
-    # Test serialize and de-seriazlieself.
-    return Bipartite.deserialize(
-        (torch.tensor(metadatalist+newData), graph, gpu_id))
-
+    # Test Bipartite and CSR and CSC graph construction
+    Bipartite(cobject)
+    # Check flow of serializtion and deserializaiton. Looks Goodself.
+    Gpu_Local_Sample()
 
 def unit_test():
     for i in range(4):

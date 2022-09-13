@@ -9,7 +9,7 @@ from utils.utils import get_process_graph
 from utils.memory_manager import MemoryManager
 import torch.optim as optim
 from cslicer import cslicer
-from data.cpu_compr_bipartite import Bipartite, Sample, Gpu_Local_Sample
+from data import Bipartite, Sample, Gpu_Local_Sample
 import numpy as np
 import threading
 import torch.multiprocessing as mp
