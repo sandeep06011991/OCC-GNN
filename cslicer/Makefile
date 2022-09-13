@@ -1,5 +1,9 @@
 # Used for local testing of slicer.
 # Add more unit tests here.
+slice_test:
+	g++ tests/slice_test1.cpp
+	./a.out
+
 all:
 	g++ test_fronend.cpp graph/dataset.cpp samplers/ns.cpp util/duplicate.cpp \
 	transform/slice.cpp graph/bipartite.cpp -I.

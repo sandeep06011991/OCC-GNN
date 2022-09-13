@@ -1,3 +1,4 @@
+import time
 import torch
 import dgl
 
@@ -27,15 +28,15 @@ class Bipartite:
         self.indptr = cobject.indptr
         self.expand_indptr = cobject.expand_indptr
         self.indices = cobject.indices
-        if (len(indices) != 0):
+        if (len(self.indices) != 0):
             N = cobject.num_out_nodes
             M = cobject.num_in_nodes
             self.M = M
             self.N = N
             self.num_nodes_v = N
-            assert(indptr[-1] == len(indices))
+            assert(self.indptr[-1] == len(self.indices))
             t11 = time.time()
-            self.graph = dgl.heterograph({('_V', '_E', '_U'): (expand_indptr.clone(), indices.clone())},
+            self.graph = dgl.heterograph({('_V', '_E', '_U'): (self.expand_indptr.clone(), self.indices.clone())},
                                          {'_U': M, '_V': N})
             self.graph = self.graph.reverse()
             self.graph_csr = self.graph.formats('csc')

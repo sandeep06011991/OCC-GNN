@@ -17,7 +17,7 @@ import tqdm
 from utils.utils import thread_wrapped_func, get_process_graph
 # from utils.convert_dgl_dataset import get_dataset
 # from load_graph import load_reddit, inductive_split
-import torch.distributed as dist
+
 from models.sage import SAGE
 
 
@@ -99,7 +99,7 @@ def run(proc_id, n_gpus, args, devices, data, queues):
     # Split train_nid
     train_nid = th.split(train_nid, math.ceil(
         len(train_nid) / n_gpus))[proc_id]
-    print("train nid size",train_nid.shape)
+
     # Create PyTorch DataLoader for constructing blocks
     graph = graph.to(dev_id)
     train_nid = train_nid.to(dev_id)
@@ -151,76 +151,40 @@ def run(proc_id, n_gpus, args, devices, data, queues):
             shuffle_times = []
 
         it = enumerate(dataloader)
-        mb = 0
+
         while (cur := next(it, None)) is not None:
             torch.distributed.barrier()
 
             _, (input_nodes, seeds, blocks) = cur
             _, batch_labels = load_subtensor(train_nfeat, train_labels,
                                              seeds, input_nodes, dev_id)
-            
-            print("start training minibatch", input_nodes.shape, seeds.shape)
+
             first_block = blocks[0]
             input_nodes = input_nodes.to('cpu')
             first_block = first_block.to('cpu')
 
             shuffle_time = time.time()
-            
-            ## To Edit block ################
-            print("shuffle blol")
+
             for i in range(4):
                 if i != dev_id:
                     new_block = first_block.to(i)
-                    #new_block = first_block.clone()
-                    queues[i][dev_id].put((dev_id, new_block))
-            to_send = {}
-            ## local computation ###########
-            dist.barrier()
-            print("compute partials qszie")
-            for i in range(4):
-                if i == dev_id:
-                    continue
-                print("attempting to pop",i,dev_id)
-                (to_id, first_block) = queues[dev_id][i].get()
-                print("pop success",i,dev_id)
-                #first_block = first_block.to(dev_id)
-                #print("popped",dev_id,to_id,  queues[dev_id][0].qsize())
+                    queues[i][0].put((dev_id, new_block))
+
+            for _ in range(3):
+                (to_id, first_block) = queues[dev_id][0].get()
                 agg = aggregate(first_block, proc_slice, dev_id)
-                #queues[to_id][1].put((dev_id, agg))
-                to_send[to_id] = agg
-                del first_block
-                del to_id
-            print("pop complete",mb)
-            mb +=1
-            dst_nodes = blocks[0].number_of_dst_nodes()
-            f_shape = proc_slice.shape[1:]
-            to_concat = [torch.empty(dst_nodes, *f_shape, device = dev_id)]*4
+                queues[to_id][1].put((dev_id, agg))
+
+            to_concat = [None]*4
             to_concat[dev_id] = aggregate(
                 blocks[0].to(dev_id), proc_slice, dev_id)
-            print("start shuffle")
-            ## Actual Shuffle #############
-            shuffle_time = time.time()
-            dist.barrier(device_ids = [dev_id])
-            for src in range(4):
-                for dest in range(4):
-                    if src == dest:
-                        continue
-                    if src == dev_id:
-                        print("send",src,dest,to_send[dest].device, to_send[dest].shape,torch.sum(to_send[dest]),to_send[dest].requires_grad)
-                        dist.send(to_send[dest], dest)    
-                    if dest == dev_id:
-                        print("Attempting to recv")
-                        dist.recv(to_concat[src],src)
-                        print("recv",src,dest,to_concat[src].shape, torch.sum(to_concat[src]))
-                    dist.barrier(device_ids = [dev_id])
-            print("Shuffle complete") 
-            ## Concat ####################
-            #for _ in range(3):
-            #    (from_id, res) = queues[dev_id][1].get()
-            #    to_concat[from_id] = res.to(dev_id)
 
-            batch_inputs = torch.cat(to_concat, dim=1)
-            ####### END Shuffle Block ##########
+            for _ in range(3):
+                (from_id, res) = queues[dev_id][1].get()
+                to_concat[from_id] = res.to(dev_id)
+
+            batch_inputs = torch.concat(to_concat, dim=1)
+
             shuffle_times.append(time.time() - shuffle_time)
 
             blocks = [block.int().to(dev_id) for block in blocks[1:]]
@@ -238,7 +202,7 @@ def run(proc_id, n_gpus, args, devices, data, queues):
             backward_times.append(time.time() - backward_time)
 
             optimizer.step()
-            print("one iteration done!")
+
         epoch_times.append(time.time() - epoch_time)
 
     print('Epoch time: {}'.format(sum(epoch_times)/args.num_epochs))
@@ -255,10 +219,10 @@ if __name__ == '__main__':
                            default=0,
                            # default='0,1,2,3',
                            help="Comma separated list of GPU device IDs.")
-    argparser.add_argument('--num-epochs', type=int, default=2)
+    argparser.add_argument('--num-epochs', type=int, default=10)
     argparser.add_argument('--num-hidden', type=int, default=16)
-    argparser.add_argument('--num-layers', type=int, default=3)
-    argparser.add_argument('--fan-out', type=str, default='10,10,10')
+    argparser.add_argument('--num-layers', type=int, default=2)
+    argparser.add_argument('--fan-out', type=str, default='10,25')
     argparser.add_argument('--batch-size', type=int, default=1024)
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
@@ -301,7 +265,7 @@ if __name__ == '__main__':
     else:
         procs = []
         print("Launch multiple gpus")
-        queues = [[mp.Queue() for i in range(n_gpus)] for _ in range(n_gpus)]
+        queues = [[mp.Queue(),  mp.Queue()] for _ in range(n_gpus)]
         for proc_id in range(n_gpus):
             p = mp.Process(target=run,
                            args=(proc_id, n_gpus, args, devices, data, queues))

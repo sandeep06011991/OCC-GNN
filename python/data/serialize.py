@@ -2,8 +2,9 @@ import torch
 from data.bipartite import Bipartite
 from data.part_sample import Sample
 from data.part_sample import Gpu_Local_Sample
+from dgl import DGLGraph
 
-OBJECT_LIST = [Bipartite,Sample,Gpu_Local_Sample]
+OBJECT_LIST = [Bipartite,Sample,Gpu_Local_Sample, DGLGraph]
 
 def get_attr_order_and_offset_size(object):
     tensors = []
@@ -14,7 +15,7 @@ def get_attr_order_and_offset_size(object):
         val = getattr(object, attr)
         if not callable(val) \
             and not attr.startswith("__"):
-            if type(val) == torch.tensor:
+            if type(val) == torch.Tensor:
                 tensors.append(attr)
                 continue
             if type(val) == int:
@@ -27,7 +28,7 @@ def get_attr_order_and_offset_size(object):
                 objects.append(attr)
                 continue
             # Dont handle silently.
-            print(attr,value)
+            print(attr,val,type(val))
             assert(False)
 
     tensors.sort()
@@ -36,7 +37,7 @@ def get_attr_order_and_offset_size(object):
     objects.sort()
     # All integer offsets can be put into 1
     # Final size of the offset
-    offset_size = len(tensors) + (len(dictionary) * 4) + len(objects) + 1 + 1
+    offset_size = len(tensors) + (len(dictionary) * 4) + len(objects) + integers + 1
     return (tensors + integers + objects + dictionary), offset_size
 
 def construct_from_tensor_on_gpu(self, tensor, device, object):
@@ -88,7 +89,7 @@ def serialize_to_tensor(object):
         if type(attr_value) in dgl.heterograph:
             print("Heterograph neednt be serialized")
             continue
-                
+
         # Unknown data data type
         raise Exception("Unknown object found")
     assert(len(offsets) == offset_size)

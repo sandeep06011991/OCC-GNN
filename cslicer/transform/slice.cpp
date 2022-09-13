@@ -1,5 +1,11 @@
 #include "transform/slice.h"
 
+// FixMe:
+// This function is badly built as it does both
+// Edge selection, from and to node construction and reordering in the sae function.
+// This can be obviously be broken into three stages.
+// To add redudancy, color all the nodes with bitflags
+// And replicate the edge in all partitions which have the bitflag set. 
 void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int layer_id){
     for(int i=0;i<in.size(); i++){
       long nd1 = in[i];
