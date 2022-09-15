@@ -96,6 +96,6 @@ def unit_test_for_correctness():
     p.start()
     p.join()
     print("All data consumed !!")
-    
+
 if __name__ == "__main__":
-    unit_test()
+    unit_test_for_correctness()

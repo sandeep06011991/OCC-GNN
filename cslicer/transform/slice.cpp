@@ -5,7 +5,7 @@
 // Edge selection, from and to node construction and reordering in the sae function.
 // This can be obviously be broken into three stages.
 // To add redudancy, color all the nodes with bitflags
-// And replicate the edge in all partitions which have the bitflag set. 
+// And replicate the edge in all partitions which have the bitflag set.
 void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int layer_id){
     for(int i=0;i<in.size(); i++){
       long nd1 = in[i];
@@ -54,10 +54,14 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
   }
 
   void Slice::slice_sample(Sample &s, PartitionedSample &ps){
+    std::cout << "Reached here\n";
     for(int i= 1; i< s.num_layers + 1;i++){
         PartitionedLayer& l = ps.layers[i-1];
         int layer_id = i-1;
+        std::cout << "Attempting to slice ################### \n";
         this->slice_layer(s.block[i-1]->layer_nds,
           (* s.block[i]), l, layer_id);
+        l.debug();
+
     }
   }

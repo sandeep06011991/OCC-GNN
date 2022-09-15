@@ -1,24 +1,23 @@
 import torch
-import torch.multiprocessing as mp
+# import torch.multiprocessing as mp
 import random
 import time
-import multiprocessing as nmp
+import multiprocessing as mp
 
-def producer(queues, lock,wid, consensus ):
-
+def producer(queues, lock, wid):
     for i in range(100):
         with lock:
             #print("has lock",wid)
             #t = random.randint(0,100000)
             t = (1000 * wid) + i
-            consensus.put(t)
+            # consensus.put(t)
             for j in range(4):
                 queues[j].put(t)
-            #print("put",t)
-            time.sleep(.00001)
+            # time.sleep(.00001)
         #time.sleep(.001)
     for i in range(4):
         queues[i].close()
+
 def consumer(no_workers, queues):
     to_read = no_workers * 100
     for r in range(to_read):
@@ -41,11 +40,10 @@ if __name__ == "__main__":
     queues = [mp.Queue(3) for i in range(4)]
     consensus = mp.Queue(3)
     lock = mp.Lock()
-    lock = nmp.Lock()
     for i in range(no_workers):
-        p = mp.Process(target = producer, args = (queues, lock, i, consensus))
+        p = mp.Process(target = producer, args = (queues, lock, i))
         p.start()
 
-    c = mp.Process(target = consumer, args = (no_workers, queues, consensus))
+    c = mp.Process(target = consumer, args = (no_workers, queues))
     c.start()
     c.join()

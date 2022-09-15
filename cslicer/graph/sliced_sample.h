@@ -18,6 +18,13 @@ class PartitionedLayer{
         this->bipartite[i]->refresh();
       }
     }
+
+    void debug(){
+        for(int i=0;i<4;i++){
+          std::cout << "Bipartite graph" << i << "\n";
+          bipartite[i]->debug();
+        }
+    }
 };
 
 class PartitionedSample{
@@ -37,4 +44,5 @@ public:
       refresh_map[i].clear();
     }
   }
+
 };

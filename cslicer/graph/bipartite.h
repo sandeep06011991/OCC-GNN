@@ -98,6 +98,7 @@ public:
       std::cout << "Should never happen" << nd1 <<"\n";
       assert(false);
     }
+    std::cout << "add edge" << gpu_id << ":" << nd1 <<":" << nd2 <<"\n";
     if(islocal && ((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
 		  owned_out_nodes.push_back(nd1);
       }
@@ -143,9 +144,41 @@ public:
 
   void reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, int gpu_capacity);
 
+  void debug_vector(string str, std::vector<long>& data, std::ostream& stream){
+    stream << str <<":";
+    int c = 0;
+    for(long d: data){
+      stream << d << " ";
+      c ++ ;
+      if (c % 20 == 0 ) stream <<  "\n";
+    }
+    stream <<"\n";
+  }
   void debug(){
-    std::cout << "gpu" << gpu_id << "in_nodes" << in_nodes.size() << "out_nodes" << out_nodes.size() \
-		  << "owned_out_nodes" \
-		  << owned_out_nodes.size() << "\n";
+    std::ostream &out = std::cout ;
+    std::cout << "BiPartitie" << "\n";
+    out << "num_ in nodes" << num_in_nodes <<"\n";
+    out << "nun_ out nodes" << num_out_nodes <<"\n";
+    debug_vector("in_nodes", in_nodes, out);
+    debug_vector("out_nodes", out_nodes, out);
+    debug_vector("indptr", indptr, out);
+    debug_vector("expand_indptr", expand_indptr, out);
+    debug_vector("indices", indices, out);
+    // debug_vector("in_degree", in_degree, out);
+    debug_vector("missing_node_ids", missing_node_ids, out);
+    debug_vector("owned_out_nodes", owned_out_nodes, out);
+
+    // vector<long> from_ids[4];
+    // vector<long> to_ids[4];
+    //
+    // // Used for self attention.
+    // vector<long> self_ids_in;
+    // vector<long> self_ids_out;
+
+    // int gpu_id = -1;
+    // debug_vector("in_nodes", in_nodes, std::cout);
+    // std::cout << "gpu" << gpu_id << "in_nodes" << in_nodes.size() << "out_nodes" << out_nodes.size() \
+		//   << "owned_out_nodes" \
+		//   << owned_out_nodes.size() << "\n";
   }
 };

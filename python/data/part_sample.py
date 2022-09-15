@@ -24,9 +24,9 @@ class Gpu_Local_Sample:
         self.out_nodes = 0
         self.randid = 0
         # 3 Layers in grpah
-        self.layers = [BiPartite() for i in range(3)]
+        self.layers = [Bipartite() for i in range(3)]
 
-    def __init__(self, global_sample):
+    def set_from_global_sample(self, global_sample):
         self.in_nodes = global_sample.in_nodes
         self.out_nodes = global_sample.out_nodes
         self.randid = global_sample.randid

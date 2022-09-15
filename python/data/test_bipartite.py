@@ -45,10 +45,20 @@ def serialization_test():
     bp = get_dummy_bipartite_graph()
     tensor = serialize_to_tensor(bp)
     tensor = tensor.to(0)
-    device = 0
+    device = torch.device(0)
     bp_recon = Bipartite()
-    construct_from_tensor_on_gpu(self, tensor, device, bp_recon)
+    construct_from_tensor_on_gpu(tensor, device, bp_recon)
     print("Test Success !!!")
+
+def serializtion_test_gpu_local_sample():
+    sample = Gpu_Local_Sample()
+    sample.layers = [get_dummy_bipartite_graph() for i in range(3)]
+    tensor = serialize_to_tensor(sample)
+    tensor = tensor.to(0)
+    device = torch.device(0)
+    construct_from_tensor_on_gpu(tensor, device, sample)
+    print("Bipartite reconstruction also success !")
+    pass
 
 # def get_dummy_gpu_local_graph():
 #     pass
