@@ -98,7 +98,6 @@ public:
       std::cout << "Should never happen" << nd1 <<"\n";
       assert(false);
     }
-    std::cout << "add edge" << gpu_id << ":" << nd1 <<":" << nd2 <<"\n";
     if(islocal && ((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
 		  owned_out_nodes.push_back(nd1);
       }

@@ -6,22 +6,31 @@ class Bipartite:
 
     def __init__(self):
         self.gpu_id = torch.device(0)
-        self.indptr = torch.tensor([])
-        self.expand_indptr = torch.tensor([])
-        self.indices = torch.tensor([])
+        self.indptr = torch.tensor([],dtype = torch.int32)
+        self.expand_indptr = torch.tensor([],dtype = torch.int32)
+        self.indices = torch.tensor([],dtype = torch.int32)
         self.N = 0
         self.M = 0
         self.num_nodes_v = 0
+        self.from_ids = {}
+        self.to_ids = {}
         self.graph = dgl.heterograph({('_V', '_E', '_U'): ([],[])}, \
                                      {'_U': 1, '_V': 1})
-        self.in_nodes = torch.tensor([])
-        self.out_nodes = torch.tensor([])
-        self.owned_out_nodes = torch.tensor([])
-        self.in_degree = torch.tensor([])
-        self.from_size = {i:torch.tensor([]) for i in range(4)}
-        self.to_size = {i:torch.tensor([]) for i in range(4)}
-        self.self_ids_in = torch.tensor([])
-        self.self_ids_out = torch.tensor([])
+        self.in_nodes = torch.tensor([],dtype = torch.int32)
+        self.out_nodes = torch.tensor([],dtype = torch.int32)
+        self.owned_out_nodes = torch.tensor([],dtype = torch.int32)
+        self.in_degree = torch.tensor([],dtype = torch.int32)
+        # self.from_size = {i:torch.tensor([],dtype = torch.int32) for i in range(4)}
+        # self.to_size = {i:torch.tensor([],dtype = torch.int32) for i in range(4)}
+        self.self_ids_in = torch.tensor([],dtype = torch.int32)
+        self.self_ids_out = torch.tensor([],dtype = torch.int32)
+
+    def reconstruct_graph(self):
+        self.graph = dgl.heterograph({('_V', '_E', '_U'): (self.expand_indptr.clone(), self.indices.clone())},
+                                     {'_U': self.M, '_V': self.N})
+        self.graph = self.graph.reverse()
+        self.graph_csr = self.graph.formats('csc')
+        self.graph_csc = self.graph.formats('csr')
 
     def construct_from_cobject(self, cobject, has_attention= False):
         self.gpu_id = torch.device(cobject.gpu_id)
@@ -57,11 +66,10 @@ class Bipartite:
         self.out_nodes = cobject.out_nodes
         self.owned_out_nodes = cobject.owned_out_nodes
         self.owned_out_nodes = cobject.owned_out_nodes
-        self.indegree = cobject.indegree
         self.in_nodes = cobject.in_nodes
         self.out_nodes = cobject.out_nodes
         self.owned_out_nodes = cobject.owned_out_nodes
-        self.indegree = cobject.indegree
+        self.in_degree = cobject.indegree
         self.from_ids = {}
         self.to_ids = {}
 
@@ -80,9 +88,8 @@ class Bipartite:
         if self.num_nodes_v == 0:
             return f_in
         with self.graph.local_scope():
-            # print(f_in.shape[0], self.graph.number_of_nodes('_U'))
+            print(f_in.shape[0], self.graph.number_of_nodes('_U'))
             # FixME Todo: Fix this inconsistency in number of nodes
-            # print(f_in.shape, self.graph.number_of_nodes('_U'))
             assert(f_in.shape[0] == self.graph.number_of_nodes('_U'))
             self.graph.nodes['_U'].data['in'] = f_in
             f = self.graph.formats()

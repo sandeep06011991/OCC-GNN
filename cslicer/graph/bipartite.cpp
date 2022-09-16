@@ -23,7 +23,6 @@ void BiPartite::reorder(DuplicateRemover* dr){
 }
 
 void BiPartite::reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, int gpu_capacity){
-  debug();
   dr->order_and_remove_duplicates(in_nodes);
   // order and remove used only to remove duplicates
   // This dr object is not used to replace

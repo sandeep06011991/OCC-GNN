@@ -1,7 +1,7 @@
     # Creates models  by parsing the model parametersself.
 import torch
 from torch import nn
-from layers.multiprocess_dist_sageconv import DistSageConv
+from layers.dist_sageconv import DistSageConv
 
 # Move this function to seperate file after first forward and back pass
 class DistSAGEModel(torch.nn.Module):
@@ -30,7 +30,7 @@ class DistSAGEModel(torch.nn.Module):
         self.deterministic = deterministic
         self.fp_end = torch.cuda.Event(enable_timing=True)
         self.bp_end = torch.cuda.Event(enable_timing=True)
-        
+
     def forward(self, bipartite_graphs, x, in_degrees):
         #print("input ",x.shape,x.device)
         for l,(layer, bipartite_graph) in  \
@@ -54,7 +54,7 @@ class DistSAGEModel(torch.nn.Module):
                 x = self.dropout(self.activation(x))
 
         return x
-    
+
 
     def print_grad(self):
         for id,l in enumerate(self.layers):

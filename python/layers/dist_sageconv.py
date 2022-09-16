@@ -6,7 +6,7 @@ import time
 from layers.opt_shuffle import Shuffle
 import dgl.nn.pytorch.conv.sageconv as sgc
 import torch.multiprocessing as mp
-from data.test_bipartite import get_bipartite_graph
+from data.test_bipartite import get_dummy_bipartite_graph
 from torch.nn.parallel import DistributedDataParallel
 
 class DistSageConv(nn.Module):
@@ -119,7 +119,7 @@ class DistSageConv(nn.Module):
         out3 = bipartite_graph.self_gather(x)
         out4 = bipartite_graph.slice_owned_nodes(out3)
         out5 = self.fc2(out4)
-        
+
         final = out5 + out6
         t33 = time.time()
         t2 = time.time()

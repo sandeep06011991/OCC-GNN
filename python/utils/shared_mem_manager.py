@@ -1,5 +1,5 @@
 SHARED_MEMORY_SIZE = 10 * 1024 * 1024
-NUM_BUCKETS = 1
+NUM_BUCKETS = 4
 from multiprocessing.shared_memory import SharedMemory
 import multiprocessing as mp
 import numpy as np
@@ -47,7 +47,7 @@ class SharedMemClient():
                 break
             except:
                 print("Allocate more shared memory")
-                time.sleep(.001)
+                time.sleep(10)
         buff = self.buckets[name]
         # SharedMemory(name = name , size = SHARED_MEMORY_SIZE)
         allocate = np.ndarray(*data.shape,dtype = data.dtype,  buffer = buff.buf)

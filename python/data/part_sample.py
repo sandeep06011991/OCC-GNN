@@ -1,4 +1,5 @@
 from data.bipartite import Bipartite
+import random
 
 class Sample:
 
@@ -13,7 +14,9 @@ class Sample:
             l = []
             # print(len(layer))
             for cbipartite in layer:
-                l.append(Bipartite(cbipartite))
+                bp = Bipartite()
+                bp.construct_from_cobject(cbipartite)
+                l.append(bp)
             self.layers.append(l)
 
 
@@ -23,10 +26,24 @@ class Gpu_Local_Sample:
         self.in_nodes = 0
         self.out_nodes = 0
         self.randid = 0
+        self.device_id = 0
         # 3 Layers in grpah
         self.layers = [Bipartite() for i in range(3)]
 
-    def set_from_global_sample(self, global_sample):
+    def prepare(self):
+        self.last_layer_nodes = []
+        last_layer = self.layers[0]
+        i = 0
+        l = self.layers[0]
+        # FixME: Make everything into longs
+        print(l.out_nodes)
+        print(l.owned_out_nodes)
+        self.last_layer_nodes = l.out_nodes[l.owned_out_nodes]
+        for i in self.layers:
+            i.reconstruct_graph()
+        self.layers.reverse()
+
+    def set_from_global_sample(self, global_sample, device_id):
         self.in_nodes = global_sample.in_nodes
         self.out_nodes = global_sample.out_nodes
         self.randid = global_sample.randid
