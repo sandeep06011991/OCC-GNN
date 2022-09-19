@@ -19,62 +19,72 @@ import time
 import inspect
 from utils.shared_mem_manager import *
 from data.serialize import *
+from utils.log import *
+#
+# def get_sample_and_deserialize(sample_queue, sm_client, device):
+#     t = sample_queue.get()
+#     if(type(t) == type("")):
+#         gpu_local_sample = t
+#         sample_id = t
+#     else:
+#         # Unpack
+#         t1 = time.time()
+#         (name, shape, dtype ) = t
+#         dtype = np.dtype( dtype )
+#         print('a',dtype)
+#         tensor = sm_client.read_from_shared_memory(name, shape, dtype)
+#         print('b',tensor.dtype)
+#         tensor = tensor.to(device)
+#         tensor = tensor.long()
+#         gpu_local_sample = Gpu_Local_Sample()
+#         device = torch.device(device)
+#         # Refactor this must not be moving to GPU at this point.
+#         construct_from_tensor_on_gpu(tensor, device, gpu_local_sample)
+#         t2 = time.time()
+#         print("Deserialization cost", t2-t1)
+#         sample_id = gpu_local_sample.randid
+#     return str(sample_id), gpu_local_sample
 
-def get_sample_and_deserialize(sample_queue, sm_client, device):
-    t = sample_queue.get()
-    if(type(t) == type("")):
-        gpu_local_sample = t
-        sample_id = t
+def get_sample(proc_id, sample_queues,  sm_client, log):
+    sample_id = None
+    device = proc_id
+    if proc_id == 0:
+        log.log("leader tries to read meta data")
+        meta = sample_queues[0].get()
+
+        log.log("leader reads meta data, starts sharing")
+        for i in range(1,4):
+            if type(meta) == tuple:
+                sample_queues[i].put(meta[i])
+            else:
+                sample_queues[i].put(meta)    
+        meta = meta[0]
+        log.log("leader done sharing")
     else:
-        # Unpack
-        t1 = time.time()
-        (name, shape, dtype ) = t
+        log.log("followers tries to read")
+        meta = sample_queues[proc_id].get()
+        log.log("follower gets meta")
+    log.log("Meta data read {}".format(meta))
+    if(type(meta) == type("")):
+        gpu_local_sample = meta
+        sample_id = meta
+    else:
+        (name, shape, dtype ) = meta
         dtype = np.dtype( dtype )
-        print('a',dtype)
+        log.log("trieng to reconstruct data on shared memory")
         tensor = sm_client.read_from_shared_memory(name, shape, dtype)
-        print('b',tensor.dtype)
+        log.log("data reconstruction complete")
         tensor = tensor.to(device)
+        print("Warning: Impromptu data reformatting is risky. ")
         tensor = tensor.long()
         gpu_local_sample = Gpu_Local_Sample()
         device = torch.device(device)
         # Refactor this must not be moving to GPU at this point.
         construct_from_tensor_on_gpu(tensor, device, gpu_local_sample)
-        t2 = time.time()
-        print("Deserialization cost", t2-t1)
+        # Memory can be released now as object is constructed from tensor.
+        sm_client.free_used_shared_memory(name)
+        log.log("construction of sample on gpu {}".format(gpu_local_sample.randid))
         sample_id = gpu_local_sample.randid
-    return str(sample_id), gpu_local_sample
-
-def get_sample_and_sync(proc_id, sample_buffer,
-        store, sample_queue, sm_filename_queue):
-    sample_id = None
-    if proc_id == 0 or len(sample_buffer) == 0:
-        sample_id, gpu_local_sample = get_sample_and_deserialize\
-                (sample_queue, sm_filename_queue, proc_id)
-    if sample_id  == None:
-        sample_id = list(sample_buffer.keys())[0]
-        gpu_local_sample = sample_buffer[sample_id]
-    # Handle race condition
-    if proc_id == 0:
-        store.set("leader",str(sample_id))
-    torch.distributed.barrier()
-    if proc_id != 0:
-        try:
-            leader_id = store.get("leader")
-            leader_id = leader_id.decode("utf-8")
-            while(sample_id != leader_id):
-                print("mismatch", sample_id, leader_id)
-                sample_buffer[sample_id] = gpu_local_sample
-                if leader_id not in sample_buffer:
-                    sample_id, gpu_local_sample = get_sample_and_deserialize(sample_queue, sm_filename_queue, proc_id)
-                else:
-                    sample_id = leader_id
-                    gpu_local_sample = sample_buffer[leader_id]
-            if sample_id in sample_buffer:
-                del sample_buffer[sample_id]
-        except:
-            print("gpu 0 is shut down")
-            gpu_local_sample = "EPOCH"
-            sample_id = "EPOCH"
     return sample_id, gpu_local_sample
 
 
@@ -83,7 +93,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
                     ,num_classes,batch_in, labels, num_sampler_workers, deterministic,in_degrees
                     , sm_filename_queue):
     print("Num sampler workers ", num_sampler_workers)
-
+    log = LogFile("Trainer", proc_id)
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
         master_ip='127.0.0.1', master_port='12345')
     world_size = gpus
@@ -122,27 +132,11 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     t1 = time.time()
     print("Features ", features.device)
     num_epochs = 0
-    if proc_id == 0:
-        store = dist.TCPStore("127.0.0.1", 1234, 4, True)
-    else:
-        store = dist.TCPStore("127.0.0.1",1234, 4, False)
-
-    sample_buffer = {}
-
-    # if proc_id == 10:
-    #     prof = line_profiler.LineProfiler()
-    #     f = prof(get_sample_and_deserialize)
-    # else:
-    #     f = get_sample_and_deserialize
     while(True):
 
         t11 = time.time()
         nmb += 1
-        if proc_id == 0:
-            print("minibatch",nmb)
-        t111 = time.time()
-        sample_id, gpu_local_sample = get_sample_and_sync(proc_id, sample_buffer,
-            store, sample_queue,  sm_client)
+        sample_id, gpu_local_sample = get_sample(proc_id, sample_queue,  sm_client, log)
         t22 = time.time()
         sample_get_time += t22 - t11
         if(gpu_local_sample == "EPOCH"):
@@ -169,6 +163,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             else:
                 continue
         t33 = time.time()
+        print("Warning. Preperation not needed")
+        print(gpu_local_sample)
         gpu_local_sample.prepare()
         #assert(features.device == torch.device('cpu'))
         #gpu_local_sample.debug()
@@ -195,7 +191,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         #assert(classes.shape[0] != 0)
         #print("loss",loss)
         loss.backward()
-        #print("backward complete",proc_id)
+        print("backward complete",proc_id)
         #if(classes.shape[0]):
         #    print("Backward not blocks when classes is zero")
         # Helpful trick to make manual calculation of gradients easy.

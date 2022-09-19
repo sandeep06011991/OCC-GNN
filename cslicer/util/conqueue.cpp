@@ -5,50 +5,7 @@
 #include <condition_variable>
 #include "util/conqueue.h"
 
-template <typename T>
-ConQueue<T>::ConQueue(int max_size){
-    this->max_size = max_size;
-}
 
-
-
-template <typename T>
-void ConQueue<T>::push_object(T  object){
-    // Wait for space
-    int size = 0;
-    while(true){
-       std::unique_lock<std::mutex> lck(mtx);
-       int size = queue.size();
-       if(size != this->max_size){
-         queue.push(object);
-         not_empty.notify_all();
-         break;
-       }else{
-         has_space.wait(lck);
-       }
-    }
-}
-
-template <typename T>
-T ConQueue<T>::pop_object(){
-    T obj;
-    while(true){
-      {
-       std::unique_lock<std::mutex> lck(mtx);
-       int size = queue.size();
-       if(size != 0){
-         obj = queue.front();
-         queue.pop();
-         has_space.notify_all();
-         break;
-       }else{
-       std::cout <<"waiting\n";
-         not_empty.wait(lck);
-       }
-      }
-    }
-    return obj;
-}
 
 class obj{
 public:
@@ -90,6 +47,9 @@ int test_conqueue(){
   std::cout << "Hello world\n";
 }
 
+int main(){
+  test_conqueue();
+}
 // #include "sample.h"
 // template class ConQueue<std::vector<long> *>;
 // template class ConQueue<Sample *>;

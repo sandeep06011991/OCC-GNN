@@ -1,3 +1,9 @@
+Mistake.
+Multiple process synchronization is hard without python primitaves.
+I need one layer of python on top for this.
+
+
+
 
 1. no_cache_multi_gpu.py
     -- Naive version of no-cache multi-gpu
@@ -20,4 +26,3 @@ Final end-to-end architecture:
     Use pinned memory
     Handle varying levels of memory availability.
 4. models in final folder
-  

@@ -5,6 +5,7 @@ import multiprocessing as mp
 import numpy as np
 import torch
 import time
+from utils.log import *
 # Everything outside this class should be agnostic to shared memory details
 # Keep this object in memory and delete after everything returns
 class SharedMemManager():
@@ -35,11 +36,14 @@ class SharedMemClient():
             name = 's{}'.format(i)
             self.buckets[name] = SharedMemory(name, size =SHARED_MEMORY_SIZE)
         self.used_memory = {}
+        self.log = LogFile("train", 0)
 
     def write_to_shared_memory(self ,data):
         # returns filename written to
         assert(type(data) == np.ndarray)
         assert(len(data.shape) == 1)
+        if(data.shape[0] * data.dtype.itemsize > SHARED_MEMORY_SIZE):
+            self.log.log("Shared Memory bucket size is not enouch for {}".format(data.shape[0] * data.dtype.itemsize))
         assert(data.shape[0] * data.dtype.itemsize < SHARED_MEMORY_SIZE)
         while(True):
             try:
@@ -63,6 +67,9 @@ class SharedMemClient():
         return tensor
 
     def free_used_shared_memory(self,filename):
+        # Dont free shared memoryself.
+        # Keep it always open
+        self.free_memory_filenames.put(filename)
         del self.used_memory[filename]
 
     def __del__(self):

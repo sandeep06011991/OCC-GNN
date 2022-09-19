@@ -112,7 +112,7 @@ class DistSageConv(nn.Module):
         t2 = time.time()
         t11 = time.time()
         out6_b = bipartite_graph.slice_owned_nodes(out2)
-        out6 = out6_b/bipartite_graph.in_degree
+        out6 = (out6_b.T/(bipartite_graph.in_degree )).T
         if not self.fc1.in_features > self.fc1.out_features:
             out6 = self.fc1(out6)
         t22 = time.time()

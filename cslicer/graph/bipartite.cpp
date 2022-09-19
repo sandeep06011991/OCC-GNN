@@ -1,4 +1,5 @@
 #include "bipartite.h"
+#include "spdlog/spdlog.h"
 
 void BiPartite::reorder(DuplicateRemover* dr){
   dr->order_and_remove_duplicates(in_nodes);
@@ -40,6 +41,7 @@ void BiPartite::reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, 
 
     }
   }
+  spdlog::info("Added missing nodes of size {}",missing_node_ids.size());
   // std::cout << "\n";
   // Possible
   // assert(indices[indices.size()-1] > 0);

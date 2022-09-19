@@ -50,29 +50,25 @@ def get_attr_order_and_offset_size(object):
     offset_size = len(tensors) +  len(lists) * 3 + (len(dictionary) * 4) + len(objects) + len(integers) + 1
     return (integers + tensors  + objects + dictionary + lists), offset_size
 
-# global_order_dict = {}
-# global_order_dict[type(Bipartite)] = get_attr_order_and_offset_size(Bipartite())
-# global_order_dict[type(Gpu_Local_Sample)] = get_attr_order_and_offset_size(Gpu_Local_Sample())
-
+global_order_dict = {}
+global_order_dict[Bipartite] = get_attr_order_and_offset_size(Bipartite())
+global_order_dict[Gpu_Local_Sample] = get_attr_order_and_offset_size(Gpu_Local_Sample())
+print(global_order_dict.keys())
 
 def construct_from_tensor_on_gpu(tensor, device, object):
-    print("ATtempting to reconstruct", type(object), tensor.shape)
+    print("Warning. Dont have to reanalyze the object everytime. ")
     order, offset_size = get_attr_order_and_offset_size(object)
-    # for i in global_order_dict[]
-    print(tensor.device, device, tensor.dtype, "Dtype ")
+    assert(offset_size == global_order_dict[type(object)][1])
+    assert(len(order) == len(global_order_dict[type(object)][0]))
     assert(tensor.device == device)
     # header Compute
     offsets = tensor[:offset_size]
-    print("REConstructio !!!!!!!!!!!!!!!!!",order)
-
     data = tensor[offset_size:]
     offset_ptr = 0
     for  attr_name in order:
         attr_value = getattr(object, attr_name)
-        print(attr_name, type(attr_value), offsets[offset_ptr], offsets[offset_ptr + 1])
         val_tensor = data[offsets[offset_ptr].item():offsets[offset_ptr + 1].item()]
         if type(attr_value) == (torch.Tensor):
-            print(attr_name, val_tensor.shape, val_tensor.dtype)
             setattr(object, attr_name, val_tensor )
             offset_ptr = offset_ptr + 1
             continue
@@ -82,26 +78,15 @@ def construct_from_tensor_on_gpu(tensor, device, object):
             offset_ptr = offset_ptr + 1
             continue
         if type(attr_value) == torch.device:
-            print("DEVICE #############",val_tensor.shape)
             setattr(object, attr_name, torch.device(val_tensor.item()))
             offset_ptr = offset_ptr + 1
             continue
         if type(attr_value) == list:
-            print("list size", len(attr_value))
             for obj in (attr_value):
                 val_tensor = data[offsets[offset_ptr].item():offsets[offset_ptr + 1].item()]
                 constructed_object = construct_from_tensor_on_gpu(val_tensor,device, obj)
-                # setattr(object, attr_name, constructed_object)
                 offset_ptr = offset_ptr + 1
             continue
-        #     assert(len(attr_value) == 3)
-        #     for i in range(3):
-        #         item = attr_value[i]
-        #         tensor = serialize_to_tensor(item)
-        #         data.append(tensor)
-        #         offsets.append(offsets[-1] + tensor.shape[0])
-        #     continue
-        #         # How to handle this serializationn
         if type(attr_value) == type({}):
             d = {}
             for i in range(4):
@@ -111,13 +96,10 @@ def construct_from_tensor_on_gpu(tensor, device, object):
             setattr(object, attr_name, d)
             continue
         if type(attr_value) in OBJECT_LIST:
-            print("Recursive construction")
             constructed_object = construct_from_tensor_on_gpu(val_tensor,device, attr_value)
             setattr(object, attr_name, constructed_object)
             offset_ptr = offset_ptr + 1
             continue
-        print("Coudlnt handle")
-        print(attr_name, type(attr_value), list)
         assert(False)
     return object
 
@@ -125,7 +107,6 @@ def serialize_to_tensor(object):
     serialization_order, offset_size = get_attr_order_and_offset_size(object)
     data = []
     offsets = [0]
-    print("TENSOR TO WRITE!!!!!!!!!!!!!!",serialization_order)
     for attr in serialization_order:
         attr_value = getattr(object, attr)
         if(type(attr_value) == torch.device):
@@ -149,7 +130,6 @@ def serialize_to_tensor(object):
                 tensor = serialize_to_tensor(item)
                 assert(tensor.shape[0] >10)
                 data.append(tensor)
-                print("Adding to list", type(item), tensor.shape, i)
                 offsets.append(offsets[-1] + tensor.shape[0])
             continue
                 # How to handle this serializationn

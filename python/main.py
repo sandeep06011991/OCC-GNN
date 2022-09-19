@@ -66,7 +66,7 @@ def main(args):
     fanout = [10,10,10]
     sm_filename_queue = mp.Queue(NUM_BUCKETS)
     sm_manager = SharedMemManager(sm_filename_queue)
-    no_worker_process = 1
+
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map, deterministic = args.deterministic)
@@ -90,6 +90,8 @@ def main(args):
     # global train_nid_list
     # train_nid_list= train_nid.tolist()
     queue_size =2
+    no_worker_process = 1
+    
     work_producer_process = mp.Process(target=(work_producer), \
                   args=(work_queue, train_nid, minibatch_size, no_epochs,\
                     no_worker_process, args.deterministic))
@@ -101,9 +103,10 @@ def main(args):
     lock = torch.multiprocessing.Lock()
 
     slice_producer_processes = []
+
     for proc in range(no_worker_process):
         slice_producer_process = mp.Process(target=(slice_producer), \
-                      args=(graph_name, work_queue, sample_queues, lock,\
+                      args=(graph_name, work_queue, sample_queues[0], lock,\
                                 storage_vector, args.deterministic,
                                 proc, sm_filename_queue))
         slice_producer_process.start()
@@ -115,10 +118,10 @@ def main(args):
     labels = dg_graph.ndata["labels"]
     labels.share_memory_()
 
-    
+
     for proc_id in range(n_gpus):
         p = mp.Process(target=(run_trainer_process), \
-                      args=(proc_id, n_gpus, sample_queues[proc_id], minibatches_per_epoch \
+                      args=(proc_id, n_gpus, sample_queues, minibatches_per_epoch \
                        , features, args, \
                        num_classes, mm.batch_in[proc_id], labels,no_worker_process, args.deterministic,\
                         dg_graph.in_degrees(), sm_filename_queue))

@@ -5,13 +5,15 @@
 #include <fstream>
 #include <assert.h>
 #include <spdlog/spdlog.h>
+
+
 Dataset::Dataset(std::string dir){
   this->BIN_DIR = dir;
   read_meta_file();
   read_graph();
   read_node_data();
-  spdlog::info("Read graph with num nodes {}",(num_nodes));
-  std::cout << "Check number of nodes " << num_nodes <<"\n";
+    spdlog::info("Read graph with num nodes {}",(num_nodes));
+
   // assert(noClasses != 0);
   // read_training_splits();
 }

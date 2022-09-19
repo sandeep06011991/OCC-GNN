@@ -3,7 +3,7 @@ from utils.shared_mem_manager import *
 from data.bipartite import *
 from data.part_sample import *
 from cslicer import cslicer
-
+from utils.log import *
 def work_producer(work_queue, training_nodes, batch_size,
                 no_epochs, num_workers,
                     deterministic):
@@ -33,59 +33,64 @@ def work_producer(work_queue, training_nodes, batch_size,
 # sample_queue = to put the meta result.
 # storage vector to create samplers
 # sm_filename_queue to co-ordinate access to shared memory
-def slice_producer(graph_name, work_queue, sample_queues, \
+# Slice producers only communicate with the first processesself.
+# The first process communicates with other processes.
+def slice_producer(graph_name, work_queue, sample_queue, \
     lock , storage_vector, \
         deterministic, worker_id, sm_filename_queue):
     no_worker_threads = 1
     sampler = cslicer(graph_name,storage_vector,10, deterministic)
     sm_client = SharedMemClient(sm_filename_queue)
     # Todo clean up unnecessary iterations
+    log = LogFile("slice-py", worker_id)
     while(True):
         sample_nodes = work_queue.get()
         if((sample_nodes) == "END"):
             lock.acquire()
-            for qid,q in enumerate(sample_queues):
-                sample_queues[qid].put("END")
+            sample_queue.put("END")
             lock.release()
             #print("WORK SLICER RESPONDING TO END")
             break
         if sample_nodes == "EPOCH":
             lock.acquire()
-            for qid,q in enumerate(sample_queues):
-                sample_queues[qid].put("EPOCH")
+            sample_queue.put("EPOCH")
             lock.release()
             continue
+        log.log("ask cmodule for sample")
         csample = sampler.getSample(sample_nodes)
+        log.log("cmodule returns sample, start tensorize")
         tensorized_sample = Sample(csample)
+        log.log("Tensorization complete. start serialziation")
         sample_id = tensorized_sample.randid
         gpu_local_samples = []
-        dummy = []
         for gpu_id in range(4):
             # gpu_local_samples.append(Gpu_Local_Sample(tensorized_sample, gpu_id))
             obj = Gpu_Local_Sample()
             obj.set_from_global_sample(tensorized_sample,gpu_id)
             data = serialize_to_tensor(obj)
             data = data.numpy()
-            print("Meta#############",data[:8])
             name = sm_client.write_to_shared_memory(data)
             ref = ((name, data.shape, data.dtype.name))
             gpu_local_samples.append(ref)
+        log.log("Serialization complete, write meta data to leader gpu process")
         # assert(False)
         #while(sample_queues[0].qsize() >= queue_size - 3):
         #    time.sleep(.01)
-        lock.acquire()
         #print("ATTEMPT TO PUT SAMPLE",sample_queues[0].qsize(), "WORKER", worker_id)
         #print("Worker puts sample",sample_id)
-        for qid,q in enumerate(sample_queues):
-            while True:
-                try:
-                    sample_queues[qid].put_nowait(gpu_local_samples[qid])
-                    print("Worker puts sample", sample_id,"in queue",qid)
-                    break
-                except:
-                    time.sleep(.0001)
-                    #print("Sampler is too fast, Exception putting stuff")
-        lock.release()
+        # Write to leader gpu
+
+        sample_queue.put(tuple(gpu_local_samples))
+        # for qid,q in enumerate(sample_queues):
+        #     while True:
+        #         try:
+        #             sample_queues[qid].put_nowait(gpu_local_samples[qid])
+        #             print("Worker puts sample", sample_id,"in queue",qid)
+        #             break
+        #         except:
+        #             time.sleep(.0001)
+        #             #print("Sampler is too fast, Exception putting stuff")
+        # lock.release()
 
     print("Waiting for sampler process to return")
     while(True):

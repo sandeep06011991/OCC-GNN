@@ -1,5 +1,5 @@
 import torch
-
+from utils.log import *
 '''
 GNN has 2 sources of data. Graph Structure and Graph feature data.
 Memory manager manages the gpu memory on all devices with graph features.
@@ -50,6 +50,7 @@ class MemoryManager():
         self.batch_size = batch_size
         self.clean_up = {}
         self.deterministic = deterministic
+        self.log = LogFile("Storage", 0)
         self.initialize()
 
     def initialize(self):
@@ -80,6 +81,7 @@ class MemoryManager():
                     subgraph_nds = torch.where(self.partition_map == i)[0]
                     node_ids_cached = subgraph_nds
                     self.batch_in.append(torch.zeros(node_ids_cached.shape[0], self.fsize, device = i))
+                    self.log.log("For gpu {}, batch_in features  {}".format(i, self.batch_in[i].shape))
                     print("Node ids cached",node_ids_cached[:10])
                 else:
                     assert(False)

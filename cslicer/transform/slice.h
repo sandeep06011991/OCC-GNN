@@ -35,3 +35,5 @@ public:
 
   void slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int layer_id);
 };
+
+void check_allocation_for_optimality(Sample &s, int *workload_map, long num_nodes);

@@ -17,6 +17,10 @@ class ConQueue{
   std::condition_variable not_empty;
 
 public:
+  int get_size(){
+    return queue.size();
+  }
+
   ConQueue(int max_size){
       this->max_size = max_size;
   }
@@ -34,7 +38,9 @@ public:
            not_empty.notify_all();
            break;
          }else{
+           std::cout << "waiting for has aspace \n";
            has_space.wait(lck);
+           std::cout << "awoken \n";
          }
       }
   }
@@ -45,9 +51,11 @@ public:
         {
          std::unique_lock<std::mutex> lck(mtx);
          int size = queue.size();
+         std::cout << "pop with size" << size <<"\n";
          if(size != 0){
            obj = queue.front();
            queue.pop();
+           std::cout << "sending has sapce"<<"\n";
            has_space.notify_all();
            break;
          }else{
@@ -58,7 +66,7 @@ public:
       return obj;
   }
 
-  
+
   void wait_for_all_sample_consumption(){
     while(true){
       std::unique_lock<std::mutex> lck(mtx);

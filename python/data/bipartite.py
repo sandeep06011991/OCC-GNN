@@ -1,7 +1,12 @@
 import time
 import torch
 import dgl
-
+import dgl.function as fn
+import time
+import random
+from dgl import heterograph_index
+from dgl.utils  import Index
+from utils.log import *
 class Bipartite:
 
     def __init__(self):
@@ -95,7 +100,10 @@ class Bipartite:
             f = self.graph.formats()
             self.graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
             # No new formats must be created.
-            assert(f == self.graph.formats())
+            if(f != self.graph.formats()):
+                LogFile("bipartite", 1).log("Created new graph formats from {} to {}".format(f, self.graph.formats()))
+                print("Created new graph formats from {} to {}".format(f, self.graph.formats()))
+            # assert(f == self.graph.formats())
             # print(self.graph.nodes['_V'].data['out'])
             return self.graph.nodes['_V'].data['out']
 

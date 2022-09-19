@@ -10,6 +10,7 @@
 #include "spdlog/spdlog.h"
 #include "samplers/samplers.h"
 #include "graph/sample.h"
+#include "spdlog/sinks/basic_file_sink.h"
 namespace py = pybind11;
 
 
@@ -26,6 +27,8 @@ class CSlicer{
     std::shared_ptr<Dataset> dataset;
     PartitionedSample p_sample;
     Sample sample = Sample(3);
+    // static const auto my_logger = spdlog::basic_logger_mt("file_logger", "logs/basic-log.txt", true);
+
 public:
     // py::list v;
 
@@ -33,11 +36,21 @@ public:
       std::vector<std::vector<long>> gpu_map,
       int fanout,
        bool deterministic){
-        spdlog::info("Running {}",name);
+        spdlog::set_pattern("[%H:%M:%S %z] [%^%L%$] [thread %t] %v");
+        spdlog::info("This an info message with custom format");
+        spdlog::set_pattern("%+"); // back to default format
+        spdlog::set_level(spdlog::level::info);
+        auto logger = spdlog::basic_logger_mt("test_logger", "logs/test.txt");
+        spdlog::set_default_logger(logger);
+        spdlog::flush_on(spdlog::level::info);
+        spdlog::info("Log after checking");
+        spdlog::get("test_logger")->info("LoggingTest::ctor");
+        std::cout << "Check number of nodes " << num_nodes <<"\n";
         this->name = get_dataset_dir() + name;
         // std::cout << this->name << "\n";
 
         this->dataset = std::make_shared<Dataset>(this->name);
+        spdlog::info("Log after checking the dataset");
         num_nodes = dataset->num_nodes;
 
 
