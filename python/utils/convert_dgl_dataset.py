@@ -3,8 +3,8 @@ import numpy as np
 from ogb.nodeproppred import DglNodePropPredDataset
 import os
 
-ROOT_DIR = "/data/sandeep"
-TARGET_DIR = "/data/sandeep"
+ROOT_DIR = "/mnt/bigdata/sandeep"
+TARGET_DIR = "/mnt/bigdata/sandeep"
 
 
 def write_dataset_dataset(name, TARGET_DIR):
@@ -18,9 +18,9 @@ def write_dataset_dataset(name, TARGET_DIR):
     assert(np.array_equal(np.ones(sparse_mat.data.shape), sparse_mat.data))
     indptr = sparse_mat.indptr
     indices = sparse_mat.indices
-    c_spmat = graph.adj_sparse('csc')
-    c_indptr = c_spmat[0]
-    c_indices = c_spmat[1]
+    c_spmat = graph.adj(scipy_fmt = 'csr', transpose = False)
+    c_indptr = c_spmat.indptr
+    c_indices = c_spmat.indices
 
     print(indptr.shape)
     print(indices.shape)
@@ -74,9 +74,9 @@ def write_dataset_dataset(name, TARGET_DIR):
     # with open(TARGET_DIR + '/partition_map.bin','wb') as fp:
     #     fp.write(p_map.numpy().astype(np.int32).tobytes())
     with open(TARGET_DIR+'/cindptr.bin', 'wb') as fp:
-        fp.write(c_indptr.numpy().astype(np.int64).tobytes())
+        fp.write(c_indptr.astype(np.int64).tobytes())
     with open(TARGET_DIR+'/cindices.bin', 'wb') as fp:
-        fp.write(c_indices.numpy().astype(np.int64).tobytes())
+        fp.write(c_indices.astype(np.int64).tobytes())
     with open(TARGET_DIR+'/indptr.bin', 'wb') as fp:
         fp.write(indptr.astype(np.int64).tobytes())
     with open(TARGET_DIR+'/indices.bin', 'wb') as fp:

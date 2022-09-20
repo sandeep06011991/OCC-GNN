@@ -128,8 +128,14 @@ def dist_shuffle_bandwidth(proc_id, n_gpus):
         t1 = time.time()
         for send in range(4):
             for recv in range(4):
+<<<<<<< HEAD
                 if not (send == 0 and recv == 1):
                     continue                    
+=======
+                if not(send == 0 and recv == 1):
+                    continue
+
+>>>>>>> 1e571b7... temp changes
                 if send==recv:
                     continue
                 if proc_id == send:

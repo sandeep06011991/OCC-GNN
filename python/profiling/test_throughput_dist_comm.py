@@ -73,7 +73,7 @@ def using_dist_send(proc_id, n_gpus, args, queues, devices):
                 continue
             a = input_t.detach().share_memory_()
             send_queue.append(torch.distributed.isend(a,to_id,tag = device_id))
-        torch.distributed.barrier()
+        #torch.distributed.barrier()
         irecv_queue = []
         for from_id in range(4):
             if from_id == device_id:
@@ -86,6 +86,7 @@ def using_dist_send(proc_id, n_gpus, args, queues, devices):
                 continue
             input_t += temp[from_id]
         t2 = time.time()
+        torch.distributed.barrier()
         if device_id == 0:
             print("Total time using distributed send", t2-t1)
 
