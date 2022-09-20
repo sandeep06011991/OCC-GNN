@@ -44,6 +44,7 @@ def run_occ(graphname, epochs,cache_per, hidden_size, fsize, minibatch_size):
         epoch_time = re.findall("avg epoch time: (\d+\.\d+)sec",out)[0]
         back_time = re.findall("avg backward time: (\d+\.\d+)sec",out)[0]
         move_time = re.findall("avg move time: (\d+\.\d+)sec",out)[0]
+        accuracy_time = re.findall("")
         #movement = re.findall("cache refresh time (\d+\.\d+)",out)[0]
         sample_get = "{:.2f}".format(float(sample_get))
         forward = "{:.2f}".format(float(forward))
@@ -88,8 +89,8 @@ def run_experiment_occ(settings = None):
     sha,dirty = get_git_info()
     with open('exp6_occ.txt','a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
-        fp.write("graph | hidden-size | fsize  | batch-size |\
-                sample_get | move | forward | backward  | epoch_time \n")
+        fp.write("graph | hidden-size | fsize  | batch-size | model  | \
+                sample_get | move | forward | backward  | epoch_time | accuracy \n")
     for graphname,no_epochs,hidden_size, fsize, batch_size in settings:
         for cache in cache_rates:
             if graphname in ["ogbn-papers100M","com-friendster"]:

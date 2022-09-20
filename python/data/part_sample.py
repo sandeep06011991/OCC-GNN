@@ -1,5 +1,6 @@
 from data.bipartite import Bipartite
 import random
+import torch
 
 class Sample:
 
@@ -9,6 +10,10 @@ class Sample:
         self.layers = []
 
         self.randid = random.randint(0,10000)
+        self.missing_node_ids = []
+        for i in range(4):
+            self.missing_node_ids.append(csample.missing_node_ids[i])
+            
         # print(len(csample.layers))
         for layer in csample.layers:
             l = []
@@ -28,6 +33,7 @@ class Gpu_Local_Sample:
         self.randid = 0
         self.device_id = 0
         # 3 Layers in grpah
+        self.missing_node_ids = torch.tensor([])
         self.layers = [Bipartite() for i in range(3)]
 
     def prepare(self):
@@ -36,8 +42,6 @@ class Gpu_Local_Sample:
         i = 0
         l = self.layers[0]
         # FixME: Make everything into longs
-        print(l.out_nodes)
-        print(l.owned_out_nodes)
         self.last_layer_nodes = l.out_nodes[l.owned_out_nodes]
         for i in self.layers:
             i.reconstruct_graph()
@@ -52,3 +56,4 @@ class Gpu_Local_Sample:
             self.layers.append(layer[device_id])
         # self.last_layer_nodes = global_sample.last_layer_nodes[device_id]
         self.device_id = device_id
+        self.missing_node_ids = global_sample.missing_node_ids[device_id]

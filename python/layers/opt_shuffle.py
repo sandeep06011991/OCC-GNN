@@ -15,7 +15,7 @@ class Shuffle(torch.autograd.Function):
         t1 = time.time()
         from_data = 0
         to_data = 0
-        debug = False
+        debug = True
         to_data_unique = 0
         from_data_unique = 0
         for i in range(4):
@@ -68,7 +68,7 @@ class Shuffle(torch.autograd.Function):
                     if debug:
                         print("recieving", from_id, to_id, torch.sum(temp[from_id]))
                 torch.distributed.barrier(device_ids = [device_id])
-    
+
             t222 = time.time()
             # if to_id== device_id:
             #     print("total time to send",t222 - t111, "to id", device_id)
@@ -153,7 +153,7 @@ class Shuffle(torch.autograd.Function):
 
 
 class ToySingle(torch.nn.Module):
-    
+
     def __init__(self, queues, device_id):
         super(ToySingle, self).__init__()
         self.ll = torch.nn.Linear(100, 100)

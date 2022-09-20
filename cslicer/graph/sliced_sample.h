@@ -35,7 +35,7 @@ public:
   // Can allocate max possible layers or use compiler directives.
   PartitionedLayer layers[3];
   std::vector<long> refresh_map[4];
-
+  
   void clear(){
     for(int i=0;i<3;i++){
       layers[i].clear();

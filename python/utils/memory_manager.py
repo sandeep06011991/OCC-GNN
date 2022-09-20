@@ -122,38 +122,34 @@ class MemoryManager():
         print("No missing nodes !!")
         # assert(False)
     # @profile
-    def refresh_cache(self, last_layer_nodes):
+class GpuLocalStorage():
+
+    def __init__(self, cache_percentage, features, batch_in, cached_feature_size, proc_id):
+        self.cache_percentage = cache_percentage
+        self.features = features
+        # Batch_in tensor with space for extra
+        self.batch_in = batch_in
+        self.cache_feature_size = cached_feature_size
+        self.log = LogFile("Trainer", proc_id)
+        self.proc_id = proc_id
+
+    def get_input_features(self, last_layer_nodes):
         if(self.cache_percentage >=.25):
             # Nothing to return
-            return
+            assert(last_layer_nodes.shape[0] == 0)
+            return self.batch_in[:self.cache_feature_size, :]
         # Clear previously loaded vertices for consistency.
-        for k in self.clean_up.keys():
-            prev_nds = self.clean_up[k]
-            self.global_to_local[prev_nds,k] = -1
-            self.node_gpu_mask[prev_nds,k] = False
-            self.local_to_global_id[k]= self.local_to_global_id[k][:-prev_nds.shape[0]]
-        self.clean_up = {}
-        for gpu_id in range(4):
-            nodes_for_gpu = last_layer_nodes[\
-                torch.where(self.partition_map[last_layer_nodes] == gpu_id)[0]]
-
-            missing_nds = nodes_for_gpu[torch.where(self.global_to_local[nodes_for_gpu,gpu_id]==-1)[0]]
-            # assert(torch.all(~self.node_gpu_mask[missing_nds,gpu_id]))
-            # Fill in feature data calculating offsets
-            if missing_nds.shape[0] == 0:
-                continue
-            # print("adding nodes", gpu_id, missing_nds)
-            self.clean_up[gpu_id] = missing_nds
-            off_a = self.local_sizes[gpu_id]
-            off_b = missing_nds.shape[0] + off_a
-            self.batch_in[gpu_id][off_a:off_b] = self.features[missing_nds]
-            # assert(self.batch_in[gpu_id][:off_b] == 1)
-            # assert(torch.all(self.global_to_local[missing_nds,gpu_id]==-1))
-            self.global_to_local[missing_nds,gpu_id] = self.local_sizes[gpu_id] + torch.arange(missing_nds.shape[0])
-            self.local_to_global_id[gpu_id] = torch.cat([self.local_to_global_id[gpu_id],missing_nds])
-            self.node_gpu_mask[missing_nds,gpu_id] = True
+        self.log.log("refreshing cache with nodes {}".format(last_layer_nodes.shape))
+        space = self.batch_in.shape[0] - self.cache_feature_size
+        assert(space < last_layer_nodes.shape[0])
+        in_features = self.batch_in[self.cache_feature_size:self.cache_feature_size + last_layer_nodes.shape[0],:]
+        in_features = self.features[last_layer_nodes].to(self.proc_id)
             # assert(self.features.device == torch.device("cpu"))
             # assert(self.batch_in[gpu_id].device == torch.device(gpu_id))
+        return in_features
+
+
+
 
 def unit_test_memory_manager():
     print("unit test 1")

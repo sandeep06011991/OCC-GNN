@@ -2,7 +2,8 @@
 # import torch
 import time
 import subprocess
-
+#  Deprecated code. batch_slice_multi_gpu does not exist anymoreself.
+# no cache multi gpu is only for correctnessself.
 
 import re
 def run_naive_experiment(filename):

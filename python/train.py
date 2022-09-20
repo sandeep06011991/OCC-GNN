@@ -4,7 +4,7 @@ import time
 import nvtx
 from models.factory import get_model_distributed
 from utils.utils import get_process_graph
-from utils.memory_manager import MemoryManager
+from utils.memory_manager import MemoryManager, GpuLocalStorage
 import torch.optim as optim
 from cslicer import cslicer
 from data import Bipartite, Sample, Gpu_Local_Sample
@@ -20,30 +20,14 @@ import inspect
 from utils.shared_mem_manager import *
 from data.serialize import *
 from utils.log import *
-#
-# def get_sample_and_deserialize(sample_queue, sm_client, device):
-#     t = sample_queue.get()
-#     if(type(t) == type("")):
-#         gpu_local_sample = t
-#         sample_id = t
-#     else:
-#         # Unpack
-#         t1 = time.time()
-#         (name, shape, dtype ) = t
-#         dtype = np.dtype( dtype )
-#         print('a',dtype)
-#         tensor = sm_client.read_from_shared_memory(name, shape, dtype)
-#         print('b',tensor.dtype)
-#         tensor = tensor.to(device)
-#         tensor = tensor.long()
-#         gpu_local_sample = Gpu_Local_Sample()
-#         device = torch.device(device)
-#         # Refactor this must not be moving to GPU at this point.
-#         construct_from_tensor_on_gpu(tensor, device, gpu_local_sample)
-#         t2 = time.time()
-#         print("Deserialization cost", t2-t1)
-#         sample_id = gpu_local_sample.randid
-#     return str(sample_id), gpu_local_sample
+
+
+def compute_acc(pred, labels):
+    """
+    Compute the accuracy of prediction given the labels.
+    """
+    false_labels = torch.where(torch.argmax(pred,dim = 1) != labels)[0]
+    return (torch.argmax(pred, dim=1) == labels).float().sum(),len(pred )
 
 def get_sample(proc_id, sample_queues,  sm_client, log):
     sample_id = None
@@ -57,8 +41,9 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
             if type(meta) == tuple:
                 sample_queues[i].put(meta[i])
             else:
-                sample_queues[i].put(meta)    
-        meta = meta[0]
+                sample_queues[i].put(meta)
+        if type(meta) == tuple:
+            meta = meta[0]
         log.log("leader done sharing")
     else:
         log.log("followers tries to read")
@@ -90,8 +75,9 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
 
 
 def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, features, args\
-                    ,num_classes,batch_in, labels, num_sampler_workers, deterministic,in_degrees
-                    , sm_filename_queue):
+                    ,num_classes, batch_in, labels, num_sampler_workers, deterministic,in_degrees
+                    , sm_filename_queue, cached_feature_size, cache_percentage):
+    gpu_local_storage = GpuLocalStorage(cache_percentage, features, batch_in, cached_feature_size, proc_id)
     print("Num sampler workers ", num_sampler_workers)
     log = LogFile("Trainer", proc_id)
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
@@ -117,6 +103,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     backward_time_epoch = []
     sample_move_time_epoch = []
     epoch_time = []
+    epoch_accuracy = []
     in_degrees = in_degrees.to(proc_id)
     fp_start = torch.cuda.Event(enable_timing=True)
     fp_end = torch.cuda.Event(enable_timing=True)
@@ -179,7 +166,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         fp_start.record()
         assert(features.device == torch.device('cpu'))
         #print("Start forward pass !")
-        output = model.forward(gpu_local_sample,batch_in, in_degrees)
+        input_features  = gpu_local_storage.get_input_features(gpu_local_sample.missing_node_ids)
+        output = model.forward(gpu_local_sample, input_features, in_degrees)
         # torch.cuda.set_device(proc_id)
         fp_end.record()
         #print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
@@ -204,8 +192,9 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         ii = ii + 1
         bp_end.record()
 
-        if False  and output.shape[0] !=0:
+        if True  and output.shape[0] !=0:
             acc = compute_acc(output,classes)
+            # accuracy_epoch
             print("accuracy {}",acc)
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
@@ -231,5 +220,6 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print(epoch_time)
         print('avg sample get time: {}sec, device {}'.format(sum(sample_get_time_epoch[1:])/(num_epochs - 1),dev_id))
         print(sample_get_time_epoch)
+        print('Last epoch accuracy: {}sec, device {}'.format(sum(acc)))
     # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")

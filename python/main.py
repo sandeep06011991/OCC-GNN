@@ -91,7 +91,7 @@ def main(args):
     # train_nid_list= train_nid.tolist()
     queue_size =2
     no_worker_process = 1
-    
+
     work_producer_process = mp.Process(target=(work_producer), \
                   args=(work_queue, train_nid, minibatch_size, no_epochs,\
                     no_worker_process, args.deterministic))
@@ -124,7 +124,7 @@ def main(args):
                       args=(proc_id, n_gpus, sample_queues, minibatches_per_epoch \
                        , features, args, \
                        num_classes, mm.batch_in[proc_id], labels,no_worker_process, args.deterministic,\
-                        dg_graph.in_degrees(), sm_filename_queue))
+                        dg_graph.in_degrees(), sm_filename_queue, mm.local_sizes[proc_id],cache_percentage))
         p.start()
         procs.append(p)
     for sp in slice_producer_processes:

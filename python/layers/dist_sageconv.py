@@ -1,7 +1,6 @@
 import dgl
 import torch.nn as nn
 import torch
-from torch.nn.parallel import gather
 import time
 from layers.opt_shuffle import Shuffle
 import dgl.nn.pytorch.conv.sageconv as sgc

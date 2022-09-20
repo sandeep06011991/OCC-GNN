@@ -1,0 +1,24 @@
+from glob import glob
+from setuptools import setup
+from pybind11.setup_helpers import Pybind11Extension, build_ext
+import pybind11
+from setuptools import setup, Extension
+from torch.utils import cpp_extension
+
+
+ext_modules = [
+    cpp_extension.CppExtension(
+        "cslicer",
+        sources = ["pymultiprocess.cpp",
+            ],
+        depends = ["util/conqueue.h"] ,
+        extra_compile_args=["-s"],
+        include_dirs=[pybind11.get_include(),".","../../"],
+        language='c++'
+        # sorted(glob("pybind_test.cpp"),"object.cpp"),
+         # Sort source files for reproducibility
+    ),
+]
+
+#  Use Dist dir to change the output directory location.
+setup( cmdclass={"build_ext": cpp_extension.BuildExtension}, ext_modules=ext_modules)
