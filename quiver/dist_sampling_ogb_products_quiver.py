@@ -13,7 +13,7 @@ from torch_geometric.datasets import Reddit
 from torch_geometric.loader import NeighborSampler
 from ogb.nodeproppred import PygNodePropPredDataset, Evaluator
 import time
-
+import argparse
 ####################
 # Import Quiver
 ####################
@@ -79,7 +79,7 @@ class SAGE(torch.nn.Module):
         return x_all
 
 
-def run(rank, world_size, quiver_sampler, quiver_feature, y, edge_index, split_idx, num_features, num_classes):
+def run(rank, world_size, args,  quiver_sampler, quiver_feature, y, edge_index, split_idx, num_features, num_classes):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '11111'
     dist.init_process_group('nccl', rank=rank, world_size=world_size)
@@ -90,16 +90,16 @@ def run(rank, world_size, quiver_sampler, quiver_feature, y, edge_index, split_i
 
     train_idx = train_idx.split(train_idx.size(0) // world_size)[rank]
     print("Training nodes",train_idx.shape)
-    train_loader = torch.utils.data.DataLoader(train_idx, batch_size=1024, pin_memory=True)
+    train_loader = torch.utils.data.DataLoader(train_idx, batch_size=args.batch_size, pin_memory=True)
 
     if rank == 0:
         subgraph_loader = NeighborSampler(edge_index, node_idx=None,
-                                          sizes=[-1], batch_size=512,
+                                          sizes=[-1], batch_size=args.batch_size,
                                           shuffle=False, num_workers=6)
 
     torch.manual_seed(12345)
     device_id = device_list[rank]
-    model = SAGE(num_features, 256, num_classes, num_layers=3).to(device_id)
+    model = SAGE(num_features, args.num_hidden, num_classes, num_layers=3).to(device_id)
     model = DistributedDataParallel(model, device_ids=[device_id])
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
@@ -111,7 +111,9 @@ def run(rank, world_size, quiver_sampler, quiver_feature, y, edge_index, split_i
     movement_time_graph_epoch = []
     movement_time_feature_epoch = []
     forward_time_epoch = []
-    for epoch in range(1, 2):
+    e1 = torch.cuda.Event(enable_timing = True)
+    e2 = torch.cuda.Event(enable_timing = True)
+    for epoch in range(0, 2):
         model.train()
 
         epoch_start = time.time()
@@ -120,23 +122,28 @@ def run(rank, world_size, quiver_sampler, quiver_feature, y, edge_index, split_i
         movement_feature_time = 0
         forward_time = 0
         for seeds in train_loader:
+            print(seeds)
             t1 =time.time()
             n_id, batch_size, adjs = quiver_sampler.sample(seeds)
             t2 = time.time()
+            print("Sample OK")
             adjs = [adj.to(device_id) for adj in adjs]
             optimizer.zero_grad()
             t3 = time.time()
+            e1.record()
             f = quiver_feature[n_id]
-            torch.cuda.synchronize()
+            e2.record()
+            #torch.cuda.synchronize()
             t4 = time.time()
             out = model(f, adjs)
             
             loss = F.nll_loss(out, y[n_id[:batch_size]])
             loss.backward()
+            e2.synchronize()
             t5 = time.time()
             sample_time += (t2-t1)
             movement_graph_time += (t3-t2)
-            movement_feature_time += (t4-t3)
+            movement_feature_time += max((t4-t3),e1.elapsed_time(e2)/1000)
             forward_time += (t5-t4)
             optimizer.step()
 
@@ -160,17 +167,24 @@ def run(rank, world_size, quiver_sampler, quiver_feature, y, edge_index, split_i
             print(f'Train: {acc1:.4f}, Val: {acc2:.4f}, Test: {acc3:.4f}')
 
         dist.barrier()
-    print("epoch",epoch_time)
-    print("sample_time",sample_time)
-    print("movement graph",movement_time_graph_epoch)
-    print("movmenet feature",movement_time_feature_epoch)
-    print("forward time",forward_time_epoch)
+    print("epoch:",epoch_time)
+    print("sample_time:",sample_time)
+    print("movement graph:",movement_time_graph_epoch)
+    print("movement feature:",movement_time_feature_epoch)
+    print("forward time:",forward_time_epoch)
     dist.destroy_process_group()
 
 
 if __name__ == '__main__':
-    root = "/home/q91/data/products"
-    dataset = PygNodePropPredDataset('ogbn-products', root)
+    root = " /mnt/bigdata/sandeep/"
+    argparser = argparse.ArgumentParser("multi-gpu training")
+    argparser.add_argument('--graph',type = str, default= "ogbn-products")
+    argparser.add_argument('--cache-per', type =float, default = .25)
+    argparser.add_argument('--num-hidden', type=int, default=16)
+    argparser.add_argument('--batch-size', type=int, default=(1032))
+    args = argparser.parse_args()
+
+    dataset = PygNodePropPredDataset(args.graph, root)
     data = dataset[0]
     num_nodes = data.x.shape[0]
     split_idx = dataset.get_idx_split()
@@ -181,27 +195,29 @@ if __name__ == '__main__':
     # Create Sampler And Feature
     ##############################
     csr_topo = quiver.CSRTopo(data.edge_index)
-    quiver_sampler = quiver.pyg.GraphSageSampler(csr_topo, [15, 10, 10], 0, mode="GPU")
+    quiver_sampler = quiver.pyg.GraphSageSampler(csr_topo, [15, 15, 15], 0, mode="CPU")
     feature = torch.zeros(data.x.shape)
     feature[:] = data.x
     print("Total Node Feature Shape",feature.shape)
     #quiver.init_p2p(device_list = list(range(world_size)))
     quiver.init_p2p(device_list = [0,1,2,3])
+    device_cache_size = args.cache_per * feature.shape[1] * num_nodes * 4 / (1032 * 1032)
     quiver_feature = quiver.Feature(rank=0, \
             device_list = [0,1,2,3], \
             #device_list=list(range(world_size)),\
-            device_cache_size = "200M",
-           # device_cache_size = "400M",\
+            device_cache_size = "{}M".format(int(device_cache_size)),
+            #device_cache_size = "400M",\
             #device_cache_size="2G", \
             cache_policy = "p2p_clique_replicate",\
             #cache_policy="device_replicate", 
-                csr_topo=csr_topo)
+                csr_topo=None)
+    # csr_topo is none to prevent reordering
     quiver_feature.from_cpu_tensor(feature)
 
     print('Let\'s use', world_size, 'GPUs!')
     mp.spawn(
         run,
-        args=(world_size, quiver_sampler, quiver_feature, data.y.squeeze(), data.edge_index, split_idx, dataset.num_features, dataset.num_classes),
+        args=(world_size, args, quiver_sampler, quiver_feature, data.y.squeeze(), data.edge_index, split_idx, dataset.num_features, dataset.num_classes),
         nprocs=world_size,
         join=True
     )
