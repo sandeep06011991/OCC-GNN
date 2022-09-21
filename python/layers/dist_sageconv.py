@@ -111,7 +111,10 @@ class DistSageConv(nn.Module):
         t2 = time.time()
         t11 = time.time()
         out6_b = bipartite_graph.slice_owned_nodes(out2)
-        out6 = (out6_b.T/(bipartite_graph.in_degree )).T
+        assert(torch.any(bipartite_graph.in_degree != 0))
+        a = bipartite_graph.in_degree.shape
+        degree = bipartite_graph.in_degree.reshape(a[0],1)
+        out6 = (out6_b/degree)
         if not self.fc1.in_features > self.fc1.out_features:
             out6 = self.fc1(out6)
         t22 = time.time()

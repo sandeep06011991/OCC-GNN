@@ -61,7 +61,7 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
         log.log("data reconstruction complete")
         tensor = tensor.to(device)
         print("Warning: Impromptu data reformatting is risky. ")
-        tensor = tensor.long()
+        # tensor = tensor.long()
         gpu_local_sample = Gpu_Local_Sample()
         device = torch.device(device)
         # Refactor this must not be moving to GPU at this point.

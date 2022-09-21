@@ -1,7 +1,11 @@
 # Used for local testing of slicer.
 # Add more unit tests here.
 
-
+sample_test:
+	g++ -g -I. tests/sample.cpp graph/dataset.cpp samplers/ns.cpp transform/walk.cpp \
+	util/duplicate.cpp transform/slice.cpp graph/bipartite.cpp \
+	test_fronend.cpp
+	./a.out
 all:
 	g++ -I. test_metis.cpp  graph/dataset.cpp samplers/ns.cpp transform/walk.cpp \
 	util/duplicate.cpp transform/slice.cpp graph/bipartite.cpp

@@ -160,5 +160,6 @@ def serialize_to_tensor(object):
     final_data.append(meta)
     final_data.extend(data)
     # print(final_data)
-    res = torch.cat(final_data, dim = 0).int()
+    res = torch.cat(final_data, dim = 0)
+    assert(res.dtype == torch.long)
     return res

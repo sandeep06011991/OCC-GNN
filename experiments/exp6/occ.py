@@ -44,7 +44,7 @@ def run_occ(graphname, epochs,cache_per, hidden_size, fsize, minibatch_size):
         epoch_time = re.findall("avg epoch time: (\d+\.\d+)sec",out)[0]
         back_time = re.findall("avg backward time: (\d+\.\d+)sec",out)[0]
         move_time = re.findall("avg move time: (\d+\.\d+)sec",out)[0]
-        accuracy_time = re.findall("")
+        accuracy_time = re.findall("final accuracy: ()")
         #movement = re.findall("cache refresh time (\d+\.\d+)",out)[0]
         sample_get = "{:.2f}".format(float(sample_get))
         forward = "{:.2f}".format(float(forward))
@@ -65,7 +65,7 @@ def run_occ(graphname, epochs,cache_per, hidden_size, fsize, minibatch_size):
 def run_experiment_occ(settings = None):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
     settings = [
-                 ("ogbn-arxiv",3, 32, -1, 4096), \
+                 ("ogbn-arxiv", 32, -1, 4096, "GAT"), \
                 #("ogbn-arxiv",3, 256, -1, 4096),\
                 #("ogbn-arxiv",3, 32 , -1 , 1024), \
                 #("ogbn-products",3, 32, -1, 4096), \

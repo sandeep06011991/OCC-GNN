@@ -50,6 +50,7 @@ public:
     self_ids_in.push_back(nd1);
     self_ids_out.push_back(nd1);
     in_degree.push_back(degree);
+    assert(degree > 0);
     // in_nodes and out nodes are pushed here instead of at add_edge
     // as self loops are not counted in the main graph
     //

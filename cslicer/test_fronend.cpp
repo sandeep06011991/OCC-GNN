@@ -5,6 +5,7 @@
 #include "samplers/samplers.h"
 #include "memory"
 #include "transform/slice.h"
+#include "tests/test.h"
 int main(){
 
   // Test1: Read graph datastructure.
@@ -30,11 +31,15 @@ int main(){
   // Test 3a.
   int is_present = 0;
   // Test 3b. is_present = 1;
+  int gpu_capacity[4];
+  for(int i=0;i < 4; i++)gpu_capacity[i] = 0;
   for(int i=0;i<dataset->num_nodes;i++){
     workload_map.push_back(i%4);
+
     #pragma unroll
     for(int j=0;j<4;j++){
       if(is_present == 1){
+        gpu_capacity[j]++;
         // Since this case is all nodes are present
         storage_map[j].push_back(i);
       }else{
@@ -47,6 +52,6 @@ int main(){
   Slice * sc = new Slice(workload_map, storage_map);
   PartitionedSample ps;
   sc->slice_sample((*s), ps);
-
+  test_sample_partition_consistency((*s),ps, storage_map, gpu_capacity);
   std::cout << "Hello World\n";
 }
