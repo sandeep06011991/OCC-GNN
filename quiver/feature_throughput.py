@@ -31,6 +31,7 @@ def run(rank, world_size, quiver_feature):
         e2.record()
         e2.synchronize()
         t = e1.elapsed_time(e2)/1000
+        print("CPU time", t2-t1, "CUDA time", t)
         print("move", t , rank, f.shape[0] * f.shape[1] * 4/((t) * (1024 * 1024 * 1024)))
         dist.barrier()
 

@@ -5,6 +5,8 @@ import os
 import git
 import socket
 
+ROOT_DIR ="/home/q91/torch-quiver/srcs/python" 
+
 def get_git_info():
     repo = git.Repo(search_parent_directories = True)
     sha = repo.head.object.hexsha
@@ -27,17 +29,22 @@ def average_string(ls):
     return c
 
 # measures cost of memory transfer of dataset
-def run_quiver(graphname, epochs,cache_per, hidden_size, fsize, minibatch_size):
+def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch_size):
     output = subprocess.run(["python3",\
-            "/home/q91/OCC-GNN/quiver/gcn.py",\
+            "/home/q91/OCC-GNN/quiver/dgl_sage.py",\
         "--graph",graphname,  \
-         "--model", model , \ 
-         "--cache-per" , str(cache-per)])
+         "--model", model , \
+         "--cache-per" , str(cache_per),\
+                 "--num-hidden",  str(hidden_size), \
+                   "--batch-size", str(minibatch_size), \
+                     "--data", "quiver"] \
                 , capture_output = True)
+
     out = str(output.stdout)
     error = str(output.stderr)
     print(out,error)
-    if True:
+    print("Start Capture !!!!!!!", graphname, minibatch_size)
+    try:
         accuracy  = re.findall("accuracy:(\d+\.\d+)",out)[0]
         epoch = re.findall("epoch:(\d+\.\d+)",out)[0]
         sample_get  = re.findall("sample_time:(\d+\.\d+)",out)[0]
@@ -53,9 +60,8 @@ def run_quiver(graphname, epochs,cache_per, hidden_size, fsize, minibatch_size):
         forward_time = "{:.2f}".format(float(forward_time))
         epoch = "{:.2f}".format(float(epoch))
         backward_time = "{:.2f}".format(float(backward_time))
-        move_time = "{:.2f}".format(float(move_time))
 
-    #except:
+    except Exception as e:
         sample_get = "error"
         movement_graph = "error"
         movement_feat = "error"
@@ -68,15 +74,15 @@ def run_quiver(graphname, epochs,cache_per, hidden_size, fsize, minibatch_size):
                 "accuracy": accuracy}
 
 
-def run_experiment_occ(settings = None):
-    # graph, num_epochs, hidden_size, fsize, minibatch_size
+def run_experiment_quiver(settings = None):
+    # graph, hidden_size, fsize, minibatch_size
     settings = [
-                 ("ogbn-arxiv",3, 32, -1, 4096), \
-                #("ogbn-arxiv",3, 256, -1, 4096),\
-                #("ogbn-arxiv",3, 32 , -1 , 1024), \
-                #("ogbn-products",3, 32, -1, 4096), \
-                # ("ogbn-products",3, 256, -1, 4096), \
-                #("ogbn-products",3, 32 , -1 , 1024), \
+                 ("ogbn-arxiv",16, 128, 1032), \
+                ("ogbn-arxiv",16, 128, 4096),\
+                ("ogbn-arxiv",16, 128, 256), \
+                ("ogbn-products",16, 100, 1032), \
+                 ("ogbn-products", 16, 100, 4096), \
+                ("ogbn-products",16, 100 , 256), \
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -85,33 +91,31 @@ def run_experiment_occ(settings = None):
                 # ("com-friendster",2), \
                  # ("com-orkut",5, 256, 256, 4096) \
                  ]
+    no_epochs =3
     # settings = [("ogbn-papers100M",2)]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
     cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
+    #cache_rates= ["1"]
     #settings = [settings[0]]
     check_path()
     print(settings)
     sha,dirty = get_git_info()
-    with open('exp6_occ.txt','a') as fp:
+    model = "GCN"
+    with open('exp6_quiver.txt','a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
-        fp.write("graph | hidden-size | fsize  | batch-size | model  | \
-                sample_get | move | forward | backward  | epoch_time | accuracy \n")
-    for graphname,no_epochs,hidden_size, fsize, batch_size in settings:
+        fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy \n")
+    for graphname, hidden_size, fsize, batch_size in settings:
         for cache in cache_rates:
             if graphname in ["ogbn-papers100M","com-friendster"]:
                 if float(cache) > .3:
                     continue
-            out = run_occ(graphname, no_epochs, cache, hidden_size,fsize, batch_size)
-            with open('exp6_occ.txt','a') as fp:
-                fp.write("{} | {} | {} | {} | {} | \
-                          {} | {} | {} | {}  \n".format(graphname , \
-                                hidden_size, fsize, batch_size,\
-                                 out["sample_get"], out["move_time"],  \
-                    out["forward"], out["back_time"],  out["epoch_time"]))
+            out = run_quiver(graphname, model,no_epochs, cache, hidden_size, fsize, batch_size)
+            with open('exp6_quiver.txt','a') as fp:
+                fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} \n".format(graphname , "quiver", cache, hidden_size, fsize, batch_size, model, out["sample_get"], out["movement_graph"], out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"]))
 
 
 
 
 if __name__=="__main__":
-    run_experiment_occ()
+    run_experiment_quiver()
