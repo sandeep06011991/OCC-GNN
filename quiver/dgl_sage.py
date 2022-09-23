@@ -18,10 +18,11 @@ import os
 import torch.distributed as dist
  
 def average(ls):
-    
     if(len(ls) == 1):
         return ls[0]
-    return sum(ls[1:])/(len(ls)-1)
+    a = max(ls[1:])
+    b = min(ls[1:])
+    return (sum(ls[1:]) -a -b)/(len(ls)-3)
 
 
 class SAGE(nn.Module):
@@ -157,7 +158,6 @@ def run(rank, args,  data):
         [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
     world_size = 4
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
-
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
@@ -220,6 +220,7 @@ def run(rank, args,  data):
                 t2 = time.time()
                 # copy block to gpu
                 blocks = [blk.int().to(device) for blk in blocks]
+                
                 blocks = [blk.formats(['csr','csc']) for blk in blocks]
                 for blk in blocks:
                     blk.create_formats_()
@@ -263,7 +264,7 @@ def run(rank, args,  data):
         accuracy.append(approx_acc)
         print(f'Epoch {epoch:02d}, Loss: {loss:.4f}, Approx. Train: {approx_acc:.4f}, Epoch Time: {time.time() - tic:.4f}')
 
-        if epoch >= 5:
+        if epoch >= 10:
             val_acc, test_acc = evaluate(model, g, nfeat, labels, val_nid, test_nid, device)
             print(f'Val: {val_acc:.4f}, Test: {test_acc:.4f}')
 
@@ -284,12 +285,12 @@ def run(rank, args,  data):
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("multi-gpu training")
-    argparser.add_argument('--graph',type = str, default= "ogbn-arxiv")
-    argparser.add_argument('--cache-per', type =float, default = .25)
+    argparser.add_argument('--graph',type = str)
+    argparser.add_argument('--cache-per', type =float)
     argparser.add_argument('--model',type = str)
     argparser.add_argument('--gpu', type=int, default=0,
                            help="GPU device ID. Use -1 for CPU training")
-    argparser.add_argument('--num-epochs', type=int, default=2)
+    argparser.add_argument('--num-epochs', type=int, default=6)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='10,10,10')
@@ -317,8 +318,9 @@ if __name__ == '__main__':
     train_idx, val_idx, test_idx = splitted_idx['train'], splitted_idx['valid'], splitted_idx['test']
     graph, labels = data[0]
     labels = labels[:, 0].to(device)
-
+    
     feat = graph.ndata.pop('feat')
+    #year = graph.ndata.pop('year')
     if args.data == 'cpu':
         nfeat = feat
     elif args.data == 'gpu':
@@ -339,7 +341,7 @@ if __name__ == '__main__':
                                cache_policy = cache_policy) 
                                #cache_policy="device_replicate", 
                                #csr_topo=csr_topo)
-        nfeat.from_cpu_tensor(feat)
+        feat.from_cpu_tensor(feat)
     elif args.data == 'unified':
         from distutils.version import LooseVersion
         assert LooseVersion(dgl.__version__) >= LooseVersion('0.8.0'), \
