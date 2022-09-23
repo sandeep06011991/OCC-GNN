@@ -28,18 +28,17 @@ void BiPartite::reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, 
   // order and remove used only to remove duplicates
   // This dr object is not used to replace
   // The original indices are used to replace
-  std::cout << "Indices sze is" << indices.size() <<"\n";
+  for(int nd :in_nodes){
+     if(gpu_order[nd] == -1){
+       gpu_order[nd] = gpu_capacity;
+       gpu_capacity ++;
+       missing_node_ids.push_back(nd);
+     }
+  }
   for(int i=0;i<indices.size();i++){
     long nd = indices[i];
     indices[i] = gpu_order[nd];
-    if(indices[i] == -1){
-      indices[i] = gpu_capacity;
-      // Temporarily set values
-      gpu_order[nd] = gpu_capacity;
-      gpu_capacity++;
-      missing_node_ids.push_back(nd);
-
-    }
+    assert(gpu_order[nd] >= 0);
   }
   spdlog::info("Added missing nodes of size {}",missing_node_ids.size());
   // std::cout << "\n";
@@ -48,12 +47,8 @@ void BiPartite::reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, 
 
   for(int i=0; i<self_ids_in.size(); i++){
     long nd = self_ids_in[i];
-    if(gpu_order[nd] == -1){
-      gpu_order[nd] = gpu_capacity;
-      gpu_capacity++;
-      missing_node_ids.push_back(nd);
-    }
     self_ids_in[i] = gpu_order[nd];
+    assert(self_ids_in[i] >= 0);
   }
   num_in_nodes = gpu_capacity;
   for(long nd:missing_node_ids){

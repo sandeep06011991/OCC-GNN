@@ -83,6 +83,7 @@ public:
       this->neighbour_sampler->sample(sample_nodes, sample);
       this->slicer->slice_sample(sample, p_sample);
       PySample *sample = new PySample(p_sample);
+      // p_sample.debug();
       return sample;
       // Sample *s = Sample::get_dummy_sample();
       // return new PySample(s);

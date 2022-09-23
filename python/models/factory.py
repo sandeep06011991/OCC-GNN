@@ -46,9 +46,7 @@ class DistSAGEModel(torch.nn.Module):
                     print("is grad", features.requires_grad)
                     print("Found zero in feats at ",l,"local_id",y)
             self.fp_end.record()
-
             x = layer(bipartite_graph, x,l, in_degrees)
-            print("layer out", torch.sum(x))
             self.bp_end.record()
             torch.cuda.synchronize(self.bp_end)
             t2 = time.time()

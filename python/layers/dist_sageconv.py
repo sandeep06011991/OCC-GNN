@@ -93,12 +93,6 @@ class DistSageConv(nn.Module):
             t22 = time.time()
             out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
             t33 = time.time()
-
-            # if l == 0:
-            #     print(t11 - t00, "fc1")
-            #     print(t22 - t11, "bp gather")
-            #     print(t33 - t22, "shuffle time",l, self.gpu_id)
-
         else:
             out = bipartite_graph.gather(x)
             out2 = out
@@ -110,11 +104,14 @@ class DistSageConv(nn.Module):
             # BUG Fixed: Linear layer after in degree meaning
         t2 = time.time()
         t11 = time.time()
+        assert(not torch.any(torch.isnan(out2)))
         out6_b = bipartite_graph.slice_owned_nodes(out2)
         assert(torch.any(bipartite_graph.in_degree != 0))
         a = bipartite_graph.in_degree.shape
         degree = bipartite_graph.in_degree.reshape(a[0],1)
         out6 = (out6_b/degree)
+        assert(not torch.any(torch.isnan(out6)))
+
         if not self.fc1.in_features > self.fc1.out_features:
             out6 = self.fc1(out6)
         t22 = time.time()

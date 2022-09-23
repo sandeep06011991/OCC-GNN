@@ -4,6 +4,7 @@
 #include "graph/bipartite.h"
 #include <vector>
 #include <assert.h>
+#include "spdlog/spdlog.h"
 using namespace std;
 
 void aggregate(std::vector<long>& layer_nds, \
@@ -27,18 +28,25 @@ void aggregate(std::vector<long>& layer_nds, \
       }
       t  += acc;
     }
-    out[src] = acc;
+    out[src] = t;
   }
 }
 
 
 // Sample without any reordering.
 // returns sum of flow up after all layers.
-int sample_flow_up(Sample &s, int number_of_nodes){
+int sample_flow_up_sample(Sample &s, int number_of_nodes){
    std::vector<int> in_f(number_of_nodes);
    std::vector<int> out_f(number_of_nodes);
-   for(int i=s.num_layers; i >=0; i--){
-     bool first_layer = (i == s.num_layers);
+   // num lyaers = 3
+   // since tehre is null layer iinitially ()
+   for(int i=s.num_layers - 1; i >=0; i--){
+     bool first_layer = (i == s.num_layers-1);
+     std::cout << "layer:" << i << " cc";
+     for(int j: s.block[i]->layer_nds){
+       std::cout << j <<" ";
+     }
+     std::cout << "\n";
      aggregate(s.block[i]->layer_nds, s.block[i+1]->offsets, s.block[i+1]->indices, \
           s.block[i+1]->in_degree, in_f, out_f, first_layer);
      in_f.swap(out_f);
@@ -53,12 +61,14 @@ int sample_flow_up(Sample &s, int number_of_nodes){
 void aggregate(vector<int> &out, vector<int> &in, BiPartite *bp){
     vector<long> &indptr = bp->indptr;
     vector<long> &indices = bp->indices;
-    for(int i=0;i<indptr.size();i ++){
+
+    for(int i=0;i<indptr.size()-1;i ++){
       int off_start = indptr[i];
       int off_end = indptr[i+1];
       int t = 0;
       for(int off = off_start; off < off_end; off ++ ){
           t += in[indices[off]];
+          // assert(in[indices[off]] > 0);
       }
       out[i] = t;
     }
@@ -80,15 +90,19 @@ void pull_own_node(BiPartite *bp,
   for(int i=0; i < bp->self_ids_in.size(); i++){
     out[bp->self_ids_out[i]] += bp->in_degree[i] * in[bp->self_ids_in[i]];
   }
+  std::cout << bp->owned_out_nodes.size() <<" ";
   in.resize(bp->owned_out_nodes.size());
   for(int i=0;i< bp->owned_out_nodes.size(); i++){
     in[i] = out[bp->owned_out_nodes[i]];
+    // std::cout << in[i] <<" " << bp->owned_out_nodes[i] << "\n";
+    assert(in[i] >= 0);
   }
+  std::cout << "pull in ok \n";
 }
 
 
 // Partitioned flow must have same output.
-int sample_flow_up(PartitionedSample &s,
+int sample_flow_up_ps(PartitionedSample &s,
     std::vector<int> test_storage_map[4]){
   // refresh storage map with local_ids.
   std::vector<int> in[4];
@@ -96,9 +110,11 @@ int sample_flow_up(PartitionedSample &s,
   for(int i=0;i<4; i++ ){
     in[i].swap(test_storage_map[i]);
   }
+  std:cout << "Bug Layers " << s.num_layers <<"\n";
   for(int i =  s.num_layers-1  ; i>=0; i--){
     // Bipartite local aggregation.
     PartitionedLayer &layer = s.layers[i];
+    // layer.debug();
     for(int j=0; j<4; j++ ){
         out[j].resize(layer.bipartite[j]->num_out_nodes);
         aggregate(out[j], in[j], layer.bipartite[j]);
@@ -114,6 +130,7 @@ int sample_flow_up(PartitionedSample &s,
     }
     // Pull locally and add degree
     // Slice owned node.
+    std::cout << "Is this running \n";
     for(int j = 0; j < 4; j++){
       pull_own_node(layer.bipartite[j], out[j], in[j]);
     }
@@ -122,6 +139,7 @@ int sample_flow_up(PartitionedSample &s,
   for(int i=0;i < 4;i++){
     for(int k:in[i]){
       ss += k;
+      // std::cout << k <<"\n";
     }
   }
   return ss;
@@ -130,18 +148,23 @@ int sample_flow_up(PartitionedSample &s,
 
 
 void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
-  std::vector<int> storage_map[4], int gpu_capacity[4]){
-    int num_nodes = storage_map[0].size();
-    int correct = sample_flow_up(s, num_nodes);
+  std::vector<int> storage_map[4], int gpu_capacity[4], int num_nodes){
+    int correct = sample_flow_up_sample(s, num_nodes);
     std::cout << "correct " << correct <<"\n";
     for(int i=0;i<4;i++){
       std::vector<long> add  = ps.layers[2].bipartite[i]->missing_node_ids;
+      std::cout << "missing node size " << add.size() << "\n";
       int c = gpu_capacity[i];
+      assert(storage_map[i].size() == gpu_capacity[i]);
       for(auto nd: add){
-        storage_map[nd][i] = c;
+        storage_map[i].push_back(nd);
+        std::cout << nd <<" ";
         c ++;
       }
+      std::cout << "\n";
     }
-    int out = sample_flow_up(ps, storage_map);
+    std::cout << "Void start sample flow up \n";
+    int out = sample_flow_up_ps(ps, storage_map);
+    std::cout << correct << "==" << out << "\n";
     assert(correct == out);
 }

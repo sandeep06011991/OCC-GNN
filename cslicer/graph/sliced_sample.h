@@ -29,13 +29,13 @@ class PartitionedLayer{
 
 class PartitionedSample{
 public:
-  int num_layers;
+  int num_layers = 3;
   // Fixed max layers == 4
   // Can be made a compile time constant. Do later.
   // Can allocate max possible layers or use compiler directives.
   PartitionedLayer layers[3];
   std::vector<long> refresh_map[4];
-  
+
   void clear(){
     for(int i=0;i<3;i++){
       layers[i].clear();
@@ -45,4 +45,9 @@ public:
     }
   }
 
+  void debug(){
+    for(int i=0;i < 3; i++){
+      layers[i].debug();
+    }
+  }
 };

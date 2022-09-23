@@ -11,9 +11,9 @@ class Bipartite:
 
     def __init__(self):
         self.gpu_id = torch.device(0)
-        self.indptr = torch.tensor([],dtype = torch.int32)
-        self.expand_indptr = torch.tensor([],dtype = torch.int32)
-        self.indices = torch.tensor([],dtype = torch.int32)
+        self.indptr = torch.tensor([],dtype = torch.int64)
+        self.expand_indptr = torch.tensor([],dtype = torch.int64)
+        self.indices = torch.tensor([],dtype = torch.int64)
         self.N = 0
         self.M = 0
         self.num_nodes_v = 0
@@ -21,14 +21,14 @@ class Bipartite:
         self.to_ids = {}
         self.graph = dgl.heterograph({('_V', '_E', '_U'): ([],[])}, \
                                      {'_U': 1, '_V': 1})
-        self.in_nodes = torch.tensor([],dtype = torch.int32)
-        self.out_nodes = torch.tensor([],dtype = torch.int32)
-        self.owned_out_nodes = torch.tensor([],dtype = torch.int32)
-        self.in_degree = torch.tensor([],dtype = torch.int32)
+        self.in_nodes = torch.tensor([],dtype = torch.int64)
+        self.out_nodes = torch.tensor([],dtype = torch.int64)
+        self.owned_out_nodes = torch.tensor([],dtype = torch.int64)
+        self.in_degree = torch.tensor([],dtype = torch.int64)
         # self.from_size = {i:torch.tensor([],dtype = torch.int32) for i in range(4)}
         # self.to_size = {i:torch.tensor([],dtype = torch.int32) for i in range(4)}
-        self.self_ids_in = torch.tensor([],dtype = torch.int32)
-        self.self_ids_out = torch.tensor([],dtype = torch.int32)
+        self.self_ids_in = torch.tensor([],dtype = torch.int64)
+        self.self_ids_out = torch.tensor([],dtype = torch.int64)
 
     def reconstruct_graph(self):
         self.graph = dgl.heterograph({('_V', '_E', '_U'): (self.expand_indptr.clone(), self.indices.clone())},
@@ -36,7 +36,7 @@ class Bipartite:
         self.graph = self.graph.reverse()
         self.graph_csr = self.graph.formats('csc')
         self.graph_csc = self.graph.formats('csr')
-
+        
     def construct_from_cobject(self, cobject, has_attention= False):
         self.gpu_id = torch.device(cobject.gpu_id)
         self.indptr = cobject.indptr

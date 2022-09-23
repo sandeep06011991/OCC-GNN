@@ -22,7 +22,7 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         }else{
             int from = this->workload_map[nd2];
             if(layer_id == 2){
-              spdlog::info("Bug related to storage map ordering add a unit test");
+              // spdlog::info("Bug related to storage map ordering add a unit test");
               if(this->storage_map[to][nd2] != -1){
                 from  = to;
               }

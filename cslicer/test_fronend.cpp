@@ -28,8 +28,9 @@ int main(){
   // Test3 Create a work allocation
   std::vector<int> workload_map;
   std::vector<int> storage_map[4];
+  std::vector<int> storage[4];
   // Test 3a.
-  int is_present = 0;
+  int is_present = 1;
   // Test 3b. is_present = 1;
   int gpu_capacity[4];
   for(int i=0;i < 4; i++)gpu_capacity[i] = 0;
@@ -40,6 +41,7 @@ int main(){
     for(int j=0;j<4;j++){
       if(is_present == 1){
         gpu_capacity[j]++;
+        storage[j].push_back(i);
         // Since this case is all nodes are present
         storage_map[j].push_back(i);
       }else{
@@ -52,6 +54,6 @@ int main(){
   Slice * sc = new Slice(workload_map, storage_map);
   PartitionedSample ps;
   sc->slice_sample((*s), ps);
-  test_sample_partition_consistency((*s),ps, storage_map, gpu_capacity);
+  test_sample_partition_consistency((*s),ps, storage, gpu_capacity, dataset->num_nodes);
   std::cout << "Hello World\n";
 }
