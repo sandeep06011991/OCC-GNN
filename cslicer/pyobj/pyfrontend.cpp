@@ -13,6 +13,10 @@
 #include "spdlog/sinks/basic_file_sink.h"
 namespace py = pybind11;
 
+int sample_flow_up_sample(Sample &s, int number_of_nodes);
+
+int sample_flow_up_ps(PartitionedSample &s,
+    std::vector<int> test_storage_map[4], std::vector<int>& ret);
 
 class CSlicer{
     std::string name;
@@ -27,6 +31,7 @@ class CSlicer{
     std::shared_ptr<Dataset> dataset;
     PartitionedSample p_sample;
     Sample sample = Sample(3);
+    bool deterministic;
     // static const auto my_logger = spdlog::basic_logger_mt("file_logger", "logs/basic-log.txt", true);
 
 public:
@@ -48,6 +53,7 @@ public:
         std::cout << "Check number of nodes " << num_nodes <<"\n";
         this->name = get_dataset_dir() + name;
         // std::cout << this->name << "\n";
+        this->deterministic = deterministic;
 
         this->dataset = std::make_shared<Dataset>(this->name);
         spdlog::info("Log after checking the dataset");
@@ -80,9 +86,21 @@ public:
     PySample * getSample(vector<long> sample_nodes){
       sample.clear();
       p_sample.clear();
+
       this->neighbour_sampler->sample(sample_nodes, sample);
+      int sample_val;
+      if(this->deterministic){
+          sample_val =  sample_flow_up_sample(sample, num_nodes);
+      }
       this->slicer->slice_sample(sample, p_sample);
+
       PySample *sample = new PySample(p_sample);
+      std::vector<int> ret;
+      if(this->deterministic){
+          int p_val =  sample_flow_up_ps(p_sample, storage_map, ret);
+          assert(sample_val  == p_val);
+          sample->debug_vals = ret;
+      }
       // p_sample.debug();
       return sample;
       // Sample *s = Sample::get_dummy_sample();
@@ -109,6 +127,7 @@ PYBIND11_MODULE(cslicer, m) {
              .def_readwrite("in_nodes", &PySample::in_nodes)
              .def_readwrite("out_nodes", &PySample::out_nodes)
              .def_readwrite("missing_node_ids", &PySample::missing_node_ids);
+              .def_readwrite("missing_node_ids", &PySample::debug_vals);
          py::class_<PyBipartite>(m,"bipartite")
              .def_readwrite("num_in_nodes", &PyBipartite::num_in_nodes)
              .def_readwrite("num_out_nodes", &PyBipartite::num_out_nodes)

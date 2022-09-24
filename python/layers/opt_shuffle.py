@@ -15,7 +15,7 @@ class Shuffle(torch.autograd.Function):
         t1 = time.time()
         from_data = 0
         to_data = 0
-        debug = True
+        debug = False
         to_data_unique = 0
         from_data_unique = 0
         for i in range(4):

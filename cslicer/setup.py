@@ -11,7 +11,8 @@ ext_modules = [
         "cslicer",
         sources = ["transform/slice.cpp",
             "samplers/ns.cpp", "pyobj/pybipartite.cpp", "pyobj/pyfrontend.cpp",
-                    "graph/bipartite.cpp", "util/duplicate.cpp", "graph/dataset.cpp"],
+                    "graph/bipartite.cpp", "util/duplicate.cpp", "graph/dataset.cpp",
+                        "tests/sample.cpp"],
         extra_compile_args=["-s"],
         depends = ["util/environment.h","bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
             ,"util/conqueue.h"]  ,

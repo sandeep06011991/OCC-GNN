@@ -5,6 +5,7 @@ import torch
 from dgl import heterograph_index
 from dgl.utils  import Index
 from dgl import function as fn
+
 N = 10000
 e1 = torch.zeros((N,),dtype = torch.int64)
 e2 = torch.arange(0,N)
@@ -25,10 +26,16 @@ num_src = N
 num_dst = 1
 t3 = time.time()
 arrays = [e1,e2]
+# contruct graphs from csr and csc as weellself.
+# Add correctness blocks
+
 metagraph_index = heterograph_index.create_metagraph_index(['_U','_V'],[('_V','_E','_U')])
 hg = heterograph_index.create_unitgraph_from_coo(\
-                    2,  num_dst, num_src, arrays[0], arrays[1], ['coo'])
+                    2,  num_dst, num_src, arrays[0], arrays[1], ['csr', 'coo'], row_sorted = True)
 graph = heterograph_index.create_heterograph_from_relations(metagraph_index[0], [hg], Index([N,1]))
+print(graph.formats())
+graph.create_formats_()
+print(graph.formats())
 v = dgl.DGLHeteroGraph(graph,['_U','_V'],['_E'])
 t4 = time.time()
 g1 = v.reverse()

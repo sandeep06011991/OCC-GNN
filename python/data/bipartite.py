@@ -31,12 +31,28 @@ class Bipartite:
         self.self_ids_out = torch.tensor([],dtype = torch.int64)
 
     def reconstruct_graph(self):
-        self.graph = dgl.heterograph({('_V', '_E', '_U'): (self.expand_indptr.clone(), self.indices.clone())},
-                                     {'_U': self.M, '_V': self.N})
+        metagraph_index = heterograph_index.create_metagraph_index(['_U','_V'],[('_V','_E','_U')])
+        # # Note dont have to create coo graphs
+        # # I can use csr graphs directly
+        hg = heterograph_index.create_unitgraph_from_coo(\
+                    2,  self.N, self.M, self.expand_indptr, self.indices, ['coo','csr','csc'])
+        graph = heterograph_index.create_heterograph_from_relations( \
+                metagraph_index[0], [hg], Index([self.M,self.N]))
+        self.graph = dgl.DGLHeteroGraph(graph,['_U','_V'],['_E'])
         self.graph = self.graph.reverse()
-        self.graph_csr = self.graph.formats('csc')
-        self.graph_csc = self.graph.formats('csr')
-        
+        self.graph.create_formats_()
+        # self.graph = self.graph.reverse()
+        # self.graph = self.graph.formats('csc')
+        # self.graph = self.graph.reverse()
+        # self.graph = self.graph.formats('csc')
+        # self.graph = dgl.heterograph({('_V', '_E', '_U'): (self.expand_indptr.clone(), self.indices.clone())},
+        #                              {'_U': self.M, '_V': self.N})
+        # self.graph = self.graph.reverse()
+        # # print(self.graph.edges(), self.graph)
+        # # Check if the graph looks same
+        # self.graph_csr = self.graph.formats('csc')
+        # self.graph_csc = self.graph.formats('csr')
+
     def construct_from_cobject(self, cobject, has_attention= False):
         self.gpu_id = torch.device(cobject.gpu_id)
         self.indptr = cobject.indptr
@@ -96,6 +112,7 @@ class Bipartite:
             print(f_in.shape[0], self.graph.number_of_nodes('_U'))
             # FixME Todo: Fix this inconsistency in number of nodes
             assert(f_in.shape[0] == self.graph.number_of_nodes('_U'))
+            print(self.graph)
             self.graph.nodes['_U'].data['in'] = f_in
             f = self.graph.formats()
             self.graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))

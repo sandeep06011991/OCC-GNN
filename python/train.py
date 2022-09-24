@@ -89,7 +89,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     sm_client = SharedMemClient(sm_filename_queue)
     if deterministic:
         set_all_seeds(seed)
-    model = get_model_distributed(args.num_hidden, features, num_classes, proc_id, args.deterministic)
+    model = get_model_distributed(args.num_hidden, features, num_classes,
+        proc_id, args.deterministic)
     model = model.to(proc_id)
     model =  DistributedDataParallel(model, device_ids = [proc_id],\
                 output_device = proc_id)
@@ -113,6 +114,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     forward_time = 0
     backward_time = 0
     sample_move_time = 0
+    accuracy = 0
     torch.cuda.set_device(proc_id)
     nmb = 0
     ii = 0
@@ -168,6 +170,9 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         #print("Start forward pass !")
         input_features  = gpu_local_storage.get_input_features(gpu_local_sample.missing_node_ids)
         output = model.forward(gpu_local_sample, input_features, in_degrees)
+        if args.deterministic:
+            print(output.sum())
+            
         # torch.cuda.set_device(proc_id)
         fp_end.record()
         #print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
@@ -194,8 +199,9 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
 
         if True  and output.shape[0] !=0:
             acc = compute_acc(output,classes)
+            acc = (acc[0].item/acc[1])
             # accuracy_epoch
-            print("accuracy {}",acc)
+
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
         print("Forward time",fp_start.elapsed_time(fp_end)/1000 )
@@ -210,6 +216,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
 
     # if proc_id == 1:
     #     prof.dump_stats('worker.lprof')
+    print("accuracy: {}".format(acc))
     if proc_id == 0:
         print("avg forward time: {}sec, device {}".format(sum(forward_time_epoch[1:])/(num_epochs - 1), dev_id))
         print(forward_time_epoch)
@@ -220,6 +227,5 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print(epoch_time)
         print('avg sample get time: {}sec, device {}'.format(sum(sample_get_time_epoch[1:])/(num_epochs - 1),dev_id))
         print(sample_get_time_epoch)
-        print('Last epoch accuracy: {}sec, device {}'.format(sum(acc)))
     # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")

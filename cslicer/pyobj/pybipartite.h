@@ -46,6 +46,8 @@ public:
   // Pass missing_node_ids
   std::vector<torch::Tensor> missing_node_ids;
 
+  std::vector<int> debug_vals;
+
   long in_nodes = 0;
   long out_nodes = 0;
 

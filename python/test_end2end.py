@@ -145,20 +145,16 @@ if __name__=="__main__":
     argparser.add_argument('--lr', type=float, default=0.01)
     argparser.add_argument('--num-workers', type=int, default=4,
        help="Number of sampling processes. Use 0 for no extra process.")
-    argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
     # model name and details
     argparser.add_argument('--debug',type = bool, default = False)
     argparser.add_argument('--cache-per', type =float, default = .25)
     argparser.add_argument('--model-name',help="gcn|gat")
-    argparser.add_argument('--num-epochs', type=int, default=6)
-    argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument("--num-heads", type=int, default=3,
                         help="number of hidden attention heads if gat")
     argparser.add_argument('--fan-out', type=str, default='10,10,10')
     argparser.add_argument('--batch-size', type=int, default=(4096))
     argparser.add_argument('--dropout', type=float, default=0)
-    argparser.add_argument('--deterministic', default = False, action="store_true")
     # We perform only transductive training
     # argparser.add_argument('--inductive', action='store_false',
     #                        help="Inductive learning setting")

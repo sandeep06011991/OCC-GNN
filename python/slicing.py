@@ -95,7 +95,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
     print("Waiting for sampler process to return")
     while(True):
         time.sleep(1)
-        if(sample_queues[3].qsize()==0):
+        if(sample_queue.qsize()==0):
             break
     time.sleep(30)
     print("SAMPLER PROCESS RETURNS")

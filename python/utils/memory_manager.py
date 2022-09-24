@@ -33,6 +33,9 @@ class MemoryManager():
             fanout, batch_size, partition_map, deterministic = False):
         self.graph = graph
         self.num_nodes = graph.num_nodes()
+        if deterministic:
+            # replace featuer vector with []
+            self.features = torch.range(self.features.shape[0]).reshape(num_nodes,1)
         self.features = features
         self.features.pin_memory()
         self.fsize = features.shape[1]

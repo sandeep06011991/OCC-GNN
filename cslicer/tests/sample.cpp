@@ -17,6 +17,7 @@ void aggregate(std::vector<long>& layer_nds, \
     int src = layer_nds[i];
     int t = 0;
     int acc = 0;
+    int self = 0;
     for(int j = start; j < end; j++){
       int dest = indices[j];
       acc = dest;
@@ -24,11 +25,13 @@ void aggregate(std::vector<long>& layer_nds, \
         acc = in[dest];
       }
       if (src == dest){
-        acc = acc * degree[i];
+        self = acc;
+      }else{
+        t  += acc;
       }
-      t  += acc;
     }
-    out[src] = t;
+
+    out[src] = (t/degree[i]) + self;
   }
 }
 
@@ -42,11 +45,6 @@ int sample_flow_up_sample(Sample &s, int number_of_nodes){
    // since tehre is null layer iinitially ()
    for(int i=s.num_layers - 1; i >=0; i--){
      bool first_layer = (i == s.num_layers-1);
-     std::cout << "layer:" << i << " cc";
-     for(int j: s.block[i]->layer_nds){
-       std::cout << j <<" ";
-     }
-     std::cout << "\n";
      aggregate(s.block[i]->layer_nds, s.block[i+1]->offsets, s.block[i+1]->indices, \
           s.block[i+1]->in_degree, in_f, out_f, first_layer);
      in_f.swap(out_f);
@@ -88,29 +86,27 @@ void pull_own_node(BiPartite *bp,
 
   assert(bp->self_ids_in.size() == bp->self_ids_out.size());
   for(int i=0; i < bp->self_ids_in.size(); i++){
-    out[bp->self_ids_out[i]] += bp->in_degree[i] * in[bp->self_ids_in[i]];
+    int t = out[bp->self_ids_out[i]] / bp->in_degree[i];
+    out[bp->self_ids_out[i]] = t + in[bp->self_ids_in[i]];
   }
-  std::cout << bp->owned_out_nodes.size() <<" ";
   in.resize(bp->owned_out_nodes.size());
   for(int i=0;i< bp->owned_out_nodes.size(); i++){
     in[i] = out[bp->owned_out_nodes[i]];
     // std::cout << in[i] <<" " << bp->owned_out_nodes[i] << "\n";
     assert(in[i] >= 0);
   }
-  std::cout << "pull in ok \n";
 }
 
 
 // Partitioned flow must have same output.
 int sample_flow_up_ps(PartitionedSample &s,
-    std::vector<int> test_storage_map[4]){
+    std::vector<int> test_storage_map[4],std::vector<int>& ret){
   // refresh storage map with local_ids.
   std::vector<int> in[4];
   std::vector<int> out[4];
   for(int i=0;i<4; i++ ){
     in[i].swap(test_storage_map[i]);
   }
-  std:cout << "Bug Layers " << s.num_layers <<"\n";
   for(int i =  s.num_layers-1  ; i>=0; i--){
     // Bipartite local aggregation.
     PartitionedLayer &layer = s.layers[i];
@@ -130,19 +126,21 @@ int sample_flow_up_ps(PartitionedSample &s,
     }
     // Pull locally and add degree
     // Slice owned node.
-    std::cout << "Is this running \n";
     for(int j = 0; j < 4; j++){
       pull_own_node(layer.bipartite[j], out[j], in[j]);
     }
   }
-  int ss = 0;
+  int sss = 0;
   for(int i=0;i < 4;i++){
+    int ss = 0;
     for(int k:in[i]){
       ss += k;
       // std::cout << k <<"\n";
     }
+    ret.push_back(ss);
+    sss += ss;
   }
-  return ss;
+  return sss;
 }
 
 
