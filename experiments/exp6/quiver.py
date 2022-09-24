@@ -31,13 +31,13 @@ def average_string(ls):
 # measures cost of memory transfer of dataset
 def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch_size):
     output = subprocess.run(["python3",\
-            "/home/q91/OCC-GNN/quiver/dgl_sage.py",\
-        "--graph",graphname,  \
-         "--model", model , \
-         "--cache-per" , str(cache_per),\
-                 "--num-hidden",  str(hidden_size), \
-                   "--batch-size", str(minibatch_size), \
-                     "--data", "quiver", "--num-epochs", str(epochs)] \
+            "/home/q91/OCC-GNN/quiver/dgl_gcn.py",\
+            "--graph",graphname,  \
+            "--model", model , \
+            "--cache-per" , str(cache_per),\
+            "--num-hidden",  str(hidden_size), \
+            "--batch-size", str(minibatch_size), \
+            "--data", "quiver", "--num-epochs", str(epochs)] \
                 , capture_output = True)
 
     out = str(output.stdout)
@@ -76,7 +76,7 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
                 "accuracy": accuracy}
 
 
-def run_experiment_quiver(settings = None, model ):
+def run_experiment_quiver( model ):
     # graph, hidden_size, fsize, minibatch_size
     settings = [
                 ("ogbn-arxiv",16, 128, 1024), \
@@ -99,7 +99,7 @@ def run_experiment_quiver(settings = None, model ):
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
     cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
-    
+    #cache_rates = ["0"] 
     #settings = [settings[0]]
     check_path()
     print(settings)
@@ -121,5 +121,5 @@ def run_experiment_quiver(settings = None, model ):
 
 
 if __name__=="__main__":
-    run_experiment_quiver(None, "GAT")
-    run_experiment_quiver(None, "GCN")
+    run_experiment_quiver("GAT")
+    run_experiment_quiver("GCN")
