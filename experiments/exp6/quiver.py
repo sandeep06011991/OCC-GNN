@@ -37,13 +37,13 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
          "--cache-per" , str(cache_per),\
                  "--num-hidden",  str(hidden_size), \
                    "--batch-size", str(minibatch_size), \
-                     "--data", "quiver"] \
+                     "--data", "quiver", "--num-epochs", str(epochs)] \
                 , capture_output = True)
 
     out = str(output.stdout)
     error = str(output.stderr)
-    print(out,error)
-    print("Start Capture !!!!!!!", graphname, minibatch_size)
+    #print(out,error)
+    #print("Start Capture !!!!!!!", graphname, minibatch_size)
     try:
         accuracy  = re.findall("accuracy:(\d+\.\d+)",out)[0]
         epoch = re.findall("epoch:(\d+\.\d+)",out)[0]
@@ -62,6 +62,8 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         backward_time = "{:.2f}".format(float(backward_time))
 
     except Exception as e:
+        with open('exception.txt','a') as fp:
+            fp.write(error)
         sample_get = "error"
         movement_graph = "error"
         movement_feat = "error"
@@ -74,15 +76,15 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
                 "accuracy": accuracy}
 
 
-def run_experiment_quiver(settings = None):
+def run_experiment_quiver(settings = None, model ):
     # graph, hidden_size, fsize, minibatch_size
     settings = [
-                 ("ogbn-arxiv",16, 128, 1032), \
-                ("ogbn-arxiv",16, 128, 4096),\
-                ("ogbn-arxiv",16, 128, 256), \
-                ("ogbn-products",16, 100, 1032), \
-                 ("ogbn-products", 16, 100, 4096), \
-                ("ogbn-products",16, 100 , 256), \
+                ("ogbn-arxiv",16, 128, 1024), \
+                ("ogbn-arxiv",16, 128, 4096), \
+                ("ogbn-arxiv",16, 128, 256),  \
+                ("ogbn-products",16, 100, 1024), \
+                ("ogbn-products",16, 100, 4096), \
+                ("ogbn-products",16, 100, 256),  \
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -91,17 +93,18 @@ def run_experiment_quiver(settings = None):
                 # ("com-friendster",2), \
                  # ("com-orkut",5, 256, 256, 4096) \
                  ]
-    no_epochs =3
+    no_epochs = 6
+    # settings = [("ogbn-arxiv",16, 128, 1024)]
     # settings = [("ogbn-papers100M",2)]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
     cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
-    #cache_rates= ["1"]
+    
     #settings = [settings[0]]
     check_path()
     print(settings)
     sha,dirty = get_git_info()
-    model = "GCN"
+    
     with open('exp6_quiver.txt','a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy \n")
@@ -110,7 +113,7 @@ def run_experiment_quiver(settings = None):
             if graphname in ["ogbn-papers100M","com-friendster"]:
                 if float(cache) > .3:
                     continue
-            out = run_quiver(graphname, model,no_epochs, cache, hidden_size, fsize, batch_size)
+            out = run_quiver(graphname, model ,no_epochs, cache, hidden_size, fsize, batch_size)
             with open('exp6_quiver.txt','a') as fp:
                 fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} \n".format(graphname , "quiver", cache, hidden_size, fsize, batch_size, model, out["sample_get"], out["movement_graph"], out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"]))
 
@@ -118,4 +121,5 @@ def run_experiment_quiver(settings = None):
 
 
 if __name__=="__main__":
-    run_experiment_quiver()
+    run_experiment_quiver(None, "GAT")
+    run_experiment_quiver(None, "GCN")

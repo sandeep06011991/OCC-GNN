@@ -1,34 +1,31 @@
 import torch
-import dgl.nn as dglnn
+import numpy as np
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import dgl
-import tqdm
+import dgl.nn as dglnn
 
 
-class SAGE(nn.Module):
-    def __init__(self,
-                 in_feats,
-                 n_hidden,
-                 n_classes,
-                 n_layers,
-                 activation,
-                 dropout):
-        super().__init__()
-        self.n_layers = n_layers
-        self.n_hidden = n_hidden
-        self.n_classes = n_classes
-        self.layers = nn.ModuleList()
-        self.layers.append(dglnn.SAGEConv(in_feats, n_hidden, 'mean'))
-        for i in range(1, n_layers - 1):
-            self.layers.append(dglnn.SAGEConv(n_hidden, n_hidden, 'mean'))
-        self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, 'mean'))
+class GAT(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels, \
+                out_channels, heads, num_layers, activation, dropout):
+        super(GAT,self).__init__()
+        self.num_layers = num_layers
+        self.convs = torch.nn.ModuleList()
+        self.convs.append(dglnn.GATConv(in_channels, hidden_channels, num_heads = heads))
+        for _ in range(num_layers -2):
+            self.convs.append(dglnn.GATConv(hidden_channels *heads, hidden_channels,num_heads = heads))
+        self.convs.append(dglnn.GATConv(hidden_channels * heads, out_channels, num_heads = 1))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
 
+    def reset_parameters(self):
+        for conv in self.convs:
+            conv.reset_parameters()
+    
     def forward(self, blocks, x):
         h = x
-        for l, (layer, block) in enumerate(zip(self.layers, blocks)):
+        for l, (layer, block) in enumerate(zip(self.convs, blocks)):
             # We need to first copy the representation of nodes on the RHS from the
             # appropriate nodes on the LHS.
             # Note that the shape of h is (num_nodes_LHS, D) and the shape of h_dst
@@ -37,9 +34,10 @@ class SAGE(nn.Module):
             # Then we compute the updated representation on the RHS.
             # The shape of h now becomes (num_nodes_RHS, D)
             h = layer(block, (h, h_dst))
-            if l != len(self.layers) - 1:
+            if l != len(self.convs) - 1:
                 h = self.activation(h)
                 h = self.dropout(h)
+            h = h.flatten(1)
         return h
 
     def inference(self, g, x, device):
@@ -84,4 +82,6 @@ class SAGE(nn.Module):
 
             x = y
         return y
+
+
 
