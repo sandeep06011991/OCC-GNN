@@ -15,13 +15,17 @@ import random
 from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
 import os
-#os.environ["PYTHONPATH"] = "/home/spolisetty/OCC-GNN/cslicer/"
 import time
 import inspect
 from utils.shared_mem_manager import *
 from data.serialize import *
 from utils.log import *
 
+def avg(ls):
+    assert(len(ls) > 3)
+    a = max(ls[1:])
+    b = min(ls[1:])
+    return (sum(ls) - a - b)/(len(ls) - 3)
 
 def compute_acc(pred, labels):
     """
@@ -33,11 +37,10 @@ def compute_acc(pred, labels):
 def get_sample(proc_id, sample_queues,  sm_client, log):
     sample_id = None
     device = proc_id
+    t0 = time.time()
     if proc_id == 0:
         log.log("leader tries to read meta data, qsize {}".format(sample_queues[0].qsize()))
-
         meta = sample_queues[0].get()
-
         log.log("leader reads meta data, starts sharing")
         for i in range(1,4):
             if type(meta) == tuple:
@@ -52,14 +55,19 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
         meta = sample_queues[proc_id].get()
         log.log("follower gets meta")
     log.log("Meta data read {}".format(meta))
+    t1 = time.time()
+    sample_get_time = t1-t0
+    graph_move_time = 0
     if(type(meta) == type("")):
         gpu_local_sample = meta
         sample_id = meta
     else:
         (name, shape, dtype ) = meta
         dtype = np.dtype( dtype )
-        log.log("trieng to reconstruct data on shared memory")
+        log.log("trying to reconstruct data on shared memory")
+        t3 = time.time()
         tensor = sm_client.read_from_shared_memory(name, shape, dtype)
+        t4 = time.time()
         log.log("data reconstruction complete")
         tensor = tensor.to(device)
         print("Warning: Impromptu data reformatting is risky. ")
@@ -68,11 +76,15 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
         device = torch.device(device)
         # Refactor this must not be moving to GPU at this point.
         construct_from_tensor_on_gpu(tensor, device, gpu_local_sample)
+        gpu_local_sample.prepare()
+        t5 = time.time()
         # Memory can be released now as object is constructed from tensor.
         sm_client.free_used_shared_memory(name)
         log.log("construction of sample on gpu {}".format(gpu_local_sample.randid))
         sample_id = gpu_local_sample.randid
-    return sample_id, gpu_local_sample
+        sample_get_time += (t4 - t3)
+        graph_move_time = (t5-t4)
+    return sample_id, gpu_local_sample, sample_get_time, graph_move_time
 
 
 
@@ -108,21 +120,22 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     labels= labels.to(proc_id)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     i = 0
-    sample_get_time_epoch = []
-    forward_time_epoch = []
-    backward_time_epoch = []
-    sample_move_time_epoch = []
+    sample_get_epoch = []
+    forward_epoch = []
+    backward_epoch = []
+    movement_graph_epoch = []
+    movement_feat_epoch = []
     epoch_time = []
     epoch_accuracy = []
+    sample_get = 0
+    forward_time = 0
+    backward_time = 0
+    movement_graph = 0
+    movement_feat = 0
     in_degrees = in_degrees.to(proc_id)
     fp_start = torch.cuda.Event(enable_timing=True)
     fp_end = torch.cuda.Event(enable_timing=True)
     bp_end = torch.cuda.Event(enable_timing=True)
-
-    sample_get_time = 0
-    forward_time = 0
-    backward_time = 0
-    sample_move_time = 0
     accuracy = 0
     torch.cuda.set_device(proc_id)
     nmb = 0
@@ -131,25 +144,27 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     print("Features ", features.device)
     num_epochs = 0
     while(True):
-
-        t11 = time.time()
         nmb += 1
         log.log("blocked at get sample")
-        sample_id, gpu_local_sample = get_sample(proc_id, sample_queue,  sm_client, log)
-        t22 = time.time()
+        sample_id, gpu_local_sample, sample_get_mb, graph_move_mb = get_sample(proc_id, sample_queue,  sm_client, log)
+        sample_get += sample_get_mb
+        graph_move += graph_move_mb
         log.log("sample recieved and processed")
         sample_get_time += t22 - t11
         if(gpu_local_sample == "EPOCH"):
             t2 = time.time()
             optimizer.zero_grad()
-            sample_get_time_epoch.append(sample_get_time)
-            forward_time_epoch.append(forward_time)
-            backward_time_epoch.append(backward_time)
-            sample_move_time_epoch.append(sample_move_time)
+            sample_get_epoch.append(sample_get)
+            forward_epoch.append(forward_time)
+            backward_epoch.append(backward_time)
+            graph_move_epoch.append(graph_move_time)
+            movement_feat_epoch.append(movement_feat)
             epoch_time.append(t2-t1)
             sample_get_time = 0
             forward_time = 0
             backward_time = 0
+            graph_move_time = 0
+            movement_feat = 0
             t1 = time.time()
             num_epochs += 1
             continue
@@ -162,52 +177,40 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
                 break
             else:
                 continue
-        t33 = time.time()
-        print("Warning. Preperation not needed")
-        print(gpu_local_sample)
-        gpu_local_sample.prepare()
 
         #assert(features.device == torch.device('cpu'))
         #gpu_local_sample.debug()
-        t44 = time.time()
-        sample_move_time += t44 - t33
         classes = labels[gpu_local_sample.last_layer_nodes].to(torch.device(proc_id))
         # print("Last layer nodes",gpu_local_sample.last_layer_nodes)
         # with nvtx.annotate("forward",color="blue"):
         torch.cuda.set_device(proc_id)
         optimizer.zero_grad()
         #with torch.autograd.profiler.profile(use_cuda=True, record_shapes=True) as prof:
+        t0 = time.time()
+        input_features  = gpu_local_storage.get_input_features(gpu_local_sample.missing_node_ids)
+        t1 = time.time()
+        movement_feat += (t1-t0)
         fp_start.record()
         assert(features.device == torch.device('cpu'))
         #print("Start forward pass !")
-        input_features  = gpu_local_storage.get_input_features(gpu_local_sample.missing_node_ids)
+
         output = model.forward(gpu_local_sample, input_features, in_degrees)
-
-
         # continue
         if args.deterministic:
-            print("MARK", output.sum(), gpu_local_sample.debug_val)
+            print("Expected value", output.sum(), gpu_local_sample.debug_val)
             continue
-
         # torch.cuda.set_device(proc_id)
         fp_end.record()
         #print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
         #print("torch.cuda.memory_reserved: %fGB"%(torch.cuda.memory_reserved(0)/1024/1024/1024))
         #print("torch.cuda.max_memory_reserved: %fGB"%(torch.cuda.max_memory_reserved(0)/1024/1024/1024))
-
         # print(prof.key_averages(group_by_input_shape=True))
         loss = loss_fn(output,classes)/args.batch_size
         #assert(classes.shape[0] != 0)
         #print("loss",loss)
         loss.backward()
-        time.sleep(1)
         # continue
-        print("backward complete",proc_id)
-        #if(classes.shape[0]):
-        #    print("Backward not blocks when classes is zero")
-        # Helpful trick to make manual calculation of gradients easy.
-        # torch.sum(output).backward()
-
+        # print("backward complete",proc_id)
         for p in model.parameters():
             p.grad *= 4
         if deterministic:
@@ -215,15 +218,12 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         ii = ii + 1
         bp_end.record()
 
-        if True  and output.shape[0] !=0:
+        if output.shape[0] !=0:
             acc = compute_acc(output,classes)
             acc = (acc[0].item()/acc[1])
-            print("Accuracy", acc)
-            # accuracy_epoch
-
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
-        print("Forward time",fp_start.elapsed_time(fp_end)/1000 )
+        # print("Forward time",fp_start.elapsed_time(fp_end)/1000 )
         # with nvtx.annotate("backward", color="red"):
         backward_time += fp_end.elapsed_time(bp_end)/1000
         if deterministic:
@@ -232,19 +232,15 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
 
     print("Exiting main training loop")
     dev_id = proc_id
-
     # if proc_id == 1:
     #     prof.dump_stats('worker.lprof')
-    print("accuracy: {}".format(acc))
     if proc_id == 0:
-        print("avg forward time: {}sec, device {}".format(sum(forward_time_epoch[1:])/(num_epochs - 1), dev_id))
-        print(forward_time_epoch)
-        print("avg backward time: {}sec, device {}".format(sum(backward_time_epoch[1:])/(num_epochs - 1), dev_id))
-        print("avg move time: {}sec, device {}".format(sum(sample_move_time_epoch[1:])/(num_epochs - 1), dev_id))
-        print(sample_move_time)
-        print('avg epoch time: {}sec, device {}'.format(sum(epoch_time[1:])/(num_epochs - 1), dev_id))
-        print(epoch_time)
-        print('avg sample get time: {}sec, device {}'.format(sum(sample_get_time_epoch[1:])/(num_epochs - 1),dev_id))
-        print(sample_get_time_epoch)
-    # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
+        print("accuracy:{}".format(acc))
+        print("epoch:{}".format(avg(epoch_time)))
+        print("sample_time:{}".format(avg(sample_get_epoch)))
+        print("movement graph:{}".format(avg(movement_graph_epoch)))
+        print("movement feat:{}".format(avg(movement_feat_epoch)))
+        print("forward time:{}".format(avg(forward_time_epoch)))
+        print("backward time:{}".format(avg(backward_time_epoch)))
+        # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")

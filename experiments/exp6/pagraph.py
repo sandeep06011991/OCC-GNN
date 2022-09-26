@@ -1,79 +1,120 @@
+ # Ensure cuda/10.2 is loaded 
 import subprocess
+import os
+import time
+
+ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
+import sys
 import re
+import git
 
-def average_string(ls):
-    print(ls)
-    c = [float(c) for c in ls]
-    c = sum(c)/len(c)
-    return c
+Feat = {"ogbn-arxiv":"128","ogbn-products":"100", "ogbn-papers100M":"128"}
 
-# measures cost of memory transfer of dataset
-def run_pagraph(graphname, epochs,cache_per, hidden_size, minibatch_size, fsize ):
-    output = subprocess.run(["python3",\
-            "/home/spolisetty/OCC-GNN/python/pa_cache_multi_gpu.py",
-        "--graph",graphname, "--cache-per", cache_per, \
-         "--num-epochs", str(epochs) , "--num-hidden" , str(hidden_size)
-            ,"--fsize", str(fsize), "--batch-size", str(minibatch_size)], capture_output = True)
+def get_git_info():
+    repo = git.Repo(search_parent_directories = True)
+    sha = repo.head.object.hexsha
+    dirty = repo.is_dirty()
+    return sha,dirty 
+
+def check_path():
+    path_set = False
+    for p in sys.path:
+        print(p)
+        if ROOT_DIR ==  p:
+            path_set = True
+    if (not path_set):
+        print("Setting Path")
+        sys.path.append(ROOT_DIR)
+def avg(ls):
+    return (sum(ls[1:]/(len(ls)-1)))
+
+def check_no_stale():
+    ps = os.popen('ps').read().split('\n')
+    py_process = 0
+    for p in ps:
+        if 'python3' in p:
+            py_process += 1
+    if py_process != 1:
+        print("stale processes exist clean up")
+    assert(py_process == 1)
+    # I can add a kill ad clean up later.
+
+
+# Start server and wait for ready
+def start_server(filename):
+    cmd = ['python3','{}/server/pa_server.py'.format(ROOT_DIR),'--dataset',filename]
+    print(cmd)
+    #cmd = ['python3','hello.py']
+    fp = subprocess.Popen(cmd, 
+                    stdout = subprocess.PIPE, 
+                     stderr = subprocess.PIPE,
+                     text = True)
+    os.set_blocking(fp.stdout.fileno(), False)
+    os.set_blocking(fp.stderr.fileno(),False)
+    while(True):
+        out = fp.stdout.readline()
+        err = fp.stderr.readline()
+        print(out,err) 
+        sys.stdout.flush()
+        if 'start running graph' in str(out):
+            print("Breaking")
+            break
+        time.sleep(1)
+    print("Server is running can start client Finally")
+    sys.stdout.flush()
+    return fp
+
+def start_client(filename):
+    feat_size = Feat[filename]
+    cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset', filename,'--n-epochs','2'\
+                    ,'--feat-size',feat_size]
+    output = subprocess.run(cmd, capture_output=True)
     out = str(output.stdout)
-    error = str(output.stderr)
-    try:
-        cache_hit  = re.findall("avg cache hit rate: (\d+\.\d+)",out)
-        cache_hit = average_string(cache_hit)
-        cache_hit = "{:0.2f}".format(float(cache_hit))
-        forward =  re.findall("Avg forward backward time: (\d+\.\d+)sec",out)
-        forward = average_string(forward)
-        forward = "{:0.2f}".format(float(forward))
-        movement = average_string(re.findall("avg move time: (\d+\.\d+)sec",out))
-        movement = "{:0.2f}".format(float(movement))
-        epoch_time = average_string(re.findall("avg epoch time: (\d+\.\d+)sec",out))
-        epoch_time = "{:0.2f}".format(float(epoch_time))
-    except:
-        cache_hit = "error"
-        forward = "error"
-        movement = "error"
-        epoch_time = "error"
-    return {"forward":forward, "cache_hit":cache_hit, \
-            "movement":movement, "epoch_time": epoch_time}
+    err = str(output.stderr)
+    print(out,err)
+    output = out
+    sample = float(re.findall("Sample time: (\d+\.\d+)s",output)[0])
+    compute  = float(re.findall("Compute time: (\d+\.\d+)s",output)[0])
+    collect  = float(re.findall("CPU collect: (\d+\.\d+)s",output)[0])
+    move  = float(re.findall("CUDA move: (\d+\.\d+)s",output)[0])
+    epoch  = float(re.findall("Epoch time: (\d+\.\d+)s",output)[0])
+    miss_rate = float(re.findall("Miss rate: (\d+\.\d+)s",output)[0])
 
+    return {"sample":sample, "compute":compute, "collect":collect,\
+            "move":move, "epoch":epoch, "miss_rate": miss_rate}
+            
+def run_experiment_on_graph(filename):
+    fp = start_server(filename)
+    res = start_client(filename)
+    WRITE = "{}/experiments/exp1.txt".format(ROOT_DIR)
 
-def run_experiment_pagraph(settings):
-    print("run settings", settings)
-    cache_rates = [".05",".10",".24",".5"]
-    cache_rates = [".05",".24", ".5"]
-    cache_rates = [".25"]
+    with open(WRITE,'a') as fp:
+        fp.write("{}|{}|{}|{}|{}|{}|{}\n".format(filename,res["sample"], res["collect"],res["move"], res["compute"], \
+                        res["epoch"], res["miss_rate"]))
+    fp.close()
 
-    with open('exp6_pagraph.txt','a') as fp:
-        fp.write("graph | hidden-size | batch_size | fsize  \
-        | cached-gper-gpu | forward + backward(s)| pa-move(s) | epoch-time(s) | avg-cache hit rate \n")
-    for graphname,no_epochs, hidden_size, fsize, batch_size in settings:
-        for cache in cache_rates:
-            if graphname in ["ogbn-papers100M","com-friendster"]:
-                if float(cache) > .25:
-                    continue
-            out = run_pagraph(graphname, no_epochs, cache, hidden_size, batch_size, fsize)
-            with open('exp6_pagraph.txt','a') as fp:
-                fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {}\n".format(graphname , \
-                    hidden_size, batch_size, fsize, cache, \
-                    out["forward"], out["movement"],  out["epoch_time"], out["cache_hit"]))
+def run_experiment():
+    graphs = ['ogbn-arxiv','ogbn-products']
+    #graphs = ['ogbn-papers100M']
+    #graphs = ['ogbn-arxiv']
+    sha, dirty = get_git_info()
+    check_path()
+    check_no_stale()
+    filename = "{}/experiments/exp1.txt".format(ROOT_DIR)
+    with open(filename,'a') as fp:
+        fp.write("Git hash:{}, Dirty:{}\n".format(sha, dirty))
+        fp.write("File |  Sample | Collect | Move | Compute | Epoch | Miss rate \n")
+    for i in graphs:
+        try:
+            run_experiment_on_graph(i)
+        except:
+            import traceback
+            with open(filename,'a') as fp:
+                import sys
+                ex_type, ex, tb = sys.exc_info()
+                traceback.print_exception(ex_type, ex, tb)
+                traceback.print_tb( tb, file = fp)
+                traceback.print_exception(ex_type, ex, tb, file = fp)
 
-
-
-
-if __name__=="__main__":
-    # settings = [\
-    #            ("ogbn-arxiv",3, 32, -1, 4096),\
-    #            ("ogbn-arxiv",3, 256, -1, 4096),\
-    #            ("ogbn-arxiv",3, 32 , -1 , 1024),\
-    #            ("ogbn-products",3, 32, -1, 4096),\
-    #            ("ogbn-products",3, 256, -1, 4096),\
-    #            ("ogbn-products",3, 32 , -1 , 1024),\
-    #            ("com-youtube", 3, 32, 256, 4096),\
-    #            ("com-youtube",3,32 ,1024, 4096)\
-    #             #("ogbn-products",2), \
-    #             ("ogbn-papers100M",2,256,-1,4096), \
-    #             ("ogbn-papers100M",2,32,-1,4096), \
-    #             # ("com-friendster",2), \
-    #             # ("com-orkut",5, 256 , 256, 4096 ) \
-    #             ]
-    settings = [("ogbn-arxiv",3, 32, -1, 4096)]
-    run_experiment_pagraph()
+if __name__ == "__main__":
+    run_experiment()

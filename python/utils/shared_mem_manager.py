@@ -17,8 +17,8 @@ class SharedMemManager():
         for i in range(NUM_BUCKETS):
             name = 's{}'.format(i)
             self.buckets[name] = SharedMemory(name,create = True, size =SHARED_MEMORY_SIZE)
-            print("Created", name)
             free_memory_filenames.put(name)
+        print("Created buckets", NUM_BUCKETS)
 
     def __del__(self):
         print("Shared memory manager should wait for all allocated memory to be returned")
@@ -48,6 +48,7 @@ class SharedMemClient():
         assert(data.shape[0] * data.dtype.itemsize < SHARED_MEMORY_SIZE)
         self.log.log("Trying to write, avail shared memory buckets {}".format(self.free_memory_filenames.qsize()))
         name = self.free_memory_filenames.get()
+
         # while(True):
             # try:
             #     name = self.free_memory_filenames.get_nowait()

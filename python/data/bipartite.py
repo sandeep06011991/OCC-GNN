@@ -35,7 +35,7 @@ class Bipartite:
         # # Note dont have to create coo graphs
         # # I can use csr graphs directly
         # But coo will be created in back pass
-        # Look for ways to avoid this. 
+        # Look for ways to avoid this.
         hg = heterograph_index.create_unitgraph_from_coo(\
                     2,  self.N, self.M, self.expand_indptr, self.indices, ['coo','csr','csc'])
         graph = heterograph_index.create_heterograph_from_relations( \
@@ -114,11 +114,12 @@ class Bipartite:
             return f_in
         with self.graph.local_scope():
             # FixME Todo: Fix this inconsistency in number of nodes
-            print(f_in.shape[0], self.graph.number_of_nodes('_U'))
+            # print(f_in.shape[0], self.graph.number_of_nodes('_U'))
             assert(f_in.shape[0] == self.graph.number_of_nodes('_U'))
             self.graph.nodes['_U'].data['in'] = f_in
             f = self.graph.formats()
             self.graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
+            
             # No new formats must be created.
             if(f != self.graph.formats()):
                 LogFile("bipartite", 1).log("Created new graph formats from {} to {}".format(f, self.graph.formats()))

@@ -37,13 +37,10 @@ class DistSAGEModel(torch.nn.Module):
             import time
             t1 = time.time()
             # assert(not torch.any(torch.sum(x,1)==0))
-            self.fp_end.record()
-            print("start one layer")
+            # self.fp_end.record()
             x = layer(bipartite_graph, x,l, in_degrees)
-            print(x.shape)
-            print("End another layer")
-            self.bp_end.record()
-            torch.cuda.synchronize(self.bp_end)
+            # self.bp_end.record()
+            # torch.cuda.synchronize(self.bp_end)
             t2 = time.time()
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))

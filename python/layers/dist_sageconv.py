@@ -70,6 +70,7 @@ class DistSageConv(nn.Module):
     def forward(self, bipartite_graph, x, l, in_degree):
         t1 = time.time()
         #if l == 0 or l == 1:
+        # Code to perform statistics on computaiton graph
         #    num_nodes = bipartite_graph.graph.nodes('_V').shape[0]
         #    node_degree = bipartite_graph.graph.in_degrees(\
         #        torch.arange(num_nodes,device = self.gpu_id))
@@ -101,11 +102,7 @@ class DistSageConv(nn.Module):
             t11 = time.time()
             out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
             t22 = time.time()
-            # print(t22 - t11, "shuffle time",l, self.gpu_id)
-
             # BUG Fixed: Linear layer after in degree meaning
-        t2 = time.time()
-        t11 = time.time()
         assert(not torch.any(torch.isnan(out2)))
         out6_b = bipartite_graph.slice_owned_nodes(out2)
         assert(torch.any(bipartite_graph.in_degree != 0))
@@ -122,14 +119,7 @@ class DistSageConv(nn.Module):
         out3 = bipartite_graph.self_gather(x)
         out4 = bipartite_graph.slice_owned_nodes(out3)
         out5 = self.fc2(out4)
-
         final = out5 + out6
-        t33 = time.time()
-        t2 = time.time()
-
-        # print("layer second half",l,t33 - t22)
-        # print("layer first half", l , t22- t11)
-        # print("full layer",l, t2-t1)
         return final
 
 def test_base():

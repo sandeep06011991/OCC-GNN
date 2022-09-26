@@ -88,14 +88,16 @@ public:
     PySample * getSample(vector<long> sample_nodes){
       sample.clear();
       p_sample.clear();
-      std::cout <<"cslicerer recieves sample1 \n";
+      spdlog::info("sample begin");
       this->neighbour_sampler->sample(sample_nodes, sample);
       int sample_val;
       if(this->deterministic){
           sample_val =  sample_flow_up_sample(sample, num_nodes);
       }
-      std::cout <<"cslicerer recieves sample2 \n";
+
+      spdlog::info("slice begin");
       this->slicer->slice_sample(sample, p_sample);
+      spdlog::info("covert to torch");
       PySample *sample = new PySample(p_sample);
       std::vector<int> ret(4);
       for(int i=0;i<4;i++){
