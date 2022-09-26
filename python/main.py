@@ -5,7 +5,8 @@ import dgl
 import time
 import nvtx
 from dgl.sampling import sample_neighbors
-from models.factory import get_model_distributed
+from models.dist_gcn import get_sage_distributed
+from models.dist_gat import get_gat_distributed
 from utils.utils import get_process_graph
 from utils.memory_manager import MemoryManager
 import torch.optim as optim
@@ -54,8 +55,13 @@ def main(args):
     graph_name = args.graph
     dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize)
     partition_map = partition_map.type(torch.LongTensor)
-    features = dg_graph.ndata["features"]
-    features = features.pin_memory()
+    if not args.deterministic:
+        features = dg_graph.ndata["features"]
+        features = features.pin_memory()
+    else:
+        features = dg_graph.ndata["features"]
+        num_nodes = features.shape[0]
+        features = torch.arange(0,num_nodes).reshape(num_nodes,1)
     features.share_memory_()
     cache_percentage = args.cache_per
     batch_size = args.batch_size
@@ -89,8 +95,8 @@ def main(args):
 
     # global train_nid_list
     # train_nid_list= train_nid.tolist()
-    queue_size =2
-    no_worker_process = 1
+    queue_size =4
+    no_worker_process = 4
 
     work_producer_process = mp.Process(target=(work_producer), \
                   args=(work_queue, train_nid, minibatch_size, no_epochs,\
@@ -136,6 +142,8 @@ def main(args):
 
 
 if __name__=="__main__":
+    # python3 main.py --model gcn --deterministic
+    # Unit test complete flow.
     argparser = argparse.ArgumentParser("multi-gpu training")
     # Input data arguments parameters.
     argparser.add_argument('--graph',type = str, default= "ogbn-arxiv")
@@ -149,7 +157,7 @@ if __name__=="__main__":
     # model name and details
     argparser.add_argument('--debug',type = bool, default = False)
     argparser.add_argument('--cache-per', type =float, default = .25)
-    argparser.add_argument('--model-name',help="gcn|gat")
+    argparser.add_argument('--model',help="gcn|gat")
     argparser.add_argument('--num-epochs', type=int, default=6)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
@@ -164,4 +172,5 @@ if __name__=="__main__":
     #                        help="Inductive learning setting")
     args = argparser.parse_args()
     mp.set_start_method('spawn')
+    assert(args.model in ["gcn","gat"])
     main(args)

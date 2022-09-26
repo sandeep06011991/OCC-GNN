@@ -25,6 +25,7 @@ class CSlicer{
 
     std::vector<int> storage_map[4];
     std::vector<int> workload_map;
+    std::vector<int> dummy_storage_map[4];
     int gpu_capacity[4];
     NeighbourSampler *neighbour_sampler;
     Slice *slicer;
@@ -76,6 +77,7 @@ public:
           for(long nd: gpu_map[i]){
             storage_map[i][nd] = order;
             order ++;
+            dummy_storage_map[i].push_back(nd);
           }
         }
 
@@ -86,21 +88,29 @@ public:
     PySample * getSample(vector<long> sample_nodes){
       sample.clear();
       p_sample.clear();
-
+      std::cout <<"cslicerer recieves sample1 \n";
       this->neighbour_sampler->sample(sample_nodes, sample);
       int sample_val;
       if(this->deterministic){
           sample_val =  sample_flow_up_sample(sample, num_nodes);
       }
+      std::cout <<"cslicerer recieves sample2 \n";
       this->slicer->slice_sample(sample, p_sample);
-
       PySample *sample = new PySample(p_sample);
-      std::vector<int> ret;
-      if(this->deterministic){
-          int p_val =  sample_flow_up_ps(p_sample, storage_map, ret);
-          assert(sample_val  == p_val);
-          sample->debug_vals = ret;
+      std::vector<int> ret(4);
+      for(int i=0;i<4;i++){
+        ret[i] = 0;
+        std::cout << "dummy map size" << dummy_storage_map[i].size() << "\n";
       }
+      std::cout <<"cslicerer recieves sample3 \n";
+      if(this->deterministic){
+          int p_val =  sample_flow_up_ps(p_sample, dummy_storage_map, ret);
+          std::cout << "My anser is " << p_val << "sample_val "<< "\n";
+          assert(sample_val  == p_val);
+      }
+      std::cout <<"cslicerer recieves sample4 \n";
+      sample->debug_vals = ret;
+
       // p_sample.debug();
       return sample;
       // Sample *s = Sample::get_dummy_sample();
@@ -126,8 +136,8 @@ PYBIND11_MODULE(cslicer, m) {
              .def_readwrite("layers",&PySample::layers)
              .def_readwrite("in_nodes", &PySample::in_nodes)
              .def_readwrite("out_nodes", &PySample::out_nodes)
-             .def_readwrite("missing_node_ids", &PySample::missing_node_ids);
-              .def_readwrite("missing_node_ids", &PySample::debug_vals);
+             .def_readwrite("missing_node_ids", &PySample::missing_node_ids)
+              .def_readwrite("debug_vals", &PySample::debug_vals);
          py::class_<PyBipartite>(m,"bipartite")
              .def_readwrite("num_in_nodes", &PyBipartite::num_in_nodes)
              .def_readwrite("num_out_nodes", &PyBipartite::num_out_nodes)

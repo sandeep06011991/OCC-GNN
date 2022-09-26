@@ -11,17 +11,19 @@ from torch.nn.parallel import DistributedDataParallel
 class DistSageConv(nn.Module):
 
     # Not exactly matching SageConv as normalization and activation as removed.
-    def __init__(self, in_feats, out_feats, gpu_id, aggregator_type = "gcn", \
+    def __init__(self, in_feats, out_feats, gpu_id, \
         feat_drop=0.1, bias=True, queues = None, deterministic = False):
         super( DistSageConv, self).__init__()
         self.device_ids = [0,1,2,3]
         self._in_src_feats = in_feats
         # self._in_dst_feats = in_feats
         self._out_feats = out_feats
+        aggregator_type = "sum"
         self._aggre_type = aggregator_type
         self.feat_drop = nn.Dropout(feat_drop)
         self.queues = queues
         self.gpu_id = gpu_id
+
         # aggregator type: mean/pool/lstm/gcn
         assert aggregator_type in ['sum']
         # self.fc = nn.Linear(self._in_src_feats * 2, out_feats)
@@ -110,6 +112,8 @@ class DistSageConv(nn.Module):
         a = bipartite_graph.in_degree.shape
         degree = bipartite_graph.in_degree.reshape(a[0],1)
         out6 = (out6_b/degree)
+        if(self.deterministic):
+            out6 = torch.floor(out6)
         assert(not torch.any(torch.isnan(out6)))
 
         if not self.fc1.in_features > self.fc1.out_features:

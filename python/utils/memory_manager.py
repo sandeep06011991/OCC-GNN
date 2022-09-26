@@ -33,13 +33,10 @@ class MemoryManager():
             fanout, batch_size, partition_map, deterministic = False):
         self.graph = graph
         self.num_nodes = graph.num_nodes()
-        if deterministic:
-            # replace featuer vector with []
-            self.features = torch.range(self.features.shape[0]).reshape(num_nodes,1)
         self.features = features
         self.features.pin_memory()
         self.fsize = features.shape[1]
-        assert(cache_percentage <= 1 and cache_percentage>0)
+        assert(cache_percentage <= 1 and cache_percentage>=0)
         self.cache_percentage = cache_percentage
         f = 1
         avg_degree = graph.num_edges()/graph.num_nodes()
@@ -87,7 +84,6 @@ class MemoryManager():
                     self.log.log("For gpu {}, batch_in features  {}".format(i, self.batch_in[i].shape))
                     print("Node ids cached",node_ids_cached[:10])
                 else:
-                    assert(False)
                     self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize, device = i))
                     # fixme: batch_in has different size to total number of nodes
                     # Be aware of this when constructing graphs
@@ -96,7 +92,6 @@ class MemoryManager():
                     _, indices = torch.sort(subgraph_deg,descending = True)
                     node_ids_cached = subgraph_nds[indices[:self.num_nodes_cached]]
             else:
-                assert(False)
                 self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize, device = i))
                 # fixme: batch_in has different size to total number of nodes
                 # Be aware of this when constructing graphs
@@ -112,8 +107,8 @@ class MemoryManager():
             self.local_sizes.append(node_ids_cached.shape[0])
             self.node_gpu_mask[node_ids_cached,i] = True
             self.global_to_local[node_ids_cached,i] = torch.arange(node_ids_cached.shape[0],dtype=torch.long)
-            # print("DUMMY FEATURES FOR DEBUGGING")
-            if self.deterministic:
+            if False:
+                # print("DUMMY FEATURES FOR DEBUGGING")
                 self.batch_in[i][:self.local_sizes[i]] = torch.ones(self.features[node_ids_cached].shape)
             else:
                 self.batch_in[i][:self.local_sizes[i]] = self.features[node_ids_cached]
@@ -121,8 +116,8 @@ class MemoryManager():
                 self.batch_in[i].detach().share_memory_()
             assert(self.batch_in[i].device == torch.device(i))
             self.check_missing = self.check_missing | self.node_gpu_mask[:,i]
-        assert(torch.all(self.check_missing))
-        print("No missing nodes !!")
+        # assert(torch.all(self.check_missing))
+        # print("No missing nodes !!")
         # assert(False)
     # @profile
 class GpuLocalStorage():
@@ -139,17 +134,20 @@ class GpuLocalStorage():
     def get_input_features(self, last_layer_nodes):
         if(self.cache_percentage >=.25):
             # Nothing to return
+
             assert(last_layer_nodes.shape[0] == 0)
             return self.batch_in[:self.cache_feature_size, :]
         # Clear previously loaded vertices for consistency.
         self.log.log("refreshing cache with nodes {}".format(last_layer_nodes.shape))
         space = self.batch_in.shape[0] - self.cache_feature_size
-        assert(space < last_layer_nodes.shape[0])
-        in_features = self.batch_in[self.cache_feature_size:self.cache_feature_size + last_layer_nodes.shape[0],:]
-        in_features = self.features[last_layer_nodes].to(self.proc_id)
+        assert(space > last_layer_nodes.shape[0])
+        total_features  = self.batch_in[0:self.cache_feature_size + last_layer_nodes.shape[0],:]
+        replace_features = self.batch_in[self.cache_feature_size:self.cache_feature_size + last_layer_nodes.shape[0],:]
+        replace_features = self.features[last_layer_nodes].to(self.proc_id)
+
             # assert(self.features.device == torch.device("cpu"))
             # assert(self.batch_in[gpu_id].device == torch.device(gpu_id))
-        return in_features
+        return total_features
 
 
 

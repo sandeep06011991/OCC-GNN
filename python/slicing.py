@@ -44,7 +44,14 @@ def slice_producer(graph_name, work_queue, sample_queue, \
     # Todo clean up unnecessary iterations
     log = LogFile("slice-py", worker_id)
     while(True):
-        sample_nodes = work_queue.get()
+        while True:
+            try:
+                sample_nodes = work_queue.get_nowait()
+                print("Slicer got work @@@@@@@@@@@@@@@@@@@@@@@@@2")
+                break
+            except:
+                print("Not able to get work !!!!!!!!!!!!")
+                time.sleep(1)
         if((sample_nodes) == "END"):
             lock.acquire()
             sample_queue.put("END")
@@ -57,7 +64,9 @@ def slice_producer(graph_name, work_queue, sample_queue, \
             lock.release()
             continue
         log.log("ask cmodule for sample")
+        print("ask cmodule for sample")
         csample = sampler.getSample(sample_nodes)
+        print("cmodule returns sample, start tensorize")
         log.log("cmodule returns sample, start tensorize")
         tensorized_sample = Sample(csample)
         log.log("Tensorization complete. start serialziation")
@@ -79,7 +88,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         #print("ATTEMPT TO PUT SAMPLE",sample_queues[0].qsize(), "WORKER", worker_id)
         #print("Worker puts sample",sample_id)
         # Write to leader gpu
-
+        print("Slicer puts sample !!!!!!!!!!!!!!!!!!!!!!11")
         sample_queue.put(tuple(gpu_local_samples))
         # for qid,q in enumerate(sample_queues):
         #     while True:

@@ -2,7 +2,8 @@ import torch
 import dgl
 import time
 import nvtx
-from models.factory import get_model_distributed
+from models.dist_gcn import get_sage_distributed
+from models.dist_gat import get_gat_distributed
 from utils.utils import get_process_graph
 from utils.memory_manager import MemoryManager, GpuLocalStorage
 import torch.optim as optim
@@ -34,6 +35,7 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
     device = proc_id
     if proc_id == 0:
         log.log("leader tries to read meta data")
+
         meta = sample_queues[0].get()
 
         log.log("leader reads meta data, starts sharing")
@@ -87,10 +89,17 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     print("SEED",torch.seed())
     sm_client = SharedMemClient(sm_filename_queue)
+    # Use this when I need to match accuracy
     if deterministic:
-        set_all_seeds(seed)
-    model = get_model_distributed(args.num_hidden, features, num_classes,
-        proc_id, args.deterministic)
+        print("not setting seeds, use this to match accuracy")
+    #     set_all_seeds(seed)
+    if args.model == "gcn":
+        model = get_sage_distributed(args.num_hidden, features, num_classes,
+            proc_id, args.deterministic, args.model)
+    else:
+        assert(args.model == "gat")
+        model = get_gat_distributed(args.num_hidden, features, num_classes,
+            proc_id, args.deterministic, args.model)
     model = model.to(proc_id)
     model =  DistributedDataParallel(model, device_ids = [proc_id],\
                 output_device = proc_id)
@@ -125,8 +134,10 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
 
         t11 = time.time()
         nmb += 1
+        log.log("blocked at get sample")
         sample_id, gpu_local_sample = get_sample(proc_id, sample_queue,  sm_client, log)
         t22 = time.time()
+        log.log("sample recieved and processed")
         sample_get_time += t22 - t11
         if(gpu_local_sample == "EPOCH"):
             t2 = time.time()
@@ -155,6 +166,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print("Warning. Preperation not needed")
         print(gpu_local_sample)
         gpu_local_sample.prepare()
+
         #assert(features.device == torch.device('cpu'))
         #gpu_local_sample.debug()
         t44 = time.time()
@@ -170,9 +182,13 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         #print("Start forward pass !")
         input_features  = gpu_local_storage.get_input_features(gpu_local_sample.missing_node_ids)
         output = model.forward(gpu_local_sample, input_features, in_degrees)
+
+
+        # continue
         if args.deterministic:
-            print(output.sum())
-            
+            print("MARK", output.sum(), gpu_local_sample.debug_val)
+            continue
+
         # torch.cuda.set_device(proc_id)
         fp_end.record()
         #print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
@@ -184,6 +200,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         #assert(classes.shape[0] != 0)
         #print("loss",loss)
         loss.backward()
+        time.sleep(1)
+        # continue
         print("backward complete",proc_id)
         #if(classes.shape[0]):
         #    print("Backward not blocks when classes is zero")
@@ -199,7 +217,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
 
         if True  and output.shape[0] !=0:
             acc = compute_acc(output,classes)
-            acc = (acc[0].item/acc[1])
+            acc = (acc[0].item()/acc[1])
+            print("Accuracy", acc)
             # accuracy_epoch
 
         torch.cuda.synchronize(bp_end)

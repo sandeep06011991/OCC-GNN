@@ -15,7 +15,7 @@ void aggregate(std::vector<long>& layer_nds, \
     int start = offsets[i];
     int end = offsets[i+1];
     int src = layer_nds[i];
-    int t = 0;
+    long t = 0;
     int acc = 0;
     int self = 0;
     for(int j = start; j < end; j++){
@@ -92,7 +92,6 @@ void pull_own_node(BiPartite *bp,
   in.resize(bp->owned_out_nodes.size());
   for(int i=0;i< bp->owned_out_nodes.size(); i++){
     in[i] = out[bp->owned_out_nodes[i]];
-    // std::cout << in[i] <<" " << bp->owned_out_nodes[i] << "\n";
     assert(in[i] >= 0);
   }
 }
@@ -104,8 +103,9 @@ int sample_flow_up_ps(PartitionedSample &s,
   // refresh storage map with local_ids.
   std::vector<int> in[4];
   std::vector<int> out[4];
+  spdlog::info("Ignore the perf results as this is wrong");
   for(int i=0;i<4; i++ ){
-    in[i].swap(test_storage_map[i]);
+    in[i] = test_storage_map[i];
   }
   for(int i =  s.num_layers-1  ; i>=0; i--){
     // Bipartite local aggregation.
@@ -137,7 +137,7 @@ int sample_flow_up_ps(PartitionedSample &s,
       ss += k;
       // std::cout << k <<"\n";
     }
-    ret.push_back(ss);
+    ret[i] = (ss);
     sss += ss;
   }
   return sss;
@@ -162,7 +162,8 @@ void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
       std::cout << "\n";
     }
     std::cout << "Void start sample flow up \n";
-    int out = sample_flow_up_ps(ps, storage_map);
+    std::vector<int> ret(4);
+    int out = sample_flow_up_ps(ps, storage_map, ret );
     std::cout << correct << "==" << out << "\n";
     assert(correct == out);
 }

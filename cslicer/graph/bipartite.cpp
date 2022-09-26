@@ -40,7 +40,7 @@ void BiPartite::reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, 
     indices[i] = gpu_order[nd];
     assert(gpu_order[nd] >= 0);
   }
-  spdlog::info("Added missing nodes of size {}",missing_node_ids.size());
+  // spdlog::info("Added missing nodes of size {}",missing_node_ids.size());
   // std::cout << "\n";
   // Possible
   // assert(indices[indices.size()-1] > 0);
@@ -50,7 +50,7 @@ void BiPartite::reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, 
     self_ids_in[i] = gpu_order[nd];
     assert(self_ids_in[i] >= 0);
   }
-  num_in_nodes = gpu_capacity;
+  num_in_nodes = gpu_capacity + missing_node_ids.size();
   for(long nd:missing_node_ids){
     gpu_order[nd] = -1;
   }

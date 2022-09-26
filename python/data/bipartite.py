@@ -107,12 +107,13 @@ class Bipartite:
     def gather(self, f_in):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
         if self.num_nodes_v == 0:
+            assert(False)
+            # Might cause a silent failure.
             return f_in
         with self.graph.local_scope():
-            print(f_in.shape[0], self.graph.number_of_nodes('_U'))
             # FixME Todo: Fix this inconsistency in number of nodes
+            print(f_in.shape[0], self.graph.number_of_nodes('_U'))
             assert(f_in.shape[0] == self.graph.number_of_nodes('_U'))
-            print(self.graph)
             self.graph.nodes['_U'].data['in'] = f_in
             f = self.graph.formats()
             self.graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
@@ -141,7 +142,7 @@ class Bipartite:
     def self_gather(self, local_in):
         with self.graph.local_scope():
             out = torch.zeros(self.num_nodes_v,
-                              local_in.shape[1], device=self.gpu_id)
+                              *local_in.shape[1:], device=self.gpu_id)
             out[self.self_ids_out] = local_in[self.self_ids_in]
             return out
 

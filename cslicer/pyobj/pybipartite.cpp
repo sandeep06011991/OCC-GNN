@@ -46,9 +46,9 @@ PySample::PySample(PartitionedSample &s){
           // std::cout << s->layers[i].bipartite[j] <<"\n";
           auto bipartite = new PyBipartite(s.layers[i].bipartite[j]);
           all_bipartites->push_back(bipartite);
-          missing_node_ids.push_back(bipartite->missing_node_ids);
           if(i==0){
             in_nodes = in_nodes + s.layers[i].bipartite[j]->in_nodes.size();
+            missing_node_ids.push_back(bipartite->missing_node_ids);
           }
           if(j==2){
             out_nodes = out_nodes + s.layers[i].bipartite[j]->out_nodes.size();
@@ -56,6 +56,7 @@ PySample::PySample(PartitionedSample &s){
         }
         layers.push_back(all_bipartites);
     }
+
   }
 
 PySample::~PySample(){

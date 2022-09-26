@@ -5,7 +5,7 @@ from torch.nn.parallel import gather
 from dgl.nn.pytorch.conv.gatconv import GATConv
 import dgl.nn.pytorch.conv.sageconv as sgc
 import torch.multiprocessing as mp
-from data.test_bipartite import get_bipartite_graph
+from data.test_bipartite import get_dummy_bipartite_graph
 from torch.nn.parallel import DistributedDataParallel
 from layers.dist_gatconv import DistGATConv
 
@@ -48,7 +48,7 @@ class ToyModel(nn.Module):
 
     def __init__(self, gpu_id):
         super().__init__()
-        self.ll = DistGATConv(4, 8, num_heads=1)
+        self.ll = DistGATConv(4, 8, gpu_id,  num_heads=1)
         self.gpu_id = gpu_id
 
     def forward(self, bipartite_graph, f):

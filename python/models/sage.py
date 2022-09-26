@@ -44,6 +44,7 @@ class SAGE(nn.Module):
                 torch.ones(l.fc_self.weight.shape))
             l.fc_neigh.weight = torch.nn.Parameter(
                 torch.ones(l.fc_neigh.weight.shape))
+                
     def print_gradient(self):
         for id,l in enumerate(self.layers):
             print("layer self ",id,l.fc_self.weight[:3,0], torch.sum(l.fc_self.weight))
