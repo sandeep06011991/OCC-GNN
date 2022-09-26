@@ -95,7 +95,7 @@ def main(args):
 
     # global train_nid_list
     # train_nid_list= train_nid.tolist()
-    queue_size =4
+    queue_size =8
     no_worker_process = 4
 
     work_producer_process = mp.Process(target=(work_producer), \

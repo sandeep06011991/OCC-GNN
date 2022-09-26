@@ -3,8 +3,10 @@ import re
 import sys
 import os
 import git
-
+# Check environment before getting root dir.
 ROOT_DIR = "/home/spolisetty/OCC-GNN/cslicer/"
+
+SRC_DIR = "/home/spolisetty/OCC-GNN/python/cslicer_sharer.py"
 
 def get_git_info():
     repo = git.Repo(search_parent_directories = True)
@@ -28,44 +30,58 @@ def average_string(ls):
     return c
 
 # measures cost of memory transfer of dataset
+
 def run_occ(graphname, epochs,cache_per, hidden_size, fsize, minibatch_size):
     output = subprocess.run(["python3",\
             "/home/spolisetty/OCC-GNN/python/cslicer_sharer.py",\
         "--graph",graphname,  \
-         "--num-epochs", str(epochs) , "--num-hidden" , str(hidden_size),\
-            "--fsize", str(fsize) , "--batch-size", str(minibatch_size)], capture_output = True)
+        "--model", model , \
+        "--cache-per" , str(cache_per),\
+        "--num-hidden",  str(hidden_size), \
+        "--batch-size", str(minibatch_size), \
+        "--data", "quiver", "--num-epochs", str(epochs)] \
+            , capture_output = True)
+    print(out,error)
     out = str(output.stdout)
     error = str(output.stderr)
-    print(out,error)
-    if True:
-    #try:
-        sample_get  = re.findall("avg sample get time: (\d+\.\d+)sec",out)[0]
-        forward =  re.findall("avg forward time: (\d+\.\d+)sec",out)[0]
-        epoch_time = re.findall("avg epoch time: (\d+\.\d+)sec",out)[0]
-        back_time = re.findall("avg backward time: (\d+\.\d+)sec",out)[0]
-        move_time = re.findall("avg move time: (\d+\.\d+)sec",out)[0]
-        accuracy_time = re.findall("final accuracy: ()")
-        #movement = re.findall("cache refresh time (\d+\.\d+)",out)[0]
+    #print(out,error)
+    #print("Start Capture !!!!!!!", graphname, minibatch_size)
+    try:
+        accuracy  = re.findall("accuracy:(\d+\.\d+)",out)[0]
+        epoch = re.findall("epoch:(\d+\.\d+)",out)[0]
+        sample_get  = re.findall("sample_time:(\d+\.\d+)",out)[0]
+        movement_graph =  re.findall("movement graph:(\d+\.\d+)",out)[0]
+        movement_feat = re.findall("movement feature:(\d+\.\d+)",out)[0]
+        forward_time = re.findall("forward time:(\d+\.\d+)",out)[0]
+        backward_time = re.findall("backward time:(\d+\.\d+)",out)[0]
+
         sample_get = "{:.2f}".format(float(sample_get))
-        forward = "{:.2f}".format(float(forward))
-        epoch_time = "{:.2f}".format(float(epoch_time))
-        back_time = "{:.2f}".format(float(back_time))
-        move_time = "{:.2f}".format(float(move_time))
+        movement_graph = "{:.2f}".format(float(movement_graph))
+        movement_feat = "{:.2f}".format(float(movement_feat))
+        accuracy = "{:.2f}".format(float(accuracy))
+        forward_time = "{:.2f}".format(float(forward_time))
+        epoch = "{:.2f}".format(float(epoch))
+        backward_time = "{:.2f}".format(float(backward_time))
 
-    #except:
-        slice_get = "error"
-        forward = "error"
-        move_time = "error"
-        epoch_time = "error"
-        back_time = "error"
-    return {"forward":forward, "sample_get":sample_get, "back_time":back_time, \
-            "move_time":move_time, "epoch_time":epoch_time}
+    except Exception as e:
+        with open('exception_occ.txt','a') as fp:
+            fp.write(error)
+        sample_get = "error"
+        movement_graph = "error"
+        movement_feat = "error"
+        forward_time = "error"
+        backward_time = "error"
+        accuracy = "error"
+        epoch = "error"
+    return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
+            "movement_graph":movement_graph, "movement_feat": movement_feat, "epoch":epoch,
+                "accuracy": accuracy}
 
 
-def run_experiment_occ(settings = None):
+def run_experiment_occ(model):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
     settings = [
-                 ("ogbn-arxiv", 32, -1, 4096, "GAT"), \
+                 ("ogbn-arxiv", 32, -1, 4096), \
                 #("ogbn-arxiv",3, 256, -1, 4096),\
                 #("ogbn-arxiv",3, 32 , -1 , 1024), \
                 #("ogbn-products",3, 32, -1, 4096), \

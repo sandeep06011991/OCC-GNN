@@ -34,6 +34,8 @@ class Bipartite:
         metagraph_index = heterograph_index.create_metagraph_index(['_U','_V'],[('_V','_E','_U')])
         # # Note dont have to create coo graphs
         # # I can use csr graphs directly
+        # But coo will be created in back pass
+        # Look for ways to avoid this. 
         hg = heterograph_index.create_unitgraph_from_coo(\
                     2,  self.N, self.M, self.expand_indptr, self.indices, ['coo','csr','csc'])
         graph = heterograph_index.create_heterograph_from_relations( \

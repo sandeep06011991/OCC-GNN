@@ -40,7 +40,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         deterministic, worker_id, sm_filename_queue):
     no_worker_threads = 1
     sampler = cslicer(graph_name,storage_vector,10, deterministic)
-    sm_client = SharedMemClient(sm_filename_queue)
+    sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id)
     # Todo clean up unnecessary iterations
     log = LogFile("slice-py", worker_id)
     while(True):
@@ -69,6 +69,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         print("cmodule returns sample, start tensorize")
         log.log("cmodule returns sample, start tensorize")
         tensorized_sample = Sample(csample)
+        print("Finish tensorize")
         log.log("Tensorization complete. start serialziation")
         sample_id = tensorized_sample.randid
         gpu_local_samples = []
@@ -82,6 +83,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
             ref = ((name, data.shape, data.dtype.name))
             gpu_local_samples.append(ref)
         log.log("Serialization complete, write meta data to leader gpu process")
+        print("finish write and serialization.")
         # assert(False)
         #while(sample_queues[0].qsize() >= queue_size - 3):
         #    time.sleep(.01)
@@ -89,6 +91,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         #print("Worker puts sample",sample_id)
         # Write to leader gpu
         print("Slicer puts sample !!!!!!!!!!!!!!!!!!!!!!11")
+        log.log("Slicer puts sample {}".format(sample_queue.qsize()))
         sample_queue.put(tuple(gpu_local_samples))
         # for qid,q in enumerate(sample_queues):
         #     while True:

@@ -1,4 +1,5 @@
 SHARED_MEMORY_SIZE = 10 * 1024 * 1024
+# Number of workers * 2 = Quesize = num buckets.
 NUM_BUCKETS = 16
 from multiprocessing.shared_memory import SharedMemory
 import multiprocessing as mp
@@ -29,14 +30,14 @@ class SharedMemManager():
 
 class SharedMemClient():
 
-    def __init__(self, free_memory_filenames):
+    def __init__(self, free_memory_filenames, name, worker_id):
         self.buckets = {}
         self.free_memory_filenames = free_memory_filenames
         for i in range(NUM_BUCKETS):
             name = 's{}'.format(i)
             self.buckets[name] = SharedMemory(name, size =SHARED_MEMORY_SIZE)
         self.used_memory = {}
-        self.log = LogFile("train", 0)
+        self.log = LogFile(name, worker_id)
 
     def write_to_shared_memory(self ,data):
         # returns filename written to
@@ -45,13 +46,16 @@ class SharedMemClient():
         if(data.shape[0] * data.dtype.itemsize > SHARED_MEMORY_SIZE):
             self.log.log("Shared Memory bucket size is not enouch for {}".format(data.shape[0] * data.dtype.itemsize))
         assert(data.shape[0] * data.dtype.itemsize < SHARED_MEMORY_SIZE)
-        while(True):
-            try:
-                name = self.free_memory_filenames.get_nowait()
-                break
-            except:
-                print("Allocate more shared memory")
-                time.sleep(10)
+        self.log.log("Trying to write, avail shared memory buckets {}".format(self.free_memory_filenames.qsize()))
+        name = self.free_memory_filenames.get()
+        # while(True):
+            # try:
+            #     name = self.free_memory_filenames.get_nowait()
+            #     break
+            # except:
+            #     self.log("")
+            #     print("Allocate more shared memory")
+            #     time.sleep(.001)
         buff = self.buckets[name]
         # SharedMemory(name = name , size = SHARED_MEMORY_SIZE)
         allocate = np.ndarray(*data.shape,dtype = data.dtype,  buffer = buff.buf)

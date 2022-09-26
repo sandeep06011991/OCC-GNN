@@ -153,7 +153,6 @@ def serialize_to_tensor(object):
         print(attr_value, attr, type(attr_value))
         # Unknown data data type
         raise Exception("Unknown object found")
-    print(type(object), len(offsets), offset_size)
     assert(len(offsets) == offset_size)
     meta = torch.tensor(offsets)
     final_data = []

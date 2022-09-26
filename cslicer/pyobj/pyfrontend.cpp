@@ -108,7 +108,6 @@ public:
           std::cout << "My anser is " << p_val << "sample_val "<< "\n";
           assert(sample_val  == p_val);
       }
-      std::cout <<"cslicerer recieves sample4 \n";
       sample->debug_vals = ret;
 
       // p_sample.debug();
