@@ -115,7 +115,8 @@ def trainer(rank, world_size, args, backend='nccl'):
     for epoch in range(args.n_epochs):
       model.train()
       epoch_start_time = time.time()
-      epoch_compute_time = 0
+      forward_time_epoch = 0
+      backward_time_epoch = 0
       epoch_sample_time = 0
       step = 0
       #print("start epoch",rank)
@@ -154,8 +155,8 @@ def trainer(rank, world_size, args, backend='nccl'):
           e3.record()
         e3.synchronize()
         #print("Compute time without sync", e1.elapsed_time(e2)/1000)
-        epoch_forward_time += (e1.elapsed_time(e2)/1000)
-        epoch_backward_time += (e2.elapsed_time(e3)/1000)
+        forward_time_epoch += (e1.elapsed_time(e2)/1000)
+        backward_time_epoch += (e2.elapsed_time(e3)/1000)
 
         step += 1
         #print("current minibatch",step,rank)
@@ -174,6 +175,8 @@ def trainer(rank, world_size, args, backend='nccl'):
         time_cache_move.append(mov_t)
         event_cache_gather.append(collect_c)
         event_cache_move.append(move_c)
+        forward_time.append(forward_time_epoch)
+        backward_time.append(backward_time_epoch)
         #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
         miss_rate = cacher.get_miss_rate()
         miss_rate_per_epoch.append(miss_rate)
@@ -182,13 +185,15 @@ def trainer(rank, world_size, args, backend='nccl'):
   print("Exiting training working to collect profiler results")
   if rank == 0:
       print("Sample time: {:.4}s\n".format(avg(sample_time)))
-      print("Compute time: {:.4}s\n".format(avg(compute_time)))
+      print("forward time: {:.4}s\n".format(avg(forward_time)))
+      print("backward time: {:.4}s\n".format(avg(backward_time)))
       print("CPU collect: {:.4}s\n".format(avg(time_cache_gather)))
       print("CUDA collect: {:.4}s\n".format(avg(event_cache_gather)))
       print("CPU move: {:.4}s\n".format(avg(time_cache_move)))
       print("CUDA move: {:.4}s\n".format(avg(event_cache_move)))
       print("Epoch time: {:.4}s\n".format(avg(epoch_dur)))
       print("Miss rate: {:.4}s\n".format(avg(miss_rate_per_epoch)))
+
   # Profiling everything is unstable and overweight.
   # torch profiler uses events under it.
   #if rank == 0:
