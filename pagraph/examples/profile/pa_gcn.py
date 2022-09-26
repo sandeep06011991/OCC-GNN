@@ -47,7 +47,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   # load data
   dataname = os.path.basename(dataset)
   remote_g = dgl.contrib.graph_store.create_graph_from_store(dataname, "shared_mem")
-  
+
   adj, t2fid = data.get_sub_train_graph(dataset, rank, world_size)
   g = DGLGraph(adj, readonly=True)
   n_classes = args.n_classes
@@ -57,7 +57,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   sub_labels = data.get_sub_train_labels(dataset, rank, world_size)
   labels = np.zeros(np.max(train_nid) + 1, dtype=np.int)
   labels[train_nid] = sub_labels.flatten()
-  
+
   # to torch tensor
   t2fid = torch.LongTensor(t2fid)
   labels = torch.LongTensor(labels)
@@ -104,10 +104,12 @@ def trainer(rank, world_size, args, backend='nccl'):
   event_cache_gather = []
   time_cache_move = []
   event_cache_move = []
-  compute_time = []
+  foward_time = []
+  backward_time = []
   sample_time = []
   e1 = torch.cuda.Event(enable_timing = True)
   e2 = torch.cuda.Event(enable_timing = True)
+  e3 = torch.cuda.Event(enable_timing = True)
   with torch.autograd.profiler.profile(enabled=(False), use_cuda=True) as prof:
     cacher.auto_cache(g,embed_names)
     for epoch in range(args.n_epochs):
@@ -142,16 +144,19 @@ def trainer(rank, world_size, args, backend='nccl'):
         e1.record()
         #with torch.autograd.profiler.record_function('gpu-compute'):
         with nvtx.annotate('compute', color = 'red'):
-        #if True: 
+        #if True:
           pred = model(nf)
+          e2.record()
           loss = loss_fcn(pred, label)
           optimizer.zero_grad()
           loss.backward()
           optimizer.step()
-        e2.record()
-        e2.synchronize()
+          e3.record()
+        e3.synchronize()
         #print("Compute time without sync", e1.elapsed_time(e2)/1000)
-        epoch_compute_time += (e1.elapsed_time(e2)/1000)
+        epoch_forward_time += (e1.elapsed_time(e2)/1000)
+        epoch_backward_time += (e2.elapsed_time(e3)/1000)
+
         step += 1
         #print("current minibatch",step,rank)
         if epoch == 0 and step == 1:
@@ -184,8 +189,8 @@ def trainer(rank, world_size, args, backend='nccl'):
       print("CUDA move: {:.4}s\n".format(avg(event_cache_move)))
       print("Epoch time: {:.4}s\n".format(avg(epoch_dur)))
       print("Miss rate: {:.4}s\n".format(avg(miss_rate_per_epoch)))
-  # Profiling everything is unstable and overweight. 
-  # torch profiler uses events under it. 
+  # Profiling everything is unstable and overweight.
+  # torch profiler uses events under it.
   #if rank == 0:
   #  print(prof.key_averages().table(sort_by='cuda_time_total'))
   print('Total Time: {:.4f}s'.format(toc - tic))
@@ -237,11 +242,10 @@ if __name__ == '__main__':
   parser.add_argument("--num-workers", type=int, default=1)
   parser.add_argument("--remote-sample", dest='remote_sample', action='store_true')
   parser.set_defaults(remote_sample=False)
-  
+
   args = parser.parse_args()
 
   os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
   gpu_num = len(args.gpu.split(','))
 
   mp.spawn(trainer, args=(gpu_num, args), nprocs=gpu_num, join=True)
-  
