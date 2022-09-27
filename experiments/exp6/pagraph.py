@@ -74,38 +74,43 @@ def start_client(filename, model, num_hidden, batch_size, cache_per):
     print(out,err)
     output = out
     accuracy = float(re.findall("accuracy: (\d+\.\d+)", output)[0])
-    move_graph = float(re.findall("movement graph:  (\d+\.\d+)s", output)[0])
+    move_graph = float(re.findall("movement graph: (\d+\.\d+)s", output)[0])
     forward = float(re.findall("forward time: (\d+\.\d+)s", output)[0])
     backward = float(re.findall("backward time: (\d+\.\d+)s", output)[0])
     sample = float(re.findall("Sample time: (\d+\.\d+)s",output)[0])
-    compute  = float(re.findall("Compute time: (\d+\.\d+)s",output)[0])
+    #compute  = float(re.findall("Compute time: (\d+\.\d+)s",output)[0])
     collect  = float(re.findall("CPU collect: (\d+\.\d+)s",output)[0])
     move  = float(re.findall("CUDA move: (\d+\.\d+)s",output)[0])
     epoch  = float(re.findall("Epoch time: (\d+\.\d+)s",output)[0])
     miss_rate = float(re.findall("Miss rate: (\d+\.\d+)s",output)[0])
 
     return {"sample":sample, "forward": forward, "backward": backward,\
-            "move_feat":move + collect, "epoch":epoch, "miss_rate": miss_rate, "move_graph":move_graph\
+            "move_feat":move + collect, "epoch_time":epoch, "miss_rate": miss_rate, "move_graph":move_graph\
                 , "accuracy": accuracy }
 
 def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per):
     fp = start_server(filename)
     res = start_client(filename, model, hidden_size, batch_size, cache_per)
     WRITE = "exp6_pagraph.txt".format(ROOT_DIR)
-
     with open(WRITE,'a') as fp:
-        fp.write("{}|{}|{}|{}|{}|{}|{}\n".format(filename, "unity", cache_per, hidden_size, batch_size, model, res["sample"], res["move_graph"], res["move_feat"],res["forward"], res["backward"],res["epoch_time"], res["accuracy"]))
+        fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "unity", cache_per, hidden_size,4 * batch_size, model, res["sample"], res["move_graph"], res["move_feat"],res["forward"], res["backward"],res["epoch_time"], res["accuracy"]))
     fp.close()
 
 def run_experiment(model):
     graphs = ['ogbn-arxiv','ogbn-products']
     #graphs = ['ogbn-papers100M']
     #graphs = ['ogbn-arxiv']
-    settings = [('ogbn-arxiv', 16, 1024)]
+    settings = [('ogbn-arxiv', 16, 1024),
+                ('ogbn-arxiv', 16, 256), 
+                ('ogbn-arxiv', 16, 4096), 
+                ('ogbn-products', 16, 1024), 
+                ('ogbn-products', 16, 256), 
+                ('ogbn-products', 16, 4096)]
+
     sha, dirty = get_git_info()
     check_path()
     check_no_stale()
-    cache_per = [".25"]
+    cache_per = ["0",".1",".25",".5",".75","1"]
     with open('exp6_pagraph.txt','a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy \n")
@@ -124,3 +129,4 @@ def run_experiment(model):
 
 if __name__ == "__main__":
     run_experiment("gcn")
+    run_experiment("gat")
