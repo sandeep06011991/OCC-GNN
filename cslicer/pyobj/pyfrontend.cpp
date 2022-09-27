@@ -69,7 +69,6 @@ public:
             }
         }
 
-        std::cout << "Printing GPU local to global map \n";
         for(int i=0;i<4;i++){
           int j = 0;
           int order =0;

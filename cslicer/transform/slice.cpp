@@ -66,6 +66,5 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
     }
     for(int i=0;i<4;i++){
         ps.refresh_map[i] = ps.layers[2].bipartite[i]->missing_node_ids;
-        // spdlog::info("Refresh map size {}", ps.refresh_map[i].size());
     }
   }

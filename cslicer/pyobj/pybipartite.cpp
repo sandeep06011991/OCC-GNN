@@ -48,14 +48,15 @@ PySample::PySample(PartitionedSample &s){
           all_bipartites->push_back(bipartite);
           if(i==0){
             in_nodes = in_nodes + s.layers[i].bipartite[j]->in_nodes.size();
-            missing_node_ids.push_back(bipartite->missing_node_ids);
           }
-          if(j==2){
+          if(i==2){
             out_nodes = out_nodes + s.layers[i].bipartite[j]->out_nodes.size();
+             missing_node_ids.push_back(bipartite->missing_node_ids);
           }
         }
         layers.push_back(all_bipartites);
     }
+    
 
   }
 

@@ -135,6 +135,7 @@ public:
     in_nodes.clear();
     out_nodes.clear();
     owned_out_nodes.clear();
+    missing_node_ids.clear();
     in_degree.clear();
     num_in_nodes = 0;
     num_out_nodes = 0;

@@ -144,7 +144,6 @@ class GpuLocalStorage():
         total_features  = self.batch_in[0:self.cache_feature_size + last_layer_nodes.shape[0],:]
         replace_features = self.batch_in[self.cache_feature_size:self.cache_feature_size + last_layer_nodes.shape[0],:]
         replace_features = self.features[last_layer_nodes].to(self.proc_id)
-
             # assert(self.features.device == torch.device("cpu"))
             # assert(self.batch_in[gpu_id].device == torch.device(gpu_id))
         return total_features

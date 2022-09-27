@@ -119,7 +119,7 @@ class Bipartite:
             self.graph.nodes['_U'].data['in'] = f_in
             f = self.graph.formats()
             self.graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
-            
+
             # No new formats must be created.
             if(f != self.graph.formats()):
                 LogFile("bipartite", 1).log("Created new graph formats from {} to {}".format(f, self.graph.formats()))

@@ -56,10 +56,11 @@ global_order_dict[Gpu_Local_Sample] = get_attr_order_and_offset_size(Gpu_Local_S
 print(global_order_dict.keys())
 
 def construct_from_tensor_on_gpu(tensor, device, object):
-    print("Warning. Dont have to reanalyze the object everytime. ")
-    order, offset_size = get_attr_order_and_offset_size(object)
-    assert(offset_size == global_order_dict[type(object)][1])
-    assert(len(order) == len(global_order_dict[type(object)][0]))
+    # print("Warning. Dont have to reanalyze the object everytime. ")
+    # order, offset_size = get_attr_order_and_offset_size(object)
+    order, offset_size = global_order_dict[type(object)]
+    # assert(offset_size == global_order_dict[type(object)][1])
+    # assert(len(order) == len(global_order_dict[type(object)][0]))
     assert(tensor.device == device)
     # header Compute
     offsets = tensor[:offset_size]

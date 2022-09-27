@@ -50,7 +50,8 @@ void BiPartite::reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, 
     self_ids_in[i] = gpu_order[nd];
     assert(self_ids_in[i] >= 0);
   }
-  num_in_nodes = gpu_capacity + missing_node_ids.size();
+  num_in_nodes = gpu_capacity ;
+  // + missing_node_ids.size();
   for(long nd:missing_node_ids){
     gpu_order[nd] = -1;
   }
