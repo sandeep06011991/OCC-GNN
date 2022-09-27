@@ -64,15 +64,19 @@ def start_server(filename):
     sys.stdout.flush()
     return fp
 
-def start_client(filename):
+def start_client(filename, model, num_hidden, batch_size, cache_per):
     feat_size = Feat[filename]
-    cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset', filename,'--n-epochs','2'\
-                    ,'--feat-size',feat_size]
+    cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset', filename,'--n-epochs','6'\
+                    ,'--feat-size',feat_size, '--n-hidden', str(num_hidden), '--batch-size', str(batch_size), '--model', model, "--cache-per",str(cache_per)]
     output = subprocess.run(cmd, capture_output=True)
     out = str(output.stdout)
     err = str(output.stderr)
     print(out,err)
     output = out
+    accuracy = float(re.findall("accuracy: (\d+\.\d+)", output)[0])
+    move_graph = float(re.findall("movement graph:  (\d+\.\d+)s", output)[0])
+    forward = float(re.findall("forward time: (\d+\.\d+)s", output)[0])
+    backward = float(re.findall("backward time: (\d+\.\d+)s", output)[0])
     sample = float(re.findall("Sample time: (\d+\.\d+)s",output)[0])
     compute  = float(re.findall("Compute time: (\d+\.\d+)s",output)[0])
     collect  = float(re.findall("CPU collect: (\d+\.\d+)s",output)[0])
@@ -80,36 +84,38 @@ def start_client(filename):
     epoch  = float(re.findall("Epoch time: (\d+\.\d+)s",output)[0])
     miss_rate = float(re.findall("Miss rate: (\d+\.\d+)s",output)[0])
 
-    return {"sample":sample, "compute":compute, "collect":collect,\
-            "move":move, "epoch":epoch, "miss_rate": miss_rate}
+    return {"sample":sample, "forward": forward, "backward": backward,\
+            "move_feat":move + collect, "epoch":epoch, "miss_rate": miss_rate, "move_graph":move_graph\
+                , "accuracy": accuracy }
 
-def run_experiment_on_graph(filename):
+def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per):
     fp = start_server(filename)
-    res = start_client(filename)
-    WRITE = "{}/experiments/exp1.txt".format(ROOT_DIR)
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+    WRITE = "exp6_pagraph.txt".format(ROOT_DIR)
 
     with open(WRITE,'a') as fp:
-        fp.write("{}|{}|{}|{}|{}|{}|{}\n".format(filename,res["sample"], res["collect"],res["move"], res["compute"], \
-                        res["epoch"], res["miss_rate"]))
+        fp.write("{}|{}|{}|{}|{}|{}|{}\n".format(filename, "unity", cache_per, hidden_size, batch_size, model, res["sample"], res["move_graph"], res["move_feat"],res["forward"], res["backward"],res["epoch_time"], res["accuracy"]))
     fp.close()
 
-def run_experiment():
+def run_experiment(model):
     graphs = ['ogbn-arxiv','ogbn-products']
     #graphs = ['ogbn-papers100M']
     #graphs = ['ogbn-arxiv']
+    settings = [('ogbn-arxiv', 16, 1024)]
     sha, dirty = get_git_info()
     check_path()
     check_no_stale()
-    filename = "{}/experiments/exp1.txt".format(ROOT_DIR)
-    with open(filename,'a') as fp:
-        fp.write("Git hash:{}, Dirty:{}\n".format(sha, dirty))
-        fp.write("File |  Sample | Collect | Move | Compute | Epoch | Miss rate \n")
-    for i in graphs:
+    cache_per = [".25"]
+    with open('exp6_pagraph.txt','a') as fp:
+        fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
+        fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy \n")
+    for graphname, hidden_size, batch_size in settings: 
         try:
-            run_experiment_on_graph(i)
+            for cache in cache_per:
+                run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
         except:
             import traceback
-            with open("exeption",'a') as fp:
+            with open("exeption_pagraph",'a') as fp:
                 import sys
                 ex_type, ex, tb = sys.exc_info()
                 traceback.print_exception(ex_type, ex, tb)
@@ -117,4 +123,4 @@ def run_experiment():
                 traceback.print_exception(ex_type, ex, tb, file = fp)
 
 if __name__ == "__main__":
-    run_experiment()
+    run_experiment("gcn")

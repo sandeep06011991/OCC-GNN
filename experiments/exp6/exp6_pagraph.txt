@@ -26,3 +26,9 @@ Author: sandeep06011991 <spolisetty@jupiter.cs.umass.edu>
 Date:   Thu Jul 21 12:48:49 2022 -0400
 
     pre clean up snapshot
+sha:acb6ee1eeeaeb47613a918c78c449e98d8cd1ce5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy 
+sha:acb6ee1eeeaeb47613a918c78c449e98d8cd1ce5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy 
+sha:acb6ee1eeeaeb47613a918c78c449e98d8cd1ce5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy 

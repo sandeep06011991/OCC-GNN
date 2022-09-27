@@ -22,6 +22,7 @@ if (not path_set):
 
 
 from PaGraph.model.gcn_nssc import GCNSampling
+from PaGraph.model.gat_nodeflow import GATNodeFlow
 import PaGraph.data as data
 import PaGraph.storage as storage
 from PaGraph.parallel import SampleLoader
@@ -38,6 +39,14 @@ ROOT_DIR = "/work/spolisetty_umass_edu/pagraph"
 
 def avg(ls):
     return (sum(ls[1:])/(len(ls)-1))
+
+def compute_acc(pred, labels):
+    """
+    Compute the accuracy of prediction given the labels.
+    """
+    false_labels = torch.where(torch.argmax(pred,dim = 1) != labels)[0]
+    return (torch.argmax(pred, dim=1) == labels).float().sum() / len(pred )
+    
 
 def trainer(rank, world_size, args, backend='nccl'):
   dataset = "{}/{}/".format(ROOT_DIR, args.dataset)
@@ -62,19 +71,41 @@ def trainer(rank, world_size, args, backend='nccl'):
   t2fid = torch.LongTensor(t2fid)
   labels = torch.LongTensor(labels)
   embed_names = ['features', 'norm']
-  cacher = storage.GraphCacheServer(remote_g, adj.shape[0], t2fid, rank)
+  cacher = storage.GraphCacheServer(remote_g, adj.shape[0], t2fid, rank, args.cache_per)
   cacher.init_field(embed_names)
   cacher.log = True
 
   # prepare model
   num_hops = args.n_layers if args.preprocess else args.n_layers + 1
-  model = GCNSampling(args.feat_size,
+  if args.model == "gcn":
+      model = GCNSampling(args.feat_size,
                       args.n_hidden,
                       n_classes,
                       args.n_layers,
                       F.relu,
                       args.dropout,
                       args.preprocess)
+  else:
+      assert(args.model == "gat")
+      residual = False
+      num_layers = args.n_layers
+      in_dim = args.feat_size
+      num_hidden = args.n_hidden
+      num_classes = n_classes
+      num_heads = 3
+      feat_drop = args.dropout
+      attn_drop = args.dropout
+      model = GATNodeFlow(
+                 num_layers,
+                 in_dim,
+                 num_hidden,
+                 num_classes,
+                 num_heads,
+                 feat_drop,
+                 attn_drop,
+                 residual,
+                 activation=F.relu)
+
   loss_fcn = torch.nn.CrossEntropyLoss()
   optimizer = torch.optim.Adam(model.parameters(),
                                lr=args.lr,
@@ -104,12 +135,15 @@ def trainer(rank, world_size, args, backend='nccl'):
   event_cache_gather = []
   time_cache_move = []
   event_cache_move = []
-  foward_time = []
+  forward_time = []
   backward_time = []
   sample_time = []
+  graph_move_time = []
   e1 = torch.cuda.Event(enable_timing = True)
   e2 = torch.cuda.Event(enable_timing = True)
   e3 = torch.cuda.Event(enable_timing = True)
+  e4 = torch.cuda.Event(enable_timing = True)
+  e5 = torch.cuda.Event(enable_timing = True)
   with torch.autograd.profiler.profile(enabled=(False), use_cuda=True) as prof:
     cacher.auto_cache(g,embed_names)
     for epoch in range(args.n_epochs):
@@ -137,15 +171,17 @@ def trainer(rank, world_size, args, backend='nccl'):
         with nvtx.annotate("cache",color = 'blue'):
         #with torch.autograd.profiler.record_function('gpu-load'):
         #if True:
+          s0 = time.time()
+          e4.record()
+          nf.copy_from_parent(ctx)
           s1 = time.time()
+          e5.record()
           cacher.fetch_data(nf)
           batch_nids = nf.layer_parent_nid(-1)
           label = labels[batch_nids]
           label = label.cuda(rank, non_blocking=True)
-          s2 = time.time()
-          nf.copy_from_parent(ctx)
-          s3 = time.time()
-          epoch_move_graph_time = s3 - s2
+          e4.synchronize()
+          epoch_move_graph_time += max((s1 - s0),e4.elapsed_time(e5)/1000)
           #print("Cache time",s2-s1)
         e1.record()
         #with torch.autograd.profiler.record_function('gpu-compute'):
@@ -154,6 +190,7 @@ def trainer(rank, world_size, args, backend='nccl'):
           pred = model(nf)
           e2.record()
           loss = loss_fcn(pred, label)
+          acc = compute_acc(pred,label)
           optimizer.zero_grad()
           loss.backward()
           optimizer.step()
@@ -190,9 +227,11 @@ def trainer(rank, world_size, args, backend='nccl'):
     toc = time.time()
   print("Exiting training working to collect profiler results")
   if rank == 0:
+      print("accuracy: {:.4}\n".format(acc))
       print("Sample time: {:.4}s\n".format(avg(sample_time)))
       print("forward time: {:.4}s\n".format(avg(forward_time)))
       print("backward time: {:.4}s\n".format(avg(backward_time)))
+      print("movement graph: {:.4}s\n".format(avg(graph_move_time)))
       print("CPU collect: {:.4}s\n".format(avg(time_cache_gather)))
       print("CUDA collect: {:.4}s\n".format(avg(event_cache_gather)))
       print("CPU move: {:.4}s\n".format(avg(time_cache_move)))
@@ -227,7 +266,7 @@ if __name__ == '__main__':
   parser.add_argument("--dataset", type=str, default="None",
                       help="path to the dataset folder")
   # model arch
-  parser.add_argument("--feat-size", type=int, default=100,
+  parser.add_argument("--feat-size", type=int, 
                       help='input feature size')
   parser.add_argument("--n-classes", type=int, default=60)
   parser.add_argument("--dropout", type=float, default=0.2,
@@ -252,6 +291,8 @@ if __name__ == '__main__':
                       help="number of neighbors to be sampled")
   parser.add_argument("--num-workers", type=int, default=1)
   parser.add_argument("--remote-sample", dest='remote_sample', action='store_true')
+  parser.add_argument("--model",type = str)
+  parser.add_argument("--cache-per", type = float)
   parser.set_defaults(remote_sample=False)
 
   args = parser.parse_args()

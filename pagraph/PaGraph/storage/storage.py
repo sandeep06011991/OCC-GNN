@@ -22,7 +22,7 @@ class GraphCacheServer:
   Manage graph features
   Automatically fetch the feature tensor from CPU or GPU
   """
-  def __init__(self, graph, node_num, nid_map, gpuid):
+  def __init__(self, graph, node_num, nid_map, gpuid, cache_per):
     """
     Paramters:
       graph:   should be created from `dgl.contrib.graph_store`
@@ -42,7 +42,7 @@ class GraphCacheServer:
 
     self.cached_num = 0
     self.capability = node_num
-
+    self.cache_per = cache_per
     # gpu tensor cache
     self.full_cached = False
     self.dims = {}          # {'field name': dims of the tensor data of a node}
@@ -97,7 +97,7 @@ class GraphCacheServer:
     print('Cache Memory: {:.2f}G. Capability: {}'
           .format(available / 1024 / 1024 / 1024, self.capability))
     print("However, caching 25% of node capacity")
-    self.capability = int(self.node_num/4)
+    self.capability = int(self.cache_per * self.node_num)
     # Step3: cache
     if self.capability >= self.node_num:
       # fully cache
