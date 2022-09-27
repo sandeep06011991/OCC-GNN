@@ -102,9 +102,7 @@ public:
       std::vector<int> ret(4);
       for(int i=0;i<4;i++){
         ret[i] = 0;
-        std::cout << "dummy map size" << dummy_storage_map[i].size() << "\n";
       }
-      std::cout <<"cslicerer recieves sample3 \n";
       if(this->deterministic){
           int p_val =  sample_flow_up_ps(p_sample, dummy_storage_map, ret);
           std::cout << "My anser is " << p_val << "sample_val "<< "\n";

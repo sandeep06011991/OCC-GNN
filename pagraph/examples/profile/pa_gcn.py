@@ -13,7 +13,7 @@ from dgl import DGLGraph
 PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
 path_set = False
 for p in sys.path:
-    print(p)
+    # print(p)
     if PATH_DIR ==  p:
        path_set = True
 if (not path_set):

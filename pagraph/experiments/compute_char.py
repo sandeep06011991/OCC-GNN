@@ -1,4 +1,4 @@
- # Ensure cuda/10.2 is loaded 
+ # Ensure cuda/10.2 is loaded
 import subprocess
 import os
 import time
@@ -14,7 +14,7 @@ def get_git_info():
     repo = git.Repo(search_parent_directories = True)
     sha = repo.head.object.hexsha
     dirty = repo.is_dirty()
-    return sha,dirty 
+    return sha,dirty
 
 def check_path():
     path_set = False
@@ -45,8 +45,8 @@ def start_server(filename):
     cmd = ['python3','{}/server/pa_server.py'.format(ROOT_DIR),'--dataset',filename]
     print(cmd)
     #cmd = ['python3','hello.py']
-    fp = subprocess.Popen(cmd, 
-                    stdout = subprocess.PIPE, 
+    fp = subprocess.Popen(cmd,
+                    stdout = subprocess.PIPE,
                      stderr = subprocess.PIPE,
                      text = True)
     os.set_blocking(fp.stdout.fileno(), False)
@@ -54,7 +54,7 @@ def start_server(filename):
     while(True):
         out = fp.stdout.readline()
         err = fp.stderr.readline()
-        print(out,err) 
+        print(out,err)
         sys.stdout.flush()
         if 'start running graph' in str(out):
             print("Breaking")
@@ -66,7 +66,8 @@ def start_server(filename):
 
 def start_client(filename):
     feat_size = Feat[filename]
-    cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset', filename,'--n-epochs','2'\
+    cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset',
+     filename,'--n-epochs','2'\
                     ,'--feat-size',feat_size]
     output = subprocess.run(cmd, capture_output=True)
     out = str(output.stdout)
@@ -82,7 +83,7 @@ def start_client(filename):
 
     return {"sample":sample, "compute":compute, "collect":collect,\
             "move":move, "epoch":epoch, "miss_rate": miss_rate}
-            
+
 def run_experiment_on_graph(filename):
     fp = start_server(filename)
     res = start_client(filename)

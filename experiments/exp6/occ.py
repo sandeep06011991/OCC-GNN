@@ -12,9 +12,9 @@ if os.getlogin() == 'q91':
     ROOT_DIR = "/home/spolisetty/OCC-GNN/cslicer/"
     SRC_DIR = "/home/spolisetty/OCC-GNN/python/cslicer_sharer.py"
     SYSTEM = 'ornl'
-if os.getlogin() == 'spolisetty_umass_edu'
-    ROOT_DIR = "/home/spolisetty/OCC-GNN/cslicer/"
-    SRC_DIR = "/home/spolisetty/OCC-GNN/python/cslicer_sharer.py"
+if os.getlogin() == 'spolisetty_umass_edu':
+    ROOT_DIR = "/home/q91/OCC-GNN/cslicer"
+    SRC_DIR = "/home/q91/OCC-GNN/python/cslicer_sharer.py"
     SYSTEM = 'unity'
 
 
@@ -41,20 +41,20 @@ def average_string(ls):
 
 # measures cost of memory transfer of dataset
 
-def run_occ(graphname, model,  epochs,cache_per, hidden_size, fsize, minibatch_size):
+def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
+
     output = subprocess.run(["python3",\
-            "/home/spolisetty/OCC-GNN/python/cslicer_sharer.py",\
+            "/home/spolisetty/OCC-GNN/python/main.py",\
         "--graph",graphname,  \
         "--model", model , \
         "--cache-per" , str(cache_per),\
         "--num-hidden",  str(hidden_size), \
-        "--batch-size", str(minibatch_size), \
-        "--data", "quiver", "--num-epochs", str(epochs)] \
+        "--batch-size", str(minibatch_size) , "--num-epochs", "6"] \
             , capture_output = True)
-    print(out,error)
+    # print(out,error)
     out = str(output.stdout)
     error = str(output.stderr)
-    #print(out,error)
+    # print(out,error)
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
     try:
         accuracy  = re.findall("accuracy:(\d+\.\d+)",out)[0]
@@ -114,20 +114,22 @@ def run_experiment_occ(model):
     check_path()
     print(settings)
     sha,dirty = get_git_info()
+    assert(model in ["gcn","gat"])
     with open('exp6_occ.txt','a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy \n")
-    for graphname, no_epochs, hidden_size, fsize, batch_size in settings:
+    for graphname, hidden_size, fsize, batch_size in settings:
         for cache in cache_rates:
             if graphname in ["ogbn-papers100M","com-friendster"]:
                 if float(cache) > .3:
                     continue
-            out = run_occ(graphname, model,  no_epochs, cache, hidden_size,fsize, batch_size)
+            out = run_occ(graphname, model,  cache, hidden_size,fsize, batch_size)
             with open('exp6_occ.txt','a') as fp:
-                fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} \n".format(graphname , "quiver", cache, hidden_size, fsize, batch_size, model, out["sample_get"], out["movement_graph"], out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"]))
+                fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} \n".format(graphname , "groot", cache, hidden_size, fsize, batch_size, model, out["sample_get"], out["movement_graph"], out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"]))
 
 
 
 
 if __name__=="__main__":
-    run_experiment_occ()
+    run_experiment_occ("gcn")
+    run_experiment_occ("gat")

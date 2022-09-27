@@ -22,10 +22,14 @@ from data.serialize import *
 from utils.log import *
 
 def avg(ls):
-    assert(len(ls) > 3)
+    # assert(len(ls) > 3)
+    print(ls)
+    if(len(ls) <= 3):
+        return sum(ls)/len(ls)
     a = max(ls[1:])
     b = min(ls[1:])
-    return (sum(ls) - a - b)/(len(ls) - 3)
+    # remove 3 as (remove first, max and min)
+    return (sum(ls[1:]) - a - b)/(len(ls) - 3)
 
 def compute_acc(pred, labels):
     """
@@ -140,7 +144,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     torch.cuda.set_device(proc_id)
     nmb = 0
     ii = 0
-    t1 = time.time()
+    e_t1 = time.time()
     print("Features ", features.device)
     num_epochs = 0
     while(True):
@@ -151,20 +155,20 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         movement_graph += graph_move_mb
         log.log("sample recieved and processed")
         if(gpu_local_sample == "EPOCH"):
-            t2 = time.time()
+            e_t2 = time.time()
             optimizer.zero_grad()
             sample_get_epoch.append(sample_get_time)
             forward_epoch.append(forward_time)
             backward_epoch.append(backward_time)
             movement_graph_epoch.append(movement_graph)
             movement_feat_epoch.append(movement_feat)
-            epoch_time.append(t2-t1)
+            epoch_time.append(e_t2-e_t1)
             sample_get_time = 0
             forward_time = 0
             backward_time = 0
             movement_graph = 0
             movement_feat = 0
-            t1 = time.time()
+            e_t1 = time.time()
             num_epochs += 1
             continue
         if(gpu_local_sample == "END"):
@@ -185,10 +189,10 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         torch.cuda.set_device(proc_id)
         optimizer.zero_grad()
         #with torch.autograd.profiler.profile(use_cuda=True, record_shapes=True) as prof:
-        t0 = time.time()
+        m_t0 = time.time()
         input_features  = gpu_local_storage.get_input_features(gpu_local_sample.missing_node_ids)
-        t1 = time.time()
-        movement_feat += (t1-t0)
+        m_t1 = time.time()
+        movement_feat += (m_t1-m_t0)
         fp_start.record()
         assert(features.device == torch.device('cpu'))
         #print("Start forward pass !")
@@ -235,10 +239,11 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     #     prof.dump_stats('worker.lprof')
     if proc_id == 0:
         print("accuracy:{}".format(acc))
+        print("#################",epoch_time)
         print("epoch:{}".format(avg(epoch_time)))
         print("sample_time:{}".format(avg(sample_get_epoch)))
         print("movement graph:{}".format(avg(movement_graph_epoch)))
-        print("movement feat:{}".format(avg(movement_feat_epoch)))
+        print("movement feature:{}".format(avg(movement_feat_epoch)))
         print("forward time:{}".format(avg(forward_epoch)))
         print("backward time:{}".format(avg(backward_epoch)))
         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())

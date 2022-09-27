@@ -1,68 +1,10 @@
-graph | hidden-size | fsize  | batch-size | cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) | epoch_time
-ogbn-arxiv | 32 | -1 | 4096 | .25 |  1.42 | 0 | 0.86 | 2.321502447128296
-ogbn-arxiv | 256 | -1 | 4096 | .25 |  1.45 | 0 | 0.85 | 2.3452861309051514
-ogbn-arxiv | 32 | -1 | 1024 | .25 |  5.54 | 0 | 2.80 | 8.476035237312317
-ogbn-products | 32 | -1 | 4096 | .25 |  21.66 | 0 | 22.62 | 44.8804931640625
-ogbn-products | 256 | -1 | 4096 | .25 |  22.95 | 0 | 19.55 | 43.16724610328674
-ogbn-products | 32 | -1 | 1024 | .25 |  81.22 | 0 | 49.14 | 132.6145303249359
-com-youtube | 32 | 256 | 4096 | .25 |  10.10 | 0 | 5.31 | 15.727367639541626
-com-youtube | 32 | 1024 | 4096 | .25 |  10.22 | 0 | 5.84 | 16.46593976020813
-graph | hidden-size | fsize  | batch-size | cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) | epoch_time
-graph | hidden-size | fsize  | batch-size | cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) | epoch_time
-graph | hidden-size | fsize  | batch-size | cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) | epoch_time
-ogbn-products | 256 | -1 | 4096 | .25 |  29.04 | 0 | 51.64 | 82.43122673034668
-
-############################## New #####################################################
-graph | hidden-size | fsize  | batch-size | cached-gper-gpu | fp_bp(s) | cache_refresh(s) | occ-slice-time(s) | epoch_time
-ogbn-arxiv | 32 | -1 | 4096 | .25 |  2.43 | 0 | 0.04 | 2.5100300312042236
-ogbn-arxiv | 256 | -1 | 4096 | .25 |  2.86 | 0 | 0.06 | 2.963170051574707
-ogbn-arxiv | 32 | -1 | 4096 | .25 |  2.76 | 0 | 0.05 | 2.863824248313904
-ogbn-arxiv | 256 | -1 | 4096 | .25 |  2.82 | 0 | 0.05 | 2.908362865447998
-ogbn-arxiv | 32 | -1 | 1024 | .25 |  11.66 | 0 | 0.13 | 11.954679250717163
-ogbn-products | 32 | -1 | 4096 | .25 |  52.70 | 0 | 0.43 | 53.80918788909912
-ogbn-products | 256 | -1 | 4096 | .25 |  51.93 | 0 | 0.42 | 53.064085245132446
-ogbn-products | 32 | -1 | 1024 | .25 |  160.77 | 0 | 1.40 | 164.62068498134613
-com-youtube | 32 | 1024 | 4096 | .25 |  19.52 | 0 | 0.19 | 19.99430000782013
-ogbn-papers100M | 256 | -1 | 4096 | .25 |  2156.82 | 0 | 17.39 | 2212.251675605774
-ogbn-papers100M | 32 | -1 | 4096 | .25 |  2094.14 | 0 | 16.57 | 2148.384215116501
-ogbn-arxiv | 32 | -1 | 4096 | .25 |  2.73 | 0 | 0.05 | 2.834668755531311
-ogbn-arxiv | 256 | -1 | 4096 | .25 |  2.77 | 0 | 0.05 | 2.859102487564087
-ogbn-arxiv | 32 | -1 | 1024 | .25 |  11.58 | 0 | 0.13 | 11.893693208694458
-ogbn-products | 32 | -1 | 4096 | .25 |  52.73 | 0 | 0.39 | 53.84316539764404
-ogbn-products | 256 | -1 | 4096 | .25 |  53.49 | 0 | 0.41 | 54.62623369693756
-ogbn-products | 32 | -1 | 1024 | .25 |  160.52 | 0 | 1.49 | 164.7337588071823
-com-youtube | 32 | 256 | 4096 | .25 |  error | error | error | error
-com-youtube | 32 | 1024 | 4096 | .25 |  19.48 | 0 | 0.21 | 20.021690011024475
-ogbn-papers100M | 256 | -1 | 4096 | .25 |  2102.25 | 0 | 15.67 | 2155.1422488689423
-ogbn-papers100M | 32 | -1 | 4096 | .25 |  1999.09 | 0 | 15.08 | 2048.442713022232
-commit de14fa9791b7ea11a0a6a1673c6af54a2ee1f0e0 (HEAD -> new-pipeline, origin/new-pipeline)
-Author: sandeep06011991 <spolisetty@jupiter.cs.umass.edu>
-Date:   Thu Jul 21 12:48:49 2022 -0400
-
-    pre clean up snapshot
-graph | hidden-size | fsize  | batch-size | cached-gper-gpu | sample_get | move | forward | backward  | epoch_time 
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size | cached-gper-gpu | sample_get | move | forward | backward  | epoch_time 
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size | cached-gper-gpu | sample_get | move | forward | backward  | epoch_time 
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
-ogbn-arxiv | 32 | -1 | 4096 | 2.786308765411377 |                           error | error | error | error  
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size |                 sample_get | move | forward | backward  | epoch_time 
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size |                sample_get | move | forward | backward  | epoch_time 
-sha:f65e525afa98ee15f1292e4606d21a417ad88ad8, dirty:True
-graph | hidden-size | fsize  | batch-size |                sample_get | move | forward | backward  | epoch_time 
+sha:acb6ee1eeeaeb47613a918c78c449e98d8cd1ce5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy
+ogbn-arxiv | groot | .25 | 16 | 128 | 1024 | gcn | 28.55 | 1.20 | 0.00 | 3.75 | 1.80 | 0.08 | 0.68
+ogbn-arxiv | groot | .25 | 16 | 128 | 1024 | gat | 18.60 | 1.19 | 0.00 | 9.01 | 5.81 | 0.17 | 0.
+sha:acb6ee1eeeaeb47613a918c78c449e98d8cd1ce5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy 
+ogbn-arxiv | groot | .25 | 16 | 128 | 1024 | gcn | 20.89 | 0.77 | 0.00 | 2.59 | 1.79 | 26.37 | 0.69 
+sha:acb6ee1eeeaeb47613a918c78c449e98d8cd1ce5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy 
+ogbn-arxiv | groot | .25 | 16 | 128 | 1024 | gat | 16.65 | 0.81 | 0.00 | 6.16 | 4.00 | 28.05 | 0.39 
