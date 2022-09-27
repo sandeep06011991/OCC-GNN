@@ -118,6 +118,8 @@ def trainer(rank, world_size, args, backend='nccl'):
       forward_time_epoch = 0
       backward_time_epoch = 0
       epoch_sample_time = 0
+      epoch_move_graph_time = 0
+
       step = 0
       #print("start epoch",rank)
       #for nf in sampler:
@@ -141,6 +143,9 @@ def trainer(rank, world_size, args, backend='nccl'):
           label = labels[batch_nids]
           label = label.cuda(rank, non_blocking=True)
           s2 = time.time()
+          nf.copy_from_parent(ctx)
+          s3 = time.time()
+          epoch_move_graph_time = s3 - s2
           #print("Cache time",s2-s1)
         e1.record()
         #with torch.autograd.profiler.record_function('gpu-compute'):
@@ -167,8 +172,9 @@ def trainer(rank, world_size, args, backend='nccl'):
           print('epoch [{}] step [{}]. Loss: {:.4f}'
                 .format(epoch + 1, step, loss.item()))
       if rank == 0:
-        compute_time.append(epoch_compute_time)
+        # compute_time.append(epoch_compute_time)
         sample_time.append(epoch_sample_time)
+        graph_move_time.append(epoch_move_graph_time)
         epoch_dur.append(time.time() - epoch_start_time)
         collect_c, move_c, coll_t, mov_t = cacher.get_time_and_reset_time()
         time_cache_gather.append(coll_t)
@@ -235,7 +241,7 @@ if __name__ == '__main__':
   # training hyper-params
   parser.add_argument("--lr", type=float, default=3e-2,
                       help="learning rate")
-  parser.add_argument("--n-epochs", type=int, default=2,
+  parser.add_argument("--n-epochs", type=int, default=6,
                       help="number of training epochs")
   parser.add_argument("--batch-size", type=int, default=1032,
                       help="batch size")

@@ -127,7 +127,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     movement_feat_epoch = []
     epoch_time = []
     epoch_accuracy = []
-    sample_get = 0
+    sample_get_time = 0
     forward_time = 0
     backward_time = 0
     movement_graph = 0
@@ -147,23 +147,22 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         nmb += 1
         log.log("blocked at get sample")
         sample_id, gpu_local_sample, sample_get_mb, graph_move_mb = get_sample(proc_id, sample_queue,  sm_client, log)
-        sample_get += sample_get_mb
-        graph_move += graph_move_mb
+        sample_get_time += sample_get_mb
+        movement_graph += graph_move_mb
         log.log("sample recieved and processed")
-        sample_get_time += t22 - t11
         if(gpu_local_sample == "EPOCH"):
             t2 = time.time()
             optimizer.zero_grad()
-            sample_get_epoch.append(sample_get)
+            sample_get_epoch.append(sample_get_time)
             forward_epoch.append(forward_time)
             backward_epoch.append(backward_time)
-            graph_move_epoch.append(graph_move_time)
+            movement_graph_epoch.append(movement_graph)
             movement_feat_epoch.append(movement_feat)
             epoch_time.append(t2-t1)
             sample_get_time = 0
             forward_time = 0
             backward_time = 0
-            graph_move_time = 0
+            movement_graph = 0
             movement_feat = 0
             t1 = time.time()
             num_epochs += 1
@@ -240,7 +239,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print("sample_time:{}".format(avg(sample_get_epoch)))
         print("movement graph:{}".format(avg(movement_graph_epoch)))
         print("movement feat:{}".format(avg(movement_feat_epoch)))
-        print("forward time:{}".format(avg(forward_time_epoch)))
-        print("backward time:{}".format(avg(backward_time_epoch)))
+        print("forward time:{}".format(avg(forward_epoch)))
+        print("backward time:{}".format(avg(backward_epoch)))
         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")
