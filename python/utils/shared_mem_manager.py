@@ -1,6 +1,6 @@
 SHARED_MEMORY_SIZE = 10 * 1024 * 1024
 # Number of workers * 2 = Quesize = num buckets.
-NUM_BUCKETS = 80
+NUM_BUCKETS = 30
 from multiprocessing.shared_memory import SharedMemory
 import multiprocessing as mp
 import numpy as np
