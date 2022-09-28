@@ -232,7 +232,6 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         if deterministic:
             model.module.print_grad()
         optimizer.step()
-
     print("Exiting main training loop")
     dev_id = proc_id
     # if proc_id == 1:

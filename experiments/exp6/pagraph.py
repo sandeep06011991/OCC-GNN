@@ -90,10 +90,12 @@ def start_client(filename, model, num_hidden, batch_size, cache_per):
 
 def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per):
     fp = start_server(filename)
+    feat_size = Feat[filename]
     res = start_client(filename, model, hidden_size, batch_size, cache_per)
     WRITE = "exp6_pagraph.txt".format(ROOT_DIR)
     with open(WRITE,'a') as fp:
-        fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "unity", cache_per, hidden_size,4 * batch_size, model, res["sample"], res["move_graph"], res["move_feat"],res["forward"], res["backward"],res["epoch_time"], res["accuracy"]))
+        fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "unity", cache_per, hidden_size, feat_size, \
+                4 * batch_size, model, res["sample"], res["move_graph"], res["move_feat"],res["forward"], res["backward"],res["epoch_time"], res["accuracy"]))
     fp.close()
 
 def run_experiment(model):
@@ -103,9 +105,10 @@ def run_experiment(model):
     settings = [('ogbn-arxiv', 16, 1024),
                 ('ogbn-arxiv', 16, 256), 
                 ('ogbn-arxiv', 16, 4096), 
-                ('ogbn-products', 16, 1024), 
-                ('ogbn-products', 16, 256), 
-                ('ogbn-products', 16, 4096)]
+                #('ogbn-products', 16, 1024), 
+                #('ogbn-products', 16, 256), 
+                #('ogbn-products', 16, 4096)
+                ]
 
     sha, dirty = get_git_info()
     check_path()
@@ -128,5 +131,5 @@ def run_experiment(model):
                 traceback.print_exception(ex_type, ex, tb, file = fp)
 
 if __name__ == "__main__":
-    run_experiment("gcn")
     run_experiment("gat")
+    run_experiment("gcn")
