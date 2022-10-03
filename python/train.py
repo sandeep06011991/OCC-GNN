@@ -216,7 +216,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         # continue
         if args.deterministic:
             print("Expected value", output.sum(), gpu_local_sample.debug_val)
-            continue
+            assert(False)
         # torch.cuda.set_device(proc_id)
         fp_end.record()
         #print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))

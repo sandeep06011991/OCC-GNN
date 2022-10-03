@@ -51,7 +51,7 @@ public:
         spdlog::flush_on(spdlog::level::info);
         spdlog::info("Log after checking");
         spdlog::get("test_logger")->info("LoggingTest::ctor");
-        std::cout << "Check number of nodes " << num_nodes <<"\n";
+
         this->name = get_dataset_dir() + name;
         // std::cout << this->name << "\n";
         this->deterministic = deterministic;
@@ -73,8 +73,10 @@ public:
           int j = 0;
           int order =0;
           gpu_capacity[i] = gpu_map[i].size();
+          std::cout << "gpu " << i << gpu_capacity[i]<<"\n";
           for(long nd: gpu_map[i]){
             storage_map[i][nd] = order;
+            std::cout << nd << " " << order <<"\n";
             order ++;
             dummy_storage_map[i].push_back(nd);
           }
@@ -103,8 +105,10 @@ public:
         ret[i] = 0;
       }
       if(this->deterministic){
+          refresh_dummy_storage();
           int p_val =  sample_flow_up_ps(p_sample, dummy_storage_map, ret);
-          std::cout << "My anser is " << p_val << "sample_val "<< "\n";
+          clear_dummy_storage();
+          std::cout << "My anser is " << p_val << "sample_val "<< sample_val << "\n";
           assert(sample_val  == p_val);
       }
       sample->debug_vals = ret;

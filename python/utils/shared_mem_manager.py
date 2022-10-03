@@ -1,6 +1,6 @@
 SHARED_MEMORY_SIZE = 10 * 1024 * 1024
 # Number of workers * 2 = Quesize = num buckets.
-NUM_BUCKETS = 30
+NUM_BUCKETS = 4
 from multiprocessing.shared_memory import SharedMemory
 import multiprocessing as mp
 import numpy as np
@@ -15,7 +15,7 @@ class SharedMemManager():
         self.buckets = {}
         self.free_memory_filenames = free_memory_filenames
         for i in range(NUM_BUCKETS):
-            name = 's{}'.format(i)
+            name = 'a{}'.format(i)
             self.buckets[name] = SharedMemory(name,create = True, size =SHARED_MEMORY_SIZE)
             free_memory_filenames.put(name)
         print("Created buckets", NUM_BUCKETS)
@@ -34,7 +34,7 @@ class SharedMemClient():
         self.buckets = {}
         self.free_memory_filenames = free_memory_filenames
         for i in range(NUM_BUCKETS):
-            name = 's{}'.format(i)
+            name = 'a{}'.format(i)
             self.buckets[name] = SharedMemory(name, size =SHARED_MEMORY_SIZE)
         self.used_memory = {}
         self.log = LogFile(name, worker_id)
@@ -75,7 +75,7 @@ class SharedMemClient():
         # Dont free shared memoryself.
         # Keep it always open
         self.free_memory_filenames.put(filename)
-        del self.used_memory[filename]
+        self.used_memory[filename] = False
 
     def __del__(self):
         for name in self.buckets.keys():

@@ -43,8 +43,9 @@ def run_single_worker_process(graph_name):
         list = []
         i = 0
         get_sample_time = 0
-        tensorize_time = 0
+        python_time = 0
         serialize_to_object = 0
+        deserialize_to_object = 0
         while i < len(train_nid):
             sample_nodes = train_nid[i:i+batch_size]
             i = i + batch_size
@@ -64,8 +65,8 @@ def run_single_worker_process(graph_name):
                 ref = ((name, data.shape, data.dtype.name))
                 gpu_local_samples.append(ref)
             name, shape, dtype = gpu_local_samples[0]
-            tensor = sm_client.read_from_shared_memory(name, shape, dtype)
             t4 = time.time()
+            tensor = sm_client.read_from_shared_memory(name, shape, dtype)
             tensor = tensor.to(device)
             # tensor = tensor.long()
             gpu_local_sample = Gpu_Local_Sample()
@@ -74,41 +75,25 @@ def run_single_worker_process(graph_name):
 
             construct_from_tensor_on_gpu(tensor, device, gpu_local_sample)
             gpu_local_sample.prepare()
-
+            t5 = time.time()
             for j in gpu_local_samples:
                 sm_client.free_used_shared_memory(j[0])
-            t4 = time.time()
             get_sample_time += (t2-t1)
-            tensorize_time += (t3-t2)
+            python_time += (t3-t2)
             serialize_to_object += (t4-t3)
+            deserialize_to_object += (t5-t4)
         print("epoch get sample time", get_sample_time )
-        print("tensorize_time", tensorize_time)
+        print("tensorize_time", python_time)
         print("serialize_to_object", serialize_to_object)
-
-
-    # for j in range(6):
-    #     t1 = time.time()
-    #     for csample in list:
-    #         tensorized_sample = Sample(csample)
-    #         sample_id = tensorized_sample.randid
-    #         gpu_local_samples = []
-    #         for gpu_id in range(4):
-    #             # gpu_local_samples.append(Gpu_Local_Sample(tensorized_sample, gpu_id))
-    #             obj = Gpu_Local_Sample()
-    #             obj.set_from_global_sample(tensorized_sample,gpu_id)
-    #             data = serialize_to_tensor(obj)
-    #             print(data)
-    #     t2 =time.time()
-    #     print("Serialization cost", t2-t1)
-
-    # training_nodes = training_nodes.tolist()
-    # num_nodes = len(training_nodes)
-    # Just Sample
-    # Serialize and Write
-    # Construct
-    # Prepare
+        print("deserialize_to_object", deserialize_to_object)
+    del sm_manager
     pass
 run_single_worker_process('ogbn-arxiv')
+# epoch get sample time 0.5861666202545166
+# tensorize_time 1.7831141948699951
+# serialize_to_object 0.8369870185852051
+# deserialize_to_object 0.5380048751831055
+
 print("done")
 def run():
     pass

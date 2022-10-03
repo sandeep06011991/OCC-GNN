@@ -30,7 +30,7 @@ int main(){
   std::vector<int> storage_map[4];
   std::vector<int> storage[4];
   // Test 3a.
-  int is_present = 1;
+  int is_present = 0;
   // Test 3b. is_present = 1;
   int gpu_capacity[4];
   for(int i=0;i < 4; i++)gpu_capacity[i] = 0;
@@ -50,7 +50,11 @@ int main(){
     }
   }
 
-
+  for(int j=0;j<4;j++){
+    storage[j].push_back(100);
+    storage_map[j][100] = 0;
+    gpu_capacity[j]++;
+  }
   Slice * sc = new Slice(workload_map, storage_map);
   PartitionedSample ps;
   sc->slice_sample((*s), ps);

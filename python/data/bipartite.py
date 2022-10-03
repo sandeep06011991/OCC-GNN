@@ -68,11 +68,13 @@ class Bipartite:
             self.num_nodes_v = N
             assert(self.indptr[-1] == len(self.indices))
             t11 = time.time()
-            self.graph = dgl.heterograph({('_V', '_E', '_U'): (self.expand_indptr.clone(), self.indices.clone())},
-                                         {'_U': M, '_V': N})
-            self.graph = self.graph.reverse()
-            self.graph_csr = self.graph.formats('csc')
-            self.graph_csc = self.graph.formats('csr')
+            # self.graph = dgl.heterograph({('_V', '_E', '_U'): ([],[])}, \
+            #                              {'_U': M, '_V': N})
+            # self.graph = dgl.heterograph({('_V', '_E', '_U'): (self.expand_indptr.clone(), self.indices.clone())},
+            #                              {'_U': M, '_V': N})
+            # self.graph = self.graph.reverse()
+            # self.graph_csr = self.graph.formats('csc')
+            # self.graph_csc = self.graph.formats('csr')
             assert ['csc' in self.graph.formats()]
         else:
             N = cobject.num_out_nodes
@@ -81,10 +83,10 @@ class Bipartite:
             self.N = N
             self.num_nodes_v = N
             # print("graph created attempt", N, M)
-            self.graph = dgl.heterograph({('_V', '_E', '_U'): ([],[])}, \
-                                         {'_U': M, '_V': N})
-            self.graph = self.graph.reverse()
-            self.graph = self.graph.formats('csc')
+            # self.graph = dgl.heterograph({('_V', '_E', '_U'): ([],[])}, \
+            #                              {'_U': M, '_V': N})
+            # self.graph = self.graph.reverse()
+            # self.graph = self.graph.formats('csc')
         self.in_nodes = cobject.in_nodes
         self.out_nodes = cobject.out_nodes
         self.owned_out_nodes = cobject.owned_out_nodes

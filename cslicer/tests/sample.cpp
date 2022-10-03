@@ -66,6 +66,9 @@ void aggregate(vector<int> &out, vector<int> &in, BiPartite *bp){
       int t = 0;
       for(int off = off_start; off < off_end; off ++ ){
           t += in[indices[off]];
+          if(in[indices[off]] < 0){
+            std::cout <<"Incorrect read "<<  indices[off] << " " << in[indices[off]] <<"\n";
+          }
           // assert(in[indices[off]] > 0);
       }
       out[i] = t;
@@ -156,7 +159,7 @@ void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
       assert(storage_map[i].size() == gpu_capacity[i]);
       for(auto nd: add){
         storage_map[i].push_back(nd);
-        std::cout << nd <<" ";
+        std::cout << "replacing  " << nd <<" ";
         c ++;
       }
       std::cout << "\n";
@@ -164,6 +167,8 @@ void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
     std::cout << "Void start sample flow up \n";
     std::vector<int> ret(4);
     int out = sample_flow_up_ps(ps, storage_map, ret );
+
     std::cout << correct << "==" << out << "\n";
     assert(correct == out);
+
 }
