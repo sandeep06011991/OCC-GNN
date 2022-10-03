@@ -90,6 +90,19 @@ def using_dist_send(proc_id, n_gpus, args, queues, devices):
         if device_id == 0:
             print("Total time using distributed send", t2-t1)
 
+def sync_cost(proc_id, n_gpus, args, communication_queues, devices):
+    dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+            master_ip='127.0.0.1', master_port='30099')
+    world_size = n_gpus
+    th.distributed.init_process_group(backend="nccl",\
+             init_method=dist_init_method,  world_size=world_size,rank=proc_id)
+    t1 = time.time()
+    for i in range(1000):
+        torch.distributed.barrier()
+    t2 = time.time()
+    print("Total time",t2-t1)
+
+
 if __name__ == "__main__":
     n_gpus = 4
     communication_queues = [[Queue(4) for j in range(4)] for i in range(4)]
@@ -99,10 +112,10 @@ if __name__ == "__main__":
     test_functions = [run_use_multi_queues_per_process,\
             run_use_single_queues_per_process,\
             using_dist_send]
-    test_functions = [using_dist_send]
+    test_functions = [sync_cost]
     for f in test_functions:
         for proc_id in range(n_gpus):
-            p = mp.Process(target=(f),
+            p  = mp.Process(target=(f),
                            args=(proc_id, n_gpus, args, communication_queues, devices))
             p.start()
             procs.append(p)

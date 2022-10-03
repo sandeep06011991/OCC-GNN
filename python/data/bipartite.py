@@ -111,9 +111,10 @@ class Bipartite:
     def gather(self, f_in):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
         if self.num_nodes_v == 0:
-            assert(False)
+            return f_in[0:0,:]
+            #assert(False)
             # Might cause a silent failure.
-            return f_in
+            #return f_in
         with self.graph.local_scope():
             # FixME Todo: Fix this inconsistency in number of nodes
             # print(f_in.shape[0], self.graph.number_of_nodes('_U'))

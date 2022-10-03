@@ -73,12 +73,17 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
     print(out,error)
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
 <<<<<<< HEAD
+<<<<<<< HEAD
     #try:
     if True:
 =======
     #if True:
     try:
 >>>>>>> 17dbe6f... quiver changes
+=======
+    try:
+    #if True:
+>>>>>>> changes for pagraph remove all syncs
         accuracy  = re.findall("accuracy:(\d+\.\d+)",out)[0]
         epoch = re.findall("epoch:(\d+\.\d+)",out)[0]
         sample_get  = re.findall("sample_time:(\d+\.\d+)",out)[0]
@@ -96,6 +101,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         backward_time = "{:.2f}".format(float(backward_time))
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     #except Exception as e:
     #    with open('exception_occ.txt','w') as fp:
     #        fp.write(error)
@@ -105,6 +111,12 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         with open('exception_occ.txt','w') as fp:
             fp.write(error)
 >>>>>>> 17dbe6f... quiver changes
+=======
+    except Exception as e:
+        with open('exception_occ.txt','w') as fp:
+            fp.write(error)
+    
+>>>>>>> changes for pagraph remove all syncs
         sample_get = "error"
         movement_graph = "error"
         movement_feat = "error"
@@ -113,10 +125,14 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         accuracy = "error"
         epoch = "error"
 <<<<<<< HEAD
+<<<<<<< HEAD
     '''
 =======
         
 >>>>>>> 17dbe6f... quiver changes
+=======
+    
+>>>>>>> changes for pagraph remove all syncs
     return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
             "movement_graph":movement_graph, "movement_feat": movement_feat, "epoch":epoch,
                 "accuracy": accuracy}
@@ -140,17 +156,21 @@ def run_experiment_occ(model):
                 # ("com-friendster",2), \
                  # ("com-orkut",5, 256, 256, 4096) \
                  ]
-    settings = [("ogbn-arxiv", 16, 128, 1024),]
+    # settings = [("ogbn-arxiv", 16, 128, 1024),]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
     cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
 <<<<<<< HEAD
 
+<<<<<<< HEAD
     cache_rates = [".25"]
 =======
     #settings = [("ogbn-arxiv", 16, 128, 1024),]
     #cache_rates = [".25"]
 >>>>>>> 17dbe6f... quiver changes
+=======
+    #cache_rates = [".25"]
+>>>>>>> changes for pagraph remove all syncs
     #settings = [settings[0]]
     check_path()
     print(settings)
