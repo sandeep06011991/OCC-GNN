@@ -4,6 +4,16 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 import pybind11
 from setuptools import setup, Extension
 from torch.utils import cpp_extension
+import os
+os.environ['CC'] = 'gcc'
+
+uname = pwd.getpwuid(os.getuid())[0]
+if uname == 'spolisetty':
+    ROOT = "/home/spolisetty/OCC-GNN/cslicer"
+if uname == "spolisetty_umass_edu":
+    ROOT = "/home/spolisetty_umass_edu/OCC-GNN/cslicer"
+if uname == "q91":
+    ROOT = "/home/q91/OCC-GNN/cslicer"
 
 
 ext_modules = [
@@ -16,7 +26,7 @@ ext_modules = [
         extra_compile_args=["-s"],
         depends = ["util/environment.h","bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
             ,"util/conqueue.h"]  ,
-        include_dirs=[pybind11.get_include(),"."],
+        include_dirs=[pybind11.get_include(),".","/home/q91/OCC-GNN/cslicer" ],
         language='c++'
         # sorted(glob("pybind_test.cpp"),"object.cpp"),
          # Sort source files for reproducibility

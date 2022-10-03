@@ -7,7 +7,7 @@ const std::string jupiter = "/data/sandeep/";
 
 const std::string unity = "/work/spolisetty_umass_edu/data/";
 
-const std::string ornl = "/tmp/q91";
+const std::string ornl = "/mnt/bigdata/sandeep/";
 
 const std::string ERROR = "dir_error";
 std::string get_dataset_dir(){

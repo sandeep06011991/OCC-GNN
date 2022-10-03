@@ -95,9 +95,19 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
 def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, features, args\
                     ,num_classes, batch_in, labels, num_sampler_workers, deterministic,in_degrees
                     , sm_filename_queue, cached_feature_size, cache_percentage):
+    t = torch.cuda.get_device_properties(0).total_memory
+    r = torch.cuda.memory_reserved(0)
+    a = torch.cuda.memory_allocated(0)
+    f = r-a  # free inside reserved
+    print('total,reserved, allocated',t,r,a)
     gpu_local_storage = GpuLocalStorage(cache_percentage, features, batch_in, cached_feature_size, proc_id)
     print("Num sampler workers ", num_sampler_workers)
     log = LogFile("Trainer", proc_id)
+    t = torch.cuda.get_device_properties(0).total_memory
+    r = torch.cuda.memory_reserved(0)
+    a = torch.cuda.memory_allocated(0)
+    print('again total,reserved, allocated',t,r,a)
+
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
         master_ip='127.0.0.1', master_port='12345')
     world_size = gpus
@@ -109,6 +119,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     if deterministic:
         print("not setting seeds, use this to match accuracy")
     #     set_all_seeds(seed)
+    print("get model")
+
     if args.model == "gcn":
         model = get_sage_distributed(args.num_hidden, features, num_classes,
             proc_id, args.deterministic, args.model)
@@ -116,6 +128,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         assert(args.model == "gat")
         model = get_gat_distributed(args.num_hidden, features, num_classes,
             proc_id, args.deterministic, args.model)
+    print("Move model")
     model = model.to(proc_id)
     model =  DistributedDataParallel(model, device_ids = [proc_id],\
                 output_device = proc_id)
@@ -150,7 +163,9 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     while(True):
         nmb += 1
         log.log("blocked at get sample")
+        print("Try to get sample")
         sample_id, gpu_local_sample, sample_get_mb, graph_move_mb = get_sample(proc_id, sample_queue,  sm_client, log)
+        print("Start training")
         sample_get_time += sample_get_mb
         movement_graph += graph_move_mb
         log.log("sample recieved and processed")
@@ -219,6 +234,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         if deterministic:
             model.module.print_grad()
         ii = ii + 1
+        if ii%10==0:
+            print("iteration",ii)
         bp_end.record()
 
         if output.shape[0] !=0:

@@ -16,6 +16,7 @@ import quiver
 from torch.nn.parallel import DistributedDataParallel
 import os
 import torch.distributed as dist
+import torch.autograd.profiler as profiler
 
 from dgl_sage import SAGE
 from dgl_gat import GAT
@@ -149,7 +150,7 @@ def run(rank, args,  data):
                 input_nodes, seeds, blocks = next(dataloader_i) 
                 t2 = time.time()
                 # copy block to gpu
-                blocks = [blk.int().to(device) for blk in blocks]
+                blocks = [blk.to(device) for blk in blocks]
                 blocks = [blk.formats(['coo','csr','csc']) for blk in blocks]
                 for blk in blocks:
                     blk.create_formats_()
@@ -161,11 +162,13 @@ def run(rank, args,  data):
                 e2.record()
                 t4 = time.time()
                 # Compute loss and prediction
-                batch_pred = model(blocks, batch_inputs)
-                e3.record()
-                loss = loss_fcn(batch_pred, batch_labels)
-                loss.backward()
-                e4.record()
+                with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
+                    batch_pred = model(blocks, batch_inputs)
+                #e3.record()
+                    loss = loss_fcn(batch_pred, batch_labels)
+                    e3.record()
+                    loss.backward()
+                    e4.record()
                 e4.synchronize()
                 optimizer.step()
                 sample_time += (t2 - t1)
@@ -173,7 +176,8 @@ def run(rank, args,  data):
                 movement_feature_time += max(t4-t3, e1.elapsed_time(e2)/1000)
                 forward_time += e2.elapsed_time(e3)/1000
                 backward_time += e3.elapsed_time(e4)/1000
-
+                #print("forward time", e2.elapsed_time(e3)/1000)
+                #print("backward time", e3.elapsed_time(e4)/1000)
                 total_loss += loss.item()
                 total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
         #        pbar.update(args.batch_size)
@@ -192,6 +196,8 @@ def run(rank, args,  data):
         approx_acc = total_correct / (len(dataloader) * args.batch_size)
         accuracy.append(approx_acc)
         print(f'Epoch {epoch:02d}, Loss: {loss:.4f}, Approx. Train: {approx_acc:.4f}, Epoch Time: {time.time() - tic:.4f}')
+    if rank == 0:
+        #print(prof.key_averages().table(sort_by='cuda_time_total'))
 
         if epoch >= 10:
             val_acc, test_acc = evaluate(model, g, nfeat, labels, val_nid, test_nid, device)
@@ -226,7 +232,7 @@ if __name__ == '__main__':
     argparser.add_argument('--batch-size', type=int, default=128)
     argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default=0.5)
-    argparser.add_argument('--num-workers', type=int, default=8,
+    argparser.add_argument('--num-workers', type=int, default=4,
                            help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--save-pred', type=str, default='')
     argparser.add_argument('--wd', type=float, default=0)

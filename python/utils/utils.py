@@ -26,7 +26,7 @@ def get_data_dir():
     if username == "spolisetty":
         DATA_DIR = "/data/sandeep"
     if username == "q91":
-        DATA_DIR = "/tmp/pagraph"
+        DATA_DIR = "/mnt/bigdata/sandeep"
     return DATA_DIR
 
 DATA_DIR = get_data_dir()

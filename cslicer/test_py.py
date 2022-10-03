@@ -10,6 +10,6 @@ num_nodes = 169343
 # // All absent
 storage_map = [[0],[1],[2],[3]]
 csl = cslicer(graphname, storage_map, 10, False)
-in_nodes = [0,1,2,3,4,5,6]
-csl.getSample(in_nodes)
-print("All success !")
+#in_nodes = [0,1,2,3,4,5,6]
+#csl.getSample(in_nodes)
+#print("All success !")

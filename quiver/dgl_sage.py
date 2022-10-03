@@ -85,3 +85,31 @@ class SAGE(nn.Module):
             x = y
         return y
 
+from ogb.nodeproppred import DglNodePropPredDataset
+
+if __name__=="__main__":
+    root = "/mnt/bigdata/sandeep/"
+    data = DglNodePropPredDataset(name='ogbn-arxiv', root=root)
+    splitted_idx = data.get_idx_split()
+    train_idx, val_idx, test_idx = splitted_idx['train'], splitted_idx['valid'], splitted_idx['test']
+    graph, labels = data[0]
+    block = dgl.to_block(graph)
+    in_feats = 128
+    n_hidden = 128
+    torch.cuda.set_device(0)
+    layer = dglnn.SAGEConv(in_feats, n_hidden, 'mean').to(0)
+    block = block.to(0)
+    f = graph.ndata['feat'].to(0)
+    e1 = torch.cuda.Event(enable_timing = True)
+    e2 = torch.cuda.Event(enable_timing = True)
+    e3 = torch.cuda.Event(enable_timing = True)
+    for i in range(10):
+        e1.record()
+        fp = layer(block, f)
+        e2.record()
+        fp.sum().backward()
+        e3.record()
+        e3.synchronize()
+        print("fp",e1.elapsed_time(e2))
+        print("bp",e2.elapsed_time(e3))
+    print("All done")

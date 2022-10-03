@@ -59,7 +59,7 @@ public:
         this->dataset = std::make_shared<Dataset>(this->name);
         spdlog::info("Log after checking the dataset");
         num_nodes = dataset->num_nodes;
-
+	std::cout << "Read graph with number of nodes: " << num_nodes <<"\n";
 
         for(long j=0;j<dataset->num_nodes;j++){
             assert(dataset->partition_map[j]<4);
