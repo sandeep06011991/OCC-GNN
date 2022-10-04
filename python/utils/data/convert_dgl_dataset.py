@@ -2,15 +2,27 @@ import torch
 import numpy as np
 from ogb.nodeproppred import DglNodePropPredDataset
 import os
+from os.path import exists
+from metis import *
 
-ROOT_DIR = "/mnt/bigdata/sandeep"
-TARGET_DIR = "/mnt/bigdata/sandeep"
+file_exists = exists(path_to_file)
 
+def get_data_dir():
+    import os
+    username = os.environ['USER']
+    if username == 'spolisetty_umass_edu':
+        DATA_DIR = "/work/spolisetty_umass_edu/data"
+    if username == "spolisetty":
+        DATA_DIR = "/data/sandeep"
+    if username == "q91":
+        DATA_DIR = "/mnt/bigdata/sandeep"
+    return DATA_DIR
+
+ROOT_DIR = get_data_dir()
 
 def write_dataset_dataset(name, TARGET_DIR):
     dataset = DglNodePropPredDataset(name, root=ROOT_DIR)
     graph, labels = dataset[0]
-
     edges = graph.edges()
     graph.remove_edges(torch.where(edges[0] == edges[1])[0])
     sparse_mat = graph.adj(scipy_fmt='csr')
@@ -44,22 +56,7 @@ def write_dataset_dataset(name, TARGET_DIR):
     csum_labels = torch.sum(labels).item()
     csum_offsets = indptr.sum()
     csum_edges = indices.sum()
-    # Partition the graph
-    # p_id = dgl.metis_partition(dataset,4, balance_edges = True, mode = "recursive")
-    # print("Done ")
-    # p_map = torch.zeros((num_nodes))
-    # L = 0
-    # for k in p_id.keys():
-    #     p_map[p_id[k].ndata['_ID']] = k
-    #     L += (p_id[k].ndata['_ID']).shape[0]
-    # # edges = dataset.edges()
-    # cut = torch.sum(p_map[edges[0]] !=  p_map[edges[1]])
-    # print("Current Edge Cut percentage.", cut, edges[0].shape[0], cut/edges[0].shape[0])
-    # edge_ids = torch.where(p_map[edges[0]]!=p_map[edges[1]])[0]
-    # # node_ids = torch.unique(torch.cat((edges[0][edge_ids],edges[1][edge_ids])))
-    # node_ids = torch.unique(edges[0][edge_ids])
-    # print("Halo nodes", node_ids.shape[0]/dataset.nodes().shape[0])
-    # assert(L == num_nodes)
+
     assert indptr.shape == (num_nodes+1,)
     assert indices.shape == (num_edges,)
     if('train_idx' not in graph.ndata.keys()):
@@ -114,9 +111,9 @@ def write_dataset_dataset(name, TARGET_DIR):
 # arg1 = full target directory
 if __name__=="__main__":
     # assert(len(sys.argv) == 3)
-    # nname = ["ogbn-products","ogbn-arxiv"]
-    nname = ["ogbn-papers100M"]
+    nname = ["ogbn-products","ogbn-arxiv"]
+    # Note papers 100M must be reordered
     for name in nname:
-        target = TARGET_DIR + "/" + name
+        target = ROOT_DIR + "/" + name
         os.makedirs(target, exist_ok=True)
         write_dataset_dataset(name, target)

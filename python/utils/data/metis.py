@@ -45,7 +45,6 @@ def create_metis_file(graphname):
     # Read to file
     # Write to file
     return dg_graph
-import torch
 
 def read_partition_file(graphname):
     DATA_DIR = "/data/sandeep"

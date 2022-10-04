@@ -2,24 +2,34 @@ import sys
 import dgl
 import torch
 import numpy as np
-
+import subprocess
+from env import get_root_dir
 # All one time preprocessing goes here.
-ROOT_DIR = "/data/sandeep"
-TARGET_DIR = "/data/sandeep"
+ROOT_DIR = get_root_dir()
+TARGET_DIR = get_root_dir()
 
+def runcmd(cmd, verbose = False, *args, **kwargs):
+    process = subprocess.Popen(
+        cmd,
+        stdout = subprocess.PIPE,
+        stderr = subprocess.PIPE,
+        text = True,
+        shell = True
+    )
+    std_out, std_err = process.communicate()
+    if verbose:
+        print(std_out.strip(), std_err)
+    pass
 # Todos:
 # Add steps to see if the file exists
 # Else pull them, and unzip.
 def get_dataset(name):
-    if name == "com-youtube":
-        edgelist = np.loadtxt("{}/{}/com-youtube.ungraph.txt".\
-            format(ROOT_DIR,"com-youtube"),dtype = int)
     if name == "com-orkut":
+        runcmd("wget -P download_folder https://snap.stanford.edu/data/bigdata/communities/com-orkut.ungraph.txt.gz", verbose = False)
+        runcmd("gzip -d download_folder https://snap.stanford.edu/data/bigdata/communities/com-orkut.ungraph.txt.gz", verbose = False)
+        > /somewhere/file
         edgelist = np.loadtxt("{}/{}/com-orkut.ungraph.txt".\
             format(ROOT_DIR,"com-orkut"),dtype = int)
-    if name == "com-friendster":
-        edgelist = np.loadtxt("{}/{}/com-friendster.ungraph.txt".\
-            format(ROOT_DIR,"com-friendster"),dtype = int)
     return edgelist
 
 def write_dataset_dataset(edgelist):
@@ -57,7 +67,6 @@ def write_dataset_dataset(edgelist):
     meta_structure = {}
     meta_structure["num_nodes"] = num_nodes
     meta_structure["num_edges"] = num_edges
-
     meta_structure["csum_offsets"] = csum_offsets
     meta_structure["csum_edges"] = csum_edges
 
@@ -68,7 +77,7 @@ def write_dataset_dataset(edgelist):
 
 if __name__=="__main__":
     # assert(len(sys.argv) == 3)
-    name = "com-friendster"
+    name = "com-orkut"
     edgelist = get_dataset(name)
     write_dataset_dataset(edgelist)
     print("max nodes",np.max(edgelist))

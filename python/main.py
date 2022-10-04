@@ -2,6 +2,8 @@ import argparse
 import argparse
 import torch
 import dgl
+# Ensures all enviroments are running on the correct version
+assert(dgl.__version__ == '0.8.2')
 import time
 import nvtx
 from dgl.sampling import sample_neighbors
