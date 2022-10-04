@@ -2,12 +2,18 @@ import torch, dgl
 import numpy as np
 from ogb.nodeproppred import DglNodePropPredDataset
 import dgl.function as fn
-
-ROOT_DIR = "/data/sandeep"
+from metis import *
+from env import get_data_dir
+from os.path import exists
+ROOT_DIR = get_data_dir()
 # Target dir is root dir + filename
-TARGET_DIR = "/data/sandeep/reorder_papers100M"
+TARGET_DIR = "{}/{}".format(ROOT_DIR, "reorder_papers100M")
+os.makedirs(TARGET_DIR, exist_ok=True)
 
-# File be run at one place for jupiter
+if exists(TARGET_DIR+'/cindptr.bin'):
+    print("File already present")
+    assert(False)
+ # File be run at one place for jupiter
 # Create binaries and partition file
 # Before any movement move all files to hardware.
 # Read from here and create pagraph partition
@@ -18,7 +24,6 @@ graph, labels = dataset[0]
 features = graph.ndata['feat']
 split = dataset.get_idx_split()
 train_idx = split['train']
-
 edges = graph.edges()
 graph.remove_edges(torch.where(edges[0] == edges[1])[0])
 num_nodes = graph.num_nodes()
@@ -57,7 +62,11 @@ sparse_mat.sort_indices()
 assert(np.array_equal(np.ones(sparse_mat.data.shape), sparse_mat.data))
 indptr = sparse_mat.indptr
 indices = sparse_mat.indices
-c_spmat = graph.adj(scipy_fmt = 'csr', transpose = False)
+# dgl graphs are in src to dest
+# indptr is for srcs
+# However sampling must start from dest
+# Thus reverse this.
+c_spmat = graph.adj(scipy_fmt = 'csr', transpose = True)
 c_indptr = c_spmat.indptr
 c_indices = c_spmat.indices
 
@@ -120,3 +129,8 @@ with open(TARGET_DIR+'/meta.txt', 'w') as fp:
     for k in meta_structure.keys():
         fp.write("{}={}\n".format(k, meta_structure[k]))
 print("All data written!")
+
+import os
+username = os.environ['USER']
+if username == "spolisetty" :
+    generate_partition_file("reorder_papers100M")

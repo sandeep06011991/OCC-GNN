@@ -6,7 +6,8 @@ import subprocess
 from env import get_root_dir
 # All one time preprocessing goes here.
 ROOT_DIR = get_root_dir()
-TARGET_DIR = get_root_dir()
+fname = "com-orkut"
+TARGET_DIR = "{}/{}".format(ROOT_DIR, fname)
 
 def runcmd(cmd, verbose = False, *args, **kwargs):
     process = subprocess.Popen(
@@ -25,18 +26,18 @@ def runcmd(cmd, verbose = False, *args, **kwargs):
 # Else pull them, and unzip.
 def get_dataset(name):
     if name == "com-orkut":
-        runcmd("wget -P download_folder https://snap.stanford.edu/data/bigdata/communities/com-orkut.ungraph.txt.gz", verbose = False)
-        runcmd("gzip -d download_folder https://snap.stanford.edu/data/bigdata/communities/com-orkut.ungraph.txt.gz", verbose = False)
-        > /somewhere/file
-        edgelist = np.loadtxt("{}/{}/com-orkut.ungraph.txt".\
-            format(ROOT_DIR,"com-orkut"),dtype = int)
-    return edgelist
+        os.makedirs(TARGET_DIR)
+        runcmd("wget -P {} https://snap.stanford.edu/data/bigdata/communities/com-orkut.ungraph.txt.gz".format(TARGET_DIR), verbose = False)
+        runcmd("gzip -d {}/com-orkut.ungraph.txt.gz > {}/com-orkut.ungraph.txt".format(TARGET_DIR), verbose = False)
+        print("Dataset downloaded and unzipped")
 
-def write_dataset_dataset(edgelist):
+if not exists(TARGET_DIR):
+    get_dataset(fname)
+
+if not exists("{}/indptr.bin".format(TARGET_DIR)):
+    edgelist = np.loadtxt("{}/com-orkut.ungraph.txt".\
+        format(TARGET_DIR),dtype = int)
     # dataset = dgl.add_self_loop(dataset)
-    target = TARGET_DIR + "/" + name
-    import os
-    os.makedirs(target,exist_ok = True)
     edges = torch.from_numpy(edgelist)
     print(edges.shape)
     graph = dgl.DGLGraph((edges[:,0],edges[:,1]))
@@ -46,6 +47,11 @@ def write_dataset_dataset(edgelist):
     assert(np.array_equal(np.ones(sparse_mat.data.shape),sparse_mat.data))
     indptr = sparse_mat.indptr
     indices = sparse_mat.indices
+
+    c_spmat = graph.adj(scipy_fmt = 'csr', transpose = True)
+    c_indptr = c_spmat.indptr
+    c_indices = c_spmat.indices
+
     print("offset",indptr.sum())
     print("edges", indices.sum())
     num_edges = graph.num_edges()
@@ -58,27 +64,34 @@ def write_dataset_dataset(edgelist):
     assert indices.shape == (num_edges,)
 
     meta = {}
-
+    with open(TARGET_DIR+'/cindptr.bin', 'wb') as fp:
+        fp.write(c_indptr.astype(np.int64).tobytes())
+    with open(TARGET_DIR+'/cindices.bin', 'wb') as fp:
+        fp.write(c_indices.astype(np.int64).tobytes())
     with open(target + '/indptr.bin','wb') as fp:
         fp.write(indptr.astype(np.int64).tobytes())
     with open(target + '/indices.bin','wb') as fp:
         fp.write(indices.astype(np.int64).tobytes())
-
     meta_structure = {}
     meta_structure["num_nodes"] = num_nodes
     meta_structure["num_edges"] = num_edges
     meta_structure["csum_offsets"] = csum_offsets
     meta_structure["csum_edges"] = csum_edges
-
     with open(target + '/meta.txt','w') as fp:
         for k in meta_structure.keys():
             fp.write("{}={}\n".format(k,meta_structure[k]))
     print("All data written!")
+    import os
+    username = os.environ['USER']
+    if username == "spolisetty" :
+        generate_partition_file(fname)
 
-if __name__=="__main__":
-    # assert(len(sys.argv) == 3)
-    name = "com-orkut"
-    edgelist = get_dataset(name)
-    write_dataset_dataset(edgelist)
-    print("max nodes",np.max(edgelist))
-    print("Snap preprocessing  done !")
+
+
+# # if __name__=="__main__":
+#     # assert(len(sys.argv) == 3)
+#     name = "com-orkut"
+#     edgelist = get_dataset(name)
+#     write_dataset_dataset(edgelist)
+#     print("max nodes",np.max(edgelist))
+#     print("Snap preprocessing  done !")

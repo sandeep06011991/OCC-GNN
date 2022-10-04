@@ -91,7 +91,7 @@ def get_process_graph(filename, fsize):
                     torch.long)
         labels = labels.reshape(num_nodes,)
     else:
-        assert(fsize != -1) 
+        assert(fsize != -1)
         features = torch.rand(num_nodes,fsize)
         num_classes = 48
         labels = torch.randint(0,num_classes,(num_nodes,))
@@ -107,11 +107,15 @@ def get_process_graph(filename, fsize):
     dg_graph.ndata["labels"] = labels
 
     idxs = ['train', 'val', 'test']
+    ratio = {'train':.80,'val':.10,'test':.10}
     for idx in idxs:
         mask = torch.zeros((num_nodes,), dtype=torch.bool)
-        idx_mask = np.fromfile(
-            "{}/{}/{}_idx.bin".format(DATA_DIR, graphname, idx), dtype=np.int64)
-        mask[idx_mask] = True
+        if exists("{}/{}/{}_idx.bin".format(DATA_DIR, graphname, idx)):
+            idx_mask = np.fromfile(
+                "{}/{}/{}_idx.bin".format(DATA_DIR, graphname, idx), dtype=np.int64)
+            mask[idx_mask] = True
+        else:
+            mask  = torch.rand(num_nodes,) <  .8
         dg_graph.ndata["{}_mask".format(idx)] = mask
 
     p_map = np.fromfile("{}/{}/partition_map_opt.bin".format(DATA_DIR,graphname),dtype = np.intc)
@@ -122,3 +126,10 @@ def get_process_graph(filename, fsize):
     # , features, num_nodes, num_edges
 
 # a,b = get_dgl_graph('ogbn-arxiv')
+if __name__ == "__main__":
+    get_process_graph("amazon", -1)
+    get_process_graph("ogbn-arxiv", -1)
+    get_process_graph("ogbn-products", -1)
+    get_process_graph("reordered-papers100M", -1)
+    get_process_graph("com-orkut", 128)
+    print("Unit test get all process datasets !!! ")

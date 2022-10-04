@@ -12,7 +12,7 @@ Dataset::Dataset(std::string dir){
   read_meta_file();
   read_graph();
   read_node_data();
-    spdlog::info("Read graph with num nodes {}",(num_nodes));
+  spdlog::info("Read graph with num nodes {}",(num_nodes));
 
   // assert(noClasses != 0);
   // read_training_splits();
@@ -44,24 +44,25 @@ void Dataset::read_graph(){
 
 void Dataset::read_node_data(){
   // string fileName = "test.bin";
-  std::fstream file(this->BIN_DIR + "/features.bin",std::ios::in|std::ios::binary);
-  this->features = (float *)malloc (this->num_nodes * this->fsize * sizeof(float));
-  file.read((char *)this->features,this->num_nodes * this->fsize * sizeof(float));
-  float s = 0;
-  for(long i=0;i< (this->fsize*this->num_nodes) ;i++){
-    s = s + this->features[i];
-  }
-  std::cout << "features:" << s << " " << this->csum_features <<"\n";
-  assert(abs(s-this->csum_features)<100);
+  // Skip features not needed.
+  // std::fstream file(this->BIN_DIR + "/features.bin",std::ios::in|std::ios::binary);
+  // this->features = (float *)malloc (this->num_nodes * this->fsize * sizeof(float));
+  // file.read((char *)this->features,this->num_nodes * this->fsize * sizeof(float));
+  // float s = 0;
+  // for(long i=0;i< (this->fsize*this->num_nodes) ;i++){
+  //   s = s + this->features[i];
+  // }
+  // std::cout << "features:" << s << " " << this->csum_features <<"\n";
+  // assert(abs(s-this->csum_features)<100);
 
-  std::fstream file1(this->BIN_DIR + "/labels.bin",std::ios::in|std::ios::binary);
-  this->labels = (int *)malloc (this->num_nodes *  sizeof(int));
-  file1.read((char *)this->labels,this->num_nodes *  sizeof(int));
-  s = 0;
-  for(int i=0;i< (this->num_nodes) ;i++){
-    s = s + this->labels[i];
-  }
-  assert(s-this->csum_labels<10);
+  // std::fstream file1(this->BIN_DIR + "/labels.bin",std::ios::in|std::ios::binary);
+  // this->labels = (int *)malloc (this->num_nodes *  sizeof(int));
+  // file1.read((char *)this->labels,this->num_nodes *  sizeof(int));
+  // s = 0;
+  // for(int i=0;i< (this->num_nodes) ;i++){
+  //   s = s + this->labels[i];
+  // }
+  // assert(s-this->csum_labels<10);
 
   std::fstream file2(this->BIN_DIR + "/partition_map_opt.bin",std::ios::in|std::ios::binary);
   this->partition_map = (int *)malloc (this->num_nodes *  sizeof(int));

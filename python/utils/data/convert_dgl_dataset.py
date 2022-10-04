@@ -21,16 +21,23 @@ def get_data_dir():
 ROOT_DIR = get_data_dir()
 
 def write_dataset_dataset(name, TARGET_DIR):
+    # DGL graphs area always direction src to edges
     dataset = DglNodePropPredDataset(name, root=ROOT_DIR)
     graph, labels = dataset[0]
     edges = graph.edges()
+    # dgl graph edges are always src to destination.
     graph.remove_edges(torch.where(edges[0] == edges[1])[0])
     sparse_mat = graph.adj(scipy_fmt='csr')
     sparse_mat.sort_indices()
     assert(np.array_equal(np.ones(sparse_mat.data.shape), sparse_mat.data))
     indptr = sparse_mat.indptr
     indices = sparse_mat.indices
-    c_spmat = graph.adj(scipy_fmt = 'csr', transpose = False)
+    # c slicer should be processing from
+    # dgl graphs are in src to dest
+    # indptr is for srcs
+    # However sampling must start from dest
+    # Thus reverse this.
+    c_spmat = graph.adj(scipy_fmt = 'csr', transpose = True)
     c_indptr = c_spmat.indptr
     c_indices = c_spmat.indices
 
@@ -105,7 +112,11 @@ def write_dataset_dataset(name, TARGET_DIR):
     with open(TARGET_DIR+'/meta.txt', 'w') as fp:
         for k in meta_structure.keys():
             fp.write("{}={}\n".format(k, meta_structure[k]))
-    print("All data written!")
+    import os
+    username = os.environ['USER']
+    if username == "spolisetty" :
+        generate_partition_file(nname)
+
 
 # arg0 = dgl dataset name
 # arg1 = full target directory
