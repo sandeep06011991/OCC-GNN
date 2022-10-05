@@ -68,10 +68,11 @@ def run(rank, args,  data):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '11112'
     dist.init_process_group('nccl', rank=rank, world_size=4)
-
+    
     device = rank
     train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g = data
-
+    if args.data == 'gpu':
+        nfeat = nfeat.to(rank)
     if args.sample_gpu:
         train_nid = train_nid.to(device)
         # copy only the csc to the GPU
