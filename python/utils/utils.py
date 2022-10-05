@@ -127,9 +127,9 @@ def get_process_graph(filename, fsize):
 
 # a,b = get_dgl_graph('ogbn-arxiv')
 if __name__ == "__main__":
-    get_process_graph("amazon", -1)
+    # get_process_graph("amazon", -1)
     get_process_graph("ogbn-arxiv", -1)
     get_process_graph("ogbn-products", -1)
-    get_process_graph("reordered-papers100M", -1)
-    get_process_graph("com-orkut", 128)
+    # get_process_graph("reordered-papers100M", -1)
+    # get_process_graph("com-orkut", 128)
     print("Unit test get all process datasets !!! ")

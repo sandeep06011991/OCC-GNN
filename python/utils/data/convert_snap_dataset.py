@@ -3,9 +3,13 @@ import dgl
 import torch
 import numpy as np
 import subprocess
-from env import get_root_dir
+import gdown
+import os
+from os.path import exists
+from env import get_data_dir
+from metis import *
 # All one time preprocessing goes here.
-ROOT_DIR = get_root_dir()
+ROOT_DIR = get_data_dir()
 fname = "com-orkut"
 TARGET_DIR = "{}/{}".format(ROOT_DIR, fname)
 
@@ -26,17 +30,19 @@ def runcmd(cmd, verbose = False, *args, **kwargs):
 # Else pull them, and unzip.
 def get_dataset(name):
     if name == "com-orkut":
-        os.makedirs(TARGET_DIR)
+        os.makedirs(TARGET_DIR,exist_ok = True)
         runcmd("wget -P {} https://snap.stanford.edu/data/bigdata/communities/com-orkut.ungraph.txt.gz".format(TARGET_DIR), verbose = False)
-        runcmd("gzip -d {}/com-orkut.ungraph.txt.gz > {}/com-orkut.ungraph.txt".format(TARGET_DIR), verbose = False)
+        runcmd("gzip -d {}/com-orkut.ungraph.txt.gz ".format(TARGET_DIR), verbose = False)
         print("Dataset downloaded and unzipped")
 
 if not exists(TARGET_DIR):
     get_dataset(fname)
 
 if not exists("{}/indptr.bin".format(TARGET_DIR)):
+    print("Loading ")
     edgelist = np.loadtxt("{}/com-orkut.ungraph.txt".\
         format(TARGET_DIR),dtype = int)
+    print("Loaded")
     # dataset = dgl.add_self_loop(dataset)
     edges = torch.from_numpy(edgelist)
     print(edges.shape)
@@ -68,23 +74,23 @@ if not exists("{}/indptr.bin".format(TARGET_DIR)):
         fp.write(c_indptr.astype(np.int64).tobytes())
     with open(TARGET_DIR+'/cindices.bin', 'wb') as fp:
         fp.write(c_indices.astype(np.int64).tobytes())
-    with open(target + '/indptr.bin','wb') as fp:
+    with open(TARGET_DIR + '/indptr.bin','wb') as fp:
         fp.write(indptr.astype(np.int64).tobytes())
-    with open(target + '/indices.bin','wb') as fp:
+    with open(TARGET_DIR+ '/indices.bin','wb') as fp:
         fp.write(indices.astype(np.int64).tobytes())
     meta_structure = {}
     meta_structure["num_nodes"] = num_nodes
     meta_structure["num_edges"] = num_edges
     meta_structure["csum_offsets"] = csum_offsets
     meta_structure["csum_edges"] = csum_edges
-    with open(target + '/meta.txt','w') as fp:
+    with open(TARGET_DIR + '/meta.txt','w') as fp:
         for k in meta_structure.keys():
             fp.write("{}={}\n".format(k,meta_structure[k]))
     print("All data written!")
-    import os
-    username = os.environ['USER']
-    if username == "spolisetty" :
-        generate_partition_file(fname)
+import os
+username = os.environ['USER']
+if username == "spolisetty" :
+    generate_partition_file(ROOT_DIR , fname)
 
 
 

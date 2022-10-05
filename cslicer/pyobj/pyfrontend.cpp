@@ -18,6 +18,75 @@ int sample_flow_up_sample(Sample &s, int number_of_nodes);
 int sample_flow_up_ps(PartitionedSample &s,
     std::vector<int> test_storage_map[4], std::vector<int>& ret);
 
+struct pyredundant{
+  int total_computation = 0;
+  int redundant_compution = 0;
+  int total_communication = 0;
+  int redundant_communication = 0;
+};
+
+
+class Stats{
+  std::string name;
+  std::string partition;
+  std::shared_ptr<Dataset> dataset;
+  NeighbourSampler *neighbour_sampler;
+  Sample sample = Sample(3);
+  vector<int> **layer_color;
+  vector<int> workload_map;
+public:
+  Stats(const std::string& name, const std::string& partition, int fanout){
+    populate_meta_dict();
+    this->name = get_dataset_dir() + name;
+
+    this->dataset = std::make_shared<Dataset>(this->name);
+    std::cout << "Stats started\n";
+    if(partition == "occ"){
+      for(long j=0;j<dataset->num_nodes;j++){
+        workload_map.push_back(dataset->partition_map[j]);
+      }
+    }
+
+    std::cout << "Stats started\n";
+    layer_color = (vector<int> **)malloc(4 * sizeof(vector<int> *));
+    for(int i=0;i<4;i++){
+      layer_color[i] = new vector<int>();
+      for(long j=0;j<dataset->num_nodes;j++){
+            layer_color[i]->push_back(0);
+      }
+    }
+
+    std::cout << "Stats started\n";
+
+    this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout);
+
+    std::cout << "Stats started\n";
+  }
+
+ pyredundant  get_stats(vector<long> sample_nodes){
+    sample.clear();
+    this->neighbour_sampler->sample(sample_nodes, sample);
+    std::cout << "gat stats \n";
+    redundant r = print_statistics(sample, layer_color, dataset->num_nodes, workload_map);
+    std::cout << "got stats \n";
+
+    pyredundant pr;
+    pr.total_computation = r.total_computation;
+    pr.redundant_compution = r.redundant_computation;
+    pr.total_communication = r.total_communication;
+    pr.redundant_communication = r.redundant_communication;
+    std::cout << "total compuitation" << pr.total_computation <<"\n";
+    return pr;
+  }
+
+  ~Stats(){
+    for(int i=0;i<4;i++){
+      delete layer_color[i];
+    }
+    free(layer_color);
+  }
+};
+
 class CSlicer{
     std::string name;
     int samples_generated = 0;
@@ -59,7 +128,7 @@ public:
         this->dataset = std::make_shared<Dataset>(this->name);
         spdlog::info("Log after checking the dataset");
         num_nodes = dataset->num_nodes;
-	std::cout << "Read graph with number of nodes: " << num_nodes <<"\n";
+	      std::cout << "Read graph with number of nodes: " << num_nodes <<"\n";
 
         for(long j=0;j<dataset->num_nodes;j++){
             assert(dataset->partition_map[j]<4);
@@ -105,9 +174,20 @@ public:
         ret[i] = 0;
       }
       if(this->deterministic){
-          refresh_dummy_storage();
+          for(int i=0;i<4;i++){
+            vector<long> &m = p_sample.refresh_map[i];
+            for(long n:m){
+              dummy_storage_map[i].push_back(n);
+            }
+          }
           int p_val =  sample_flow_up_ps(p_sample, dummy_storage_map, ret);
-          clear_dummy_storage();
+          for(int i=0;i<4;i++){
+            int s = p_sample.refresh_map[i].size();
+            int cs = dummy_storage_map[i].size();
+            assert(cs > s);
+            dummy_storage_map[i].resize(cs-s);
+
+          }
           std::cout << "My anser is " << p_val << "sample_val "<< sample_val << "\n";
           assert(sample_val  == p_val);
       }
@@ -139,20 +219,32 @@ PYBIND11_MODULE(cslicer, m) {
              .def_readwrite("in_nodes", &PySample::in_nodes)
              .def_readwrite("out_nodes", &PySample::out_nodes)
              .def_readwrite("missing_node_ids", &PySample::missing_node_ids)
-              .def_readwrite("debug_vals", &PySample::debug_vals);
+             .def_readwrite("debug_vals", &PySample::debug_vals);
          py::class_<PyBipartite>(m,"bipartite")
              .def_readwrite("num_in_nodes", &PyBipartite::num_in_nodes)
              .def_readwrite("num_out_nodes", &PyBipartite::num_out_nodes)
              .def_readwrite("in_nodes",&PyBipartite::in_nodes)
-     	      .def_readwrite("indptr",&PyBipartite::indptr)
-     	      .def_readwrite("expand_indptr", &PyBipartite::expand_indptr)
+     	       .def_readwrite("indptr",&PyBipartite::indptr)
+     	       .def_readwrite("expand_indptr", &PyBipartite::expand_indptr)
      	       .def_readwrite("out_nodes",&PyBipartite::out_nodes)
              .def_readwrite("owned_out_nodes",&PyBipartite::owned_out_nodes)
-     	      .def_readwrite("indices",&PyBipartite::indices)
+     	       .def_readwrite("indices",&PyBipartite::indices)
      	      .def_readwrite("from_ids",&PyBipartite::from_ids)
      	      .def_readwrite("to_ids",&PyBipartite::to_ids)
      	      .def_readwrite("self_ids_in",&PyBipartite::self_ids_in)
      	      .def_readwrite("self_ids_out",&PyBipartite::self_ids_out)
-     	       .def_readwrite("indegree", &PyBipartite::indegree)
-              .def_readwrite("gpu_id",&PyBipartite::gpu_id);
+     	      .def_readwrite("indegree", &PyBipartite::indegree)
+            .def_readwrite("gpu_id",&PyBipartite::gpu_id);
+
+        py::class_<Stats>(m,"stats")
+          .def(py::init<const std::string &,
+                const std::string &, int>())
+          .def("get_stats", &Stats::get_stats);
+
+        py::class_<pyredundant>(m, "redundant")
+          .def_readwrite("total_computation", &pyredundant::total_computation)
+          .def_readwrite("redundant_compution", &pyredundant::redundant_compution)
+          .def_readwrite("total_communication",&pyredundant::total_communication)
+         .def_readwrite("redundant_communication",&pyredundant::redundant_communication);
+
 }

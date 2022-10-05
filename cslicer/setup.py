@@ -6,7 +6,7 @@ from setuptools import setup, Extension
 from torch.utils import cpp_extension
 import os
 os.environ['CC'] = 'gcc'
-
+import pwd
 uname = pwd.getpwuid(os.getuid())[0]
 if uname == 'spolisetty':
     ROOT = "/home/spolisetty/OCC-GNN/cslicer"
@@ -19,14 +19,14 @@ if uname == "q91":
 ext_modules = [
     cpp_extension.CppExtension(
         "cslicer",
-        sources = ["transform/slice.cpp",
+        sources = ["transform/slice.cpp", "transform/walk.cpp", 
             "samplers/ns.cpp", "pyobj/pybipartite.cpp", "pyobj/pyfrontend.cpp",
                     "graph/bipartite.cpp", "util/duplicate.cpp", "graph/dataset.cpp",
                         "tests/sample.cpp"],
         extra_compile_args=["-s"],
         depends = ["util/environment.h","bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
             ,"util/conqueue.h"]  ,
-        include_dirs=[pybind11.get_include(),".","/home/q91/OCC-GNN/cslicer" ],
+        include_dirs=[pybind11.get_include(),".",ROOT ],
         language='c++'
         # sorted(glob("pybind_test.cpp"),"object.cpp"),
          # Sort source files for reproducibility

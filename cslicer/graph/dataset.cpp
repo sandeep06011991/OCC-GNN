@@ -48,7 +48,7 @@ void Dataset::read_node_data(){
   // std::fstream file(this->BIN_DIR + "/features.bin",std::ios::in|std::ios::binary);
   // this->features = (float *)malloc (this->num_nodes * this->fsize * sizeof(float));
   // file.read((char *)this->features,this->num_nodes * this->fsize * sizeof(float));
-  // float s = 0;
+  float s = 0;
   // for(long i=0;i< (this->fsize*this->num_nodes) ;i++){
   //   s = s + this->features[i];
   // }

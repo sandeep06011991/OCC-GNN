@@ -5,7 +5,9 @@ import os
 from os.path import exists
 from metis import *
 
-file_exists = exists(path_to_file)
+# Since this is the easiest dataset to generateself.
+# Allow overwriting.
+# file_exists = exists(path_to_file)
 
 def get_data_dir():
     import os
@@ -115,7 +117,7 @@ def write_dataset_dataset(name, TARGET_DIR):
     import os
     username = os.environ['USER']
     if username == "spolisetty" :
-        generate_partition_file(nname)
+        generate_partition_file(ROOT_DIR, name)
 
 
 # arg0 = dgl dataset name

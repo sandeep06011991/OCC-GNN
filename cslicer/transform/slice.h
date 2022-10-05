@@ -37,3 +37,22 @@ public:
 };
 
 void check_allocation_for_optimality(Sample &s, int *workload_map, long num_nodes);
+
+struct redundant{
+  int total_computation = 0;
+  int redundant_computation = 0;
+  int total_communication = 0;
+  int redundant_communication = 0;
+};
+
+
+struct gpu_meta{
+  int set_partitions;
+  int partitions[4];
+};
+
+
+void populate_meta_dict();
+
+redundant  print_statistics(Sample &s, std::vector<int> ** layer_color, long num_nodes, std::vector<int> & workload_map);
+// redundant  print_statistics(Sample &s, vector<int>** layer_color, long num_nodes, vector<int>& workload_map){

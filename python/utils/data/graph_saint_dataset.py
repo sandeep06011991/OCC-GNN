@@ -7,6 +7,7 @@ import subprocess
 from env import get_data_dir
 from os.path import exists
 import scipy
+import gdown
 from sklearn.preprocessing import StandardScaler
 import json
 from metis import *
@@ -16,13 +17,14 @@ TARGET_DIR = "{}/{}".format(ROOT_DIR, "amazon")
 
 
 
-path_exists = exists(TARGET_DIR)
+path_exists = exists("{}/adj_full.npz".format(TARGET_DIR))
+# path_exists = False
 if not path_exists:
     url = "https://drive.google.com/drive/folders/1uc76iCxBnd0ntNliosYDHHUc_ouXv9Iv"
     path = TARGET_DIR
     import os
     os.makedirs(path, exist_ok = True)
-    gdown.download(url, path)
+    gdown.download_folder(url = url, output = path)
 
 # Read all datasets
 prefix = "amazon"
