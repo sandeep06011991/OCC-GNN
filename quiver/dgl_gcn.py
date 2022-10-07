@@ -24,6 +24,8 @@ from dgl_gat import GAT
 def average(ls):
     if(len(ls) == 1):
         return ls[0]
+    if (len(ls) < 3):
+        return sum(ls)/2
     a = max(ls[1:])
     b = min(ls[1:])
     return (sum(ls[1:]) -a -b)/(len(ls)-3)
@@ -70,7 +72,7 @@ def run(rank, args,  data):
     dist.init_process_group('nccl', rank=rank, world_size=4)
     
     device = rank
-    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g = data
+    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets = data
     if args.data == 'gpu':
         nfeat = nfeat.to(rank)
     if args.sample_gpu:
@@ -81,9 +83,10 @@ def run(rank, args,  data):
 
     # Create PyTorch DataLoader for constructing blocks
     sampler = dgl.dataloading.MultiLayerNeighborSampler(
-        [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
+            [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
     world_size = 4
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
+    print(g.ndata)
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
@@ -92,6 +95,7 @@ def run(rank, args,  data):
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
+        prefetch_factor = 8,
         num_workers=0 if args.sample_gpu else args.num_workers,
         persistent_workers=not args.sample_gpu)
 
@@ -121,7 +125,7 @@ def run(rank, args,  data):
     forward_time_epoch = []
     backward_time_epoch = []
     accuracy = []
-    
+    edges_per_epoch = []
     e0 = torch.cuda.Event(enable_timing = True)
     e1 = torch.cuda.Event(enable_timing = True)
     e2 = torch.cuda.Event(enable_timing = True)
@@ -144,6 +148,8 @@ def run(rank, args,  data):
         forward_time = 0
         backward_time = 0
         dataloader_i = iter(dataloader)
+        edges_computed = 0
+        global_cache_misses = 0
         try:
             while True:
                 optimizer.zero_grad()
@@ -152,10 +158,18 @@ def run(rank, args,  data):
                 t2 = time.time()
                 # copy block to gpu
                 blocks = [blk.to(device) for blk in blocks]
+                #t2 = time.time()
                 blocks = [blk.formats(['coo','csr','csc']) for blk in blocks]
+                
                 for blk in blocks:
                     blk.create_formats_()
+                    edges_computed += blk.edges()[0].shape[0]
                 t3 = time.time()
+                start = offsets[device][0]
+                end = offsets[device][1]
+                hit = torch.where((input_nodes > start ) & (input_nodes < end))[0].shape[0]
+                missed = input_nodes.shape[0] - hit
+
                 e1.record()
                 # Load the input features as well as output labels
                 batch_inputs, batch_labels = load_subtensor(
@@ -165,39 +179,43 @@ def run(rank, args,  data):
                 # Compute loss and prediction
                 with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
                     batch_pred = model(blocks, batch_inputs)
-                #e3.record()
-                    loss = loss_fcn(batch_pred, batch_labels)
                     e3.record()
+                    loss = loss_fcn(batch_pred, batch_labels)
+                    #e3.record()
                     loss.backward()
                     e4.record()
                 e4.synchronize()
                 optimizer.step()
                 sample_time += (t2 - t1)
                 movement_graph_time += (t3 - t2)
+                #print("sample time", t2-t1, t3-t2)
+                #print("Time feature", device, e1.elapsed_time(e2)/1000)
+                #print("Expected bandwidth", missed * nfeat.shape[1] * 4/ ((e1.elapsed_time(e2)/1000) * 1024 * 1024 * 1024), "GB device", rank, "cache rate", hit/(hit + missed))
                 movement_feature_time += max(t4-t3, e1.elapsed_time(e2)/1000)
                 forward_time += e2.elapsed_time(e3)/1000
                 backward_time += e3.elapsed_time(e4)/1000
                 #print("forward time", e2.elapsed_time(e3)/1000)
                 #print("backward time", e3.elapsed_time(e4)/1000)
-                total_loss += loss.item()
-                total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
+                #total_loss += loss.item()
+                #total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
         #        pbar.update(args.batch_size)
         except StopIteration:
             pass
+        print("EPOCH TIME",time.time() - epoch_start)
         epoch_time.append(time.time()-epoch_start)
         sample_time_epoch.append(sample_time)
         movement_time_graph_epoch.append(movement_graph_time)
         movement_time_feature_epoch.append(movement_feature_time)
         forward_time_epoch.append(forward_time)
         backward_time_epoch.append(backward_time)
-
+        edges_per_epoch.append(edges_computed)
         #pbar.close()
 
         loss = total_loss / len(dataloader)
         approx_acc = total_correct / (len(dataloader) * args.batch_size)
         accuracy.append(approx_acc)
         print(f'Epoch {epoch:02d}, Loss: {loss:.4f}, Approx. Train: {approx_acc:.4f}, Epoch Time: {time.time() - tic:.4f}')
-    if rank == 0:
+    if rank == 0 :
         #print(prof.key_averages().table(sort_by='cuda_time_total'))
 
         if epoch >= 10:
@@ -207,7 +225,7 @@ def run(rank, args,  data):
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 final_test_acc = test_acc
-    if rank == 0:
+    if rank == 3 or True:
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch:{}".format(average(epoch_time)))
         print("sample_time:{}".format(average(sample_time_epoch)))
@@ -215,6 +233,7 @@ def run(rank, args,  data):
         print("movement feature:{}".format(average(movement_time_feature_epoch)))
         print("forward time:{}".format(average(forward_time_epoch)))
         print("backward time:{}".format(average(backward_time_epoch)))
+        print("edges per epoch:{}".format(average(edges_per_epoch)))
     dist.destroy_process_group()
 
     return final_test_acc
@@ -226,11 +245,11 @@ if __name__ == '__main__':
     argparser.add_argument('--model',type = str)
     argparser.add_argument('--gpu', type=int, default=0,
                            help="GPU device ID. Use -1 for CPU training")
-    argparser.add_argument('--num-epochs', type=int, default=6)
+    argparser.add_argument('--num-epochs', type=int, default=3)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='10,10,10')
-    argparser.add_argument('--batch-size', type=int, default=128)
+    argparser.add_argument('--batch-size', type=int, default=1024)
     argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default=0.5)
     argparser.add_argument('--num-workers', type=int, default=4,
@@ -279,6 +298,13 @@ if __name__ == '__main__':
                                #cache_policy="device_replicate", 
                                #csr_topo=csr_topo)
         nfeat.from_cpu_tensor(feat)
+        print("Using quiver feature")
+        print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
+        offsets = {}
+        for device in range(4):
+            start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
+            end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
+            offsets[device] = (start,end)
     elif args.data == 'unified':
         from distutils.version import LooseVersion
         assert LooseVersion(dgl.__version__) >= LooseVersion('0.8.0'), \
@@ -293,7 +319,7 @@ if __name__ == '__main__':
     # This avoids creating certain formats in each data loader process, which saves momory and CPU.
     graph.create_formats_()
     # Pack data
-    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph
+    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets
 
     #test_accs = []
     #for i in range(1, 11):
