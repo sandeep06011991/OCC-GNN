@@ -2,7 +2,7 @@ import dgl
 import torch.nn as nn
 import torch
 import time
-from layers.opt_shuffle_v1 import Shuffle
+from layers.opt_shuffle import Shuffle
 import dgl.nn.pytorch.conv.sageconv as sgc
 import torch.multiprocessing as mp
 from data.test_bipartite import get_dummy_bipartite_graph

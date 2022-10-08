@@ -187,7 +187,7 @@ class Bipartite:
         with self.graph.local_scope():
             self.graph.nodes['_V'].data['out'] = local_out
             self.graph.edges['_E'].data['temp'] = torch.zeros(
-                self.graph.num_edges('_E'), local_out[1].shape[1], device=self.gpu_id)
+                    self.graph.num_edges('_E'), *local_out.shape[1:], device=self.gpu_id)
             self.graph.apply_edges(fn.v_add_e('out', 'temp', 'm'))
             return self.graph.edata['m']
 

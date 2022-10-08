@@ -99,7 +99,7 @@ def run_experiment_quiver( model ):
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
     cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
-    #cache_rates = ["0"]
+    cache_rates = [".25"]
     #settings = [settings[0]]
     check_path()
     print(settings)

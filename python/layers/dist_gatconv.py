@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 
-from layers.opt_shuffle_v1 import Shuffle
+from layers.opt_shuffle import Shuffle
 
 
 class DistGATConv(nn.Module):

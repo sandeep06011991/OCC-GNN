@@ -248,7 +248,7 @@ if __name__ == '__main__':
     argparser.add_argument('--num-epochs', type=int, default=3)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
-    argparser.add_argument('--fan-out', type=str, default='10,10,10')
+    argparser.add_argument('--fan-out', type=str, default='20,20,20')
     argparser.add_argument('--batch-size', type=int, default=1024)
     argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default=0.5)

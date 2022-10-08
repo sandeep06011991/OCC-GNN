@@ -33,7 +33,7 @@ class Shuffle(torch.autograd.Function):
                 temp_g.append(torch.empty((to_dict[i].shape[0], *input_t.shape[1:]) \
                     , device = device_id))
         #if layer_id == 0:
-        print("Sending traffic node", "size in MB", to_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)
+        #print("Sending traffic node", "size in MB", to_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)
         #    print("recieving traffic ",from_data , "UNIQUE", from_data_unique, "size in MB",from_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)
         remote_obj = []
         #torch.distributed.barrier(device_ids = [device_id])
@@ -58,7 +58,7 @@ class Shuffle(torch.autograd.Function):
                     remote_obj.append(torch.distributed.send(a,to_id))
                     send_time += (time.time() - t11)
                     if debug:
-                        assert(not torch.all(a==0))
+                        #assert(not torch.all(a==0))
                         print("sending", from_id, to_id, torch.sum(a))
                 if to_id == device_id and from_dict[from_id].shape[0] != 0:
                     t11 = time.time()
@@ -67,7 +67,7 @@ class Shuffle(torch.autograd.Function):
                     a = torch.sum(temp[from_id])
                     if debug:
                         print("recieving", from_id, to_id, torch.sum(temp[from_id]))
-                torch.distributed.barrier(device_ids = [device_id])
+                #torch.distributed.barrier(device_ids = [device_id])
 
             t222 = time.time()
             # if to_id== device_id:
@@ -142,7 +142,7 @@ class Shuffle(torch.autograd.Function):
                     remote_obj.append(torch.distributed.send(a, from_id))
                     if debug:
                         print("sending", to_id, from_id, torch.sum(a))
-                torch.distributed.barrier(device_ids = [device_id])
+                #torch.distributed.barrier(device_ids = [device_id])
 
         #torch.distributed.barrier(device_ids = [device_id])
         # for obj in remote_obj:

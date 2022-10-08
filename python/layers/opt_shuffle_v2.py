@@ -6,8 +6,16 @@ from torch.nn.parallel import DistributedDataParallel
 import time,datetime
 import torch.cuda.nvtx  as nvtx
 # FixMe: Currently blocking. Test with NVLink and asynchronous send/recv
-import os
-assert(os.environ['NCCL_BUFFSIZE'] == '41943040')
+
+# from, to
+order = {0:
+            1:
+            2: 
+            3:
+        }
+
+
+
 
 class Shuffle(torch.autograd.Function):
 
@@ -21,10 +29,6 @@ class Shuffle(torch.autograd.Function):
         debug = True
         to_data_unique = 0
         from_data_unique = 0
-        #if debug:
-
-        #    assert(not torch.all(input_t == 0))
-        #torch.distributed.barrier()
         for i in range(4):
             if i == device_id:
                 temp.append(None)
@@ -40,8 +44,8 @@ class Shuffle(torch.autograd.Function):
                 temp_g.append(torch.empty((to_dict[i].shape[0], *input_t.shape[1:]) \
                     , device = device_id))
         #if layer_id == 0:
-        print("Sending traffic node", "size in MB", to_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)
-        #print("recieving traffic ",from_data , "UNIQUE", from_data_unique, "size in MB",from_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)
+        #print("Sending traffic node", "size in MB", to_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)
+        #    print("recieving traffic ",from_data , "UNIQUE", from_data_unique, "size in MB",from_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)
         remote_obj = []
         #torch.distributed.barrier(device_ids = [device_id])
         #print("Start Shuffle forward",layer_id, device_id)
@@ -50,58 +54,59 @@ class Shuffle(torch.autograd.Function):
         send_time = 0
         recv_time = 0
         #print("Start shuffle",device_id)
-        torch.distributed.barrier(device_ids = [device_id])
         # nvtx.range_push("send and recieve {}".format(device_id))
-        from_id = device_id
-        for to_id in range(4):
-            if to_id == from_id:
-                continue   
-            if from_id == device_id and to_dict[to_id].shape[0] != 0:
-                t11 = time.time()
-                a = input_t[to_dict[to_id]].clone().detach()
-                #assert(not torch.all(a==0))
-                print("Attemting to send", to_id, from_id, a.shape)
-                remote_obj.append(torch.distributed.send(a,to_id))
-                print("Send success ", to_id, from_id)
-                send_time += (time.time() - t11)
-                if debug:
-                    #if (torch.all(a==0)):
-                    #    print("check zero", to_dict[to_id], input_t[:,0].flatten(), input_t[to_dict[to_id]][:,0].flatten())
-                    #assert(not torch.all(a==0))
-                    print("trsvhrtf hrtr", device_id)
-                    print("sending", to_id, from_id, torch.sum(a))
-        print("all send ok !", device_id)
-        to_id = device_id 
-        torch.distributed.barrier(device_ids = [device_id])
         for from_id in range(4):
-            
-            if to_id == from_id:
-                continue
-            if to_id == device_id and from_dict[from_id].shape[0] != 0:
-                t11 = time.time()
-                remote_obj.append(torch.distributed.recv(temp[from_id], src=from_id))
-                recv_time += (time.time() - t11)
-                a = torch.sum(temp[from_id])
-                if debug:
-                    print("recieving", from_id, to_id, torch.sum(temp[from_id]))
+            t111 = time.time()
+            for to_id in range(4):
+                #if device_id == 0:
+                #print("from id",  from_id, "to_id",  to_id, "device_id", device_id)
+                if to_id == from_id:
+                    continue
+                if from_id == device_id and to_dict[to_id].shape[0] != 0:
+                    t11 = time.time()
+                    a = input_t[to_dict[to_id]].clone().detach()
+                    # assert(not torch.all(a==0))
+                    remote_obj.append(torch.distributed.send(a,to_id))
+                    send_time += (time.time() - t11)
+                    if debug:
+                        #assert(not torch.all(a==0))
+                        print("sending", from_id, to_id, torch.sum(a))
+                if to_id == device_id and from_dict[from_id].shape[0] != 0:
+                    t11 = time.time()
+                    remote_obj.append(torch.distributed.recv(temp[from_id], src=from_id))
+                    recv_time += (time.time() - t11)
+                    a = torch.sum(temp[from_id])
+                    if debug:
+                        print("recieving", from_id, to_id, torch.sum(temp[from_id]))
                 #torch.distributed.barrier(device_ids = [device_id])
 
             t222 = time.time()
             # if to_id== device_id:
         t2 = time.time()
-        print("All recieve ok", device_id)
         print("total time to send",send_time, "recv time",recv_time, device_id, "Total tiem", t2-t1)
         send_MB = to_data * input_t.shape[1] * 4 /(1024 * 1024)
         recv_MB = from_data * input_t.shape[1] * 4/(1024 * 1024)
         #    print("recieving traffic ",from_data , "UNIQUE", from_data_unique, "size in MB",from_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)
 
+        #print("Total band width in MBPS", send_MB/send_time, "RECV ",recv_MB/recv_time)
+        # nvtx.range_pop()
+        # print("stuck at barrier",device_id)
+        #torch.distributed.barrier(device_ids = [device_id])
         t2 = time.time()
+        # if layer_id == 0:
+        #     print("shuffle time layer FINE GRAINED",t2- t1,device_id)
+            # print("total sent and recieved", send_time, recv_time)
+
+        # for obj in remote_obj:
+        #     obj.wait()
+        # torch.distributed.barrier()
+        t3 = time.time()
         for from_id in range(4):
             if from_id == device_id or from_dict[from_id].shape[0] == 0:
                 continue
             input_t[from_dict[from_id]] += temp[from_id]
         #print("end shuffle",device_id)
-        torch.distributed.barrier()
+        # torch.distributed.barrier()
         t4 = time.time()
 
         ctx.queues = queues
@@ -112,6 +117,8 @@ class Shuffle(torch.autograd.Function):
         ctx.grad_required = input_t.requires_grad
         ctx.layer_id = layer_id
         ctx.debug = debug
+        if (layer_id ==0) and debug:
+            print("Total time SHUFFLE TIME IN LAYER 0 ", (t4 - t3),t2- t1 )
         return input_t
 
     @staticmethod
@@ -132,29 +139,23 @@ class Shuffle(torch.autograd.Function):
         remote_obj = []
         #torch.distributed.barrier(device_ids = [device_id])
         # assert(torch.any(out != 0))
-        to_id = device_id
-        for from_id in range(4):
-            if to_id == from_id:
-                continue
-            if to_id == device_id and from_dict[from_id].shape[0] != 0:
+        for to_id in range(4):
+            for from_id in range(4):
+                #print("to ",to_id, "from",from_id)
+                if to_id == from_id:
+                    continue
+                if from_id == device_id and to_dict[to_id].shape[0] != 0:
+                    remote_obj.append(torch.distributed.recv(temp[to_id], src=to_id))
+                    if debug:
+                        print("recieving", to_id, from_id, torch.sum(temp[to_id]))
+                if to_id == device_id and from_dict[from_id].shape[0] != 0:
                     a = out[from_dict[from_id]].detach()
                     remote_obj.append(torch.distributed.send(a, from_id))
                     if debug:
                         print("sending", to_id, from_id, torch.sum(a))
                 #torch.distributed.barrier(device_ids = [device_id])
-        from_id = device_id
-        for to_id in range(4):
-            #print("to ",to_id, "from",from_id)
-            if to_id == from_id:
-                continue
-            if from_id == device_id and to_dict[to_id].shape[0] != 0:
-                remote_obj.append(torch.distributed.recv(temp[to_id], src=to_id))
-                if debug:
-                    print("recieving", to_id, from_id, torch.sum(temp[to_id]))
-                #torch.distributed.barrier(device_ids = [device_id])
 
-
-        torch.distributed.barrier(device_ids = [device_id])
+        #torch.distributed.barrier(device_ids = [device_id])
         # for obj in remote_obj:
         #     obj.wait()
 
