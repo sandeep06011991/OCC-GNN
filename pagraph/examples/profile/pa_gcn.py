@@ -46,7 +46,7 @@ def compute_acc(pred, labels):
     """
     false_labels = torch.where(torch.argmax(pred,dim = 1) != labels)[0]
     return (torch.argmax(pred, dim=1) == labels).float().sum() / len(pred )
-    
+
 
 def trainer(rank, world_size, args, backend='nccl'):
   dataset = "{}/{}/".format(ROOT_DIR, args.dataset)
@@ -131,6 +131,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   t3 = time.time()
   epoch_time = []
   miss_rate_per_epoch = []
+  miss_num_per_epoch = []
   time_cache_gather = []
   event_cache_gather = []
   time_cache_move = []
@@ -139,6 +140,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   backward_time = []
   sample_time = []
   graph_move_time = []
+  edges_processed = []
   e1 = torch.cuda.Event(enable_timing = True)
   e2 = torch.cuda.Event(enable_timing = True)
   e3 = torch.cuda.Event(enable_timing = True)
@@ -153,7 +155,7 @@ def trainer(rank, world_size, args, backend='nccl'):
       backward_time_epoch = 0
       epoch_sample_time = 0
       epoch_move_graph_time = 0
-
+      epoch_edges_processed = 0
       step = 0
       #print("start epoch",rank)
       #for nf in sampler:
@@ -188,6 +190,8 @@ def trainer(rank, world_size, args, backend='nccl'):
         with nvtx.annotate('compute', color = 'red'):
         #if True:
           pred = model(nf)
+          for i in range(3):
+              epoch_edges_processed += nf.block_size(i)
           e2.record()
           loss = loss_fcn(pred, label)
           acc = compute_acc(pred,label)
@@ -221,9 +225,12 @@ def trainer(rank, world_size, args, backend='nccl'):
         forward_time.append(forward_time_epoch)
         backward_time.append(backward_time_epoch)
         #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
-        miss_rate = cacher.get_miss_rate()
+        miss_rate, miss_num = cacher.get_miss_rate()
         miss_rate_per_epoch.append(miss_rate)
+        # Append in MB
+        miss_num_per_epoch.append(miss_num * fsize * 4 / (1024 * 1024))
         #print('Epoch average miss rate: {:.4f}'.format(miss_rate))
+        edges_processed.append(epoch_edges_processed)
     toc = time.time()
   print("Exiting training working to collect profiler results")
   if rank == 0:
@@ -238,7 +245,8 @@ def trainer(rank, world_size, args, backend='nccl'):
       print("CUDA move: {:.4}s\n".format(avg(event_cache_move)))
       print("Epoch time: {:.4}s\n".format(avg(epoch_dur)))
       print("Miss rate: {:.4}s\n".format(avg(miss_rate_per_epoch)))
-
+      print("Miss num per epoch: {:.4}MB, device {}\n".format(avg(miss_num_per_epoch)))
+      print("Edges processed per epoch: {}".format(avg(epoch_edges_processed)))
   # Profiling everything is unstable and overweight.
   # torch profiler uses events under it.
   #if rank == 0:
@@ -266,7 +274,7 @@ if __name__ == '__main__':
   parser.add_argument("--dataset", type=str, default="None",
                       help="path to the dataset folder")
   # model arch
-  parser.add_argument("--feat-size", type=int, 
+  parser.add_argument("--feat-size", type=int,
                       help='input feature size')
   parser.add_argument("--n-classes", type=int, default=60)
   parser.add_argument("--dropout", type=float, default=0.2,

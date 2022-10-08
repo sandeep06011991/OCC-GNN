@@ -25,7 +25,7 @@ def get_graph_data(dataname):
     print('random generate feat...')
     import torch
     feat = torch.rand((adj.shape[0], 100))
-  
+
   return adj, feat
 
 
@@ -39,11 +39,17 @@ def get_sub_train_graph(dataname, idx, partitions):
     adj
     train2fullid
   """
-  dataname = os.path.join(dataname, '{}naive'.format(partitions))
-  adj_file = os.path.join(dataname, 'subadj_{}.npz'.format(idx))
-  train2full_file = os.path.join(dataname, 'sub_train2fullid_{}.npy'.format(idx))
-  adj = scipy.sparse.load_npz(adj_file)
-  train2fullid = np.load(train2full_file)
+  if "com-orkut" in dataname or  "amazon" in dataname:
+      adj_file = os.path.join(dataname, 'adj.npz')
+      train2full_file = os.path.join(dataname, 'vmap.npy')
+      # np.range(0,adj_file.shape[0])
+      # train2full_file = os.path.join(dataname, 'sub_train2fullid_{}.npy'.format(idx))
+  else:
+      dataname = os.path.join(dataname, '{}naive'.format(partitions))
+      adj_file = os.path.join(dataname, 'subadj_{}.npz'.format(idx))
+      train2full_file = os.path.join(dataname, 'sub_train2fullid_{}.npy'.format(idx))
+      adj = scipy.sparse.load_npz(adj_file)
+      train2fullid = np.load(train2full_file)
   return adj, train2fullid
 
 
@@ -78,9 +84,16 @@ def get_masks(dataname):
 
 
 def get_sub_train_nid(dataname, idx, partitions):
-  dataname = os.path.join(dataname, '{}naive'.format(partitions))
-  sub_train_file = os.path.join(dataname, 'sub_trainid_{}.npy'.format(idx))
-  sub_train_nid = np.load(sub_train_file)
+  if "com-orkut" in dataname or  "amazon" in dataname:
+    train_nids = os.path.join(dataname, 'train.npy')
+    train_nids = torch.split(train_nids, partitions)[idx]
+    sub_train_nid = train_nids
+    # np.range(0,adj_file.shape[0])
+    # train2full_file = os.path.join(dataname, 'sub_train2fullid_{}.npy'.format(idx))
+  else:
+    dataname = os.path.join(dataname, '{}naive'.format(partitions))
+    sub_train_file = os.path.join(dataname, 'sub_trainid_{}.npy'.format(idx))
+    sub_train_nid = np.load(sub_train_file)
   return sub_train_nid
 
 
@@ -97,6 +110,8 @@ def get_labels(dataname):
 
 
 def get_sub_train_labels(dataname, idx, partitions):
+  if "com-orkut" in dataname or "amazon" in dataname:
+      return get_labels(dataname)
   dataname = os.path.join(dataname, '{}naive'.format(partitions))
   sub_label_file = os.path.join(dataname, 'sub_label_{}.npy'.format(idx))
   sub_label = np.load(sub_label_file)

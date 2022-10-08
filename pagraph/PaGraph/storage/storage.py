@@ -15,7 +15,7 @@ from dgl import DGLGraph
 from dgl.frame import Frame, FrameRef
 import dgl.utils
 import time
-import nvtx 
+import nvtx
 
 class GraphCacheServer:
   """
@@ -35,7 +35,7 @@ class GraphCacheServer:
     self.node_num = node_num
     self.nid_map = nid_map.clone().detach().cuda(self.gpuid)
     self.nid_map.requires_grad_(False)
-    
+
     # masks for manage the feature locations: default in CPU
     self.gpu_flag = torch.zeros(self.node_num).bool().cuda(self.gpuid)
     self.gpu_flag.requires_grad_(False)
@@ -51,7 +51,7 @@ class GraphCacheServer:
     with torch.cuda.device(self.gpuid):
       self.localid2cacheid = torch.cuda.LongTensor(node_num).fill_(0)
       self.localid2cacheid.requires_grad_(False)
-    
+
     # logs
     self.log = False
     self.try_num = 0
@@ -64,7 +64,7 @@ class GraphCacheServer:
     self.move_cuda_time = 0
     self.collect_time = 0
     self.move_time = 0
-  
+
   def init_field(self, embed_names):
     with torch.cuda.device(self.gpuid):
       nid = torch.cuda.LongTensor([0])
@@ -142,8 +142,8 @@ class GraphCacheServer:
     else:
       frame = {name: self.graph._node_frame._frame[name].data[nids] for name in embed_names}
     return frame
-  
-  
+
+
   def cache_fix_data(self, nids, data, is_full=False):
     """
     User should make sure tensor data under every field name should
@@ -166,7 +166,7 @@ class GraphCacheServer:
     self.full_cached = is_full
     print("cache fixed",self.gpuid)
 
-  
+
   def fetch_data(self, nodeflow):
     """
     copy feature from local GPU memory or
@@ -203,7 +203,7 @@ class GraphCacheServer:
                     for name in self.dims}
       # for gpu cached tensors: ##NOTE: Make sure it is in-place update!
       with nvtx.annotate('cache-gpu'):
-      #with torch.autograd.profiler.record_function('cache-gpu'):
+      # with torch.autograd.profiler.record_function('cache-gpu'):
         if nids_in_gpu.size(0) != 0:
           cacheid = self.localid2cacheid[nids_in_gpu]
           for name in self.dims:
@@ -246,18 +246,19 @@ class GraphCacheServer:
           frame[name] = self.gpu_fix_cache[name][tnid]
       nodeflow._node_frames[i] = FrameRef(Frame(frame))
 
-  
+
   def log_miss_rate(self, miss_num, total_num):
     self.try_num += total_num
     self.miss_num += miss_num
-  
+
   def get_miss_rate(self):
     if self.try_num == 0:
           return 0
     miss_rate = float(self.miss_num) / self.try_num
+    miss_num = self.miss_num
     self.miss_num = 0
     self.try_num = 0
-    return miss_rate
+    return miss_rate, miss_num
 
   def get_time_and_reset_time(self):
     a = self.collect_cuda_time
