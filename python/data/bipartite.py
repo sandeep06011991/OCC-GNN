@@ -141,8 +141,10 @@ class Bipartite:
         with self.graph.local_scope():
             self.graph.edges['_E'].data['in_e'] = attention
             self.graph.nodes['_U'].data['in'] = u_in
+            print("ATtention", attention.shape, u_in.shape)
             self.graph.update_all(fn.u_mul_e(
                 'in', 'in_e', 'h'), fn.sum('h', 'out'))
+            print("RESSSSSSSSSSSSSSSSSSS",self.graph.nodes['_V'].data['out'].shape, u_in.shape)
             return self.graph.nodes['_V'].data['out']
 
     def self_gather(self, local_in):

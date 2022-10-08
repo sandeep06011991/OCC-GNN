@@ -12,7 +12,6 @@ if uname == 'spolisetty':
     ROOT_DIR = "/home/spolisetty/OCC-GNN/cslicer/"
     SRC_DIR = "/home/spolisetty/OCC-GNN/python/main.py"
     SYSTEM = 'jupiter'
-<<<<<<< HEAD
     OUT_DIR = '/home/spolisetty/OCC-GNN/experiments/exp6/'
 if uname == 'q91':
     ROOT_DIR = "/home/q91/OCC-GNN/cslicer/"
@@ -20,13 +19,6 @@ if uname == 'q91':
     SYSTEM = 'ornl'
     OUT_DIR = '/home/q91/OCC-GNN/experiments/exp6/'
 if uname == 'spolisetty_umass_edu':
-=======
-if os.getlogin() == 'q91':
-    ROOT_DIR = "/home/q91/OCC-GNN/cslicer/"
-    SRC_DIR = "/home/q91/OCC-GNN/python/main.py"
-    SYSTEM = 'ornl'
-if os.getlogin() == 'spolisetty_umass_edu':
->>>>>>> 17dbe6f... quiver changes
     ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN/cslicer"
     SRC_DIR = "/home/spolisetty_umass_edu/OCC-GNN/python/main.py"
     SYSTEM = 'unity'
@@ -72,18 +64,8 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
     error = str(output.stderr)
     print(out,error)
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
-<<<<<<< HEAD
-<<<<<<< HEAD
-    #try:
-    if True:
-=======
-    #if True:
-    try:
->>>>>>> 17dbe6f... quiver changes
-=======
     try:
     #if True:
->>>>>>> changes for pagraph remove all syncs
         accuracy  = re.findall("accuracy:(\d+\.\d+)",out)[0]
         epoch = re.findall("epoch:(\d+\.\d+)",out)[0]
         sample_get  = re.findall("sample_time:(\d+\.\d+)",out)[0]
@@ -100,23 +82,10 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         epoch = "{:.2f}".format(float(epoch))
         backward_time = "{:.2f}".format(float(backward_time))
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    #except Exception as e:
-    #    with open('exception_occ.txt','w') as fp:
-    #        fp.write(error)
-    '''
-=======
-    except Exception as e:
-        with open('exception_occ.txt','w') as fp:
-            fp.write(error)
->>>>>>> 17dbe6f... quiver changes
-=======
     except Exception as e:
         with open('exception_occ.txt','w') as fp:
             fp.write(error)
     
->>>>>>> changes for pagraph remove all syncs
         sample_get = "error"
         movement_graph = "error"
         movement_feat = "error"
@@ -124,15 +93,6 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         backward_time = "error"
         accuracy = "error"
         epoch = "error"
-<<<<<<< HEAD
-<<<<<<< HEAD
-    '''
-=======
-        
->>>>>>> 17dbe6f... quiver changes
-=======
-    
->>>>>>> changes for pagraph remove all syncs
     return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
             "movement_graph":movement_graph, "movement_feat": movement_feat, "epoch":epoch,
                 "accuracy": accuracy}
@@ -156,31 +116,20 @@ def run_experiment_occ(model):
                 # ("com-friendster",2), \
                  # ("com-orkut",5, 256, 256, 4096) \
                  ]
-    # settings = [("ogbn-arxiv", 16, 128, 1024),]
+    settings = [("ogbn-products", 16, 128, 4096),]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
     cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
-<<<<<<< HEAD
-
-<<<<<<< HEAD
-    cache_rates = [".25"]
-=======
+    #cache_rates = [".25"]
     #settings = [("ogbn-arxiv", 16, 128, 1024),]
     #cache_rates = [".25"]
->>>>>>> 17dbe6f... quiver changes
-=======
     #cache_rates = [".25"]
->>>>>>> changes for pagraph remove all syncs
     #settings = [settings[0]]
     check_path()
     print(settings)
     sha,dirty = get_git_info()
     assert(model in ["gcn","gat"])
-<<<<<<< HEAD
     with open(OUT_DIR + 'exp6_occ_{}.txt'.format(SYSTEM),'a') as fp:
-=======
-    with open('exp6_occ_ornl.txt','a') as fp:
->>>>>>> 17dbe6f... quiver changes
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy \n")
     for graphname, hidden_size, fsize, batch_size in settings:
@@ -189,13 +138,8 @@ def run_experiment_occ(model):
                 if float(cache) > .3:
                     continue
             out = run_occ(graphname, model,  cache, hidden_size,fsize, batch_size)
-<<<<<<< HEAD
             with open(OUT_DIR + 'exp6_occ_{}.txt'.format(SYSTEM),'a') as fp:
                 fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} \n".format(graphname , SYSTEM, cache, hidden_size, fsize, batch_size, model, out["sample_get"], out["movement_graph"], out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"]))
-=======
-            with open('exp6_occ_ornl.txt','a') as fp:
-                fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} \n".format(graphname , "groot", cache, hidden_size, fsize, batch_size, model, out["sample_get"], out["movement_graph"], out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"]))
->>>>>>> 17dbe6f... quiver changes
 
 
 

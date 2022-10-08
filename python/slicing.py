@@ -37,10 +37,10 @@ def work_producer(work_queue, training_nodes, batch_size,
 # The first process communicates with other processes.
 def slice_producer(graph_name, work_queue, sample_queue, \
     lock , storage_vector, \
-        deterministic, worker_id, sm_filename_queue):
+        deterministic, worker_id, sm_filename_queue, num_workers):
     no_worker_threads = 1
     sampler = cslicer(graph_name,storage_vector,10, deterministic)
-    sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id)
+    sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id, num_workers)
     # Todo clean up unnecessary iterations
     log = LogFile("slice-py", worker_id)
     while(True):
@@ -74,12 +74,14 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         log.log("Tensorization complete. start serialziation")
         sample_id = tensorized_sample.randid
         gpu_local_samples = []
+        print("Attemtong to serailize")
         for gpu_id in range(4):
             # gpu_local_samples.append(Gpu_Local_Sample(tensorized_sample, gpu_id))
             obj = Gpu_Local_Sample()
             obj.set_from_global_sample(tensorized_sample,gpu_id)
             data = serialize_to_tensor(obj)
             data = data.numpy()
+            print("Warning shared memory queue may be  emtpy ", sm_filename_queue.qsize())
             name = sm_client.write_to_shared_memory(data)
             ref = ((name, data.shape, data.dtype.name))
             gpu_local_samples.append(ref)
@@ -92,6 +94,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         #print("Worker puts sample",sample_id)
         # Write to leader gpu
         log.log("Slicer puts sample {}".format(sample_queue.qsize()))
+        print("Attemtpting to put to Sample",sample_queue.qsize())
         sample_queue.put(tuple(gpu_local_samples))
         # for qid,q in enumerate(sample_queues):
         #     while True:

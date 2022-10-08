@@ -35,13 +35,14 @@ class DistGATModel(torch.nn.Module):
         self.bp_end = torch.cuda.Event(enable_timing=True)
 
     def forward(self, bipartite_graphs, x, in_degrees):
+        
         for l,(layer, bipartite_graph) in  \
             enumerate(zip(self.layers,bipartite_graphs.layers)):
-            # assert(not torch.any(torch.sum(x,1)==0))
+            print("Forward pass Attempt##########################")    
             x = layer(bipartite_graph, x,l, in_degrees)
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
-
+        print("Forward Pass Done###########################")
         return x
 
 

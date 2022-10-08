@@ -30,7 +30,7 @@ void BiPartite::reorder_lastlayer(DuplicateRemover *dr, vector<int>& gpu_order, 
   // The original indices are used to replace
   for(int nd :in_nodes){
      if(gpu_order[nd] == -1){
-       std::cout << "bipartite reorder " << nd << " " << gpu_capacity <<"\n";
+       //std::cout << "bipartite reorder " << nd << " " << gpu_capacity <<"\n";
        gpu_order[nd] = gpu_capacity;
        gpu_capacity ++;
        missing_node_ids.push_back(nd);

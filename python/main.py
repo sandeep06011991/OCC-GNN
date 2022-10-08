@@ -72,9 +72,12 @@ def main(args):
     fanout = args.fan_out.split(',')
     fanout = [(int(f)) for f in fanout]
     fanout = [10,10,10]
-    sm_filename_queue = mp.Queue(NUM_BUCKETS)
-    sm_manager = SharedMemManager(sm_filename_queue)
+    sm_filename_queue = mp.Queue(get_number_buckets(args.num_workers))
+    sm_manager = SharedMemManager(sm_filename_queue, args.num_workers)
 
+    #Not applicable as some nodes have zero features in ogbn-products
+    #assert(not torch.any(torch.sum(features,1)==0))
+    
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map, deterministic = args.deterministic)
@@ -97,8 +100,8 @@ def main(args):
 
     # global train_nid_list
     # train_nid_list= train_nid.tolist()
-    queue_size =1
-    no_worker_process = 1
+    queue_size = args.num_workers
+    no_worker_process = args.num_workers
 
     work_producer_process = mp.Process(target=(work_producer), \
                   args=(work_queue, train_nid, minibatch_size, no_epochs,\
@@ -116,7 +119,7 @@ def main(args):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, sample_queues[0], lock,\
                                 storage_vector, args.deterministic,
-                                proc, sm_filename_queue))
+                                proc, sm_filename_queue, no_worker_process))
         slice_producer_process.start()
         slice_producer_processes.append(slice_producer_process)
 
@@ -153,7 +156,7 @@ if __name__=="__main__":
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.01)
-    argparser.add_argument('--num-workers', type=int, default=4,
+    argparser.add_argument('--num-workers', type=int, default=8,
        help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
     # model name and details

@@ -1,19 +1,23 @@
 SHARED_MEMORY_SIZE = 40 * 1024 * 1024
 # Number of workers * 2 = Quesize = num buckets.
-NUM_BUCKETS = 4
+# NUM_BUCKETS = 4
 from multiprocessing.shared_memory import SharedMemory
 import multiprocessing as mp
 import numpy as np
 import torch
 import time
 from utils.log import *
+
+def get_number_buckets(num_workers):
+    return num_workers * 2 * 4
 # Everything outside this class should be agnostic to shared memory details
 # Keep this object in memory and delete after everything returns
 class SharedMemManager():
 
-    def __init__(self, free_memory_filenames):
+    def __init__(self, free_memory_filenames, num_workers):
         self.buckets = {}
         self.free_memory_filenames = free_memory_filenames
+        NUM_BUCKETS = get_number_buckets(num_workers)
         for i in range(NUM_BUCKETS):
             name = 'a{}'.format(i)
             self.buckets[name] = SharedMemory(name,create = True, size =SHARED_MEMORY_SIZE)
@@ -30,9 +34,10 @@ class SharedMemManager():
 
 class SharedMemClient():
 
-    def __init__(self, free_memory_filenames, name, worker_id):
+    def __init__(self, free_memory_filenames, name, worker_id, num_workers):
         self.buckets = {}
         self.free_memory_filenames = free_memory_filenames
+        NUM_BUCKETS = get_number_buckets(num_workers)
         for i in range(NUM_BUCKETS):
             name = 'a{}'.format(i)
             self.buckets[name] = SharedMemory(name, size =SHARED_MEMORY_SIZE)

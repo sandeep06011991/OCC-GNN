@@ -67,11 +67,12 @@ class Shuffle(torch.autograd.Function):
                     a = torch.sum(temp[from_id])
                     if debug:
                         print("recieving", from_id, to_id, torch.sum(temp[from_id]))
-                #torch.distributed.barrier(device_ids = [device_id])
+                torch.distributed.barrier(device_ids = [device_id])
 
             t222 = time.time()
             # if to_id== device_id:
-        print("total time to send",send_time, "recv time",recv_time, device_id)
+        t2 = time.time()
+        print("total time to send",send_time, "recv time",recv_time, device_id, "Total tiem", t2-t1)
         send_MB = to_data * input_t.shape[1] * 4 /(1024 * 1024)
         recv_MB = from_data * input_t.shape[1] * 4/(1024 * 1024)
         #    print("recieving traffic ",from_data , "UNIQUE", from_data_unique, "size in MB",from_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)
@@ -141,7 +142,7 @@ class Shuffle(torch.autograd.Function):
                     remote_obj.append(torch.distributed.send(a, from_id))
                     if debug:
                         print("sending", to_id, from_id, torch.sum(a))
-                #torch.distributed.barrier(device_ids = [device_id])
+                torch.distributed.barrier(device_ids = [device_id])
 
         #torch.distributed.barrier(device_ids = [device_id])
         # for obj in remote_obj:

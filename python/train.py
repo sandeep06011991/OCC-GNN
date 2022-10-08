@@ -43,7 +43,7 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
     device = proc_id
     t0 = time.time()
     if proc_id == 0:
-        log.log("leader tries to read meta data, qsize {}".format(sample_queues[0].qsize()))
+        print("leader tries to read meta data, qsize {}".format(sample_queues[0].qsize()))
         meta = sample_queues[0].get()
         log.log("leader reads meta data, starts sharing")
         for i in range(1,4):
@@ -114,7 +114,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     torch.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     print("SEED",torch.seed())
-    sm_client = SharedMemClient(sm_filename_queue, "trainer", proc_id)
+    sm_client = SharedMemClient(sm_filename_queue, "trainer", proc_id, args.num_workers)
     # Use this when I need to match accuracy
     if deterministic:
         print("not setting seeds, use this to match accuracy")

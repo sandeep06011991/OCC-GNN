@@ -2,7 +2,7 @@ import dgl
 import torch.nn as nn
 import torch
 import time
-from layers.opt_shuffle import Shuffle
+from layers.opt_shuffle_v1 import Shuffle
 import dgl.nn.pytorch.conv.sageconv as sgc
 import torch.multiprocessing as mp
 from data.test_bipartite import get_dummy_bipartite_graph
@@ -94,13 +94,16 @@ class DistSageConv(nn.Module):
             out1 = bipartite_graph.gather(out)
             out2 = out1
             t22 = time.time()
+            print("skip shuffle")
             out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
+
             t33 = time.time()
             print("shuffle time", t33-t22)
         else:
             out = bipartite_graph.gather(x)
             out2 = out
             t11 = time.time()
+            #print("Skip shuffle")
             out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
             t22 = time.time()
             print("Shuffle time",t22-t11)

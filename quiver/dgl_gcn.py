@@ -165,10 +165,10 @@ def run(rank, args,  data):
                     blk.create_formats_()
                     edges_computed += blk.edges()[0].shape[0]
                 t3 = time.time()
-                start = offsets[device][0]
-                end = offsets[device][1]
-                hit = torch.where((input_nodes > start ) & (input_nodes < end))[0].shape[0]
-                missed = input_nodes.shape[0] - hit
+                #start = offsets[device][0]
+                #end = offsets[device][1]
+                #hit = torch.where((input_nodes > start ) & (input_nodes < end))[0].shape[0]
+                #missed = input_nodes.shape[0] - hit
 
                 e1.record()
                 # Load the input features as well as output labels
@@ -301,10 +301,11 @@ if __name__ == '__main__':
         print("Using quiver feature")
         print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
         offsets = {}
-        for device in range(4):
-            start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
-            end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
-            offsets[device] = (start,end)
+        # Temporary disable
+        #for device in range(4):
+        #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
+        #    end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
+        #    offsets[device] = (start,end)
     elif args.data == 'unified':
         from distutils.version import LooseVersion
         assert LooseVersion(dgl.__version__) >= LooseVersion('0.8.0'), \

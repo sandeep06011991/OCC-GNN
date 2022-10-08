@@ -145,7 +145,6 @@ public:
           std::cout << "gpu " << i << gpu_capacity[i]<<"\n";
           for(long nd: gpu_map[i]){
             storage_map[i][nd] = order;
-            std::cout << nd << " " << order <<"\n";
             order ++;
             dummy_storage_map[i].push_back(nd);
           }
@@ -192,7 +191,7 @@ public:
           assert(sample_val  == p_val);
       }
       sample->debug_vals = ret;
-
+      std::cout << "I have a sample\n";
       // p_sample.debug();
       return sample;
       // Sample *s = Sample::get_dummy_sample();

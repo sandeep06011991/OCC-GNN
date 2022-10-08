@@ -94,7 +94,7 @@ def run_experiment_quiver( model ):
                  # ("com-orkut",5, 256, 256, 4096) \
                  ]
     no_epochs = 6
-    # settings = [("ogbn-arxiv",16, 128, 1024)]
+    settings = [("ogbn-products",16, 128, 1024)]
     # settings = [("ogbn-papers100M",2)]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
