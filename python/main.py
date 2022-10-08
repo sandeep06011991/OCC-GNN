@@ -71,7 +71,9 @@ def main(args):
     minibatch_size = batch_size
     fanout = args.fan_out.split(',')
     fanout = [(int(f)) for f in fanout]
-    fanout = [10,10,10]
+    for i in fanout:
+        assert(i == fanout[0])
+    fanout_val = fanout[0]
     sm_filename_queue = mp.Queue(get_number_buckets(args.num_workers))
     sm_manager = SharedMemManager(sm_filename_queue, args.num_workers)
 
@@ -114,12 +116,12 @@ def main(args):
     lock = torch.multiprocessing.Lock()
 
     slice_producer_processes = []
-
+    
     for proc in range(no_worker_process):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, sample_queues[0], lock,\
                                 storage_vector, args.deterministic,
-                                proc, sm_filename_queue, no_worker_process))
+                                proc, sm_filename_queue, no_worker_process, fanout_val))
         slice_producer_process.start()
         slice_producer_processes.append(slice_producer_process)
 
@@ -168,7 +170,7 @@ if __name__=="__main__":
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument("--num-heads", type=int, default=3,
                         help="number of hidden attention heads if gat")
-    argparser.add_argument('--fan-out', type=str, default='10,10,10')
+    argparser.add_argument('--fan-out', type=str, default='20,20,20')
     argparser.add_argument('--batch-size', type=int, default=(4096))
     argparser.add_argument('--dropout', type=float, default=0)
     argparser.add_argument('--deterministic', default = False, action="store_true")
