@@ -74,7 +74,6 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
         t4 = time.time()
         log.log("data reconstruction complete")
         tensor = tensor.to(device)
-        print("Warning: Impromptu data reformatting is risky. ")
         # tensor = tensor.long()
         gpu_local_sample = Gpu_Local_Sample()
         device = torch.device(device)
@@ -144,11 +143,15 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     movement_feat_epoch = []
     epoch_time = []
     epoch_accuracy = []
+    data_moved_per_gpu_epoch =[]
+    edges_per_gpu_epoch = []
     sample_get_time = 0
     forward_time = 0
     backward_time = 0
     movement_graph = 0
     movement_feat = 0
+    data_moved_per_gpu = 0
+    edges_per_gpu = 0
     in_degrees = in_degrees.to(proc_id)
     fp_start = torch.cuda.Event(enable_timing=True)
     fp_end = torch.cuda.Event(enable_timing=True)
@@ -158,14 +161,12 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     nmb = 0
     ii = 0
     e_t1 = time.time()
-    print("Features ", features.device)
+    # print("Features ", features.device)
     num_epochs = 0
     while(True):
         nmb += 1
         log.log("blocked at get sample")
-        print("Try to get sample")
         sample_id, gpu_local_sample, sample_get_mb, graph_move_mb = get_sample(proc_id, sample_queue,  sm_client, log)
-        print("Start training")
         sample_get_time += sample_get_mb
         movement_graph += graph_move_mb
         log.log("sample recieved and processed")
@@ -177,12 +178,16 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             backward_epoch.append(backward_time)
             movement_graph_epoch.append(movement_graph)
             movement_feat_epoch.append(movement_feat)
+            edges_per_gpu_epoch.append(edges_per_gpu)
+            data_moved_per_gpu_epoch.append(data_moved_per_gpu)
             epoch_time.append(e_t2-e_t1)
             sample_get_time = 0
             forward_time = 0
             backward_time = 0
             movement_graph = 0
             movement_feat = 0
+            edges_per_gpu = 0
+            data_moved_per_gpu = 0
             e_t1 = time.time()
             num_epochs += 1
             continue
@@ -207,6 +212,10 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         m_t0 = time.time()
         input_features  = gpu_local_storage.get_input_features(gpu_local_sample.missing_node_ids)
         m_t1 = time.time()
+        edges, nodes = gpu_local_sample.get_edges_and_send_data()
+        edges_per_gpu += edges
+        data_moved_per_gpu += (gpu_local_sample.missing_node_ids.shape[0] * args.fsize * 4 /(1024 * 1024)) +\
+                            (nodes * args.hidden_size * 4/(1024 * 1024))
         movement_feat += (m_t1-m_t0)
         fp_start.record()
         assert(features.device == torch.device('cpu'))
@@ -262,5 +271,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print("movement feature:{}".format(avg(movement_feat_epoch)))
         print("forward time:{}".format(avg(forward_epoch)))
         print("backward time:{}".format(avg(backward_epoch)))
+        print("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
+        print("edges per epoch:{}".format(avg(edges_per_gpu_epoch)))
         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")

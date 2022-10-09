@@ -142,7 +142,7 @@ public:
           int j = 0;
           int order =0;
           gpu_capacity[i] = gpu_map[i].size();
-          std::cout << "gpu " << i << gpu_capacity[i]<<"\n";
+          // std::cout << "gpu " << i << gpu_capacity[i]<<"\n";
           for(long nd: gpu_map[i]){
             storage_map[i][nd] = order;
             order ++;
@@ -157,16 +157,16 @@ public:
     PySample * getSample(vector<long> sample_nodes){
       sample.clear();
       p_sample.clear();
-      spdlog::info("sample begin");
+      // spdlog::info("sample begin");
       this->neighbour_sampler->sample(sample_nodes, sample);
       int sample_val;
       if(this->deterministic){
           sample_val =  sample_flow_up_sample(sample, num_nodes);
       }
 
-      spdlog::info("slice begin");
+      // spdlog::info("slice begin");
       this->slicer->slice_sample(sample, p_sample);
-      spdlog::info("covert to torch");
+      // spdlog::info("covert to torch");
       PySample *sample = new PySample(p_sample);
       std::vector<int> ret(4);
       for(int i=0;i<4;i++){
@@ -191,7 +191,7 @@ public:
           assert(sample_val  == p_val);
       }
       sample->debug_vals = ret;
-      std::cout << "I have a sample\n";
+      // std::cout << "I have a sample\n";
       // p_sample.debug();
       return sample;
       // Sample *s = Sample::get_dummy_sample();

@@ -295,7 +295,7 @@ if __name__ == '__main__':
   parser.add_argument("--weight-decay", type=float, default=0,
                       help="Weight for L2 loss")
   # sampling hyper-params
-  parser.add_argument("--num-neighbors", type=int, default=10,
+  parser.add_argument("--num-neighbors", type=int, default=20,
                       help="number of neighbors to be sampled")
   parser.add_argument("--num-workers", type=int, default=1)
   parser.add_argument("--remote-sample", dest='remote_sample', action='store_true')

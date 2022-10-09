@@ -70,7 +70,7 @@ def run(rank, args,  data):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '11112'
     dist.init_process_group('nccl', rank=rank, world_size=4)
-    
+
     device = rank
     train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets = data
     if args.data == 'gpu':
@@ -149,26 +149,27 @@ def run(rank, args,  data):
         backward_time = 0
         dataloader_i = iter(dataloader)
         edges_computed = 0
+        data_movement = 0
         global_cache_misses = 0
         try:
             while True:
                 optimizer.zero_grad()
                 t1 = time.time()
-                input_nodes, seeds, blocks = next(dataloader_i) 
+                input_nodes, seeds, blocks = next(dataloader_i)
                 t2 = time.time()
                 # copy block to gpu
                 blocks = [blk.to(device) for blk in blocks]
                 #t2 = time.time()
                 blocks = [blk.formats(['coo','csr','csc']) for blk in blocks]
-                
+
                 for blk in blocks:
                     blk.create_formats_()
                     edges_computed += blk.edges()[0].shape[0]
                 t3 = time.time()
                 #start = offsets[device][0]
                 #end = offsets[device][1]
-                #hit = torch.where((input_nodes > start ) & (input_nodes < end))[0].shape[0]
-                #missed = input_nodes.shape[0] - hit
+                hit = torch.where(input_nodes > offsets[3])[0].shape[0]
+                missed = input_nodes.shape[0] - hit
 
                 e1.record()
                 # Load the input features as well as output labels
@@ -194,6 +195,7 @@ def run(rank, args,  data):
                 movement_feature_time += max(t4-t3, e1.elapsed_time(e2)/1000)
                 forward_time += e2.elapsed_time(e3)/1000
                 backward_time += e3.elapsed_time(e4)/1000
+                data_movement += (missed * nfeat.shape[1] * 4/(1024 * 1024))
                 #print("forward time", e2.elapsed_time(e3)/1000)
                 #print("backward time", e3.elapsed_time(e4)/1000)
                 #total_loss += loss.item()
@@ -209,6 +211,7 @@ def run(rank, args,  data):
         forward_time_epoch.append(forward_time)
         backward_time_epoch.append(backward_time)
         edges_per_epoch.append(edges_computed)
+        data_movement_epoch.append(data_movement)
         #pbar.close()
 
         loss = total_loss / len(dataloader)
@@ -234,6 +237,7 @@ def run(rank, args,  data):
         print("forward time:{}".format(average(forward_time_epoch)))
         print("backward time:{}".format(average(backward_time_epoch)))
         print("edges per epoch:{}".format(average(edges_per_epoch)))
+        print("data movement:{}MB".format(average(data_movement_epoch)))
     dist.destroy_process_group()
 
     return final_test_acc
@@ -268,14 +272,23 @@ if __name__ == '__main__':
 
     # load ogbn-products data
     root = "/mnt/bigdata/sandeep/"
-    data = DglNodePropPredDataset(name=args.graph, root=root)
-    splitted_idx = data.get_idx_split()
-    train_idx, val_idx, test_idx = splitted_idx['train'], splitted_idx['valid'], splitted_idx['test']
-    graph, labels = data[0]
-    graph = graph.add_self_loop()
-    labels = labels[:, 0].to(device)
-    
-    feat = graph.ndata.pop('feat')
+    from utils import get_process_graph
+    dg_graph, partition_map, num_classes = get_process_graph(args.graph)
+    graph = dg_graph
+    labels = dg_graph.ndata.pop('labels')
+    feat = dg_graph.ndata.pop('features')
+    train_idx = torch.where(dg_graph.ndata.pop['train_idx'])
+    test_idx = torch.where(dg_graph.ndata.pop['test_idx'])
+    val_idx = torch.where(dg_graph.ndata.pop['val_idx'])
+    #################################
+    # data = DglNodePropPredDataset(name=args.graph, root=root)
+    # splitted_idx = data.get_idx_split()
+    # train_idx, val_idx, test_idx = splitted_idx['train'], splitted_idx['valid'], splitted_idx['test']
+    # graph, labels = data[0]
+    # graph = graph.add_self_loop()
+    # labels = labels[:, 0].to(device)
+    # feat = graph.ndata.pop('feat')
+    ################################## Make my datasets work
     #year = graph.ndata.pop('year')
     if args.data == 'cpu':
         nfeat = feat
@@ -289,18 +302,25 @@ if __name__ == '__main__':
         print("calculated cache_size ", cache_size)
         if float(args.cache_per) > .25:
             cache_policy = "device_replicate"
+            last_node_stored = nfeat.shape[0]
         else:
             cache_policy = "p2p_clique_replicate"
-        nfeat = quiver.Feature(rank=0, device_list=[0,1,2,3], 
+            last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
+            #for device in range(4):
+            #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
+            #    end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
+            #    offsets[device] = (start,end)
+        nfeat = quiver.Feature(rank=0, device_list=[0,1,2,3],
                                #device_cache_size="200M",
-                               device_cache_size = device_cache_size, 
-                               cache_policy = cache_policy) 
-                               #cache_policy="device_replicate", 
+                               device_cache_size = device_cache_size,
+                               cache_policy = cache_policy)
+                               #cache_policy="device_replicate",
                                #csr_topo=csr_topo)
         nfeat.from_cpu_tensor(feat)
         print("Using quiver feature")
         print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
         offsets = {}
+        offsets[3] = last_node_stored
         # Temporary disable
         #for device in range(4):
         #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
@@ -337,4 +357,3 @@ if __name__ == '__main__':
         nprocs=world_size,
         join=True
     )
-

@@ -52,7 +52,8 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         movement_feat = re.findall("movement feature:(\d+\.\d+)",out)[0]
         forward_time = re.findall("forward time:(\d+\.\d+)",out)[0]
         backward_time = re.findall("backward time:(\d+\.\d+)",out)[0]
-
+        edges = re.findall("edges per epoch:(\d+)",out)[0]
+        data_movement = re.findall("data movement:(\d+)MB",out)[0]
         sample_get = "{:.2f}".format(float(sample_get))
         movement_graph = "{:.2f}".format(float(movement_graph))
         movement_feat = "{:.2f}".format(float(movement_feat))
@@ -60,9 +61,11 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         forward_time = "{:.2f}".format(float(forward_time))
         epoch = "{:.2f}".format(float(epoch))
         backward_time = "{:.2f}".format(float(backward_time))
+        edges = int(edges)
+        data_movement = int(data_movement)
 
     except Exception as e:
-        with open('exception.txt','a') as fp:
+        with open('exception_quiver.txt','a') as fp:
             fp.write(error)
         sample_get = "error"
         movement_graph = "error"
@@ -73,7 +76,7 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         epoch = "error"
     return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
             "movement_graph":movement_graph, "movement_feat": movement_feat, "epoch":epoch,
-                "accuracy": accuracy}
+                "accuracy": accuracy,"data_movement":data_movement, "edges":edges}
 
 
 def run_experiment_quiver( model ):
@@ -107,7 +110,9 @@ def run_experiment_quiver( model ):
 
     with open('exp6_quiver.txt','a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
-        fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy \n")
+        fp.write("graph | system | cache |  hidden-size | fsize  |" + \
+            " batch-size | model  | sample_get | move-graph | move-feature | forward |" +\
+              " backward  | epoch_time | accuracy | data_movement | edges \n")
     for graphname, hidden_size, fsize, batch_size in settings:
         for cache in cache_rates:
             if graphname in ["ogbn-papers100M","com-friendster"]:
@@ -115,7 +120,12 @@ def run_experiment_quiver( model ):
                     continue
             out = run_quiver(graphname, model ,no_epochs, cache, hidden_size, fsize, batch_size)
             with open('exp6_quiver.txt','a') as fp:
-                fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} \n".format(graphname , "quiver", cache, hidden_size, fsize, 4 * batch_size, model, out["sample_get"], out["movement_graph"], out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"]))
+                fp.write("{} | {} | {} | {} | {} | {} "+\
+                       "| {} | {} | {} | {} | {} | {} |"+\
+                       " {} | {} \n".format(graphname , "quiver", cache, hidden_size, fsize,\
+                        4 * batch_size, model, out["sample_get"], out["movement_graph"], \
+                        out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"],
+                        out["data_movement"], out["edges"]))
 
 
 

@@ -60,3 +60,12 @@ class Gpu_Local_Sample:
         self.device_id = device_id
         self.missing_node_ids = global_sample.missing_node_ids[device_id]
         self.debug_val = global_sample.debug_vals[device_id]
+
+    def get_edges_and_send_data(self):
+        edges = 0
+        nodes_moved = 0
+        for  graph in self.layers:
+            edges += graph.indices.shape[0]
+            for j in range(4):
+                nodes_moved += graph.to_dict[j].shape[0]
+        return (edges,nodes_moved)
