@@ -7,7 +7,8 @@ from PaGraph.partition.ordering import reordering
 from PaGraph.partition.dg import dg
 from PaGraph.partition.utils import get_sub_graph
 from PaGraph.data import get_labels, get_masks, get_labels
-from ogb.nodeproppred import DglNodePropPredDataset
+import scipy 
+#from ogb.nodeproppred import DglNodePropPredDataset
 import numpy as np
 import scipy.sparse as spsp
 import os
@@ -74,7 +75,7 @@ def get_process_graph(filename):
     indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.int64)
     num_nodes = indptr.shape[0] - 1
     num_edges = indices.shape[0]
-    print(num_nodes, num_edges))
+    print(num_nodes, num_edges)
     # features = torch.rand(num_nodes,fsize)
     sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
         shape = (num_nodes,num_nodes))
@@ -83,8 +84,7 @@ def get_process_graph(filename):
     print(num_nodes, num_edges)
     synthetic_graphs = ["com-orkut"]
     if graphname not in synthetic_graphs :
-        assert(fsize == -1)
-        train_idx = np.fromfile('{}/{}/train_idx.bin'.format(DATA_DIR, graphname))
+        train_idx = np.fromfile('{}/{}/train_idx.bin'.format(DATA_DIR, graphname), dtype = np.int64)
         results = read_meta_file(filename)
         fsize = results["feature_dim"]
         num_classes = results["num_classes"]
@@ -116,15 +116,15 @@ def getMask(nodes, graph):
 
 # ROOT_DIR = '/data/sandeep'
 def pagraph_partition(FILENAME):
-    FILENAME = 'ogbn-papers100M'
     dg_graph, train_idx = get_process_graph(FILENAME)
-    PAGRAPH_DIR = '{}/pagraph/{}/'.format(ROOT_DIR, FILENAME)
-    os.makedirs(PAGRAPH_DIR,exists_ok = True)
-    features = graph.ndata['feat']
+    PAGRAPH_DIR = '{}/pagraph/{}/'.format(DATA_DIR, FILENAME)
+    os.makedirs(PAGRAPH_DIR,exist_ok = True)
+    graph = dg_graph
+    features = graph.ndata['features']
     labels = graph.ndata['labels']
     np.save(os.path.join(PAGRAPH_DIR,'feat.npy'),features)
 
-    train_mask = (getMask(split_idx['train'], graph)
+    train_mask = (getMask(train_idx, graph))
     # , getMask(split_idx['valid'], graph), getMask(split_idx['test'], graph))
 
     np.save(os.path.join(PAGRAPH_DIR, 'train.npy'), train_mask)
@@ -136,7 +136,7 @@ def pagraph_partition(FILENAME):
     scipyCSC = scipyCOO.tocsc()
 
     # adj = spsp.load_npz(os.path.join(PAGRAPH_DIR, 'adj.npz'))
-    train_nids = np.nonzero(train_mask).astype(np.int64)
+    train_nids = train_idx.numpy() 
 
     # ordering
     print('re-ordering graphs...')
@@ -204,6 +204,7 @@ def pagraph_partition(FILENAME):
 
 if __name__=="__main__":
     graph_names = ["ogbn-arxiv","ogbn-products", "reorder-papers100M", "amazon", "com-orkut"]
-    graph_names = ["ogbn-arxiv"]
+    print("others are done!")
+    graph_names = ["com-orkut"]
     for graph in graph_names:
-        preprocess(graph)
+        pagraph_partition(graph)

@@ -8,5 +8,6 @@ sampler = dgl.contrib.sampling.NeighborSampler(g, 1,1)
 
 ss = iter(sampler)
 nf = next(ss)
-#print(nf.layers[0].num_of_nodes())
 nf.blocks[0].number_of_edges()
+print(nf.layers[0].number_of_nodes())
+print(nf.blocks[0].number_of_edges())

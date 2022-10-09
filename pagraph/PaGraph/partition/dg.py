@@ -75,7 +75,9 @@ def dg(partition_num, adj, train_nids, hops):
   print('total vertices: {} | train vertices: {}'.format(vnum, vtrain_num))
   for step, nid in enumerate(train_nids):
     #neighbors = in_neighbors(csc_adj, nid)
+    print(step,"Step")
     neighbors = in_neighbors_hop(csc_adj, nid, hops)
+
     score = dg_ind(csc_adj, neighbors, belongs, p_vnum, r_vnum, partition_num,vtrain_num)
     ind = dg_max_score(score, p_vnum)
     if belongs[nid] == -1:
