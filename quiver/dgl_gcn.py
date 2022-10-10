@@ -178,9 +178,12 @@ def run(rank, args,  data):
                 for blk in blocks:
                     blk.create_formats_()
                     edges_computed += blk.edges()[0].shape[0]
+                #print(edges_computed)    
                 t3 = time.time()
                 #start = offsets[device][0]
                 #end = offsets[device][1]
+                #hit = torch.where((input_nodes > start) & (input_nodes < end))[0].shape[0]
+                
                 hit = torch.where(input_nodes < offsets[3])[0].shape[0]
                 missed = input_nodes.shape[0] - hit
 
@@ -214,8 +217,8 @@ def run(rank, args,  data):
                 step = step + 1
                 #print("forward time", e2.elapsed_time(e3)/1000)
                 #print("backward time", e3.elapsed_time(e4)/1000)
-                #total_loss += loss.item()
-                #total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
+                total_loss += loss.item()
+                total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
         #        pbar.update(args.batch_size)
         except StopIteration:
             pass
@@ -337,7 +340,7 @@ if __name__ == '__main__':
                                #csr_topo=csr_topo)
         nfeat.from_cpu_tensor(feat)
         if float(args.cache_per) <= .25:
-            if len(nfeat.clique_tensor_list) == 0:
+            if len(nfeat.clique_tensor_list) != 0:
                 last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
             else:
                 last_node_stored = 0

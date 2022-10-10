@@ -63,7 +63,8 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         backward_time = "{:.2f}".format(float(backward_time))
         edges = int(float(edges))
         data_movement = int(float(data_movement))
-
+        #print("accuracy",accuracy)
+        #print("edges", edges)
     except Exception as e:
         with open('exception_quiver.txt','a') as fp:
             fp.write(error)
@@ -98,7 +99,7 @@ def run_experiment_quiver( model ):
                  # ("com-orkut",5, 256, 256, 4096) \
                  ]
     no_epochs = 6
-    settings = [("ogbn-products",16, 128, 1024)]
+    settings = [("ogbn-arxiv",16, 128, 1024)]
     # settings = [("ogbn-papers100M",2)]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
@@ -121,9 +122,9 @@ def run_experiment_quiver( model ):
                     continue
             out = run_quiver(graphname, model ,no_epochs, cache, hidden_size, fsize, batch_size)
             with open('exp6_quiver.txt','a') as fp:
-                fp.write("{} | {} | {} | {} | {} | {} "+\
+                fp.write(("{} | {} | {} | {} | {} | {} "+\
                        "| {} | {} | {} | {} | {} | {} |"+\
-                       " {} | {} \n".format(graphname , "quiver", cache, hidden_size, fsize,\
+                       " {} | {}  | {} | {} \n").format(graphname , "quiver", cache, hidden_size, fsize,\
                         4 * batch_size, model, out["sample_get"], out["movement_graph"], \
                         out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"],
                         out["data_movement"], out["edges"]))
