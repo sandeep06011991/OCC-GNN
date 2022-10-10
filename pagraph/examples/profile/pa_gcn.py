@@ -20,6 +20,13 @@ if (not path_set):
     print("Setting Path")
     sys.path.append(PATH_DIR)
 
+FEAT_DICT = {"ogbn-arxiv":128, "ogbn-products":100,\
+                "amazon":200, "reorder-papers100M":128, \
+                    "com-orkut":400}
+N_CLASSES = {"ogbn-arxiv":40, "ogbn-products":48,\
+                "amazon":102, "reorder-papers100M":172, \
+                    "com-orkut":48}
+
 
 from PaGraph.model.gcn_nssc import GCNSampling
 from PaGraph.model.gat_nodeflow import GATNodeFlow
@@ -35,7 +42,7 @@ def init_process(rank, world_size, backend):
   torch.manual_seed(rank)
   print('rank [{}] process successfully launches'.format(rank))
 
-ROOT_DIR = "/work/spolisetty_umass_edu/pagraph"
+ROOT_DIR = "/work/spolisetty_umass_edu/data/pagraph"
 
 def avg(ls):
     return (sum(ls[1:])/(len(ls)-1))
@@ -50,7 +57,7 @@ def compute_acc(pred, labels):
 
 def trainer(rank, world_size, args, backend='nccl'):
   dataset = "{}/{}/".format(ROOT_DIR, args.dataset)
-
+  feat_size = FEAT_DICT[args.dataset] 
   # init multi process
   init_process(rank, world_size, backend)
   # load data
@@ -59,12 +66,13 @@ def trainer(rank, world_size, args, backend='nccl'):
 
   adj, t2fid = data.get_sub_train_graph(dataset, rank, world_size)
   g = DGLGraph(adj, readonly=True)
-  n_classes = args.n_classes
+  n_classes = N_CLASSES[args.dataset]
   train_nid = data.get_sub_train_nid(dataset, rank, world_size)
   print("Training_nid", train_nid.shape, rank)
   print("Expected number of minibatches",train_nid.shape[0]/args.batch_size)
   sub_labels = data.get_sub_train_labels(dataset, rank, world_size)
-  labels = np.zeros(np.max(train_nid) + 1, dtype=np.int)
+  labels = np.zeros(np.max(train_nid.shape[0]) + 1, dtype=np.int)
+  print(labels.shape, train_nid.shape, sub_labels.shape, "Mark hahahahah")
   labels[train_nid] = sub_labels.flatten()
 
   # to torch tensor
@@ -78,7 +86,8 @@ def trainer(rank, world_size, args, backend='nccl'):
   # prepare model
   num_hops = args.n_layers if args.preprocess else args.n_layers + 1
   if args.model == "gcn":
-      model = GCNSampling(args.feat_size,
+      in_dim = feat_size
+      model = GCNSampling(feat_size,
                       args.n_hidden,
                       n_classes,
                       args.n_layers,
@@ -89,7 +98,7 @@ def trainer(rank, world_size, args, backend='nccl'):
       assert(args.model == "gat")
       residual = False
       num_layers = args.n_layers
-      in_dim = args.feat_size
+      in_dim = feat_size
       num_hidden = args.n_hidden
       num_classes = n_classes
       num_heads = 3
@@ -206,6 +215,9 @@ def trainer(rank, world_size, args, backend='nccl'):
 
         step += 1
         #print("current minibatch",step,rank)
+        print("Debug code pa_gcn.py to test larger datasets")
+        if args.end_early and step == 5:
+            break
         if epoch == 0 and step == 1:
             pass
             #cacher.auto_cache(g, embed_names)
@@ -228,7 +240,7 @@ def trainer(rank, world_size, args, backend='nccl'):
         miss_rate, miss_num = cacher.get_miss_rate()
         miss_rate_per_epoch.append(miss_rate)
         # Append in MB
-        miss_num_per_epoch.append(miss_num * fsize * 4 / (1024 * 1024))
+        miss_num_per_epoch.append(miss_num * in_dim * 4 / (1024 * 1024))
         #print('Epoch average miss rate: {:.4f}'.format(miss_rate))
         edges_processed.append(epoch_edges_processed)
     toc = time.time()
@@ -245,8 +257,8 @@ def trainer(rank, world_size, args, backend='nccl'):
       print("CUDA move: {:.4}s\n".format(avg(event_cache_move)))
       print("Epoch time: {:.4}s\n".format(avg(epoch_dur)))
       print("Miss rate: {:.4}s\n".format(avg(miss_rate_per_epoch)))
-      print("Miss num per epoch: {:.4}MB, device {}\n".format(avg(miss_num_per_epoch)))
-      print("Edges processed per epoch: {}".format(avg(epoch_edges_processed)))
+      print("Miss num per epoch: {:.4}MB, device {}\n".format(avg(miss_num_per_epoch),rank))
+      print("Edges processed per epoch: {}".format(avg(edges_processed)))
   # Profiling everything is unstable and overweight.
   # torch profiler uses events under it.
   #if rank == 0:
@@ -271,11 +283,11 @@ if __name__ == '__main__':
 
   parser.add_argument("--gpu", type=str, default='0,1,2,3',
                       help="gpu ids. such as 0 or 0,1,2")
-  parser.add_argument("--dataset", type=str, default="None",
+  parser.add_argument("--dataset", type=str, default="None", required = True,
                       help="path to the dataset folder")
   # model arch
-  parser.add_argument("--feat-size", type=int,
-                      help='input feature size')
+  #parser.add_argument("--feat-size", type=int,
+  #                    help='input feature size')
   parser.add_argument("--n-classes", type=int, default=60)
   parser.add_argument("--dropout", type=float, default=0.2,
                       help="dropout probability")
@@ -299,8 +311,10 @@ if __name__ == '__main__':
                       help="number of neighbors to be sampled")
   parser.add_argument("--num-workers", type=int, default=1)
   parser.add_argument("--remote-sample", dest='remote_sample', action='store_true')
-  parser.add_argument("--model",type = str)
-  parser.add_argument("--cache-per", type = float)
+  parser.add_argument("--model",type = str, required = True)
+  parser.add_argument("--cache-per", type = float, required = True)
+  parser.add_argument("--end-early", help="increase output verbosity",
+                    action="store_true")
   parser.set_defaults(remote_sample=False)
 
   args = parser.parse_args()

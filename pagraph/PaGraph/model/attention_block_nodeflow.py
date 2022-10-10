@@ -166,7 +166,6 @@ class Attention(nn.Module):
             self.index, nf.map_to_parent_nid(dst_indices_in_nodeflow)) - nf._layer_offsets[self.index]
         a2 = torch.bmm(projected_feats[:, dst_indices_in_src_layer, :], self.attn_r).transpose(0, 1)
 
-        print("layer size",nf.layer_size(self.index))
         nf.layers[self.index].data[self.src_atten_attr] = a1
         nf.layers[self.index + 1].data[self.dst_atten_attr] = a2
 

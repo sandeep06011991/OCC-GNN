@@ -67,7 +67,8 @@ def start_server(filename):
 def start_client(filename, model, num_hidden, batch_size, cache_per):
     feat_size = Feat[filename]
     cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset', filename,'--n-epochs','6'\
-                    ,'--feat-size',feat_size, '--n-hidden', str(num_hidden), '--batch-size', str(batch_size), '--model', model, "--cache-per",str(cache_per)]
+                    ,'--feat-size',feat_size, '--n-hidden', str(num_hidden), '--batch-size', str(batch_size),\
+                        '--model', model, "--cache-per",str(cache_per)]
     output = subprocess.run(cmd, capture_output=True)
     out = str(output.stdout)
     err = str(output.stderr)

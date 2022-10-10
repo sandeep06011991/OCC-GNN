@@ -67,5 +67,5 @@ class Gpu_Local_Sample:
         for  graph in self.layers:
             edges += graph.indices.shape[0]
             for j in range(4):
-                nodes_moved += graph.to_dict[j].shape[0]
+                nodes_moved += graph.to_ids[j].shape[0]
         return (edges,nodes_moved)

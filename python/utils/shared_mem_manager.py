@@ -18,6 +18,7 @@ class SharedMemManager():
         self.buckets = {}
         self.free_memory_filenames = free_memory_filenames
         NUM_BUCKETS = get_number_buckets(num_workers)
+        print("Creating buckets", NUM_BUCKETS)
         for i in range(NUM_BUCKETS):
             name = 'a{}'.format(i)
             self.buckets[name] = SharedMemory(name,create = True, size =SHARED_MEMORY_SIZE)

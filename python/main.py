@@ -3,7 +3,7 @@ import argparse
 import torch
 import dgl
 # Ensures all enviroments are running on the correct version
-assert(dgl.__version__ == '0.8.2')
+assert(dgl.__version__ == '0.8.2' or dgl.__version__=='0.9.1')
 import time
 import nvtx
 from dgl.sampling import sample_neighbors
@@ -12,7 +12,6 @@ from models.dist_gat import get_gat_distributed
 from utils.utils import get_process_graph
 from utils.memory_manager import MemoryManager
 import torch.optim as optim
-from cslicer import cslicer
 from data import Bipartite, Sample, Gpu_Local_Sample
 import numpy as np
 import threading
@@ -22,7 +21,40 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.multiprocessing import Queue
 import torch.distributed as dist
 import os
+import pwd
+import sys
+uname = pwd.getpwuid(os.getuid())[0]
+os.environ['NCCL_BUFFSIZE'] = str(1024 * 1024 * 80)
+if uname == 'spolisetty':
+    ROOT_DIR = "/home/spolisetty/OCC-GNN/cslicer/"
+    SRC_DIR = "/home/spolisetty/OCC-GNN/python/main.py"
+    SYSTEM = 'jupiter'
+    OUT_DIR = '/home/spolisetty/OCC-GNN/experiments/exp6/'
+if uname == 'q91':
+    ROOT_DIR = "/home/q91/OCC-GNN/cslicer/"
+    SRC_DIR = "/home/q91/OCC-GNN/python/main.py"
+    SYSTEM = 'ornl'
+    OUT_DIR = '/home/q91/OCC-GNN/experiments/exp6/'
+if uname == 'spolisetty_umass_edu':
+    ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN/cslicer"
+    SRC_DIR = "/home/spolisetty_umass_edu/OCC-GNN/python/main.py"
+    SYSTEM = 'unity'
+    OUT_DIR = '/home/spolisetty_umass_edu/OCC-GNN/experiments/exp6/'
+
+
+
+path_set = False
+for p in sys.path:
+    print(p)
+    if ROOT_DIR ==  p:
+       path_set = True
+if (not path_set):
+    print("Setting Path")
+    sys.path.append(ROOT_DIR)
+
+from cslicer import cslicer
 from slicing import slice_producer
+
 #os.environ["PYTHONPATH"] = "/home/spolisetty/OCC-GNN/cslicer/"
 import time
 import inspect
@@ -31,17 +63,21 @@ from slicing import *
 from train import *
 
 def work_producer(work_queue,training_nodes, batch_size,
-    no_epochs, num_workers, deterministic):
+    no_epochs, num_workers, deterministic, early_stopping):
     # todo:
     training_nodes = training_nodes.tolist()
     num_nodes = len(training_nodes)
     for epoch in range(no_epochs):
         i = 0
+        step = 0
         if not deterministic:
             random.shuffle(training_nodes)
         while(i < num_nodes):
             work_queue.put(training_nodes[i:i+batch_size])
             i = i + batch_size
+            if early_stopping == 5:
+                break
+            early_stopping = early_stopping + 1
         work_queue.put("EPOCH")
     for n in range(num_workers):
         work_queue.put("END")
@@ -107,7 +143,7 @@ def main(args):
 
     work_producer_process = mp.Process(target=(work_producer), \
                   args=(work_queue, train_nid, minibatch_size, no_epochs,\
-                    no_worker_process, args.deterministic))
+                    no_worker_process, args.deterministic, args.early_stopping))
     work_producer_process.start()
 
     sample_queues = [mp.Queue(queue_size) for i in range(4)]
@@ -153,18 +189,18 @@ if __name__=="__main__":
     # Unit test complete flow.
     argparser = argparse.ArgumentParser("multi-gpu training")
     # Input data arguments parameters.
-    argparser.add_argument('--graph',type = str, default= "ogbn-arxiv")
+    argparser.add_argument('--graph',type = str, default= "ogbn-arxiv", required = True)
     # training details
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.01)
-    argparser.add_argument('--num-workers', type=int, default=8,
+    argparser.add_argument('--num-workers', type=int, default=16,
        help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
     # model name and details
     argparser.add_argument('--debug',type = bool, default = False)
-    argparser.add_argument('--cache-per', type =float, default = .25)
-    argparser.add_argument('--model',help="gcn|gat")
+    argparser.add_argument('--cache-per', type =float, default = .25, required = True)
+    argparser.add_argument('--model',help="gcn|gat", required = True)
     argparser.add_argument('--num-epochs', type=int, default=6)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
@@ -174,6 +210,7 @@ if __name__=="__main__":
     argparser.add_argument('--batch-size', type=int, default=(4096))
     argparser.add_argument('--dropout', type=float, default=0)
     argparser.add_argument('--deterministic', default = False, action="store_true")
+    argparser.add_argument('--early-stopping', action = "store_true")
     # We perform only transductive training
     # argparser.add_argument('--inductive', action='store_false',
     #                        help="Inductive learning setting")

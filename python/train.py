@@ -215,7 +215,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         edges, nodes = gpu_local_sample.get_edges_and_send_data()
         edges_per_gpu += edges
         data_moved_per_gpu += (gpu_local_sample.missing_node_ids.shape[0] * args.fsize * 4 /(1024 * 1024)) +\
-                            (nodes * args.hidden_size * 4/(1024 * 1024))
+                            (nodes * args.num_hidden * 4/(1024 * 1024))
         movement_feat += (m_t1-m_t0)
         fp_start.record()
         assert(features.device == torch.device('cpu'))

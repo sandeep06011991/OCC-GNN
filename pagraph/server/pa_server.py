@@ -10,7 +10,7 @@ import dgl.function as fn
 import multiprocessing
 
 
-ROOT_DIR = "/work/spolisetty_umass_edu/pagraph"
+ROOT_DIR = "/work/spolisetty_umass_edu/data/pagraph"
 
 PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
 path_set = False
