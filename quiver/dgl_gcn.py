@@ -12,7 +12,6 @@ import argparse
 from tqdm import tqdm
 from ogb.nodeproppred import DglNodePropPredDataset
 import torch.multiprocessing as mp
-import quiver
 from torch.nn.parallel import DistributedDataParallel
 import os
 import torch.distributed as dist
@@ -30,8 +29,21 @@ def average(ls):
     b = min(ls[1:])
     return (sum(ls[1:]) -a -b)/(len(ls)-3)
 
+ROOT_DIR ="/home/q91/torch-quiver/srcs/python"
+import sys
+def check_path():
+    path_set = False
+    for p in sys.path:
+        if ROOT_DIR in p:
+            path_set = True
+    if (not path_set):
+        print(sys.path)
+        sys.path.append(ROOT_DIR)
+        print("Setting Path")
+        print(sys.path)
 
-
+check_path()
+import quiver
 def compute_acc(pred, labels):
     """
     Compute the accuracy of prediction given the labels.
@@ -151,6 +163,7 @@ def run(rank, args,  data):
         edges_computed = 0
         data_movement = 0
         global_cache_misses = 0
+        step = 0
         try:
             while True:
                 optimizer.zero_grad()
@@ -196,6 +209,9 @@ def run(rank, args,  data):
                 forward_time += e2.elapsed_time(e3)/1000
                 backward_time += e3.elapsed_time(e4)/1000
                 data_movement += (missed * nfeat.shape[1] * 4/(1024 * 1024))
+                if args.early_stopping and step ==5:
+                    break
+                step = step + 1
                 #print("forward time", e2.elapsed_time(e3)/1000)
                 #print("backward time", e3.elapsed_time(e4)/1000)
                 #total_loss += loss.item()
@@ -244,12 +260,12 @@ def run(rank, args,  data):
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("multi-gpu training")
-    argparser.add_argument('--graph',type = str)
-    argparser.add_argument('--cache-per', type =float)
-    argparser.add_argument('--model',type = str)
+    argparser.add_argument('--graph',type = str, required = True)
+    argparser.add_argument('--cache-per', type =float, required = True)
+    argparser.add_argument('--model',type = str, required = True)
     argparser.add_argument('--gpu', type=int, default=0,
                            help="GPU device ID. Use -1 for CPU training")
-    argparser.add_argument('--num-epochs', type=int, default=3)
+    argparser.add_argument('--num-epochs', type=int, default=6)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='20,20,20')
@@ -262,6 +278,7 @@ if __name__ == '__main__':
     argparser.add_argument('--wd', type=float, default=0)
     argparser.add_argument('--sample-gpu', action='store_true')
     argparser.add_argument('--data', type=str, choices=('cpu', 'gpu', 'quiver', 'unified'), default = 'quiver')
+    argparser.add_argument('--early-stopping', action = 'store_true')
 
     args = argparser.parse_args()
     assert args.model in ["GCN","GAT"]
@@ -272,23 +289,24 @@ if __name__ == '__main__':
 
     # load ogbn-products data
     root = "/mnt/bigdata/sandeep/"
-    from utils import get_process_graph
+    from utils import  get_process_graph
     dg_graph, partition_map, num_classes = get_process_graph(args.graph)
+    data = dg_graph
+    train_idx = torch.where(data.ndata.pop('train_mask'))[0]
+    val_idx = torch.where(data.ndata.pop('val_mask'))[0]
+    test_idx = torch.where(data.ndata.pop('test_mask'))[0]
     graph = dg_graph
-    labels = dg_graph.ndata.pop('labels')
-    feat = dg_graph.ndata.pop('features')
-    train_idx = torch.where(dg_graph.ndata.pop['train_idx'])
-    test_idx = torch.where(dg_graph.ndata.pop['test_idx'])
-    val_idx = torch.where(dg_graph.ndata.pop['val_idx'])
-    #################################
-    # data = DglNodePropPredDataset(name=args.graph, root=root)
-    # splitted_idx = data.get_idx_split()
-    # train_idx, val_idx, test_idx = splitted_idx['train'], splitted_idx['valid'], splitted_idx['test']
-    # graph, labels = data[0]
-    # graph = graph.add_self_loop()
-    # labels = labels[:, 0].to(device)
+    labels = dg_graph.ndata['labels']
+    feat = dg_graph.ndata['features']
+    ###################################
+    #data = DglNodePropPredDataset(name=args.graph, root=root)
+    #splitted_idx = data.get_idx_split()
+    #train_idx, val_idx, test_idx = data.ndata['train_idx'], splitted_idx['valid'], splitted_idx['test']
+    #graph, labels = data[0]
+    #graph = graph.add_self_loop()
+    #labels = labels[:, 0].to(device)
+    
     # feat = graph.ndata.pop('feat')
-    ################################## Make my datasets work
     #year = graph.ndata.pop('year')
     if args.data == 'cpu':
         nfeat = feat

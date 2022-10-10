@@ -90,7 +90,6 @@ def get_process_graph(filename):
                     torch.long)
         labels = labels.reshape(num_nodes,)
     else:
-        print("All synthetic graphs are of same fsize")
         fsize = 400
         features = torch.rand(num_nodes,fsize)
         num_classes = 48
