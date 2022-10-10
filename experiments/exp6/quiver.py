@@ -52,8 +52,8 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         movement_feat = re.findall("movement feature:(\d+\.\d+)",out)[0]
         forward_time = re.findall("forward time:(\d+\.\d+)",out)[0]
         backward_time = re.findall("backward time:(\d+\.\d+)",out)[0]
-        edges = re.findall("edges per epoch:(\d+)",out)[0]
-        data_movement = re.findall("data movement:(\d+)MB",out)[0]
+        edges = re.findall("edges per epoch:(\d+\.\d+)",out)[0]
+        data_movement = re.findall("data movement:(\d+\.\d+)MB",out)[0]
         sample_get = "{:.2f}".format(float(sample_get))
         movement_graph = "{:.2f}".format(float(movement_graph))
         movement_feat = "{:.2f}".format(float(movement_feat))
@@ -61,8 +61,8 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         forward_time = "{:.2f}".format(float(forward_time))
         epoch = "{:.2f}".format(float(epoch))
         backward_time = "{:.2f}".format(float(backward_time))
-        edges = int(edges)
-        data_movement = int(data_movement)
+        edges = int(float(edges))
+        data_movement = int(float(data_movement))
 
     except Exception as e:
         with open('exception_quiver.txt','a') as fp:
@@ -74,6 +74,7 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         backward_time = "error"
         accuracy = "error"
         epoch = "error"
+        data_movement = "error"
     return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
             "movement_graph":movement_graph, "movement_feat": movement_feat, "epoch":epoch,
                 "accuracy": accuracy,"data_movement":data_movement, "edges":edges}

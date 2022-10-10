@@ -98,7 +98,6 @@ def run(rank, args,  data):
             [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
     world_size = 4
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
-    print(g.ndata)
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
@@ -134,6 +133,7 @@ def run(rank, args,  data):
     sample_time_epoch = []
     movement_time_graph_epoch = []
     movement_time_feature_epoch = []
+    data_movement_epoch = []
     forward_time_epoch = []
     backward_time_epoch = []
     accuracy = []
@@ -181,7 +181,7 @@ def run(rank, args,  data):
                 t3 = time.time()
                 #start = offsets[device][0]
                 #end = offsets[device][1]
-                hit = torch.where(input_nodes > offsets[3])[0].shape[0]
+                hit = torch.where(input_nodes < offsets[3])[0].shape[0]
                 missed = input_nodes.shape[0] - hit
 
                 e1.record()
@@ -253,6 +253,7 @@ def run(rank, args,  data):
         print("forward time:{}".format(average(forward_time_epoch)))
         print("backward time:{}".format(average(backward_time_epoch)))
         print("edges per epoch:{}".format(average(edges_per_epoch)))
+        print(data_movement_epoch)
         print("data movement:{}MB".format(average(data_movement_epoch)))
     dist.destroy_process_group()
 
@@ -296,8 +297,9 @@ if __name__ == '__main__':
     val_idx = torch.where(data.ndata.pop('val_mask'))[0]
     test_idx = torch.where(data.ndata.pop('test_mask'))[0]
     graph = dg_graph
-    labels = dg_graph.ndata['labels']
-    feat = dg_graph.ndata['features']
+    labels = dg_graph.ndata.pop('labels')
+    feat = dg_graph.ndata.pop('features')
+    graph = graph.add_self_loop()
     ###################################
     #data = DglNodePropPredDataset(name=args.graph, root=root)
     #splitted_idx = data.get_idx_split()
@@ -323,7 +325,6 @@ if __name__ == '__main__':
             last_node_stored = nfeat.shape[0]
         else:
             cache_policy = "p2p_clique_replicate"
-            last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
             #for device in range(4):
             #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
             #    end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
@@ -335,6 +336,11 @@ if __name__ == '__main__':
                                #cache_policy="device_replicate",
                                #csr_topo=csr_topo)
         nfeat.from_cpu_tensor(feat)
+        if float(args.cache_per) <= .25:
+            if len(nfeat.clique_tensor_list) == 0:
+                last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
+            else:
+                last_node_stored = 0
         print("Using quiver feature")
         print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
         offsets = {}
