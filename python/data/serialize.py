@@ -53,7 +53,7 @@ def get_attr_order_and_offset_size(object):
 global_order_dict = {}
 global_order_dict[Bipartite] = get_attr_order_and_offset_size(Bipartite())
 global_order_dict[Gpu_Local_Sample] = get_attr_order_and_offset_size(Gpu_Local_Sample())
-print(global_order_dict.keys())
+# print(global_order_dict.keys())
 
 def construct_from_tensor_on_gpu(tensor, device, object):
     # print("Warning. Dont have to reanalyze the object everytime. ")

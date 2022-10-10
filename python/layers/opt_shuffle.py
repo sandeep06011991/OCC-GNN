@@ -15,7 +15,7 @@ class Shuffle(torch.autograd.Function):
         t1 = time.time()
         from_data = 0
         to_data = 0
-        debug = True
+        debug = False
         to_data_unique = 0
         from_data_unique = 0
         for i in range(4):
@@ -72,7 +72,8 @@ class Shuffle(torch.autograd.Function):
             t222 = time.time()
             # if to_id== device_id:
         t2 = time.time()
-        print("total time to send",send_time, "recv time",recv_time, device_id, "Total tiem", t2-t1)
+        if debug:
+            print("total time to send",send_time, "recv time",recv_time, device_id, "Total tiem", t2-t1)
         send_MB = to_data * input_t.shape[1] * 4 /(1024 * 1024)
         recv_MB = from_data * input_t.shape[1] * 4/(1024 * 1024)
         #    print("recieving traffic ",from_data , "UNIQUE", from_data_unique, "size in MB",from_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)

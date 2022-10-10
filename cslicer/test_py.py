@@ -10,13 +10,14 @@ num_nodes = 169343
 # // All absent
 storage_map = [[],[],[],[]]
 graphnames = ["ogbn-arxiv","ogbn-products"]
-for graphname in graphnames:
-    csl = cslicer(graphname, storage_map, 10, False)
-#in_nodes = [0,1,2,3,4,5,6]
-#csl.getSample(in_nodes)
-#print("All success !")
-
-# from cslicer import stats
-s = stats("ogbn-arxiv","occ",10)
-t = s.get_stats([0,1,2,3,4,5])
-print(t)
+csl = cslicer("ogbn-arxiv", storage_map, 10, False)
+# for graphname in graphnames:
+#     csl = cslicer(graphname, storage_map, 10, False)
+in_nodes = [0,1,2,3,4,5,6]
+csl.getSample(in_nodes)
+# #print("All success !")
+#
+# # from cslicer import stats
+# s = stats("ogbn-arxiv","occ",10)
+# t = s.get_stats([0,1,2,3,4,5])
+# print(t)

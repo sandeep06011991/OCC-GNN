@@ -119,7 +119,7 @@ public:
         spdlog::set_default_logger(logger);
         spdlog::flush_on(spdlog::level::info);
         spdlog::info("Log after checking");
-        spdlog::get("test_logger")->info("LoggingTest::ctor");
+        // spdlog::get("test_logger")->info("LoggingTest::ctor");
 
         this->name = get_dataset_dir() + name;
         // std::cout << this->name << "\n";

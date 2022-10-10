@@ -91,7 +91,8 @@ def get_process_graph(filename, fsize):
                     torch.long)
         labels = labels.reshape(num_nodes,)
     else:
-        assert(fsize != -1)
+        #assert(fsize != -1)
+        fsize = 400
         features = torch.rand(num_nodes,fsize)
         num_classes = 48
         labels = torch.randint(0,num_classes,(num_nodes,))

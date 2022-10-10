@@ -65,8 +65,11 @@ class MemoryManager():
         print("GPU static cache {}:GB".format(\
                 (self.num_nodes_cached * self.fsize * 4)/(1024 * 1024 * 1024)))
         # Total space is cache + expected minibatch of nodes
-        self.num_nodes_alloc_per_device = int(self.fanout * 0.25 * self.batch_size) \
-                            + self.num_nodes_cached
+        # Allocate 1GB per gpu for cache missed node
+        nodes = (1024 * 1024 * 1024)/(self.fsize * 4)
+        self.num_nodes_alloc_per_device = int(nodes) \
+                                + self.num_nodes_cached
+                            # self.num_nodes_alloc_per_device = int(self.fanout * 0.25 * self.batch_size) \
         print("GPU Allocated total space including frame {}:GB".\
             format((self.num_nodes_alloc_per_device * self.fsize * 4)/(1024 * 1024 * 1024)))
         self.local_to_global_id = []

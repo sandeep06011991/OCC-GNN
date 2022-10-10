@@ -88,25 +88,21 @@ class DistSageConv(nn.Module):
         if self.fc1.in_features > self.fc1.out_features:
             # Could incur more communication potentially
             # Makes backward pass mode complaceted
-            t00 = time.time()
+            # t00 = time.time()
             out = self.fc1(x)
-            t11 = time.time()
+            # t11 = time.time()
             out1 = bipartite_graph.gather(out)
             out2 = out1
-            t22 = time.time()
-            print("skip shuffle")
+            # t22 = time.time()
             out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
-
-            t33 = time.time()
-            print("shuffle time", t33-t22)
+            # t33 = time.time()
         else:
             out = bipartite_graph.gather(x)
             out2 = out
-            t11 = time.time()
+            # t11 = time.time()
             #print("Skip shuffle")
             out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
-            t22 = time.time()
-            print("Shuffle time",t22-t11)
+            # t22 = time.time()
             # BUG Fixed: Linear layer after in degree meaning
         assert(not torch.any(torch.isnan(out2)))
         out6_b = bipartite_graph.slice_owned_nodes(out2)
@@ -122,7 +118,7 @@ class DistSageConv(nn.Module):
 
         if not self.fc1.in_features > self.fc1.out_features:
             out6 = self.fc1(out6)
-        t22 = time.time()
+        # t22 = time.time()
         out3 = bipartite_graph.self_gather(x)
         out4 = bipartite_graph.slice_owned_nodes(out3)
         out5 = self.fc2(out4)

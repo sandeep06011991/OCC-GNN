@@ -43,7 +43,7 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
     device = proc_id
     t0 = time.time()
     if proc_id == 0:
-        print("leader tries to read meta data, qsize {}".format(sample_queues[0].qsize()))
+        # print("leader tries to read meta data, qsize {}".format(sample_queues[0].qsize()))
         meta = sample_queues[0].get()
         log.log("leader reads meta data, starts sharing")
         for i in range(1,4):
@@ -219,8 +219,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         movement_feat += (m_t1-m_t0)
         fp_start.record()
         assert(features.device == torch.device('cpu'))
-        #print("Start forward pass !")
-
+        # print("Start forward pass !")
         output = model.forward(gpu_local_sample, input_features, in_degrees)
         # continue
         if args.deterministic:
@@ -243,7 +242,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         if deterministic:
             model.module.print_grad()
         ii = ii + 1
-        if ii%10==0:
+        if ii%100000==0:
             print("iteration",ii)
         bp_end.record()
 

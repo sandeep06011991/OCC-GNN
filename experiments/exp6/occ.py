@@ -65,7 +65,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
     print(out,error)
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
     try:
-    #if True:
+    # if True:
         accuracy  = re.findall("accuracy:(\d+\.\d+)",out)[0]
         epoch = re.findall("epoch:(\d+\.\d+)",out)[0]
         sample_get  = re.findall("sample_time:(\d+\.\d+)",out)[0]
@@ -73,8 +73,8 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         movement_feat = re.findall("movement feature:(\d+\.\d+)",out)[0]
         forward_time = re.findall("forward time:(\d+\.\d+)",out)[0]
         backward_time = re.findall("backward time:(\d+\.\d+)",out)[0]
-        data_moved = re.findall("data movement:(\d+)MB",out)[0]
-        edges_moved = re.findlall("edges per epoch:(\d+)",out)[0]
+        data_moved = re.findall("data movement:(\d+\.\d+)MB",out)[0]
+        edges_moved = re.findall("edges per epoch:(\d+\.\d+)",out)[0]
 
         sample_get = "{:.2f}".format(float(sample_get))
         movement_graph = "{:.2f}".format(float(movement_graph))
@@ -83,8 +83,8 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         forward_time = "{:.2f}".format(float(forward_time))
         epoch = "{:.2f}".format(float(epoch))
         backward_time = "{:.2f}".format(float(backward_time))
-        data_moved = int(data_moved)
-        edges_moved = int(edges_moved)
+        data_moved = int(float(data_moved))
+        edges_moved = int(float(edges_moved))
 
     except Exception as e:
         with open('exception_occ.txt','w') as fp:
@@ -127,7 +127,7 @@ def run_experiment_occ(model):
     # cache_rates = [".05",".24", ".5"]
     cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
     cache_rates = [".25"]
-    #settings = [("ogbn-arxiv", 16, 128, 1024),]
+    settings = [("ogbn-arxiv", 16, 128, 1024),]
     #cache_rates = [".25"]
     #cache_rates = [".25"]
     #settings = [settings[0]]

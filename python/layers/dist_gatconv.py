@@ -52,27 +52,17 @@ class DistGATConv(nn.Module):
         exponent = torch.exp(e)
         # assert(torch.all(not torch.isnan(e)))
         sum_exponent = bipartite_graphs.apply_node(exponent)
-        print("Shuffle attempt", sum_exponent.shape)
         sum_exponent = Shuffle.apply(
             sum_exponent, None, self.gpu_id,   bipartite_graphs.to_ids, bipartite_graphs.from_ids, None)
         shape = sum_exponent.shape
-        print("Shuffle 1 OK!")
         sum_exponent = bipartite_graphs.set_remote_data_to_zero(sum_exponent)
-        print("Shuffle attempt")
         sum_exponent = Shuffle.apply(
             sum_exponent, None, self.gpu_id,   bipartite_graphs.from_ids, bipartite_graphs.to_ids, None)
-        print("Shuffle 2 Ok", sum_exponent.shape)
         sum_exponent = bipartite_graphs.copy_from_out_nodes(sum_exponent)
-        print("suffle 2.5", sum_exponent.shape)
         attention = exponent / sum_exponent
         out = bipartite_graphs.attention_gather(attention, in_feats)
-        print("Checl",attention.shape, in_feats.shape , out.shape)
-        for i in range(4):
-            print("Skip shuffle",out.shape, bipartite_graphs.to_ids[i].shape, bipartite_graphs.from_ids[i].shape, self.gpu_id)
-        print("shuffle 3 attempt")
         out = Shuffle.apply(
             out, None,self.gpu_id,   bipartite_graphs.to_ids, bipartite_graphs.from_ids, None)
-        print("Shuffle 3 Ok")
         out = bipartite_graphs.slice_owned_nodes(out)
         out = out.flatten(1)
 
