@@ -231,8 +231,7 @@ class GraphCacheServer:
       self.move_time += (t3- t2)
       self.collect_cuda_time += self.collect_start_e.elapsed_time(self.collect_end_e)/1000
       self.move_cuda_time += self.collect_end_e.elapsed_time(self.move_end_e)/1000
-      if self.log:
-        self.log_miss_rate(nids_in_cpu.size(0), tnid.size(0))
+      self.log_miss_rate(nids_in_cpu.size(0), tnid.size(0))
 
 
   def fetch_from_cache(self, nodeflow):
@@ -253,7 +252,7 @@ class GraphCacheServer:
 
   def get_miss_rate(self):
     if self.try_num == 0:
-          return 0
+          return 0,0
     miss_rate = float(self.miss_num) / self.try_num
     miss_num = self.miss_num
     self.miss_num = 0

@@ -3,10 +3,10 @@
 #SBATCH --mail-type=END          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=spolisetty@cs.umass.edu     # Where to send mail	
 #SBATCH --ntasks=1                    # Run on a single CPU
-#SBATCH --mem=64G                     # Job memory request
-#SBATCH --time=4:00:00               # Time limit hrs:min:sec
+#SBATCH --mem=200G                     # Job memory request
+#SBATCH --time=8:00:00               # Time limit hrs:min:sec
 #SBATCH --gres=gpu:4
-#SBATCH --partition=gpu
+#SBATCH --partition=gpu-preempt
 #SBATCH --output=/home/spolisetty_umass_edu/OCC-GNN/pagraph/slurm-job.log   # Standard output and error log
 #SBATCH -e slurm-%j.err
 #SBATCH -o slurm-%j.out

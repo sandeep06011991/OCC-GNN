@@ -71,8 +71,8 @@ def trainer(rank, world_size, args, backend='nccl'):
   print("Training_nid", train_nid.shape, rank)
   print("Expected number of minibatches",train_nid.shape[0]/args.batch_size)
   sub_labels = data.get_sub_train_labels(dataset, rank, world_size)
-  labels = np.zeros(np.max(train_nid.shape[0]) + 1, dtype=np.int)
-  print(labels.shape, train_nid.shape, sub_labels.shape, "Mark hahahahah")
+  assert(np.max(train_nid) >100)
+  labels = np.zeros(np.max(train_nid) + 1, dtype=np.int)
   labels[train_nid] = sub_labels.flatten()
 
   # to torch tensor
@@ -214,8 +214,7 @@ def trainer(rank, world_size, args, backend='nccl'):
         backward_time_epoch += (e2.elapsed_time(e3)/1000)
 
         step += 1
-        #print("current minibatch",step,rank)
-        print("Debug code pa_gcn.py to test larger datasets")
+        #print("current minibatch",step,rank, epoch)
         if args.end_early and step == 5:
             break
         if epoch == 0 and step == 1:
