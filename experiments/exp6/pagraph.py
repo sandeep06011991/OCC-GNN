@@ -94,7 +94,7 @@ def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per)
     fp = start_server(filename)
     feat_size = Feat[filename]
     res = start_client(filename, model, hidden_size, batch_size, cache_per)
-    WRITE = "exp6_pagraph.txt".format(ROOT_DIR)
+    WRITE = "{}/exp6_pagraph.txt".format(ROOT_DIR)
     with open(WRITE,'a') as fp:
         fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "unity", cache_per, hidden_size, feat_size, \
                 4 * batch_size, model, res["sample"], res["move_graph"], res["move_feat"],res["forward"], \
@@ -105,21 +105,24 @@ def run_experiment(model):
     graphs = ['ogbn-arxiv','ogbn-products']
     #graphs = ['ogbn-papers100M']
     #graphs = ['ogbn-arxiv']
-    settings = [('ogbn-arxiv', 16, 1024),
-                ('ogbn-arxiv', 16, 256),
-                ('ogbn-arxiv', 16, 4096),
-                #('ogbn-products', 16, 1024),
-                #('ogbn-products', 16, 256),
-                #('ogbn-products', 16, 4096)
+    settings = [#('ogbn-arxiv', 16, 1024),
+                #('ogbn-arxiv', 16, 256),
+                #('ogbn-arxiv', 16, 4096),
+                ('ogbn-products', 16, 1024),
+                ('ogbn-products', 16, 256),
+                ('ogbn-products', 16, 4096),
+                ('reorder-papers100M',16, 1024), 
+                ('reorder-papers100M',16, 256),
+                ('reorder-papers100M',16, 4096)
                 ]
 
     sha, dirty = get_git_info()
     check_path()
     check_no_stale()
     cache_per = ["0",".1",".25",".5",".75","1"]
-    cache_per = [".25"]
-    settings = [('ogbn-arxiv',16,1024)]
-    with open('exp6_pagraph.txt','a') as fp:
+    #cache_per = [".25"]
+    #settings = [('ogbn-arxiv',16,1024)]
+    with open('{}/exp6_pagraph.txt'.format(ROOT_DIR),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data-moved | edges-processed\n")
     for graphname, hidden_size, batch_size in settings:

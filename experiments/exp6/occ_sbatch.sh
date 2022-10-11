@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=test_run_occ    # Job name
+#SBATCH --job-name=fial_run_occ    # Job name
 #SBATCH --mail-type=END          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=spolisetty@cs.umass.edu     # Where to send mail	
 #SBATCH --ntasks=1                    # Run on a single CPU

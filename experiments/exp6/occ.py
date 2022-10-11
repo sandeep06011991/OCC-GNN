@@ -114,9 +114,9 @@ def run_experiment_occ(model):
                 ("ogbn-products",16, 100, 1024), \
                 ("ogbn-products", 16, 100, 4096), \
                 ("ogbn-products",16, 100 , 16384), \
-                ("reorder-papers100M",16, 128, 1024),\
-                ("reorder-papers100M",16, 128, 4096),\
-                ("reorder-papers100M", 16,128, 16384),\
+                ("reorder-papers100M", 16, 128, 1024),\
+                ("reorder-papers100M", 16, 128, 4096),\
+                ("reorder-papers100M", 16, 128, 16384),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -129,7 +129,12 @@ def run_experiment_occ(model):
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
     #cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
-    cache_rates = ["0",".1",".25"]
+    #cache_rates = ["0",".1",".25"]
+    #settings = [("ogbn-products", 16, 128, 4096),]
+    # cache_rates = [".05",".10",".24",".5"]
+    # cache_rates = [".05",".24", ".5"]
+    cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
+    #cache_rates = [".25"]
     #settings = [("ogbn-arxiv", 16, 128, 1024),]
     #cache_rates = [".25"]
     #cache_rates = [".25"]
