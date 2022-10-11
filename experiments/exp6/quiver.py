@@ -90,6 +90,9 @@ def run_experiment_quiver( model ):
                 ("ogbn-products",16, 100, 1024), \
                 ("ogbn-products",16, 100, 4096), \
                 ("ogbn-products",16, 100, 256),  \
+                ("reorder-papers100M", 16, 256),\
+                ("reorder-papers100M", 16, 4096),\
+                ("reorder-papers100M", 16, 1024),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -103,8 +106,8 @@ def run_experiment_quiver( model ):
     # settings = [("ogbn-papers100M",2)]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
-    cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
-    cache_rates = [".25"]
+    cache_rates = ["0", ".10", ".25"]
+    #cache_rates = [".25"]
     #settings = [settings[0]]
     check_path()
     print(settings)

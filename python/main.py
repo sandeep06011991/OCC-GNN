@@ -75,9 +75,10 @@ def work_producer(work_queue,training_nodes, batch_size,
         while(i < num_nodes):
             work_queue.put(training_nodes[i:i+batch_size])
             i = i + batch_size
-            if early_stopping == 5:
+            if early_stopping and step == 5:
                 break
-            early_stopping = early_stopping + 1
+            #print(step, epoch)
+            step  = step  + 1
         work_queue.put("EPOCH")
     for n in range(num_workers):
         work_queue.put("END")
