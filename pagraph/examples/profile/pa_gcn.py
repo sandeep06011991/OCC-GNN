@@ -308,7 +308,7 @@ if __name__ == '__main__':
   # sampling hyper-params
   parser.add_argument("--num-neighbors", type=int, default=20,
                       help="number of neighbors to be sampled")
-  parser.add_argument("--num-workers", type=int, default=1)
+  parser.add_argument("--num-workers", type=int, default=4)
   parser.add_argument("--remote-sample", dest='remote_sample', action='store_true')
   parser.add_argument("--model",type = str, required = True)
   parser.add_argument("--cache-per", type = float, required = True)
