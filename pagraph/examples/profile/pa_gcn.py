@@ -70,6 +70,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   train_nid = data.get_sub_train_nid(dataset, rank, world_size)
   print("Training_nid", train_nid.shape, rank)
   print("Expected number of minibatches",train_nid.shape[0]/args.batch_size)
+  emb = train_nid.shape[0]/args.batch_size
   sub_labels = data.get_sub_train_labels(dataset, rank, world_size)
   assert(np.max(train_nid) >100)
   labels = np.zeros(np.max(train_nid) + 1, dtype=np.int)
@@ -170,6 +171,7 @@ def trainer(rank, world_size, args, backend='nccl'):
       #for nf in sampler:
       it = iter(sampler)
       while True:
+        t00 = time.time()
         try:
             with nvtx.annotate('sample',color = 'yellow'):
                 s1 = time.time()
@@ -212,10 +214,11 @@ def trainer(rank, world_size, args, backend='nccl'):
         #print("Compute time without sync", e1.elapsed_time(e2)/1000)
         forward_time_epoch += (e1.elapsed_time(e2)/1000)
         backward_time_epoch += (e2.elapsed_time(e3)/1000)
-
+        t11 = time.time()
         step += 1
         #print("current minibatch",step,rank, epoch)
         if args.end_early and step == 5:
+            print("Time per step:",t11-t00, "expect mb",emb)
             break
         if epoch == 0 and step == 1:
             pass
@@ -245,18 +248,18 @@ def trainer(rank, world_size, args, backend='nccl'):
     toc = time.time()
   print("Exiting training working to collect profiler results")
   if rank == 0:
-      print("accuracy: {:.4}\n".format(acc))
-      print("Sample time: {:.4}s\n".format(avg(sample_time)))
-      print("forward time: {:.4}s\n".format(avg(forward_time)))
-      print("backward time: {:.4}s\n".format(avg(backward_time)))
-      print("movement graph: {:.4}s\n".format(avg(graph_move_time)))
-      print("CPU collect: {:.4}s\n".format(avg(time_cache_gather)))
-      print("CUDA collect: {:.4}s\n".format(avg(event_cache_gather)))
-      print("CPU move: {:.4}s\n".format(avg(time_cache_move)))
-      print("CUDA move: {:.4}s\n".format(avg(event_cache_move)))
-      print("Epoch time: {:.4}s\n".format(avg(epoch_dur)))
-      print("Miss rate: {:.4}s\n".format(avg(miss_rate_per_epoch)))
-      print("Miss num per epoch: {:.4}MB, device {}\n".format(avg(miss_num_per_epoch),rank))
+      print("accuracy: {:.4f}\n".format(acc))
+      print("Sample time: {:.4f}s\n".format(avg(sample_time)))
+      print("forward time: {:.4f}s\n".format(avg(forward_time)))
+      print("backward time: {:.4f}s\n".format(avg(backward_time)))
+      print("movement graph: {:.4f}s\n".format(avg(graph_move_time)))
+      print("CPU collect: {:.4f}s\n".format(avg(time_cache_gather)))
+      print("CUDA collect: {:.4f}s\n".format(avg(event_cache_gather)))
+      print("CPU move: {:.4f}s\n".format(avg(time_cache_move)))
+      print("CUDA move: {:.4f}s\n".format(avg(event_cache_move)))
+      print("Epoch time: {:.4f}s\n".format(avg(epoch_dur)))
+      print("Miss rate: {:.4f}s\n".format(avg(miss_rate_per_epoch)))
+      print("Miss num per epoch: {:.4f}MB, device {}\n".format(int(avg(miss_num_per_epoch)),rank))
       print("Edges processed per epoch: {}".format(avg(edges_processed)))
   # Profiling everything is unstable and overweight.
   # torch profiler uses events under it.

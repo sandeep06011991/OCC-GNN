@@ -4,6 +4,7 @@ import os
 import time
 
 ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
+DATA_DIR = "/home/spolisetty_umass_edu/OCC-GNN/experiments/exp6/"
 import sys
 import re
 import git
@@ -66,7 +67,7 @@ def start_server(filename):
 
 def start_client(filename, model, num_hidden, batch_size, cache_per):
     feat_size = Feat[filename]
-    cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset', filename,'--n-epochs','6'\
+    cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset', filename,'--n-epochs','3'\
                     , '--n-hidden', str(num_hidden), '--batch-size', str(batch_size),\
                         '--model', model, "--cache-per",str(cache_per)]
     output = subprocess.run(cmd, capture_output=True)
@@ -94,7 +95,7 @@ def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per)
     fp = start_server(filename)
     feat_size = Feat[filename]
     res = start_client(filename, model, hidden_size, batch_size, cache_per)
-    WRITE = "{}/exp6_pagraph.txt".format(ROOT_DIR)
+    WRITE = "{}/exp6_pagraph.txt".format(DATA_DIR)
     with open(WRITE,'a') as fp:
         fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "unity", cache_per, hidden_size, feat_size, \
                 4 * batch_size, model, res["sample"], res["move_graph"], res["move_feat"],res["forward"], \
@@ -109,25 +110,26 @@ def run_experiment(model):
                 #('ogbn-arxiv', 16, 256),
                 #('ogbn-arxiv', 16, 4096),
                 ('ogbn-products', 16, 1024),
-                ('ogbn-products', 16, 256),
-                ('ogbn-products', 16, 4096),
-                ('reorder-papers100M',16, 1024), 
-                ('reorder-papers100M',16, 256),
-                ('reorder-papers100M',16, 4096)
+                #('ogbn-products', 16, 256),
+                #('ogbn-products', 16, 4096),
+                #('reorder-papers100M',16, 1024), 
+                #('reorder-papers100M',16, 256),
+                #('reorder-papers100M',16, 4096)
                 ]
 
     sha, dirty = get_git_info()
     check_path()
     check_no_stale()
-    cache_per = ["0",".1",".25",".5",".75","1"]
-    #cache_per = [".25"]
+    cache_per = ["0",".1",".25",".5","1"]
+    cache_per = [ "1"]
     #settings = [('ogbn-arxiv',16,1024)]
-    with open('{}/exp6_pagraph.txt'.format(ROOT_DIR),'a') as fp:
+    with open('{}/exp6_pagraph.txt'.format(DATA_DIR),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data-moved | edges-processed\n")
     for graphname, hidden_size, batch_size in settings:
         try:
             for cache in cache_per:
+                print("Handling cache",cache)
                 run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
         except:
             import traceback
@@ -139,5 +141,6 @@ def run_experiment(model):
                 traceback.print_exception(ex_type, ex, tb, file = fp)
 
 if __name__ == "__main__":
-    run_experiment("gat")
     run_experiment("gcn")
+    print("Success!!!!!!!!!!!!!!!!!!!")
+    run_experiment("gat")
