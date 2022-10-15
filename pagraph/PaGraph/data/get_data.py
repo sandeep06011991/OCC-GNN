@@ -42,7 +42,7 @@ def get_sub_train_graph(dataname, idx, partitions):
   """
   if "com-orkut" in dataname or  "amazon" in dataname:
       adj_file = os.path.join(dataname, 'adj.npz')
-      train2fullid = os.path.join(dataname, 'vmap.npy')
+      train2fullid = np.load(os.path.join(dataname, 'vmap.npy'))
       adj = scipy.sparse.load_npz(adj_file)
       # np.range(0,adj_file.shape[0])
       # train2full_file = os.path.join(dataname, 'sub_train2fullid_{}.npy'.format(idx))
@@ -88,8 +88,8 @@ def get_masks(dataname):
 def get_sub_train_nid(dataname, idx, partitions):
   if "com-orkut" in dataname or  "amazon" in dataname:
     "These graphs are too large for pagraphs partitioning algorithm"
-    train_nids = os.path.join(dataname, 'train.npy')
-    train_nids = np.load(train_nids)
+    train_nids = os.path.join(dataname, 'train_idx.bin')
+    train_nids = np.fromfile(train_nids,dtype = np.int64)
     train_nids = torch.from_numpy(train_nids)
     num_partitions = int(train_nids.shape[0]/partitions)
     train_nids = torch.split(train_nids, num_partitions)[idx].numpy()
@@ -119,9 +119,8 @@ def get_sub_train_labels(dataname, idx, partitions):
   if "com-orkut" in dataname or "amazon" in dataname:
       labels = get_labels(dataname)
       labels = torch.from_numpy(labels)
-      num_partitions = int(labels.shape[0]/partitions)
-      labels = torch.split(labels, num_partitions)[idx].numpy()
-      return labels
+      sub_train_id = get_sub_train_nid(dataname, idx, partitions)
+      return labels[sub_train_id]
   dataname = os.path.join(dataname, '{}naive'.format(partitions))
   sub_label_file = os.path.join(dataname, 'sub_label_{}.npy'.format(idx))
   sub_label = np.load(sub_label_file)

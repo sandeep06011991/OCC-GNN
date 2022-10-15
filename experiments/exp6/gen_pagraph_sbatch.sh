@@ -16,24 +16,24 @@ GRAPH=$1
 BATCH=$3
 MODEL=$4
 CACHE=$2
-GRAPHLIST="ogbn-arxiv,ogbn-products,reorder-papers100M" 
+GRAPHLIST="ogbn-arxiv,ogbn-products,reorder-papers100M,amazon" 
 BATCHLIST="1024,4096,256"
 MODELLIST="gcn,gat"
 CACHELIST="0,.10,.25,.5,1"
 if [ "$(exists_in_list $GRAPHLIST $GRAPH)" = "1" ] ; then
-  echo "Not found"
+  echo "graph Not found"
   return 1	
 fi
 if [ "$(exists_in_list $BATCHLIST $BATCH)" = "1" ] ; then
-  echo "Not found"
+  echo "batch Not found"
   return 1
 fi
 if [ "$(exists_in_list $MODELLIST $MODEL)" = "1" ] ; then
-  echo "Not found"
+  echo "model Not found"
   return 1
 fi
 if [ "$(exists_in_list $CACHELIST $CACHE)" = "1" ] ; then
-  echo "Not found"
+  echo "cache Not found" $CACHELIST $CACHE
   return 1
 fi
 

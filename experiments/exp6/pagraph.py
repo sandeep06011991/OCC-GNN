@@ -9,7 +9,7 @@ import sys
 import re
 import git
 
-Feat = {"ogbn-arxiv":"128","ogbn-products":"100", "ogbn-papers100M":"128"}
+Feat = {"ogbn-arxiv":"128","ogbn-products":"100", "reorder-papers100M":"128","amazon":200}
 
 def get_git_info():
     repo = git.Repo(search_parent_directories = True)
@@ -89,7 +89,7 @@ def start_client(filename, model, num_hidden, batch_size, cache_per):
     miss_num = int(float(re.findall("Miss num per epoch: (\d+\.\d+)MB, device \d+",output)[0]))
     edges_processed = int(float(re.findall("Edges processed per epoch: (\d+\.\d+)",output)[0]))
     return {"sample":sample, "forward": forward, "backward": backward,\
-            "move_feat":move + collect, "epoch_time":epoch, "miss_rate": miss_rate, "move_graph":move_graph\
+            "move_feat":"{:.3f}".format(move + collect), "epoch_time":epoch, "miss_rate": miss_rate, "move_graph":move_graph\
                 , "accuracy": accuracy, "miss_num":miss_num, "edges":edges_processed}
 
 def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per):
