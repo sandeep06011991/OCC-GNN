@@ -9,7 +9,7 @@ from env import get_data_dir
 from os.path import exists
 ROOT_DIR = get_data_dir()
 # Target dir is root dir + filename
-TARGET_DIR = "{}/{}".format(ROOT_DIR, "reorder_papers100M")
+TARGET_DIR = "{}/{}".format(ROOT_DIR, "test_reorder_papers100M")
 os.makedirs(TARGET_DIR, exist_ok=True)
 
 if not exists(TARGET_DIR+'/cindptr.bin'):
@@ -23,7 +23,7 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
     graph, labels = dataset[0]
     features = graph.ndata['feat']
     split = dataset.get_idx_split()
-    train_idx = split['train']
+    train_idx = split['test']
     edges = graph.edges()
     graph.remove_edges(torch.where(edges[0] == edges[1])[0])
     num_nodes = graph.num_nodes()
@@ -108,7 +108,7 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
         fp.write(features.numpy().astype('float32').tobytes())
     with open(TARGET_DIR+'/labels.bin', 'wb') as fp:
         fp.write(labels.numpy().astype('int32').tobytes())
-    with open(TARGET_DIR+'/train_idx.bin', 'wb') as fp:
+    with open(TARGET_DIR+'/test_idx.bin', 'wb') as fp:
         fp.write(train_idx.numpy().astype('int64').tobytes())
 
     csum_train = torch.sum(train_idx).item()
@@ -130,7 +130,7 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
             fp.write("{}={}\n".format(k, meta_structure[k]))
     print("All data written!")
 
-import os
-username = os.environ['USER']
-if username == "spolisetty" :
-    generate_partition_file(ROOT_DIR , "reorder_papers100M")
+# import os
+# username = os.environ['USER']
+# if username == "spolisetty" :
+#     generate_partition_file(ROOT_DIR , "reorder_papers100M")

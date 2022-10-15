@@ -310,11 +310,13 @@ if __name__ == '__main__':
     #graph, labels = data[0]
     #graph = graph.add_self_loop()
     #labels = labels[:, 0].to(device)
-    
+
     # feat = graph.ndata.pop('feat')
     #year = graph.ndata.pop('year')
     if args.data == 'cpu':
         nfeat = feat
+        offsets = {}
+        offsets[3] = 0
     elif args.data == 'gpu':
         nfeat = feat.to(device)
     elif args.data == 'quiver':
