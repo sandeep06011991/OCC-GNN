@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import numpy as np
 import dgl
 from dgl import DGLGraph
+import os
 
 PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
 path_set = False
@@ -53,6 +54,7 @@ def compute_acc(pred, labels):
     """
     false_labels = torch.where(torch.argmax(pred,dim = 1) != labels)[0]
     return (torch.argmax(pred, dim=1) == labels).float().sum() / len(pred )
+import logging
 
 
 def trainer(rank, world_size, args, backend='nccl'):
@@ -60,7 +62,21 @@ def trainer(rank, world_size, args, backend='nccl'):
   feat_size = FEAT_DICT[args.dataset] 
   # init multi process
   init_process(rank, world_size, backend)
-  # load data
+  # load datai
+  if rank == 0:
+    os.makedirs('{}/logs'.format(PATH_DIR),exist_ok = True)
+    FILENAME= ('{}/logs/{}_{}_{}_{}.txt'.format(PATH_DIR, \
+             args.dataset, args.batch_size, int(100* (args.cache_per)),args.model))
+  
+    fileh = logging.FileHandler(FILENAME, 'w')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fileh.setFormatter(formatter)
+
+    log = logging.getLogger()  # root logger
+    log.addHandler(fileh)      # set the new handler  
+    log.setLevel(logging.INFO)
+  
+
   dataname = os.path.basename(dataset)
   remote_g = dgl.contrib.graph_store.create_graph_from_store(dataname, "shared_mem")
 
@@ -70,6 +86,8 @@ def trainer(rank, world_size, args, backend='nccl'):
   train_nid = data.get_sub_train_nid(dataset, rank, world_size)
   print("Training_nid", train_nid.shape, rank)
   print("Expected number of minibatches",train_nid.shape[0]/args.batch_size)
+  if rank == 0:
+      log.info("Expected number of minibatches: {}".format(train_nid.shape[0]/args.batch_size))
   emb = train_nid.shape[0]/args.batch_size
   sub_labels = data.get_sub_train_labels(dataset, rank, world_size)
   assert(np.max(train_nid) >100)
@@ -156,6 +174,8 @@ def trainer(rank, world_size, args, backend='nccl'):
   e3 = torch.cuda.Event(enable_timing = True)
   e4 = torch.cuda.Event(enable_timing = True)
   e5 = torch.cuda.Event(enable_timing = True)
+  if rank == 0:
+    log.info("Running for epochs {}".format(args.n_epochs))
   with torch.autograd.profiler.profile(enabled=(False), use_cuda=True) as prof:
     cacher.auto_cache(g,embed_names)
     for epoch in range(args.n_epochs):
@@ -218,10 +238,12 @@ def trainer(rank, world_size, args, backend='nccl'):
         step += 1
         #print("current minibatch",step,rank, epoch)
         if args.end_early and step == 5:
-            print("Time per step:",t11-t00, "expect mb",emb)
-            break
+          break
+        if rank == 0:
+          log.info("iteration : {}, epoch: {}, iteration time: {}".format(step, epoch, t11-t00)) 
+    
         if epoch == 0 and step == 1:
-            pass
+          pass
             #cacher.auto_cache(g, embed_names)
         if rank == 0 and step % 20 == 0:
           print('epoch [{}] step [{}]. Loss: {:.4f}'
@@ -229,15 +251,21 @@ def trainer(rank, world_size, args, backend='nccl'):
       if rank == 0:
         # compute_time.append(epoch_compute_time)
         sample_time.append(epoch_sample_time)
+        log.info("epoch:{} collected_sample:{}".format(epoch, sample_time))
         graph_move_time.append(epoch_move_graph_time)
+        log.info("epoch:{} graph move time:{}".format(epoch, graph_move_time))
         epoch_dur.append(time.time() - epoch_start_time)
         collect_c, move_c, coll_t, mov_t = cacher.get_time_and_reset_time()
         time_cache_gather.append(coll_t)
         time_cache_move.append(mov_t)
         event_cache_gather.append(collect_c)
         event_cache_move.append(move_c)
+        log.info("epoch:{}, cache gather {},cache move {}".format(epoch, time_cache_gather\
+                , time_cache_move))
         forward_time.append(forward_time_epoch)
         backward_time.append(backward_time_epoch)
+        log.info("epoch: {}, forward time:{}".format(epoch, forward_time))
+        log.info("epoch: {}, backward time:{}".format(epoch, backward_time))
         #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
         miss_rate, miss_num = cacher.get_miss_rate()
         miss_rate_per_epoch.append(miss_rate)
@@ -245,6 +273,9 @@ def trainer(rank, world_size, args, backend='nccl'):
         miss_num_per_epoch.append(miss_num * in_dim * 4 / (1024 * 1024))
         #print('Epoch average miss rate: {:.4f}'.format(miss_rate))
         edges_processed.append(epoch_edges_processed)
+        log.info("miss num: {}".format(miss_num_per_epoch))
+        log.info("edges processed: {}".format(edges_processed))
+        
     toc = time.time()
   print("Exiting training working to collect profiler results")
   if rank == 0:
@@ -325,3 +356,7 @@ if __name__ == '__main__':
   gpu_num = len(args.gpu.split(','))
 
   mp.spawn(trainer, args=(gpu_num, args), nprocs=gpu_num, join=True)
+import os
+import sys
+import argparse, time
+import torch

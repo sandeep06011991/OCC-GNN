@@ -67,6 +67,7 @@ def start_server(filename):
 
 def start_client(filename, model, num_hidden, batch_size, cache_per):
     feat_size = Feat[filename]
+    print(cache_per)
     cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset', filename,'--n-epochs','3'\
                     , '--n-hidden', str(num_hidden), '--batch-size', str(batch_size),\
                         '--model', model, "--cache-per",str(cache_per)]
@@ -102,14 +103,14 @@ def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per)
                     res["backward"],res["epoch_time"], res["accuracy"],res["miss_num"], res["edges"] ))
     fp.close()
 
-def run_experiment(model):
+def run_model(model):
     graphs = ['ogbn-arxiv','ogbn-products']
     #graphs = ['ogbn-papers100M']
     #graphs = ['ogbn-arxiv']
-    settings = [#('ogbn-arxiv', 16, 1024),
+    settings = [('ogbn-arxiv', 16, 1024),
                 #('ogbn-arxiv', 16, 256),
                 #('ogbn-arxiv', 16, 4096),
-                ('ogbn-products', 16, 1024),
+                #('ogbn-products', 16, 1024),
                 #('ogbn-products', 16, 256),
                 #('ogbn-products', 16, 4096),
                 #('reorder-papers100M',16, 1024), 
@@ -117,12 +118,15 @@ def run_experiment(model):
                 #('reorder-papers100M',16, 4096)
                 ]
 
+    cache_per = ["0",".1",".25",".5","1"]
+    cache_per = [ "0"]
+    run_experiment(model, settings, cache_per)
+
+    #settings = [('ogbn-arxiv',16,1024)]
+def run_experiment(model, settings, cache_per):
     sha, dirty = get_git_info()
     check_path()
     check_no_stale()
-    cache_per = ["0",".1",".25",".5","1"]
-    cache_per = [ "1"]
-    #settings = [('ogbn-arxiv',16,1024)]
     with open('{}/exp6_pagraph.txt'.format(DATA_DIR),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data-moved | edges-processed\n")
@@ -141,6 +145,27 @@ def run_experiment(model):
                 traceback.print_exception(ex_type, ex, tb, file = fp)
 
 if __name__ == "__main__":
-    run_experiment("gcn")
-    print("Success!!!!!!!!!!!!!!!!!!!")
-    run_experiment("gat")
+    #run_model("gcn")
+    #print("Success!!!!!!!!!!!!!!!!!!!")
+    #run_model("gat")
+    #return
+    import argparse
+    argparser = argparse.ArgumentParser("multi-gpu training")
+    # Input data arguments parameters.
+    argparser.add_argument('--graph',type = str, default= "ogbn-arxiv", required = True)
+    # training details
+    # model name and details
+    argparser.add_argument('--cache-per', type = str,  required = True)
+    argparser.add_argument('--model',help="gcn|gat", required = True)
+    argparser.add_argument('--batch-size', type=int, required = True)
+    # We perform only transductive training
+    # argparser.add_argument('--inductive', action='store_false',
+    #                        help="Inductive learning setting")
+    args = argparser.parse_args()
+    dataset = args.graph
+    cache_per = args.cache_per
+    batch_size = args.batch_size 
+    model = args.model
+    settings = [(dataset,"16", batch_size)]
+    #print(cache_per)
+    run_experiment(model, settings, [cache_per])
