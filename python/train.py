@@ -228,7 +228,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             if proc_id == 0:
                 if test_acc_func != None:
                     test_accuracy = test_acc_func.get_accuracy(model)
-                    print("Current test_accuracy", test_accuracy)
+                    print("test_accuracy:{}, epoch:{}", test_accuracy, num_epochs-1)
                 flog.info("accuracy:{}".format(acc))
                 flog.info("epoch:{}".format(avg(epoch_time)))
                 flog.info("sample_time:{}".format(avg(sample_get_epoch)))

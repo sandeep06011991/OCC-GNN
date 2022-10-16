@@ -196,7 +196,7 @@ if __name__=="__main__":
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.01)
     print("Hijacking number of workiers for debugging dont forget to reset.")
-    argparser.add_argument('--num-workers', type=int, default=1,
+    argparser.add_argument('--num-workers', type=int, default=16,
        help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
     # model name and details
