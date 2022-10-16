@@ -39,8 +39,8 @@ def slice_producer(graph_name, work_queue, sample_queue, \
     lock , storage_vector, \
         deterministic, worker_id, sm_filename_queue, num_workers, fanout):
     no_worker_threads = 1
-    
-    sampler = cslicer(graph_name,storage_vector,fanout, deterministic)
+    testing = False
+    sampler = cslicer(graph_name,storage_vector,fanout, deterministic,testing)
     sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id, num_workers)
     # Todo clean up unnecessary iterations
     log = LogFile("slice-py", worker_id)

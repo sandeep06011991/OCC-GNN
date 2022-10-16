@@ -7,8 +7,9 @@
 #include <spdlog/spdlog.h>
 
 
-Dataset::Dataset(std::string dir){
+Dataset::Dataset(std::string dir, bool testing){
   this->BIN_DIR = dir;
+  this->testing = testing;
   read_meta_file();
   read_graph();
   read_node_data();
@@ -63,7 +64,13 @@ void Dataset::read_node_data(){
   //   s = s + this->labels[i];
   // }
   // assert(s-this->csum_labels<10);
-
+  if (this->testing){
+    this->partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
+    for(int i=0;i< (this->num_nodes) ;i++){
+       this->partition_map[i]= 0;
+    }
+    return;
+  }
   std::fstream file2(this->BIN_DIR + "/partition_map_opt.bin",std::ios::in|std::ios::binary);
   this->partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
   file2.read((char *)this->partition_map,this->num_nodes *  sizeof(int));

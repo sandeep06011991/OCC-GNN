@@ -39,7 +39,7 @@ public:
     populate_meta_dict();
     this->name = get_dataset_dir() + name;
 
-    this->dataset = std::make_shared<Dataset>(this->name);
+    this->dataset = std::make_shared<Dataset>(this->name,false);
     std::cout << "Stats started\n";
     if(partition == "occ"){
       for(long j=0;j<dataset->num_nodes;j++){
@@ -110,7 +110,7 @@ public:
     CSlicer(const std::string &name,
       std::vector<std::vector<long>> gpu_map,
       int fanout,
-       bool deterministic){
+       bool deterministic, bool testing){
         spdlog::set_pattern("[%H:%M:%S %z] [%^%L%$] [thread %t] %v");
         spdlog::info("This an info message with custom format");
         spdlog::set_pattern("%+"); // back to default format
@@ -125,7 +125,7 @@ public:
         // std::cout << this->name << "\n";
         this->deterministic = deterministic;
 
-        this->dataset = std::make_shared<Dataset>(this->name);
+        this->dataset = std::make_shared<Dataset>(this->name, testing);
         spdlog::info("Log after checking the dataset");
         num_nodes = dataset->num_nodes;
 	      std::cout << "Read graph with number of nodes: " << num_nodes <<"\n";
@@ -163,7 +163,6 @@ public:
       if(this->deterministic){
           sample_val =  sample_flow_up_sample(sample, num_nodes);
       }
-
       // spdlog::info("slice begin");
       this->slicer->slice_sample(sample, p_sample);
       // spdlog::info("covert to torch");
@@ -172,6 +171,7 @@ public:
       for(int i=0;i<4;i++){
         ret[i] = 0;
       }
+
       if(this->deterministic){
           for(int i=0;i<4;i++){
             vector<long> &m = p_sample.refresh_map[i];
@@ -183,9 +183,8 @@ public:
           for(int i=0;i<4;i++){
             int s = p_sample.refresh_map[i].size();
             int cs = dummy_storage_map[i].size();
-            assert(cs > s);
+            assert(cs > = s);
             dummy_storage_map[i].resize(cs-s);
-
           }
           std::cout << "My anser is " << p_val << "sample_val "<< sample_val << "\n";
           assert(sample_val  == p_val);
@@ -211,7 +210,7 @@ PYBIND11_MODULE(cslicer, m) {
     m.doc() = "pybind11 example plugin"; // optional module docstring
     py::class_<CSlicer>(m,"cslicer")
          .def(py::init<const std::string &,
-               std::vector<std::vector<long>>, int, bool>())
+               std::vector<std::vector<long>>, int, bool, bool>())
          .def("getSample", &CSlicer::getSample, py::return_value_policy::take_ownership);
          py::class_<PySample>(m,"sample")
              .def_readwrite("layers",&PySample::layers)

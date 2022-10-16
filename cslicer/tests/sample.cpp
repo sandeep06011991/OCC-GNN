@@ -11,7 +11,7 @@ void aggregate(std::vector<long>& layer_nds, \
         std::vector<long> &offsets, std::vector<long> &indices, \
          std::vector<long> &degree, \
         std::vector<int> &in, std::vector<int> &out, bool first_layer){
-  for(int i=0;i < offsets.size()-1; i++){
+  for(int i=0;i < (int)offsets.size()-1; i++){
     int start = offsets[i];
     int end = offsets[i+1];
     int src = layer_nds[i];
@@ -59,8 +59,7 @@ int sample_flow_up_sample(Sample &s, int number_of_nodes){
 void aggregate(vector<int> &out, vector<int> &in, BiPartite *bp){
     vector<long> &indptr = bp->indptr;
     vector<long> &indices = bp->indices;
-
-    for(int i=0;i<indptr.size()-1;i ++){
+    for(int i=0;i< (int) indptr.size()-1;i ++){
       int off_start = indptr[i];
       int off_end = indptr[i+1];
       int t = 0;
@@ -79,7 +78,7 @@ void aggregate(vector<int> &out, vector<int> &in, BiPartite *bp){
 void shuffle(vector<long>& from_ids,  vector<int> &from_v,
          vector<long> &to_ids,  vector<int> &to_v){
   assert(from_ids.size() == to_ids.size());
-  for(int i=0; i< from_ids.size(); i++){
+  for(int i=0; i< (int) from_ids.size(); i++){
     to_v[to_ids[i]] += from_v[from_ids[i]];
     }
 }

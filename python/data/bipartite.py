@@ -131,6 +131,13 @@ class Bipartite:
             # print(self.graph.nodes['_V'].data['out'])
             return self.graph.nodes['_V'].data['out']
 
+    def gather_max(self, nf):
+        #print(f_in.shape, self.graph.number_of_nodes('_U'))
+        with self.graph.local_scope():
+            self.graph.edges['_E'].data['nf'] = nf
+            self.graph.update_all(fn.copy_e('nf', 'm'), fn.max('m', 'out'))
+            return self.graph.nodes['_V'].data['out']
+
     def slice_owned_nodes(self, f_in):
         with self.graph.local_scope():
             if self.owned_out_nodes.shape[0] == 0:

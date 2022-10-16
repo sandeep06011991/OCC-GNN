@@ -83,11 +83,11 @@ class MemoryManager():
                     # fixme: this rounding error should not happen
                     subgraph_nds = torch.where(self.partition_map == i)[0]
                     node_ids_cached = subgraph_nds
-                    self.batch_in.append(torch.zeros(node_ids_cached.shape[0], self.fsize, device = i))
+                    self.batch_in.append(torch.zeros(node_ids_cached.shape[0], self.fsize))
                     self.log.log("For gpu {}, batch_in features  {}".format(i, self.batch_in[i].shape))
                     print("Node ids cached",node_ids_cached[:10])
                 else:
-                    self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize, device = i))
+                    self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize))
                     # fixme: batch_in has different size to total number of nodes
                     # Be aware of this when constructing graphs
                     subgraph_nds = torch.where(self.partition_map == i)[0]
@@ -95,7 +95,7 @@ class MemoryManager():
                     _, indices = torch.sort(subgraph_deg,descending = True)
                     node_ids_cached = subgraph_nds[indices[:self.num_nodes_cached]]
             else:
-                self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize, device = i))
+                self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize))
                 # fixme: batch_in has different size to total number of nodes
                 # Be aware of this when constructing graphs
                 subgraph_nds = torch.where(self.partition_map == i)[0]
@@ -115,9 +115,9 @@ class MemoryManager():
                 self.batch_in[i][:self.local_sizes[i]] = torch.ones(self.features[node_ids_cached].shape)
             else:
                 self.batch_in[i][:self.local_sizes[i]] = self.features[node_ids_cached]
-            if not self.batch_in[i].is_shared():
-                self.batch_in[i].detach().share_memory_()
-            assert(self.batch_in[i].device == torch.device(i))
+            # if not self.batch_in[i].is_shared():
+            #     self.batch_in[i].detach().share_memory_()
+            # assert(self.batch_in[i].device == torch.device(i))
             self.check_missing = self.check_missing | self.node_gpu_mask[:,i]
         # assert(torch.all(self.check_missing))
         # print("No missing nodes !!")

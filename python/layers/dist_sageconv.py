@@ -67,7 +67,7 @@ class DistSageConv(nn.Module):
             print("layer self grad",l,self.fc2.weight.grad[:3,0], torch.sum(self.fc2.weight.grad))
 
 
-    def forward(self, bipartite_graph, x, l, in_degree):
+    def forward(self, bipartite_graph, x, l, in_degree, testing):
         t1 = time.time()
         #if l == 0 or l == 1:
         # Code to perform statistics on computaiton graph
@@ -94,14 +94,16 @@ class DistSageConv(nn.Module):
             out1 = bipartite_graph.gather(out)
             out2 = out1
             # t22 = time.time()
-            out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
+            if not testing:
+                out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
             # t33 = time.time()
         else:
             out = bipartite_graph.gather(x)
             out2 = out
             # t11 = time.time()
             #print("Skip shuffle")
-            out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
+            if not testing:
+                out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
             # t22 = time.time()
             # BUG Fixed: Linear layer after in degree meaning
         assert(not torch.any(torch.isnan(out2)))

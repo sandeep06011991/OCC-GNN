@@ -7,7 +7,7 @@ from PaGraph.partition.ordering import reordering
 from PaGraph.partition.dg import dg
 from PaGraph.partition.utils import get_sub_graph
 from PaGraph.data import get_labels, get_masks, get_labels
-import scipy 
+import scipy
 #from ogb.nodeproppred import DglNodePropPredDataset
 import numpy as np
 import scipy.sparse as spsp
@@ -21,13 +21,17 @@ def get_data_dir():
     username = os.environ['USER']
     if username == 'spolisetty_umass_edu':
         DATA_DIR = "/work/spolisetty_umass_edu/data"
+        ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
     if username == "spolisetty":
         DATA_DIR = "/data/sandeep"
+        ROOT_DIR = "/home/spolisetty/OCC-GNN/pagraph"
     if username == "q91":
         DATA_DIR = "/mnt/bigdata/sandeep"
-    return DATA_DIR
+    return DATA_DIR,ROOT_DIR
 
-DATA_DIR = get_data_dir()
+DATA_DIR,ROOT_DIR = get_data_dir()
+import logging
+
 
 def thread_wrapped_func(func):
     """
@@ -70,6 +74,15 @@ def read_meta_file(filename):
 def get_process_graph(filename):
     # DATA_DIR = "/data/sandeep"
     # graphname = "ogbn-products"
+    os.makedirs('{}/logs'.format(ROOT_DIR),exist_ok = True)
+    FILENAME= ('{}/logs/partition_{}.txt'.format(ROOT_DIR, filename))
+    fileh = logging.FileHandler(FILENAME, 'w')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fileh.setFormatter(formatter)
+
+    log = logging.getLogger()  # root logger
+    log.addHandler(fileh)      # set the new handler
+    log.setLevel(logging.INFO)
     graphname = filename
     indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.int64)
     indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.int64)
@@ -136,8 +149,8 @@ def pagraph_partition(FILENAME):
     scipyCSC = scipyCOO.tocsc()
 
     # adj = spsp.load_npz(os.path.join(PAGRAPH_DIR, 'adj.npz'))
-    train_nids = train_idx.numpy() 
-
+    train_nids = train_idx.numpy()
+    log = logging.getLogger()
     # ordering
     print('re-ordering graphs...')
     print('skip reordering')
@@ -160,6 +173,7 @@ def pagraph_partition(FILENAME):
     # np.save(os.path.join(PAGRAPH_DIR, 'test.npy'), test_mask[mapv])
 
     s = time.time()
+    log.info("start partitioning")
     p_v, p_trainv = dg(4, adj, train_nids, 3)
     e = time.time()
 
@@ -205,6 +219,6 @@ def pagraph_partition(FILENAME):
 if __name__=="__main__":
     graph_names = ["ogbn-arxiv","ogbn-products", "reorder-papers100M", "amazon", "com-orkut"]
     print("others are done!")
-    graph_names = ["com-orkut"]
+    graph_names = ["amazon"]
     for graph in graph_names:
         pagraph_partition(graph)

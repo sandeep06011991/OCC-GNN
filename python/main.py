@@ -23,6 +23,7 @@ import torch.distributed as dist
 import os
 import pwd
 import sys
+
 uname = pwd.getpwuid(os.getuid())[0]
 os.environ['NCCL_BUFFSIZE'] = str(1024 * 1024 * 80)
 if uname == 'spolisetty':
@@ -116,7 +117,7 @@ def main(args):
 
     #Not applicable as some nodes have zero features in ogbn-products
     #assert(not torch.any(torch.sum(features,1)==0))
-    
+
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map, deterministic = args.deterministic)
@@ -136,7 +137,6 @@ def main(args):
     minibatches_per_epoch = int(len(train_nid)/minibatch_size)
 
     print("Training on num nodes = ",train_nid.shape)
-
     # global train_nid_list
     # train_nid_list= train_nid.tolist()
     queue_size = args.num_workers
@@ -153,7 +153,7 @@ def main(args):
     lock = torch.multiprocessing.Lock()
 
     slice_producer_processes = []
-    
+
     for proc in range(no_worker_process):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, sample_queues[0], lock,\
@@ -195,7 +195,8 @@ if __name__=="__main__":
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.01)
-    argparser.add_argument('--num-workers', type=int, default=16,
+    print("Hijacking number of workiers for debugging dont forget to reset.")
+    argparser.add_argument('--num-workers', type=int, default=1,
        help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
     # model name and details
@@ -212,6 +213,7 @@ if __name__=="__main__":
     argparser.add_argument('--dropout', type=float, default=0)
     argparser.add_argument('--deterministic', default = False, action="store_true")
     argparser.add_argument('--early-stopping', action = "store_true")
+    argparser.add_argument('--test-graph-dir', type = str)
     # We perform only transductive training
     # argparser.add_argument('--inductive', action='store_false',
     #                        help="Inductive learning setting")

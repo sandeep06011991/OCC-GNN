@@ -17,15 +17,19 @@ import torch.distributed as dist
 import os
 import time
 import inspect
+from utils import utils
 from utils.shared_mem_manager import *
 from data.serialize import *
 from utils.log import *
+from test_accuracy import *
 
 def avg(ls):
     # assert(len(ls) > 3)
     print(ls)
+    if len(ls) == 1:
+        return ls[0]
     if(len(ls) <= 3):
-        return sum(ls)/len(ls)
+        return sum(ls[1:])/len(ls[1:])
     a = max(ls[1:])
     b = min(ls[1:])
     # remove 3 as (remove first, max and min)
@@ -89,7 +93,7 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
         graph_move_time = (t5-t4)
     return sample_id, gpu_local_sample, sample_get_time, graph_move_time
 
-
+import logging
 
 def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, features, args\
                     ,num_classes, batch_in, labels, num_sampler_workers, deterministic,in_degrees
@@ -106,6 +110,20 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     r = torch.cuda.memory_reserved(0)
     a = torch.cuda.memory_allocated(0)
     print('again total,reserved, allocated',t,r,a)
+    if proc_id == 0:
+        DATA_DIR,PATH_DIR = utils.get_data_dir()
+        ## Configure logger
+        os.makedirs('{}/logs'.format(PATH_DIR),exist_ok = True)
+        FILENAME= ('{}/logs/{}_{}_{}_{}.txt'.format(PATH_DIR, \
+                 args.graph, args.batch_size, int(100* (args.cache_per)),args.model))
+
+        fileh = logging.FileHandler(FILENAME, 'w')
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        fileh.setFormatter(formatter)
+
+        flog = logging.getLogger()  # root logger
+        flog.addHandler(fileh)      # set the new handler
+        flog.setLevel(logging.INFO)
 
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
         master_ip='127.0.0.1', master_port='12345')
@@ -119,7 +137,21 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print("not setting seeds, use this to match accuracy")
     #     set_all_seeds(seed)
     print("get model")
-
+    print("Got test dir", args.test_graph_dir)
+    if proc_id ==0:
+        print(args.test_graph_dir)
+        if args.test_graph_dir != None:
+            device = 0
+            test_acc_func = TestAccuracy(args.test_graph_dir, device)
+        else:
+            test_acc_func = None
+    #     graph_name = "test_graph"
+    #     fanout = -1
+    #     deterministic = true
+    #     print("Assume graph fits in memory")
+    #     features = get_utils_graph("")
+    #     storage_map = [[arange]]
+    #     sampler = cslicer(graph_name,storage_vector,fanout, deterministic)
     if args.model == "gcn":
         model = get_sage_distributed(args.num_hidden, features, num_classes,
             proc_id, args.deterministic, args.model)
@@ -163,6 +195,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     e_t1 = time.time()
     # print("Features ", features.device)
     num_epochs = 0
+    if proc_id == 0:
+        flog = logging.getLogger()
     while(True):
         nmb += 1
         log.log("blocked at get sample")
@@ -190,6 +224,20 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             data_moved_per_gpu = 0
             e_t1 = time.time()
             num_epochs += 1
+            ii = 0
+            if proc_id == 0:
+                if test_acc_func != None:
+                    test_accuracy = test_acc_func.get_accuracy(model)
+                    print("Current test_accuracy", test_accuracy)
+                flog.info("accuracy:{}".format(acc))
+                flog.info("epoch:{}".format(avg(epoch_time)))
+                flog.info("sample_time:{}".format(avg(sample_get_epoch)))
+                flog.info("movement graph:{}".format(avg(movement_graph_epoch)))
+                flog.info("movement feature:{}".format(avg(movement_feat_epoch)))
+                flog.info("forward time:{}".format(avg(forward_epoch)))
+                flog.info("backward time:{}".format(avg(backward_epoch)))
+                flog.info("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
+                flog.info("edges per epoch:{}".format(avg(edges_per_gpu_epoch)))
             continue
         if(gpu_local_sample == "END"):
             #print("GOT END OF FLAG")
@@ -245,10 +293,13 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         if ii%100000==0:
             print("iteration",ii)
         bp_end.record()
+        if proc_id == 0:
+            flog.info("iteration step ! {}, of {} ".format(ii, minibatches_per_epoch))
 
         if output.shape[0] !=0:
             acc = compute_acc(output,classes)
             acc = (acc[0].item()/acc[1])
+            print("Accuracy ", acc)
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
         # print("Forward time",fp_start.elapsed_time(fp_end)/1000 )

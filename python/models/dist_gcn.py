@@ -31,14 +31,14 @@ class DistSAGEModel(torch.nn.Module):
         self.fp_end = torch.cuda.Event(enable_timing=True)
         self.bp_end = torch.cuda.Event(enable_timing=True)
 
-    def forward(self, bipartite_graphs, x, in_degrees):
+    def forward(self, bipartite_graphs, x, in_degrees, testing = False):
         for l,(layer, bipartite_graph) in  \
             enumerate(zip(self.layers,bipartite_graphs.layers)):
             import time
             t1 = time.time()
             # assert(not torch.any(torch.sum(x,1)==0))
             # self.fp_end.record()
-            x = layer(bipartite_graph, x,l, in_degrees)
+            x = layer(bipartite_graph, x,l, in_degrees,testing)
             # self.bp_end.record()
             # torch.cuda.synchronize(self.bp_end)
             t2 = time.time()
@@ -65,6 +65,6 @@ def get_sage_distributed(hidden, features, num_classes, gpu_id, deterministic, m
 
     n_layers = 3
     activation = torch.nn.ReLU()
-    assert(model in ["gcn", "gat"])
+    assert(model==  "gcn")
     return DistSAGEModel(in_feats, n_hidden, n_classes, n_layers, activation, \
             dropout, gpu_id,  deterministic = deterministic )

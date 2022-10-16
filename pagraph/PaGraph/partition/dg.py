@@ -10,7 +10,7 @@ import PaGraph.data as data
 
 import ordering
 from utils import get_sub_graph
-
+import logging
 
 def in_neighbors(csc_adj, nid):
   return csc_adj.indices[csc_adj.indptr[nid]: csc_adj.indptr[nid+1]]
@@ -69,13 +69,17 @@ def dg(partition_num, adj, train_nids, hops):
   r_belongs = [-np.ones(vnum, dtype=np.int8) for _ in range(partition_num)]
   p_vnum = np.zeros(partition_num, dtype=np.int64)
   r_vnum = np.zeros(partition_num, dtype=np.int64)
-    
+
   progress = 0
+  log = logging.getLogger()
   #for nid in range(0, train_nids):
   print('total vertices: {} | train vertices: {}'.format(vnum, vtrain_num))
+  log.info('total vertices: {} | train vertices: {}'.format(vnum, vtrain_num))
   for step, nid in enumerate(train_nids):
     #neighbors = in_neighbors(csc_adj, nid)
-    print(step,"Step")
+    # print(step,"Step")
+    if step %100 == 0:
+        log.info("current step {} left {} ".format(step, vtrain_num))
     neighbors = in_neighbors_hop(csc_adj, nid, hops)
 
     score = dg_ind(csc_adj, neighbors, belongs, p_vnum, r_vnum, partition_num,vtrain_num)

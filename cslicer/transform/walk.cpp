@@ -32,7 +32,7 @@ void populate_meta_dict(){
 // If it is not simply switching to it will decrease shuffle cost.
 void  color_with_src_gpu(vector<long>& layer_nds, vector<long> &offsets, vector<long> &indices,
                         vector<int> & color_in ,   vector<int> &color_out){
-  for(int i=0;i< offsets.size()-1; i++){
+  for(int i=0;i< (int)offsets.size()-1; i++){
     int start = offsets[i];
     int end = offsets[i+1];
     int color = 0;

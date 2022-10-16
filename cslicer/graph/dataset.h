@@ -45,8 +45,8 @@ public:
   long csum_labels;
   long csum_offsets;
   long csum_edges;
-
-  Dataset(std::string dir);
+  bool testing = true;
+  Dataset(std::string dir, bool testing);
 };
 
 #endif
