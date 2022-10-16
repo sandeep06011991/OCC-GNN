@@ -1,5 +1,5 @@
 # Reaches around 0.7866 ± 0.0041 test accuracy.
-
+import logging
 import dgl
 import torch
 import torch as th
@@ -34,6 +34,7 @@ def get_data_dir():
         PATH_DIR = "/home/q91/OCC-GNN/python"
     return DATA_DIR,PATH_DIR
 
+DATA_DIR, PATH_DIR = get_data_dir()
 def average(ls):
     if(len(ls) == 1):
         return ls[0]
@@ -81,12 +82,23 @@ def run(rank, args,  data):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '11112'
     dist.init_process_group('nccl', rank=rank, world_size=4)
-    return
-    dist.destroy_process_group()
+
     device = rank
     torch.cuda.set_device(device)
-    print("check reached")
     train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets = data
+    if rank == 0:
+      os.makedirs('{}/quiver/logs_naive'.format(PATH_DIR),exist_ok = True)
+      FILENAME= ('{}/quiver/logs_naive/{}_{}_{}.txt'.format(PATH_DIR, \
+               args.graph, args.batch_size, args.model))
+
+      fileh = logging.FileHandler(FILENAME, 'w')
+      formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+      fileh.setFormatter(formatter)
+
+      log = logging.getLogger()  # root logger
+      log.addHandler(fileh)      # set the new handler
+      log.setLevel(logging.INFO)
+
     #if args.data == 'gpu':
     #    nfeat = nfeat.to(rank)
     if args.sample_gpu:
@@ -100,6 +112,7 @@ def run(rank, args,  data):
             [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
     world_size = 4
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
+    number_of_minibatches = train_nid.shape[0]/args.batch_size
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
@@ -180,12 +193,12 @@ def run(rank, args,  data):
                 for blk in blocks:
                     blk.create_formats_()
                     edges_computed += blk.edges()[0].shape[0]
-                #print(edges_computed)    
+                #print(edges_computed)
                 t3 = time.time()
                 #start = offsets[device][0]
                 #end = offsets[device][1]
                 #hit = torch.where((input_nodes > start) & (input_nodes < end))[0].shape[0]
-                
+
                 hit = torch.where(input_nodes < offsets[3])[0].shape[0]
                 missed = input_nodes.shape[0] - hit
 
@@ -217,6 +230,9 @@ def run(rank, args,  data):
                 if args.early_stopping and step ==5:
                     break
                 step = step + 1
+                if rank == 0:
+                    log.info("step {}, epoch {}, number_of_minibatches {}".format(step, epoch, number_of_minibatches))
+
                 #print("forward time", e2.elapsed_time(e3)/1000)
                 #print("backward time", e3.elapsed_time(e4)/1000)
                 total_loss += loss.item()
@@ -224,6 +240,17 @@ def run(rank, args,  data):
         #        pbar.update(args.batch_size)
         except StopIteration:
             pass
+        if rank == 0:
+            log.info("accuracy:{}".format(accuracy))
+            log.info("epoch:{}".format(epoch_time))
+            log.info("sample_time:{}".format(sample_time_epoch))
+            log.info("movement graph:{}".format(movement_time_graph_epoch))
+            log.info("movement feature:{}".format(movement_time_feature_epoch))
+            log.info("forward time:{}".format(forward_time_epoch))
+            log.info("backward time:{}".format(backward_time_epoch))
+            log.info("edges per epoch:{}".format(edges_per_epoch))
+            log.info(data_movement_epoch)
+            log.info("data movement:{}MB".format(data_movement_epoch))
         print("EPOCH TIME",time.time() - epoch_start)
         epoch_time.append(time.time()-epoch_start)
         sample_time_epoch.append(sample_time)
@@ -312,7 +339,7 @@ if __name__ == '__main__':
     #graph, labels = data[0]
     #graph = graph.add_self_loop()
     #labels = labels[:, 0].to(device)
-    
+
     # feat = graph.ndata.pop('feat')
     #year = graph.ndata.pop('year')
 
