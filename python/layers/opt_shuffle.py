@@ -36,7 +36,7 @@ class Shuffle(torch.autograd.Function):
         #print("Sending traffic node", "size in MB", to_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)
         #    print("recieving traffic ",from_data , "UNIQUE", from_data_unique, "size in MB",from_data * input_t.shape[1] * 4 /(1024 * 1024), device_id)
         remote_obj = []
-        #torch.distributed.barrier(device_ids = [device_id])
+        torch.distributed.barrier(device_ids = [device_id])
         #print("Start Shuffle forward",layer_id, device_id)
         # Uses blocking commpunication
         t1 = time.time()
@@ -81,7 +81,7 @@ class Shuffle(torch.autograd.Function):
         #print("Total band width in MBPS", send_MB/send_time, "RECV ",recv_MB/recv_time)
         # nvtx.range_pop()
         # print("stuck at barrier",device_id)
-        #torch.distributed.barrier(device_ids = [device_id])
+        torch.distributed.barrier(device_ids = [device_id])
         t2 = time.time()
         # if layer_id == 0:
         #     print("shuffle time layer FINE GRAINED",t2- t1,device_id)
@@ -127,7 +127,7 @@ class Shuffle(torch.autograd.Function):
         out = grad_output.clone()
         send_queue = []
         remote_obj = []
-        #torch.distributed.barrier(device_ids = [device_id])
+        torch.distributed.barrier(device_ids = [device_id])
         # assert(torch.any(out != 0))
         for to_id in range(4):
             for from_id in range(4):
@@ -145,7 +145,7 @@ class Shuffle(torch.autograd.Function):
                         print("sending", to_id, from_id, torch.sum(a))
                 #torch.distributed.barrier(device_ids = [device_id])
 
-        #torch.distributed.barrier(device_ids = [device_id])
+        torch.distributed.barrier(device_ids = [device_id])
         # for obj in remote_obj:
         #     obj.wait()
 

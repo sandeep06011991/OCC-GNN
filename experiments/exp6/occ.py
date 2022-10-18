@@ -107,16 +107,17 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
 def run_experiment_occ(model):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
     settings = [
-                ("ogbn-arxiv",16, 128, 1024),
+                #("ogbn-arxiv",16, 128, 1024),
                 # ("ogbn-arxiv", 16, 128, 4096), \
                 #("ogbn-arxiv",16, 128, 16384),\
                 #("ogbn-arxiv",3, 32 , -1 , 1024), \
                 #("ogbn-products",16, 100, 1024), \
                 #("ogbn-products", 16, 100, 4096), \
-                #("ogbn-products",16, 100 , 16384), \
+                ("ogbn-products",16, 100 , 16384), \
                 #("reorder-papers100M", 16, 128, 1024),\
                 #("reorder-papers100M", 16, 128, 4096),\
-                #("reorder-papers100M", 16, 128, 16384),\
+                ("reorder-papers100M", 16, 128, 16384),\
+                ("amazon", 16, 200, 16384),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -133,10 +134,10 @@ def run_experiment_occ(model):
     #settings = [("ogbn-products", 16, 128, 4096),]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
-    cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
-    cache_rates = ["0"]
+    #cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
+    cache_rates = ["0", ".10", ".25"]
     #settings = [("ogbn-arxiv", 16, 128, 1024),]
-    #cache_rates = [".25"]
+    cache_rates = [".10"]
     #cache_rates = [".25"]
     #settings = [settings[0]]
     check_path()

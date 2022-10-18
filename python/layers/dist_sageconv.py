@@ -93,19 +93,20 @@ class DistSageConv(nn.Module):
             # t11 = time.time()
             out1 = bipartite_graph.gather(out)
             out2 = out1
-            # t22 = time.time()
+            t11 = time.time()
             if not testing:
                 out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
-            # t33 = time.time()
+            t22 = time.time()
         else:
             out = bipartite_graph.gather(x)
             out2 = out
-            # t11 = time.time()
+            t11 = time.time()
             #print("Skip shuffle")
             if not testing:
                 out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
-            # t22 = time.time()
+            t22 = time.time()
             # BUG Fixed: Linear layer after in degree meaning
+        #print(t22-t11,"shuffle time")
         assert(not torch.any(torch.isnan(out2)))
         out6_b = bipartite_graph.slice_owned_nodes(out2)
         if(torch.any(bipartite_graph.in_degree == 0)):
