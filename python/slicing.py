@@ -37,11 +37,11 @@ def work_producer(work_queue, training_nodes, batch_size,
 # The first process communicates with other processes.
 def slice_producer(graph_name, work_queue, sample_queue, \
     lock , storage_vector, \
-        deterministic, worker_id, sm_filename_queue, num_workers, fanout):
+        deterministic, worker_id, sm_filename_queue, num_workers, fanout,file_id):
     no_worker_threads = 1
     testing = False
     sampler = cslicer(graph_name,storage_vector,fanout, deterministic,testing)
-    sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id, num_workers)
+    sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id, num_workers,file_id)
     # Todo clean up unnecessary iterations
     log = LogFile("slice-py", worker_id)
     while(True):

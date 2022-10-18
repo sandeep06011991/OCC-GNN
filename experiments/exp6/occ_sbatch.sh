@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=fial_run_occ    # Job name
+#SBATCH --job-name=Naive_run_occ    # Job name
 #SBATCH --mail-type=END          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=spolisetty@cs.umass.edu     # Where to send mail	
 #SBATCH --ntasks=1                    # Run on a single CPU
@@ -31,7 +31,7 @@ export HOME=/home/spolisetty_umass_edu/OCC-GNN/
 echo "Start experiment"
 
 
-cd $HOME; python3 experiments/exp6/occ.py > out.log
+cd $HOME; python3 experiments/exp6/naive.py > out.log
 
 echo "All Done "
 

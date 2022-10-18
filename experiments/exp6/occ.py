@@ -161,8 +161,56 @@ def run_experiment_occ(model):
                          out["epoch"], out["accuracy"], out["data_moved"], out["edges_moved"]))
 
 
+def run_sbatch(model, settings, cache_rates):
+    check_path()
+    print(settings)
+    sha,dirty = get_git_info()
+    assert(model in ["gcn","gat"])
+    with open(OUT_DIR + 'exp6_occ_{}.txt'.format(SYSTEM),'a') as fp:
+        fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
+        fp.write("graph | system | cache |  hidden-size | fsize  | batch-size |"+\
+            " model  | sample_get | move-graph | move-feature | forward | backward  |"+\
+                " epoch_time | accuracy | data_moved | edges_computed\n")
+    for graphname, hidden_size, fsize, batch_size in settings:
+        for cache in cache_rates:
+            if graphname in ["ogbn-papers100M","com-friendster"]:
+                if float(cache) > .3:
+                    continue
+            out = run_occ(graphname, model,  cache, hidden_size,fsize, batch_size)
+            with open(OUT_DIR + 'exp6_occ_{}.txt'.format(SYSTEM),'a') as fp:
+                fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |{} | {} \n".\
+                    format(graphname , SYSTEM, cache, hidden_size, fsize, batch_size, model, out["sample_get"], \
+                        out["movement_graph"], out["movement_feat"], out["forward"], out["backward"], \
+                         out["epoch"], out["accuracy"], out["data_moved"], out["edges_moved"]))
 
 
-if __name__=="__main__":
-    run_experiment_occ("gcn")
-    run_experiment_occ("gat")
+if __name__ == "__main__":
+    #run_model("gcn")
+    #print("Success!!!!!!!!!!!!!!!!!!!")
+    #run_model("gat")
+    #return
+    import argparse
+    argparser = argparse.ArgumentParser("multi-gpu training")
+    # Input data arguments parameters.
+    argparser.add_argument('--graph',type = str, default= "ogbn-arxiv", required = True)
+    # training details
+    # model name and details
+    argparser.add_argument('--cache-per', type = str,  required = True)
+    argparser.add_argument('--model',help="gcn|gat", required = True)
+    argparser.add_argument('--batch-size', type=int, required = True)
+    # We perform only transductive training
+    # argparser.add_argument('--inductive', action='store_false',
+    #                        help="Inductive learning setting")
+    args = argparser.parse_args()
+    if args.graph == None:
+        run_experiment_occ("gcn")
+    else:
+        dataset = args.graph
+        cache_per = args.cache_per
+        batch_size = args.batch_size 
+        model = args.model
+        fdict = {"ogbn-arxiv":128, "ogbn-products":100, "reorder-papers100M":128, "amazon":200}
+        settings = [(dataset,"16", fdict[dataset], batch_size)]
+    #print(cache_per)
+        run_sbatch(model, settings, [cache_per])
+

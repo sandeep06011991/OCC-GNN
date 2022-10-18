@@ -112,8 +112,11 @@ def main(args):
     for i in fanout:
         assert(i == fanout[0])
     fanout_val = fanout[0]
+    import random
+    file_id = random.randint(0,10000) 
+    
     sm_filename_queue = mp.Queue(get_number_buckets(args.num_workers))
-    sm_manager = SharedMemManager(sm_filename_queue, args.num_workers)
+    sm_manager = SharedMemManager(sm_filename_queue, args.num_workers, file_id)
 
     #Not applicable as some nodes have zero features in ogbn-products
     #assert(not torch.any(torch.sum(features,1)==0))
@@ -158,7 +161,7 @@ def main(args):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, sample_queues[0], lock,\
                                 storage_vector, args.deterministic,
-                                proc, sm_filename_queue, no_worker_process, fanout_val))
+                                proc, sm_filename_queue, no_worker_process, fanout_val, file_id))
         slice_producer_process.start()
         slice_producer_processes.append(slice_producer_process)
 
@@ -174,7 +177,7 @@ def main(args):
                       args=(proc_id, n_gpus, sample_queues, minibatches_per_epoch \
                        , features, args, \
                        num_classes, mm.batch_in[proc_id], labels,no_worker_process, args.deterministic,\
-                        dg_graph.in_degrees(), sm_filename_queue, mm.local_sizes[proc_id],cache_percentage))
+                        dg_graph.in_degrees(), sm_filename_queue, mm.local_sizes[proc_id],cache_percentage, file_id))
         p.start()
         procs.append(p)
     for sp in slice_producer_processes:

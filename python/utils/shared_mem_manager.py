@@ -14,13 +14,13 @@ def get_number_buckets(num_workers):
 # Keep this object in memory and delete after everything returns
 class SharedMemManager():
 
-    def __init__(self, free_memory_filenames, num_workers):
+    def __init__(self, free_memory_filenames, num_workers, file_id):
         self.buckets = {}
         self.free_memory_filenames = free_memory_filenames
         NUM_BUCKETS = get_number_buckets(num_workers)
         print("Creating buckets", NUM_BUCKETS)
         for i in range(NUM_BUCKETS):
-            name = 'a{}'.format(i)
+            name = '{}_aa{}'.format(file_id,i)
             self.buckets[name] = SharedMemory(name,create = True, size =SHARED_MEMORY_SIZE)
             free_memory_filenames.put(name)
         print("Created buckets", NUM_BUCKETS)
@@ -35,12 +35,12 @@ class SharedMemManager():
 
 class SharedMemClient():
 
-    def __init__(self, free_memory_filenames, name, worker_id, num_workers):
+    def __init__(self, free_memory_filenames, name, worker_id, num_workers, file_id):
         self.buckets = {}
         self.free_memory_filenames = free_memory_filenames
         NUM_BUCKETS = get_number_buckets(num_workers)
         for i in range(NUM_BUCKETS):
-            name = 'a{}'.format(i)
+            name = '{}_aa{}'.format(file_id, i)
             self.buckets[name] = SharedMemory(name, size =SHARED_MEMORY_SIZE)
         self.used_memory = {}
         self.log = LogFile(name, worker_id)
@@ -102,10 +102,10 @@ def unit_test_for_correctness():
         dtype = np.dtype(str_dtype)
         tensor = sm_client.read_from_shared_memory(name, shape, dtype)
         print("Read sum", torch.sum(tensor))
-
+    NUM_BUCKETS = get_number_buckets(3)
     sm_files = mp.Queue(NUM_BUCKETS)
     meta_exchange = mp.Queue(NUM_BUCKETS)
-    mg = SharedMemManager(sm_files)
+    mg = SharedMemManager(sm_files,3)
     print("Current file size ", sm_files.qsize())
     p = mp.Process(target = producer, args = (sm_files, meta_exchange))
     p.start()

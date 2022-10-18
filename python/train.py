@@ -97,7 +97,7 @@ import logging
 
 def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, features, args\
                     ,num_classes, batch_in, labels, num_sampler_workers, deterministic,in_degrees
-                    , sm_filename_queue, cached_feature_size, cache_percentage):
+                    , sm_filename_queue, cached_feature_size, cache_percentage, file_id):
     t = torch.cuda.get_device_properties(0).total_memory
     r = torch.cuda.memory_reserved(0)
     a = torch.cuda.memory_allocated(0)
@@ -131,7 +131,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     torch.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     print("SEED",torch.seed())
-    sm_client = SharedMemClient(sm_filename_queue, "trainer", proc_id, args.num_workers)
+    sm_client = SharedMemClient(sm_filename_queue, "trainer", proc_id, args.num_workers,file_id)
     # Use this when I need to match accuracy
     if deterministic:
         print("not setting seeds, use this to match accuracy")

@@ -25,13 +25,13 @@ def get_data_dir():
     username = os.environ['USER']
     if username == 'spolisetty_umass_edu':
         DATA_DIR = "/work/spolisetty_umass_edu/data"
-        PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/python"
+        PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN"
     if username == "spolisetty":
         DATA_DIR = "/data/sandeep"
-        PATH_DIR = "/home/spolisetty/OCC-GNN/python"
+        PATH_DIR = "/home/spolisetty/OCC-GNN"
     if username == "q91":
         DATA_DIR = "/mnt/bigdata/sandeep"
-        PATH_DIR = "/home/q91/OCC-GNN/python"
+        PATH_DIR = "/home/q91/OCC-GNN"
     return DATA_DIR,PATH_DIR
 
 DATA_DIR, PATH_DIR = get_data_dir()
@@ -117,7 +117,7 @@ def run(rank, args,  data):
         g,
         train_nid,
         sampler,
-        device=device,
+        device='cpu',
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
@@ -305,7 +305,7 @@ if __name__ == '__main__':
     argparser.add_argument('--batch-size', type=int, default=1024)
     argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default=0.5)
-    argparser.add_argument('--num-workers', type=int, default=2,
+    argparser.add_argument('--num-workers', type=int, default=4,
                            help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--save-pred', type=str, default='')
     argparser.add_argument('--wd', type=float, default=0)
@@ -351,7 +351,6 @@ if __name__ == '__main__':
     graph.create_formats_()
     # Pack data
     data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets
-
     #test_accs = []
     #for i in range(1, 11):
     #    print(f'\nRun {i:02d}:\n')
