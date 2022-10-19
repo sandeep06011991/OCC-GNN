@@ -140,8 +140,6 @@ class GpuLocalStorage():
         if (self.cache_percentage >= .25):
             assert(missing_node_ids.shape[0] == 0)
         node_ids = torch.cat([ cached_node_ids, missing_node_ids])
-        print(node_ids.shape, node_ids)
-        print(self.batch_in.device,  torch.device(self.proc_id))
         assert(self.batch_in.device == torch.device(self.proc_id))
         total_features = torch.empty(node_ids.shape[0], self.features.shape[1], device = self.proc_id, dtype = torch.float)
         total_features[:cached_node_ids.shape[0],:] = self.batch_in[cached_node_ids,:]
