@@ -33,6 +33,7 @@ public:
   int gpu_id = -1;
 
   torch::Tensor missing_node_ids;
+  torch::Tensor cached_node_ids;
 
   PyBipartite(BiPartite *bp);
 
@@ -45,6 +46,7 @@ public:
 
   // Pass missing_node_ids
   std::vector<torch::Tensor> missing_node_ids;
+  std::vector<torch::Tensor> cached_node_ids;
 
   std::vector<int> debug_vals;
 

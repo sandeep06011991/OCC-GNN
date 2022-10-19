@@ -106,11 +106,18 @@ int sample_flow_up_ps(PartitionedSample &s,
   std::vector<int> in[4];
   std::vector<int> out[4];
   spdlog::info("Ignore the perf results as this is wrong");
+  std::cout << "start test \n";
   for(int i=0;i<4; i++ ){
-    in[i] = test_storage_map[i];
+      for (int j:s.cache_hit[i]){
+      in[i].push_back(test_storage_map[i][j]);
+    }
+    for(int j:s.refresh_map[i]){
+      in[i].push_back(j);
+    }
   }
   for(int i =  s.num_layers-1  ; i>=0; i--){
     // Bipartite local aggregation.
+    std::cout << "layer 1 aggr\n";
     PartitionedLayer &layer = s.layers[i];
     // layer.debug();
     for(int j=0; j<4; j++ ){

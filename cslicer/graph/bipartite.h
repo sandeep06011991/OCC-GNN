@@ -24,7 +24,7 @@ public:
 
   // Used to fresh gpu map.
   vector<long> missing_node_ids;
-
+  vector<long> cached_node_ids;
   vector<long> owned_out_nodes;
 
   // Filled afer reordering
@@ -135,6 +135,7 @@ public:
     in_nodes.clear();
     out_nodes.clear();
     owned_out_nodes.clear();
+    cached_node_ids.clear();
     missing_node_ids.clear();
     in_degree.clear();
     num_in_nodes = 0;

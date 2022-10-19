@@ -114,7 +114,8 @@ class MemoryManager():
                 print("DUMMY FEATURES FOR DEBUGGING")
                 self.batch_in[i][:self.local_sizes[i]] = torch.ones(self.features[node_ids_cached].shape) * node_ids_cached
             else:
-                self.batch_in[i][:self.local_sizes[i]] = self.features[node_ids_cached]
+                self.batch_in[i] = self.features[node_ids_cached]
+                # self.batch_in[i][:self.local_sizes[i]] = self.features[node_ids_cached]
             # if not self.batch_in[i].is_shared():
             #     self.batch_in[i].detach().share_memory_()
             # assert(self.batch_in[i].device == torch.device(i))
@@ -129,12 +130,27 @@ class GpuLocalStorage():
         self.cache_percentage = cache_percentage
         self.features = features
         # Batch_in tensor with space for extra
-        self.batch_in = batch_in
+        self.batch_in = batch_in.to(proc_id)
         self.cache_feature_size = cached_feature_size
         self.log = LogFile("Trainer", proc_id)
         self.proc_id = proc_id
 
-    def get_input_features(self, last_layer_nodes):
+    def get_input_features(self, cached_node_ids, missing_node_ids):
+        # Slicer reorders and gives them
+        if (self.cache_percentage >= .25):
+            assert(missing_node_ids.shape[0] == 0)
+        node_ids = torch.cat([ cached_node_ids, missing_node_ids])
+        print(node_ids.shape, node_ids)
+        print(self.batch_in.device,  torch.device(self.proc_id))
+        assert(self.batch_in.device == torch.device(self.proc_id))
+        total_features = torch.empty(node_ids.shape[0], self.features.shape[1], device = self.proc_id, dtype = torch.float)
+        total_features[:cached_node_ids.shape[0],:] = self.batch_in[cached_node_ids,:]
+        total_features[cached_node_ids.shape[0]:cached_node_ids.shape[0] + missing_node_ids.shape[0],:] = \
+            self.features[missing_node_ids].to(self.proc_id)
+        # No caching
+        # total_features = self.features[node_ids,:].to(self.proc_id)
+        return total_features
+
         if(self.cache_percentage >=.25):
             # Nothing to return
 

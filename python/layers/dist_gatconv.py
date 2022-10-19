@@ -35,6 +35,7 @@ class DistGATConv(nn.Module):
 
     def forward(self, bipartite_graphs, in_feats, l, in_degrees, testing = False):
         src_prefix_shape = in_feats.shape[:-1]
+        
         in_feats = self.fc(in_feats).view(
             *src_prefix_shape, self.num_heads, self.out_feats)
         el = (in_feats * self.attn_l).sum(dim=-1).unsqueeze(-1)
@@ -62,7 +63,6 @@ class DistGATConv(nn.Module):
                 global_max , None, self.gpu_id,   bipartite_graphs.from_ids, bipartite_graphs.to_ids, None)
             global_max = bipartite_graphs.copy_from_out_nodes(global_max)
         # m = 0
-        print(e.shape,global_max.shape)
         exponent = e - global_max
         exponent = torch.exp(e)
         # assert(torch.all(not torch.isnan(e)))

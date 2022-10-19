@@ -259,7 +259,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         optimizer.zero_grad()
         #with torch.autograd.profiler.profile(use_cuda=True, record_shapes=True) as prof:
         m_t0 = time.time()
-        input_features  = gpu_local_storage.get_input_features(gpu_local_sample.missing_node_ids)
+        input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cached_node_ids, \
+                    gpu_local_sample.missing_node_ids)
         m_t1 = time.time()
         edges, nodes = gpu_local_sample.get_edges_and_send_data()
         edges_per_gpu += edges

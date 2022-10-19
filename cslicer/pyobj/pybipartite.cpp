@@ -15,7 +15,8 @@ PyBipartite::PyBipartite(BiPartite *bp){
     expand_indptr = torch::from_blob(bp->expand_indptr.data(), {bp->expand_indptr.size()}, opts);
     missing_node_ids = torch::from_blob(bp->missing_node_ids.data(), \
       {bp->missing_node_ids.size()}, opts);
-
+    cached_node_ids  = torch::from_blob(bp->cached_node_ids.data(), \
+      {bp->cached_node_ids.size()}, opts);
 
     out_nodes = torch::from_blob(bp->out_nodes.data(), {bp->out_nodes.size()}, opts);
     owned_out_nodes = torch::from_blob(bp->owned_out_nodes.data(), {bp->owned_out_nodes.size()}, opts);
@@ -51,12 +52,13 @@ PySample::PySample(PartitionedSample &s){
           }
           if(i==2){
             out_nodes = out_nodes + s.layers[i].bipartite[j]->out_nodes.size();
-             missing_node_ids.push_back(bipartite->missing_node_ids);
+            missing_node_ids.push_back(bipartite->missing_node_ids);
+            cached_node_ids.push_back(bipartite->cached_node_ids);
           }
         }
         layers.push_back(all_bipartites);
     }
-    
+
 
   }
 

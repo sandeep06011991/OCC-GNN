@@ -12,9 +12,12 @@ class Sample:
         self.randid = random.randint(0,10000)
         self.missing_node_ids = []
         self.debug_vals  = []
+        self.cached_node_ids = []
         for i in range(4):
             self.missing_node_ids.append(csample.missing_node_ids[i])
             self.debug_vals.append(csample.debug_vals[i])
+            self.cached_node_ids.append(csample.cached_node_ids[i])
+            
         # print(len(csample.layers))
         for layer in csample.layers:
             l = []
@@ -35,6 +38,7 @@ class Gpu_Local_Sample:
         self.device_id = 0
         # 3 Layers in grpah
         self.missing_node_ids = torch.tensor([])
+        self.cached_node_ids = torch.tensor([])
         self.debug_val = 0
         self.layers = [Bipartite() for i in range(3)]
 
@@ -59,6 +63,7 @@ class Gpu_Local_Sample:
         # self.last_layer_nodes = global_sample.last_layer_nodes[device_id]
         self.device_id = device_id
         self.missing_node_ids = global_sample.missing_node_ids[device_id]
+        self.cached_node_ids = global_sample.cached_node_ids[device_id]
         self.debug_val = global_sample.debug_vals[device_id]
 
     def get_edges_and_send_data(self):

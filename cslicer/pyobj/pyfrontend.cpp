@@ -176,21 +176,21 @@ public:
       }
 
       // if(this->deterministic){
-      if(false){
+      if(this->deterministic){
         std::cout << "debug";
-          for(int i=0;i<4;i++){
-            vector<long> &m = p_sample.refresh_map[i];
-            for(long n:m){
-              dummy_storage_map[i].push_back(n);
-            }
-          }
+          // for(int i=0;i<4;i++){
+          //   vector<long> &m = p_sample.refresh_map[i];
+          //   for(long n:m){
+          //     dummy_storage_map[i].push_back(n);
+          //   }
+          // }
           int p_val =  sample_flow_up_ps(p_sample, dummy_storage_map, ret);
-          for(int i=0;i<4;i++){
-            int s = p_sample.refresh_map[i].size();
-            int cs = dummy_storage_map[i].size();
-            assert(cs > = s);
-            dummy_storage_map[i].resize(cs-s);
-          }
+          // for(int i=0;i<4;i++){
+          //   int s = p_sample.refresh_map[i].size();
+          //   int cs = dummy_storage_map[i].size();
+          //   assert(cs > = s);
+          //   dummy_storage_map[i].resize(cs-s);
+          // }
           std::cout << "My anser is " << p_val << "sample_val "<< sample_val << "\n";
           assert(sample_val  == p_val);
       }
@@ -222,6 +222,7 @@ PYBIND11_MODULE(cslicer, m) {
              .def_readwrite("in_nodes", &PySample::in_nodes)
              .def_readwrite("out_nodes", &PySample::out_nodes)
              .def_readwrite("missing_node_ids", &PySample::missing_node_ids)
+             .def_readwrite("cached_node_ids", &PySample::cached_node_ids)
              .def_readwrite("debug_vals", &PySample::debug_vals);
          py::class_<PyBipartite>(m,"bipartite")
              .def_readwrite("num_in_nodes", &PyBipartite::num_in_nodes)
