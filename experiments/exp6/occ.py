@@ -112,12 +112,12 @@ def run_experiment_occ(model):
                 #("ogbn-arxiv",16, 128, 16384),\
                 #("ogbn-arxiv",3, 32 , -1 , 1024), \
                 #("ogbn-products",16, 100, 1024), \
-                #("ogbn-products", 16, 100, 4096), \
-                ("ogbn-products",16, 100 , 16384), \
+                ("ogbn-products", 16, 100, 4096), \
+                #("ogbn-products",16, 100 , 16384), \
                 #("reorder-papers100M", 16, 128, 1024),\
-                #("reorder-papers100M", 16, 128, 4096),\
-                ("reorder-papers100M", 16, 128, 16384),\
-                ("amazon", 16, 200, 16384),\
+                ("reorder-papers100M", 16, 128, 4096),\
+                #("reorder-papers100M", 16, 128, 16384),\
+                ("amazon", 16, 200, 4096),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -137,7 +137,7 @@ def run_experiment_occ(model):
     #cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
     cache_rates = ["0", ".10", ".25"]
     #settings = [("ogbn-arxiv", 16, 128, 1024),]
-    cache_rates = [".10"]
+    #cache_rates = [".10"]
     #cache_rates = [".25"]
     #settings = [settings[0]]
     check_path()
@@ -217,6 +217,3 @@ if __name__ == "__main__":
     #print(cache_per)
         run_sbatch(model, settings, [cache_per])
 
-if __name__=="__main__":
-    run_experiment_occ("gcn")
-    # run_experiment_occ("gat")

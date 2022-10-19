@@ -239,9 +239,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
                 flog.info("backward time:{}".format(avg(backward_epoch)))
                 flog.info("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
                 flog.info("edges per epoch:{}".format(avg(edges_per_gpu_epoch)))
-            continue
         if(gpu_local_sample == "END"):
-            #print("GOT END OF FLAG")
+            print("GOT END OF FLAG", num_sampler_workers)
             num_sampler_workers -= 1
             #print("got end of epoch flag")
             # Maintain num active sampler workers
