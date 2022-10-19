@@ -105,15 +105,15 @@ def run_experiment_quiver( model ):
                 #("ogbn-arxiv",16, 128, 1024), \
                 # ("ogbn-arxiv",16, 128, 4096), \
                 # ("ogbn-arxiv",16, 128, 256),  \
-                # ("ogbn-products",16, 100, 1024), \
-                # ("ogbn-products",16, 100, 4096), \
-                # ("ogbn-products",16, 100, 256),  \
-                # ("reorder-papers100M", 16, 256),\
-                # ("reorder-papers100M", 16, 4096),\
-                 ("reorder-papers100M", 16, 128, 1024),\
+                #("ogbn-products",16, 100, 1024), \
+                 ("ogbn-products",16, 100, 4096), \
+                 ("ogbn-products",16, 100, 256),  \
+                # ("reorder-papers100M", 16, 128,  256),\
+                # ("reorder-papers100M", 16, 128, 4096),\
+                #("reorder-papers100M", 16, 128, 1024),\
                 # ("amazon", 16, 200, 256),\
                 # ("amazon", 16, 200,4096),\
-                 ("amazon", 16, 200, 1024),\
+                #("amazon", 16, 200, 1024),\
                  ]
     no_epochs = 4
     # settings = [("ogbn-arxiv",16, 128, 1024)]
@@ -136,7 +136,7 @@ def run_experiment_quiver( model ):
         with open('{}/exp6_{}_naive.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
             fp.write(("{} | {} | {} | {} | {} "+\
                    "| {} | {} | {} | {} | {} | {} |"+\
-                   " {} | {}  | {} | {} \n").format(graphname , "naive", hidden_size, fsize,\
+                   " {} | {}  | {} | {} \n").format(graphname , SYSTEM , hidden_size, fsize,\
                     4 * batch_size, model, out["sample_get"], out["movement_graph"], \
                     out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"],
                     out["data_movement"], out["edges"]))
@@ -145,5 +145,5 @@ def run_experiment_quiver( model ):
 
 
 if __name__=="__main__":
-    run_experiment_quiver("GAT")
+    #run_experiment_quiver("GAT")
     run_experiment_quiver("GCN")

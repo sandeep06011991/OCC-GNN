@@ -196,20 +196,22 @@ if __name__ == "__main__":
     argparser.add_argument('--graph',type = str, default= "ogbn-arxiv", required = True)
     # training details
     # model name and details
-    argparser.add_argument('--cache-per', type = str,  required = True)
-    argparser.add_argument('--model',help="gcn|gat", required = True)
-    argparser.add_argument('--batch-size', type=int, required = True)
+    argparser.add_argument('--cache-per', type = str)
+    argparser.add_argument('--model',help="gcn|gat")
+    argparser.add_argument('--batch-size', type=int)
     # We perform only transductive training
     # argparser.add_argument('--inductive', action='store_false',
     #                        help="Inductive learning setting")
     args = argparser.parse_args()
-    if args.graph == None:
+    if args.graph == "all":
         run_experiment_occ("gcn")
+        run_expoeriment_occ("gat")
     else:
         dataset = args.graph
         cache_per = args.cache_per
         batch_size = args.batch_size 
         model = args.model
+        assert(dataset != None) and (cache_per != None) and (model != None)
         fdict = {"ogbn-arxiv":128, "ogbn-products":100, "reorder-papers100M":128, "amazon":200}
         settings = [(dataset,"16", fdict[dataset], batch_size)]
     #print(cache_per)
