@@ -111,8 +111,8 @@ class MemoryManager():
             self.node_gpu_mask[node_ids_cached,i] = True
             self.global_to_local[node_ids_cached,i] = torch.arange(node_ids_cached.shape[0],dtype=torch.long)
             if False:
-                # print("DUMMY FEATURES FOR DEBUGGING")
-                self.batch_in[i][:self.local_sizes[i]] = torch.ones(self.features[node_ids_cached].shape)
+                print("DUMMY FEATURES FOR DEBUGGING")
+                self.batch_in[i][:self.local_sizes[i]] = torch.ones(self.features[node_ids_cached].shape) * node_ids_cached
             else:
                 self.batch_in[i][:self.local_sizes[i]] = self.features[node_ids_cached]
             # if not self.batch_in[i].is_shared():
@@ -145,8 +145,8 @@ class GpuLocalStorage():
         space = self.batch_in.shape[0] - self.cache_feature_size
         assert(space > last_layer_nodes.shape[0])
         total_features  = self.batch_in[0:self.cache_feature_size + last_layer_nodes.shape[0],:]
-        replace_features = self.batch_in[self.cache_feature_size:self.cache_feature_size + last_layer_nodes.shape[0],:]
-        replace_features = self.features[last_layer_nodes].to(self.proc_id)
+        total_features[self.cache_feature_size:self.cache_feature_size + last_layer_nodes.shape[0],:] \
+                = self.features[last_layer_nodes].to(self.proc_id)
             # assert(self.features.device == torch.device("cpu"))
             # assert(self.batch_in[gpu_id].device == torch.device(gpu_id))
         return total_features

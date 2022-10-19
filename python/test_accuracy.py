@@ -37,7 +37,6 @@ class TestAccuracy:
         fsize = features.shape[0]
         self.labels = dg_graph.ndata["labels"].to(device)
         gpu_id = torch.device(0)
-        model = "gcn"
         num_class = torch.max(self.labels) + 1
         # model = get_sage_distributed(hidden, features, num_classes, gpu_id, deterministic, model)
         ######## Dummy model
@@ -53,6 +52,7 @@ class TestAccuracy:
         correct = 0
         with torch.no_grad():
             for i in range(0, num_test, batch_size):
+                print(i)
                 sample_nodes = self.test_ids[i:batch_size].tolist()
                 # print(sample_nodes)
                 if len(sample_nodes) <= 0:
@@ -69,10 +69,10 @@ class TestAccuracy:
                 gpu_local_sample.prepare()
                 predicted = model.forward(gpu_local_sample, self.features, None, True)
                 # print(predicted)
-                correct = self.labels[gpu_local_sample.last_layer_nodes]
+                correct_labels = self.labels[gpu_local_sample.last_layer_nodes]
                 # print(correct)
-                a, b = compute_acc(predicted, correct)
-                print(a,b)
+                a, b = compute_acc(predicted, correct_labels)
+
                 correct = correct + a.item()
                 test = test + b
         return correct/test

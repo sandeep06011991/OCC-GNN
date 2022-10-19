@@ -69,7 +69,7 @@ def read_meta_file(filename):
             results[k] = v
     return results
 
-def get_process_graph(filename):
+def get_process_graph(filename, testing = False):
     # DATA_DIR = "/data/sandeep"
     # graphname = "ogbn-products"
     graphname = filename
@@ -90,6 +90,7 @@ def get_process_graph(filename):
                     torch.long)
         labels = labels.reshape(num_nodes,)
     else:
+        #assert(fsize != -1)
         fsize = 400
         features = torch.rand(num_nodes,fsize)
         num_classes = 48
@@ -114,12 +115,14 @@ def get_process_graph(filename):
                 "{}/{}/{}_idx.bin".format(DATA_DIR, graphname, idx), dtype=np.int64)
             mask[idx_mask] = True
         else:
-            mask  = torch.rand(num_nodes,) <  ratio[idx]
+            mask  = torch.rand(num_nodes,) <  .8
         dg_graph.ndata["{}_mask".format(idx)] = mask
-
-    p_map = np.fromfile("{}/{}/partition_map_opt.bin".format(DATA_DIR,graphname),dtype = np.intc)
-    # edges = dg_graph.edges()
-    partition_map = torch.from_numpy(p_map)
+    if not testing:
+        p_map = np.fromfile("{}/{}/partition_map_opt.bin".format(DATA_DIR,graphname),dtype = np.intc)
+        # edges = dg_graph.edges()
+        partition_map = torch.from_numpy(p_map)
+    else:
+        partition_map = None
     # assert(False)
     return dg_graph, partition_map, num_classes
     # , features, num_nodes, num_edges

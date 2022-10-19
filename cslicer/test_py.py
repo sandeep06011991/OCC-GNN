@@ -2,22 +2,42 @@
 
 import torch
 from cslicer import cslicer
-graphname = "ogbn-arxiv"
+
+def get_total_comm(s):
+    x = 0
+
+    for id,l in enumerate(s.layers):
+        for l_id,bp in enumerate(l):
+            for f_id, f in enumerate(bp.from_ids):
+                x = x + f.shape[0]
+                # print(id, l_id, f_id, f.shape[0])
+    return x
+
+graphname = "reordered-papers100M"
 number_of_epochs = 1
 minibatch_size =4096
 num_nodes = 169343
+
 # // Get this from data
-# // All absent
-storage_map = [[],[],[],[]]
+storage_map_empty = [[],[],[],[]]
 graphnames = ["ogbn-arxiv","ogbn-products"]
-csl = cslicer("ogbn-arxiv", storage_map, 10, False)
-# for graphname in graphnames:
-#     csl = cslicer(graphname, storage_map, 10, False)
-in_nodes = [0,1,2,3,4,5,6]
-csl.getSample(in_nodes)
-# #print("All success !")
-#
-# # from cslicer import stats
-# s = stats("ogbn-arxiv","occ",10)
-# t = s.get_stats([0,1,2,3,4,5])
-# print(t)
+csl1 = cslicer(graphname, storage_map_empty, 10, True, False)
+import numpy as np
+DATA_DIR = "/data/sandeep"
+p_map = np.fromfile("{}/{}/partition_map_opt.bin".format(DATA_DIR,graphname),dtype = np.intc)
+p_map = torch.from_numpy(p_map)
+
+in_nodes = [i for i in range(10000)]
+s1 = csl1.getSample(in_nodes)
+storage_map_full = [[i for i in range(169343)] for i in range(4)]
+csl2 = cslicer(graphname, storage_map_full, 10, True, False)
+s2 = csl2.getSample(in_nodes)
+storage_map_part = [torch.where(p_map == i)[0].tolist() for i in range(4)]
+csl3 = cslicer(graphname, storage_map_part, 10, True, False)
+s3= csl3.getSample(in_nodes)
+
+a = get_total_comm(s1)
+b = get_total_comm(s2)
+c = get_total_comm(s3)
+
+print("Nil", a, "Full ", b, "Part", c)

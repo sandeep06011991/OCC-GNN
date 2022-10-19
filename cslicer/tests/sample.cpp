@@ -137,7 +137,6 @@ int sample_flow_up_ps(PartitionedSample &s,
     int ss = 0;
     for(int k:in[i]){
       ss += k;
-      // std::cout << k <<"\n";
     }
     ret[i] = (ss);
     sss += ss;

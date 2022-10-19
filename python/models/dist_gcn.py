@@ -44,7 +44,6 @@ class DistSAGEModel(torch.nn.Module):
             t2 = time.time()
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
-
         return x
 
 

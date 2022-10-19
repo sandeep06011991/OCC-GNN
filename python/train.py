@@ -136,8 +136,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     if deterministic:
         print("not setting seeds, use this to match accuracy")
     #     set_all_seeds(seed)
-    print("get model")
-    print("Got test dir", args.test_graph_dir)
+
     if proc_id ==0:
         print(args.test_graph_dir)
         if args.test_graph_dir != None:
@@ -159,7 +158,6 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         assert(args.model == "gat")
         model = get_gat_distributed(args.num_hidden, features, num_classes,
             proc_id, args.deterministic, args.model)
-    print("Move model")
     model = model.to(proc_id)
     model =  DistributedDataParallel(model, device_ids = [proc_id],\
                 output_device = proc_id)
@@ -204,7 +202,10 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         sample_get_time += sample_get_mb
         movement_graph += graph_move_mb
         log.log("sample recieved and processed")
-        if(gpu_local_sample == "EPOCH"):
+        if(gpu_local_sample == "EPOCH" ):
+            continue
+        if (ii == minibatches_per_epoch):
+        # if(gpu_local_sample == "EPOCH" ):
             e_t2 = time.time()
             optimizer.zero_grad()
             sample_get_epoch.append(sample_get_time)
@@ -228,7 +229,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             if proc_id == 0:
                 if test_acc_func != None:
                     test_accuracy = test_acc_func.get_accuracy(model)
-                    print("test_accuracy:{}, epoch:{}", test_accuracy, num_epochs-1)
+                    print("test_accuracy:{}, epoch:{}".format(test_accuracy, num_epochs-1))
                 flog.info("accuracy:{}".format(acc))
                 flog.info("epoch:{}".format(avg(epoch_time)))
                 flog.info("sample_time:{}".format(avg(sample_get_epoch)))
@@ -262,16 +263,19 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         m_t1 = time.time()
         edges, nodes = gpu_local_sample.get_edges_and_send_data()
         edges_per_gpu += edges
-        data_moved_per_gpu += (gpu_local_sample.missing_node_ids.shape[0] * args.fsize * 4 /(1024 * 1024)) +\
+        data_moved_per_gpu += (gpu_local_sample.missing_node_ids.shape[0] * features.shape[1] * 4 /(1024 * 1024)) +\
                             (nodes * args.num_hidden * 4/(1024 * 1024))
+
         movement_feat += (m_t1-m_t0)
         fp_start.record()
         assert(features.device == torch.device('cpu'))
         # print("Start forward pass !")
         output = model.forward(gpu_local_sample, input_features, in_degrees)
         # continue
+
         if args.deterministic:
             print("Expected value", output.sum(), gpu_local_sample.debug_val)
+            continue
             assert(False)
         # torch.cuda.set_device(proc_id)
         fp_end.record()
@@ -290,8 +294,6 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         if deterministic:
             model.module.print_grad()
         ii = ii + 1
-        if ii%100000==0:
-            print("iteration",ii)
         bp_end.record()
         if proc_id == 0:
             flog.info("iteration step ! {}, of {} ".format(ii, minibatches_per_epoch))

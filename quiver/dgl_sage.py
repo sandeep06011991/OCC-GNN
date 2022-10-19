@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import dgl
 import tqdm
-
+import torch as th
 
 class SAGE(nn.Module):
     def __init__(self,
@@ -65,10 +65,10 @@ class SAGE(nn.Module):
                 th.arange(g.num_nodes(), device=g.device),
                 sampler,
                 device=device,
-                batch_size=args.batch_size*4,
+                batch_size=4096,
                 shuffle=False,
                 drop_last=False,
-                num_workers=0 if args.sample_gpu else args.num_workers)
+                num_workers=2)
 
             for input_nodes, output_nodes, blocks in tqdm(dataloader):
                 block = blocks[0].int().to(device)

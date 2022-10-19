@@ -57,7 +57,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         "--model", model , \
         "--cache-per" , str(cache_per),\
         "--num-hidden",  str(hidden_size), \
-        "--batch-size", str(minibatch_size) , "--num-epochs", "5", "--num-workers", "16"] \
+        "--batch-size", str(minibatch_size) , "--num-epochs", "6", "--num-workers", "16"] \
             , capture_output = True)
     # print(out,error)
     out = str(output.stdout)
@@ -107,7 +107,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
 def run_experiment_occ(model):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
     settings = [
-                #("ogbn-arxiv",16, 128, 1024),
+                # ("ogbn-arxiv",16, 128, 1024),
                 # ("ogbn-arxiv", 16, 128, 4096), \
                 #("ogbn-arxiv",16, 128, 16384),\
                 #("ogbn-arxiv",3, 32 , -1 , 1024), \
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     else:
         dataset = args.graph
         cache_per = args.cache_per
-        batch_size = args.batch_size 
+        batch_size = args.batch_size
         model = args.model
         assert(dataset != None) and (cache_per != None) and (model != None)
         fdict = {"ogbn-arxiv":128, "ogbn-products":100, "reorder-papers100M":128, "amazon":200}
@@ -217,3 +217,6 @@ if __name__ == "__main__":
     #print(cache_per)
         run_sbatch(model, settings, [cache_per])
 
+if __name__=="__main__":
+    run_experiment_occ("gcn")
+    # run_experiment_occ("gat")

@@ -11,6 +11,9 @@
 #include "samplers/samplers.h"
 #include "graph/sample.h"
 #include "spdlog/sinks/basic_file_sink.h"
+#include <cstdlib>
+#include <iostream>
+#include <ctime>
 namespace py = pybind11;
 
 int sample_flow_up_sample(Sample &s, int number_of_nodes);
@@ -115,9 +118,9 @@ public:
         spdlog::info("This an info message with custom format");
         spdlog::set_pattern("%+"); // back to default format
         spdlog::set_level(spdlog::level::info);
-        auto logger = spdlog::basic_logger_mt("test_logger", "logs/test.txt");
-        spdlog::set_default_logger(logger);
-        spdlog::flush_on(spdlog::level::info);
+        // auto logger = spdlog::basic_logger_mt("test_logger" + std::rand()/1000, "logs/test.txt" + std::rand()/100);
+        // spdlog::set_default_logger(logger);
+        // spdlog::flush_on(spdlog::level::info);
         spdlog::info("Log after checking");
         // spdlog::get("test_logger")->info("LoggingTest::ctor");
 
@@ -126,6 +129,7 @@ public:
         this->deterministic = deterministic;
 
         this->dataset = std::make_shared<Dataset>(this->name, testing);
+        std::cout <<" This is a testing dataset " << testing << "\n";
         spdlog::info("Log after checking the dataset");
         num_nodes = dataset->num_nodes;
 	      std::cout << "Read graph with number of nodes: " << num_nodes <<"\n";
@@ -142,8 +146,7 @@ public:
           int j = 0;
           int order =0;
           gpu_capacity[i] = gpu_map[i].size();
-          // std::cout << "gpu " << i << gpu_capacity[i]<<"\n";
-          for(long nd: gpu_map[i]){
+            for(long nd: gpu_map[i]){
             storage_map[i][nd] = order;
             order ++;
             dummy_storage_map[i].push_back(nd);
@@ -172,7 +175,9 @@ public:
         ret[i] = 0;
       }
 
-      if(this->deterministic){
+      // if(this->deterministic){
+      if(false){
+        std::cout << "debug";
           for(int i=0;i<4;i++){
             vector<long> &m = p_sample.refresh_map[i];
             for(long n:m){

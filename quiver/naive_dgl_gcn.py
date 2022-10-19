@@ -51,7 +51,7 @@ def compute_acc(pred, labels):
     return (th.argmax(pred, dim=1) == labels).float().sum() / len(pred)
 
 
-def evaluate(model, g, nfeat, labels, val_nid, test_nid, device):
+def evaluate(model, g, nfeat, labels, test_nid, device):
     """
     Evaluate the model on the validation set specified by ``val_mask``.
     g : The entire graph.
@@ -64,7 +64,7 @@ def evaluate(model, g, nfeat, labels, val_nid, test_nid, device):
     with th.no_grad():
         pred = model.module.inference(g, nfeat, device)
     model.train()
-    return compute_acc(pred[val_nid], labels[val_nid]), compute_acc(pred[test_nid], labels[test_nid])
+    return compute_acc(pred[test_nid], labels[test_nid].to(device))
 
 
 def load_subtensor(nfeat, labels, seeds, input_nodes, device):
@@ -85,7 +85,7 @@ def run(rank, args,  data):
 
     device = rank
     torch.cuda.set_device(device)
-    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets = data
+    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets, test_graph = data
     if rank == 0:
       os.makedirs('{}/quiver/logs_naive'.format(PATH_DIR),exist_ok = True)
       FILENAME= ('{}/quiver/logs_naive/{}_{}_{}.txt'.format(PATH_DIR, \
@@ -240,6 +240,12 @@ def run(rank, args,  data):
         #        pbar.update(args.batch_size)
         except StopIteration:
             pass
+        if test_graph != None and rank== 0:
+            test_nid = torch.where(test_graph.ndata['test_mask'])[0]
+            test_accuracy = evaluate(model, test_graph, test_graph.ndata['features'], test_graph.ndata['labels'], \
+                        test_nid, device)
+            print("Accuracy: {}, device:{}, epoch:{}".format(test_accuracy, device, epoch))
+
         if rank == 0:
             log.info("accuracy:{}".format(accuracy))
             log.info("epoch:{}".format(epoch_time))
@@ -311,7 +317,7 @@ if __name__ == '__main__':
     argparser.add_argument('--wd', type=float, default=0)
     argparser.add_argument('--sample-gpu', action='store_true')
     argparser.add_argument('--early-stopping', action = 'store_true')
-
+    argparser.add_argument('--test-graph',type = str)
     args = argparser.parse_args()
     assert args.model in ["GCN","GAT"]
     if args.gpu >= 0:
@@ -331,6 +337,10 @@ if __name__ == '__main__':
     labels = dg_graph.ndata.pop('labels')
     nfeat = dg_graph.ndata.pop('features')
     graph = graph.add_self_loop()
+    test_graph = None
+    if (args.test_graph) != None:
+        test_graph, _, num_classes = utils.get_process_graph(args.test_graph, True)
+
     offsets = {3:0}
     ###################################
     #data = DglNodePropPredDataset(name=args.graph, root=root)
@@ -350,7 +360,8 @@ if __name__ == '__main__':
     # This avoids creating certain formats in each data loader process, which saves momory and CPU.
     graph.create_formats_()
     # Pack data
-    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets
+    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, test_graph
+
     #test_accs = []
     #for i in range(1, 11):
     #    print(f'\nRun {i:02d}:\n')

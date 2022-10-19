@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import dgl.nn as dglnn
+import torch as th
 
 
 class GAT(torch.nn.Module):
@@ -22,7 +23,7 @@ class GAT(torch.nn.Module):
     def reset_parameters(self):
         for conv in self.convs:
             conv.reset_parameters()
-    
+
     def forward(self, blocks, x):
         h = x
         for l, (layer, block) in enumerate(zip(self.convs, blocks)):
@@ -63,10 +64,10 @@ class GAT(torch.nn.Module):
                 th.arange(g.num_nodes(), device=g.device),
                 sampler,
                 device=device,
-                batch_size=args.batch_size*4,
+                batch_size=4096,
                 shuffle=False,
                 drop_last=False,
-                num_workers=0 if args.sample_gpu else args.num_workers)
+                num_workers=2)
 
             for input_nodes, output_nodes, blocks in tqdm(dataloader):
                 block = blocks[0].int().to(device)
@@ -82,6 +83,3 @@ class GAT(torch.nn.Module):
 
             x = y
         return y
-
-
-
