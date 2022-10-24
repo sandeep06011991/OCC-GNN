@@ -29,12 +29,14 @@ N_CLASSES = {"ogbn-arxiv":40, "ogbn-products":48,\
                     "com-orkut":48}
 
 
-from PaGraph.model.gcn_nssc import GCNSampling
-from PaGraph.model.gat_nodeflow import GATNodeFlow
+from PaGraph.model.dgl_sage import  *
+from PaGraph.model.dgl_gat import  *
+
 import PaGraph.data as data
 import PaGraph.storage as storage
 from PaGraph.parallel import SampleLoader
 import nvtx
+
 def init_process(rank, world_size, backend):
   os.environ['MASTER_ADDR'] = '127.0.0.1'
   os.environ['MASTER_PORT'] = '29501'
@@ -59,7 +61,7 @@ import logging
 
 def trainer(rank, world_size, args, backend='nccl'):
   dataset = "{}/{}/".format(ROOT_DIR, args.dataset)
-  feat_size = FEAT_DICT[args.dataset] 
+  feat_size = FEAT_DICT[args.dataset]
   # init multi process
   init_process(rank, world_size, backend)
   # load datai
@@ -67,15 +69,15 @@ def trainer(rank, world_size, args, backend='nccl'):
     os.makedirs('{}/logs'.format(PATH_DIR),exist_ok = True)
     FILENAME= ('{}/logs/{}_{}_{}_{}.txt'.format(PATH_DIR, \
              args.dataset, args.batch_size, int(100* (args.cache_per)),args.model))
-  
+
     fileh = logging.FileHandler(FILENAME, 'w')
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fileh.setFormatter(formatter)
 
     log = logging.getLogger()  # root logger
-    log.addHandler(fileh)      # set the new handler  
+    log.addHandler(fileh)      # set the new handler
     log.setLevel(logging.INFO)
-  
+
 
   dataname = os.path.basename(dataset)
   remote_g = dgl.contrib.graph_store.create_graph_from_store(dataname, "shared_mem")
@@ -100,43 +102,52 @@ def trainer(rank, world_size, args, backend='nccl'):
   # to torch tensor
   t2fid = torch.LongTensor(t2fid)
   labels = torch.LongTensor(labels)
-  embed_names = ['features', 'norm']
+  embed_names = ['features']
   print("Training subgraph nodes", adj.shape[0], "Main graph nodes", num_nodes)
   cacher = storage.GraphCacheServer(remote_g, adj.shape[0], t2fid, rank, args.cache_per)
   cacher.init_field(embed_names)
   cacher.log = True
-  
+
   # prepare model
   num_hops = args.n_layers if args.preprocess else args.n_layers + 1
-  if args.model == "gcn":
-      in_dim = feat_size
-      model = GCNSampling(feat_size,
-                      args.n_hidden,
-                      n_classes,
-                      args.n_layers,
-                      F.relu,
-                      args.dropout,
-                      args.preprocess)
+  if args.model == "GCN":
+      model = SAGE(in_feats, args.num_hidden, n_classes,
+               args.num_layers, F.relu, args.dropout)
   else:
-      assert(args.model == "gat")
-      residual = False
-      num_layers = args.n_layers
-      in_dim = feat_size
-      num_hidden = args.n_hidden
-      num_classes = n_classes
-      num_heads = 3
-      feat_drop = args.dropout
-      attn_drop = args.dropout
-      model = GATNodeFlow(
-                 num_layers,
-                 in_dim,
-                 num_hidden,
-                 num_classes,
-                 num_heads,
-                 feat_drop,
-                 attn_drop,
-                 residual,
-                 activation=F.relu)
+      assert(args.model == "GAT")
+      heads = 3
+      model = GAT(in_feats, args.num_hidden, \
+              n_classes , heads, args.num_layers, F.relu, args.dropout)
+  #
+  # if args.model == "gcn":
+  #     in_dim = feat_size
+  #     model = GCNSampling(feat_size,
+  #                     args.n_hidden,
+  #                     n_classes,
+  #                     args.n_layers,
+  #                     F.relu,
+  #                     args.dropout,
+  #                     args.preprocess)
+  # else:
+  #     assert(args.model == "gat")
+  #     residual = False
+  #     num_layers = args.n_layers
+  #     in_dim = feat_size
+  #     num_hidden = args.n_hidden
+  #     num_classes = n_classes
+  #     num_heads = 3
+  #     feat_drop = args.dropout
+  #     attn_drop = args.dropout
+  #     model = GATNodeFlow(
+  #                num_layers,
+  #                in_dim,
+  #                num_hidden,
+  #                num_classes,
+  #                num_heads,
+  #                feat_drop,
+  #                attn_drop,
+  #                residual,
+  #                activation=F.relu)
 
   loss_fcn = torch.nn.CrossEntropyLoss()
   optimizer = torch.optim.Adam(model.parameters(),
@@ -145,7 +156,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   model.cuda(rank)
   model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
   ctx = torch.device(rank)
-  
+
   sampler = dgl.dataloading.MultiLayerNeighborSampler(
             [int(args.num_neighbors) for i in range(3)], replace = True)
   world_size = 4
@@ -215,37 +226,36 @@ def trainer(rank, world_size, args, backend='nccl'):
         try:
             with nvtx.annotate('sample',color = 'yellow'):
                 s1 = time.time()
-                nf = next(it)
+                input_nodes, seeds, blocks = next(it)
                 s2 = time.time()
                 epoch_sample_time += (s2 - s1)
         except StopIteration:
             break
-        print("sample time", s2-s1) 
-        print("is this a nodeflow object",nf)
         #torch.distributed.barrier()
         with nvtx.annotate("cache",color = 'blue'):
         #with torch.autograd.profiler.record_function('gpu-load'):
         #if True:
           s0 = time.time()
           e4.record()
-          nf.copy_from_parent(ctx)
+          blocks = [b.to(rank) for b in blocks]
           s1 = time.time()
           e5.record()
-          cacher.fetch_data(nf)
-          batch_nids = nf.layer_parent_nid(-1)
+
+          input_data = cacher.fetch_data(input_nodes)
+          batch_nids = seeds
           label = labels[batch_nids]
           label = label.cuda(rank, non_blocking=True)
-          e4.synchronize()
+          e5.synchronize()
           epoch_move_graph_time += max((s1 - s0),e4.elapsed_time(e5)/1000)
-          print("move time", e4.elapsed_time(e5)/1000)
+          # print("move time", e4.elapsed_time(e5)/1000)
           #print("Cache time",s2-s1)
         e1.record()
         #with torch.autograd.profiler.record_function('gpu-compute'):
         with nvtx.annotate('compute', color = 'red'):
         #if True:
-          pred = model(nf)
+          pred = model(blocks, batch_inputs)
           for i in range(3):
-              epoch_edges_processed += nf.block_size(i)
+              epoch_edges_processed += blocks[i].num_edges()
           print("edges:" , epoch_edges_processed)
 
           e2.record()
@@ -266,14 +276,15 @@ def trainer(rank, world_size, args, backend='nccl'):
         if args.end_early and step == 5:
           break
         if rank == 0:
-          log.info("iteration : {}, epoch: {}, iteration time: {}".format(step, epoch, t11-t00)) 
-    
+          log.info("iteration : {}, epoch: {}, iteration time: {}".format(step, epoch, t11-t00))
+
         if epoch == 0 and step == 1:
           pass
             #cacher.auto_cache(g, embed_names)
         if rank == 0 and step % 20 == 0:
           print('epoch [{}] step [{}]. Loss: {:.4f}'
                 .format(epoch + 1, step, loss.item()))
+
       if rank == 0:
         # compute_time.append(epoch_compute_time)
         sample_time.append(epoch_sample_time)
@@ -301,7 +312,7 @@ def trainer(rank, world_size, args, backend='nccl'):
         edges_processed.append(epoch_edges_processed)
         log.info("miss num: {}".format(miss_num_per_epoch))
         log.info("edges processed: {}".format(edges_processed))
-        
+
     toc = time.time()
   print("Exiting training working to collect profiler results")
   if rank == 0:
@@ -317,7 +328,7 @@ def trainer(rank, world_size, args, backend='nccl'):
       print("Epoch time: {:.4f}s\n".format(avg(epoch_dur)))
       print("Miss rate: {:.4f}s\n".format(avg(miss_rate_per_epoch)))
       print("Miss num per epoch: {:.4f}MB, device {}\n".format(int(avg(miss_num_per_epoch)),rank))
-      print("Edges processed per epoch: {}".format(avg(edges_processed)))
+  print("Edges processed per epoch: {}".format(avg(edges_processed)))
   # Profiling everything is unstable and overweight.
   # torch profiler uses events under it.
   #if rank == 0:
