@@ -51,7 +51,7 @@ echo "#SBATCH --ntasks=1                    # Run on a single CPU" >> $JOBFILE
 echo "#SBATCH --mem=200G                     # Job memory request" >> $JOBFILE
 echo "#SBATCH --time=8:00:00               # Time limit hrs:min:sec" >> $JOBFILE
 echo "#SBATCH --gres=gpu:4" >> $JOBFILE
-echo "#SBATCH --partition=gpu-preempt" >> $JOBFILE
+echo "#SBATCH --partition=gypsum-2080ti" >> $JOBFILE
 echo "#SBATCH --gpus-per-node=4" >> $JOBFILE
 echo "#SBATCH --output=$DIR/slurm-job-$SLURMJOBNAME.log   # Standard output and error log" >> $JOBFILE
 echo "#SBATCH -e $DIR/slurm-$SLURMJOBNAME.err" >> $JOBFILE

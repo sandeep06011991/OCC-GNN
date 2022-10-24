@@ -92,6 +92,7 @@ def work_producer(work_queue,training_nodes, batch_size,
 
 
 def main(args):
+    print("Graph read pk")
     graph_name = args.graph
     dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize)
     partition_map = partition_map.type(torch.LongTensor)
@@ -114,7 +115,7 @@ def main(args):
     fanout_val = fanout[0]
     import random
     file_id = random.randint(0,10000) 
-    
+    print("opened queue ")
     sm_filename_queue = mp.Queue(get_number_buckets(args.num_workers))
     sm_manager = SharedMemManager(sm_filename_queue, args.num_workers, file_id)
 
@@ -127,7 +128,7 @@ def main(args):
     storage_vector = []
     for i in range(4):
         storage_vector.append(mm.local_to_global_id[i].tolist())
-
+    print("memory manaager done")
     work_queue = mp.Queue(8)
     train_mask = dg_graph.ndata['train_mask']
     train_nid = train_mask.nonzero().squeeze()
@@ -156,7 +157,7 @@ def main(args):
     lock = torch.multiprocessing.Lock()
 
     slice_producer_processes = []
-
+    print("Start slicer weorkers")
     for proc in range(no_worker_process):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, sample_queues[0], lock,\
@@ -171,13 +172,13 @@ def main(args):
     labels = dg_graph.ndata["labels"]
     labels.share_memory_()
 
-
+    print("Trainer processes")
     for proc_id in range(n_gpus):
         p = mp.Process(target=(run_trainer_process), \
                       args=(proc_id, n_gpus, sample_queues, minibatches_per_epoch \
                        , features, args, \
                        num_classes, mm.batch_in[proc_id], labels,no_worker_process, args.deterministic,\
-                        dg_graph.in_degrees(), sm_filename_queue, mm.local_sizes[proc_id],cache_percentage, file_id))
+                        sm_filename_queue, mm.local_sizes[proc_id],cache_percentage, file_id))
         p.start()
         procs.append(p)
     for sp in slice_producer_processes:

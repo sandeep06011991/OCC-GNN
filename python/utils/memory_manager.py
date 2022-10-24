@@ -78,16 +78,17 @@ class MemoryManager():
         self.node_gpu_mask = torch.zeros((self.num_nodes,4),dtype=torch.bool)
         self.global_to_local = torch.ones((self.num_nodes,4),dtype = torch.long) * -1
         for i in range(4):
+            self.batch_in.append(None)
             if self.cache_percentage <= .25:
                 if(self.cache_percentage == .25):
                     # fixme: this rounding error should not happen
                     subgraph_nds = torch.where(self.partition_map == i)[0]
                     node_ids_cached = subgraph_nds
-                    self.batch_in.append(torch.zeros(node_ids_cached.shape[0], self.fsize))
-                    self.log.log("For gpu {}, batch_in features  {}".format(i, self.batch_in[i].shape))
+                    #self.batch_in.append(torch.zeros(node_ids_cached.shape[0], self.fsize))
+                    #self.log.log("For gpu {}, batch_in features  {}".format(i, self.batch_in[i].shape))
                     print("Node ids cached",node_ids_cached[:10])
                 else:
-                    self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize))
+                    #self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize))
                     # fixme: batch_in has different size to total number of nodes
                     # Be aware of this when constructing graphs
                     subgraph_nds = torch.where(self.partition_map == i)[0]
@@ -95,7 +96,7 @@ class MemoryManager():
                     _, indices = torch.sort(subgraph_deg,descending = True)
                     node_ids_cached = subgraph_nds[indices[:self.num_nodes_cached]]
             else:
-                self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize))
+                # self.batch_in.append(torch.zeros(self.num_nodes_alloc_per_device, self.fsize))
                 # fixme: batch_in has different size to total number of nodes
                 # Be aware of this when constructing graphs
                 subgraph_nds = torch.where(self.partition_map == i)[0]

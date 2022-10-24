@@ -96,8 +96,8 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
 import logging
 
 def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, features, args\
-                    ,num_classes, batch_in, labels, num_sampler_workers, deterministic,in_degrees
-                    , sm_filename_queue, cached_feature_size, cache_percentage, file_id):
+                        ,num_classes, batch_in, labels, num_sampler_workers, deterministic\
+                        , sm_filename_queue, cached_feature_size, cache_percentage, file_id):
     t = torch.cuda.get_device_properties(0).total_memory
     r = torch.cuda.memory_reserved(0)
     a = torch.cuda.memory_allocated(0)
@@ -163,7 +163,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
                 output_device = proc_id)
                 # find_unused_parameters = False
     loss_fn = torch.nn.CrossEntropyLoss(reduction = 'sum')
-    labels= labels.to(proc_id)
+    #labels= labels.to(proc_id
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     i = 0
     sample_get_epoch = []
@@ -182,7 +182,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     movement_feat = 0
     data_moved_per_gpu = 0
     edges_per_gpu = 0
-    in_degrees = in_degrees.to(proc_id)
+    #in_degrees = in_degrees.to(proc_id)
     fp_start = torch.cuda.Event(enable_timing=True)
     fp_end = torch.cuda.Event(enable_timing=True)
     bp_end = torch.cuda.Event(enable_timing=True)
@@ -270,7 +270,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         fp_start.record()
         assert(features.device == torch.device('cpu'))
         # print("Start forward pass !")
-        output = model.forward(gpu_local_sample, input_features, in_degrees)
+        output = model.forward(gpu_local_sample, input_features, None)
         # continue
 
         if args.deterministic:

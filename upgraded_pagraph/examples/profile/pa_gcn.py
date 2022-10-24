@@ -8,10 +8,10 @@ import torch.multiprocessing as mp
 import torch.nn.functional as F
 import numpy as np
 import dgl
-from dgl import DGLGraph
+from dgl._deprecate.graph import DGLGraph
 import os
 
-PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
+PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
 path_set = False
 for p in sys.path:
     # print(p)
@@ -80,11 +80,11 @@ def trainer(rank, world_size, args, backend='nccl'):
   dataname = os.path.basename(dataset)
   remote_g = dgl.contrib.graph_store.create_graph_from_store(dataname, "shared_mem")
 
-  num_nodes, num_edges, _, _ = remote_g.proxy.get_graph_info(dataname)
+  num_nodes, num_edges = remote_g.proxy.get_graph_info(dataname)
   num_nodes, num_edges = int(num_nodes), int(num_edges)
   adj, t2fid = data.get_sub_train_graph(dataset, rank, world_size)
 
-  g = DGLGraph(adj, readonly=True)
+  g = dgl.DGLGraph(adj, readonly=True)
   n_classes = N_CLASSES[args.dataset]
   train_nid = data.get_sub_train_nid(dataset, rank, world_size)
   print("Training_nid", train_nid.shape, rank)
@@ -96,7 +96,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   assert(np.max(train_nid) >100)
   labels = np.zeros(np.max(train_nid) + 1, dtype=np.int)
   labels[train_nid] = sub_labels.flatten()
-
+  train_nid = torch.from_numpy(train_nid)
   # to torch tensor
   t2fid = torch.LongTensor(t2fid)
   labels = torch.LongTensor(labels)
@@ -145,16 +145,33 @@ def trainer(rank, world_size, args, backend='nccl'):
   model.cuda(rank)
   model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
   ctx = torch.device(rank)
+  
+  sampler = dgl.dataloading.MultiLayerNeighborSampler(
+            [int(args.num_neighbors) for i in range(3)], replace = True)
+  world_size = 4
+  train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
+  number_of_minibatches = train_nid.shape[0]/args.batch_size
+  dataloader = dgl.dataloading.NodeDataLoader(
+        g,
+        train_nid,
+        sampler,
+        device='cpu',
+        batch_size=args.batch_size,
+        shuffle=True,
+        drop_last=True,
+        prefetch_factor = 6,
+        num_workers= 4,
+        persistent_workers= True)
 
-  if args.remote_sample:
-    sampler = SampleLoader(g, rank, one2all=False)
-  else:
-    sampler = dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
-      args.num_neighbors, neighbor_type='in',
-      shuffle=True, num_workers=args.num_workers,
-      num_hops=num_hops, seed_nodes=train_nid,
-      prefetch=True
-    )
+  #if args.remote_sample:
+  #  sampler = SampleLoader(g, rank, one2all=False)
+  #else:
+  #  sampler = dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
+  #    args.num_neighbors, neighbor_type='in',
+  #    shuffle=True, num_workers=args.num_workers,
+  #    num_hops=num_hops, seed_nodes=train_nid,
+  #    prefetch=True
+  #  )
   # start training
   epoch_dur = []
   print("Our caching model does not require a warm up")
@@ -192,7 +209,7 @@ def trainer(rank, world_size, args, backend='nccl'):
       step = 0
       #print("start epoch",rank)
       #for nf in sampler:
-      it = iter(sampler)
+      it = iter(dataloader)
       while True:
         t00 = time.time()
         try:
@@ -204,6 +221,7 @@ def trainer(rank, world_size, args, backend='nccl'):
         except StopIteration:
             break
         print("sample time", s2-s1) 
+        print("is this a nodeflow object",nf)
         #torch.distributed.barrier()
         with nvtx.annotate("cache",color = 'blue'):
         #with torch.autograd.profiler.record_function('gpu-load'):

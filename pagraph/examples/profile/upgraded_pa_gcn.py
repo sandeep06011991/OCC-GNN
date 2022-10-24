@@ -8,7 +8,7 @@ import torch.multiprocessing as mp
 import torch.nn.functional as F
 import numpy as np
 import dgl
-from dgl import DGLGraph
+from dgl._deprecate.graph import DGLGraph
 import os
 
 PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
@@ -32,7 +32,7 @@ N_CLASSES = {"ogbn-arxiv":40, "ogbn-products":48,\
 from PaGraph.model.gcn_nssc import GCNSampling
 from PaGraph.model.gat_nodeflow import GATNodeFlow
 import PaGraph.data as data
-import PaGraph.storage as storage
+import PaGraph.storage as upgraded_storage
 from PaGraph.parallel import SampleLoader
 import nvtx
 def init_process(rank, world_size, backend):
