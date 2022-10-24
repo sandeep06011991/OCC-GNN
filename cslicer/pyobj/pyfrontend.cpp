@@ -61,7 +61,7 @@ public:
 
     std::cout << "Stats started\n";
 
-    this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout);
+    this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, false);
 
     std::cout << "Stats started\n";
   }
@@ -154,7 +154,7 @@ public:
         }
 
         this->slicer = new Slice((workload_map), storage_map);
-        this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout);
+        this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, deterministic);
     }
 
     PySample * getSample(vector<long> sample_nodes){

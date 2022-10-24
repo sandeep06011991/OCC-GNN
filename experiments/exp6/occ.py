@@ -74,8 +74,11 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         forward_time = re.findall("forward time:(\d+\.\d+)",out)[0]
         backward_time = re.findall("backward time:(\d+\.\d+)",out)[0]
         data_moved = re.findall("data movement:(\d+\.\d+)MB",out)[0]
-        edges_moved = re.findall("edges per epoch:(\d+\.\d+)",out)[0]
-
+        edges_moved = re.findall("edges per epoch:(\d+\.\d+)",out)
+        s = 0
+        for i in range(4):
+            s = s + float(edges_moved[i])
+        edges_moved = s / 4
         sample_get = "{:.2f}".format(float(sample_get))
         movement_graph = "{:.2f}".format(float(movement_graph))
         movement_feat = "{:.2f}".format(float(movement_feat))

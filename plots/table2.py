@@ -47,8 +47,9 @@ def dummy_plot():
 
     fig.legend(ax[1, 2], labels=["dgl","pagraph", "split"],
            loc="lower center",ncol=3)
-    fig.tight_layout()       
-    fig.savefig('full_figure.png')
+    fig.tight_layout()
+    fig.subplots_adjust(bottom = .15)
+    fig.savefig('full_figure.png', bbox_inches='tight')
 
 if __name__=="__main__":
     dummy_plot()

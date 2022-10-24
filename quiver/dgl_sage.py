@@ -42,7 +42,7 @@ class SAGE(nn.Module):
                 h = self.dropout(h)
         return h
 
-    def inference(self, g, x, device):
+    def inference(self, g, x, device, training_nodes):
         """
         Inference with the GraphSAGE model on full neighbors (i.e. without neighbor sampling).
         g : the entire graph.
@@ -55,24 +55,47 @@ class SAGE(nn.Module):
         # Therefore, we compute the representation of all nodes layer by layer.  The nodes
         # on each layer are of course splitted in batches.
         # TODO: can we standardize this?
+        # sampler = dgl.dataloading.MultiLayerNeighborSampler(
+        #         [int(-1) for fanout in range(3)], replace = True)
+        # sampler = dgl.dataloading.MultiLayerFullNeighborSampler(3)
+        # # print(training_nodes)
+        # # print(g)
+        # dataloader = dgl.dataloading.NodeDataLoader(
+        #     g,
+        #     training_nodes,
+        #     sampler,
+        #     device='cpu',
+        #     batch_size=4096,
+        #     shuffle=False,
+        #     drop_last=False,
+        #     num_workers=0,
+        #     )
+        # r = []
+        # for input_nodes, output_nodes, blocks in (dataloader):
+        #     batch_inputs = x[input_nodes].to(device)
+        #     blocks = [block.to(device) for block in blocks]
+        #     r.append(self.forward(blocks, batch_inputs))
+        #     print("Done")
+        # rr = torch.cat(r,dim = 0)
+        # return rr
+
+    #     x = y
+    # return y
         for l, layer in enumerate(self.layers):
             y = th.zeros(g.num_nodes(), self.n_hidden if l != len(
                 self.layers) - 1 else self.n_classes).to(device)
-
             sampler = dgl.dataloading.MultiLayerFullNeighborSampler(1)
             dataloader = dgl.dataloading.NodeDataLoader(
                 g,
                 th.arange(g.num_nodes(), device=g.device),
                 sampler,
-                device=device,
+                device='cpu',
                 batch_size=4096,
                 shuffle=False,
                 drop_last=False,
-                num_workers=2)
-
-            for input_nodes, output_nodes, blocks in tqdm(dataloader):
+                )
+            for input_nodes, output_nodes, blocks in (dataloader):
                 block = blocks[0].int().to(device)
-
                 h = x[input_nodes].to(device)
                 h_dst = h[:block.num_dst_nodes()]
                 h = layer(block, (h, h_dst))
@@ -83,6 +106,7 @@ class SAGE(nn.Module):
                 y[output_nodes] = h
 
             x = y
+            print("returning")
         return y
 
 from ogb.nodeproppred import DglNodePropPredDataset

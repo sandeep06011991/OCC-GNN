@@ -1,4 +1,4 @@
-#(/home/q91/condaenv) q91@halfadgx:~$ cat test_quiver.py 
+#(/home/q91/condaenv) q91@halfadgx:~$ cat test_quiver.py
 import os
 
 import torch
@@ -39,7 +39,7 @@ def run(rank, world_size, quiver_feature, devices ):
         #print("CPU time", t2-t1, "CUDA time", t)
             print("move", t , device, "bandwidth",f.shape[0] * f.shape[1] * 4/((t) * (1024 * 1024 * 1024)))
             dist.barrier()
-    
+
 
     dist.destroy_process_group()
 
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     world_size =4
     quiver.init_p2p([0,1,2,3])
     quiver_feature = quiver.Feature(rank=1, device_list=[0,1,2,3],
-            device_cache_size="250M",
+            device_cache_size="10M",
             cache_policy="p2p_clique_replicate", csr_topo=None)
     quiver_feature.from_cpu_tensor(feature)
     print(quiver_feature.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[0].start)
@@ -68,4 +68,4 @@ if __name__ == '__main__':
         args=(world_size, quiver_feature, devices),
         nprocs=world_size,
         join=True
-        ) 
+        )

@@ -106,7 +106,7 @@ def run(rank, args,  data):
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        prefetch_factor = 8,
+        # prefetch_factor = 8,
         num_workers=0 if args.sample_gpu else args.num_workers,
         persistent_workers=not args.sample_gpu)
 
@@ -169,6 +169,7 @@ def run(rank, args,  data):
                 optimizer.zero_grad()
                 t1 = time.time()
                 input_nodes, seeds, blocks = next(dataloader_i)
+
                 t2 = time.time()
                 # copy block to gpu
                 blocks = [blk.to(device) for blk in blocks]
@@ -178,12 +179,12 @@ def run(rank, args,  data):
                 for blk in blocks:
                     blk.create_formats_()
                     edges_computed += blk.edges()[0].shape[0]
-                #print(edges_computed)    
+                #print(edges_computed)
                 t3 = time.time()
                 #start = offsets[device][0]
                 #end = offsets[device][1]
                 #hit = torch.where((input_nodes > start) & (input_nodes < end))[0].shape[0]
-                
+
                 hit = torch.where(input_nodes < offsets[3])[0].shape[0]
                 missed = input_nodes.shape[0] - hit
 

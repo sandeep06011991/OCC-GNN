@@ -19,9 +19,10 @@ class NeighbourSampler{
   bool deterministic = false;
 public:
 
-  NeighbourSampler(std::shared_ptr<Dataset> dataset, int fanout){
+  NeighbourSampler(std::shared_ptr<Dataset> dataset, int fanout, bool deterministic){
       this->dataset = dataset;
       this->fanout = fanout;
+      this->deterministic = deterministic;
       dr = new DuplicateRemover(this->dataset->num_nodes);
   }
 

@@ -40,6 +40,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         deterministic, worker_id, sm_filename_queue, num_workers, fanout,file_id):
     no_worker_threads = 1
     testing = False
+    deterministic  = True
     sampler = cslicer(graph_name,storage_vector,fanout, deterministic,testing)
     sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id, num_workers,file_id)
     # Todo clean up unnecessary iterations

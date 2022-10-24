@@ -29,6 +29,7 @@ class DistSageConv(nn.Module):
         # self.fc = nn.Linear(self._in_src_feats * 2, out_feats)
         self.fc1 = nn.Linear(self._in_src_feats, out_feats, bias = False)
         self.fc2 = nn.Linear(self._in_src_feats, out_feats, bias = False)
+        # self.deterministic = deterministic
         self.deterministic = deterministic
         self.reset_parameters()
 
@@ -115,8 +116,6 @@ class DistSageConv(nn.Module):
         a = bipartite_graph.in_degree.shape
         degree = bipartite_graph.in_degree.reshape(a[0],1)
         out6 = (out6_b/degree)
-        if(self.deterministic):
-            out6 = torch.floor(out6)
         assert(not torch.any(torch.isnan(out6)))
 
         if not self.fc1.in_features > self.fc1.out_features:

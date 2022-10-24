@@ -114,8 +114,8 @@ def main(args):
         assert(i == fanout[0])
     fanout_val = fanout[0]
     import random
-    file_id = random.randint(0,10000) 
-    print("opened queue ")
+    file_id = random.randint(0,10000)
+
     sm_filename_queue = mp.Queue(get_number_buckets(args.num_workers))
     sm_manager = SharedMemManager(sm_filename_queue, args.num_workers, file_id)
 
@@ -198,7 +198,7 @@ if __name__=="__main__":
     # training details
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
-    argparser.add_argument('--lr', type=float, default=0.01)
+    argparser.add_argument('--lr', type=float, default=0.007)
     argparser.add_argument('--num-workers', type=int, default=16,
        help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")

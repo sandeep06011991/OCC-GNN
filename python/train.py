@@ -191,6 +191,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     nmb = 0
     ii = 0
     e_t1 = time.time()
+    test_accuracy_list = []
     # print("Features ", features.device)
     num_epochs = 0
     if proc_id == 0:
@@ -229,6 +230,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             if proc_id == 0:
                 if test_acc_func != None:
                     test_accuracy = test_acc_func.get_accuracy(model)
+                    test_accuracy_list.append(test_accuracy)
                     print("test_accuracy:{}, epoch:{}".format(test_accuracy, num_epochs-1))
                 flog.info("accuracy:{}".format(acc))
                 flog.info("epoch:{}".format(avg(epoch_time)))
@@ -239,6 +241,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
                 flog.info("backward time:{}".format(avg(backward_epoch)))
                 flog.info("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
                 flog.info("edges per epoch:{}".format(avg(edges_per_gpu_epoch)))
+
         if(gpu_local_sample == "END"):
             print("GOT END OF FLAG", num_sampler_workers)
             num_sampler_workers -= 1
@@ -274,6 +277,10 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         # continue
 
         if args.deterministic:
+            if args.test_graph_dir != None and proc_id == 0 :
+                    actual_out = test_acc_func.test_accuracy( model , gpu_local_sample.last_layer_nodes)
+                    print("expected ", output,  "actual", actual_out, "check sums", output.sum(), actual_out.sum())
+                    test_accuracy_list.append(test_accuracy)
             print("Expected value", output.sum(), gpu_local_sample.debug_val)
             continue
             assert(False)
@@ -314,7 +321,9 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     dev_id = proc_id
     # if proc_id == 1:
     #     prof.dump_stats('worker.lprof')
+    print("edges per epoch:{}".format(avg(edges_per_gpu_epoch)))
     if proc_id == 0:
+        print("Test Accuracy:", test_accuracy_list)
         print("accuracy:{}".format(acc))
         print("#################",epoch_time)
         print("epoch:{}".format(avg(epoch_time)))
@@ -324,6 +333,6 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print("forward time:{}".format(avg(forward_epoch)))
         print("backward time:{}".format(avg(backward_epoch)))
         print("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
-        print("edges per epoch:{}".format(avg(edges_per_gpu_epoch)))
+
         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")

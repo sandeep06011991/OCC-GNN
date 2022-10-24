@@ -62,17 +62,23 @@ def evaluate(model, g, nfeat, labels, test_nid, device):
     """
     model.eval()
     with th.no_grad():
-        pred = model.module.inference(g, nfeat, device)
-    model.train()
+        pred = model.module.inference(g, nfeat, device, test_nid)
     return compute_acc(pred[test_nid], labels[test_nid].to(device))
+    # model.train()
+    # return compute_acc(pred[test_nid], labels[test_nid].to(device))
 
 
 def load_subtensor(nfeat, labels, seeds, input_nodes, device):
     """
     Extracts features and labels for a set of nodes.
     """
+    t1 = time.time()
+    assert(nfeat.device == torch.device('cpu'))
+    assert(labels.device == torch.device('cpu'))
+
     batch_inputs = nfeat[input_nodes].to(device)
     batch_labels = labels[seeds].to(device)
+    t2 = time.time()
     return batch_inputs, batch_labels
 
 # Entry point
@@ -121,7 +127,7 @@ def run(rank, args,  data):
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        prefetch_factor = 8,
+        prefetch_factor = 6,
         num_workers=0 if args.sample_gpu else args.num_workers,
         persistent_workers=not args.sample_gpu)
 
@@ -158,7 +164,7 @@ def run(rank, args,  data):
     e2 = torch.cuda.Event(enable_timing = True)
     e3 = torch.cuda.Event(enable_timing = True)
     e4 = torch.cuda.Event(enable_timing = True)
-
+    test_accuracy_list = []
     for epoch in range(args.num_epochs):
         tic = time.time()
 
@@ -244,6 +250,7 @@ def run(rank, args,  data):
             test_nid = torch.where(test_graph.ndata['test_mask'])[0]
             test_accuracy = evaluate(model, test_graph, test_graph.ndata['features'], test_graph.ndata['labels'], \
                         test_nid, device)
+            test_accuracy_list.append(test_accuracy.item())
             print("Accuracy: {}, device:{}, epoch:{}".format(test_accuracy, device, epoch))
 
         if rank == 0:
@@ -274,14 +281,16 @@ def run(rank, args,  data):
         print(f'Epoch {epoch:02d}, Loss: {loss:.4f}, Approx. Train: {approx_acc:.4f}, Epoch Time: {time.time() - tic:.4f}')
     if rank == 0 :
         #print(prof.key_averages().table(sort_by='cuda_time_total'))
-
-        if epoch >= 10:
-            val_acc, test_acc = evaluate(model, g, nfeat, labels, val_nid, test_nid, device)
-            print(f'Val: {val_acc:.4f}, Test: {test_acc:.4f}')
-
-            if val_acc > best_val_acc:
-                best_val_acc = val_acc
-                final_test_acc = test_acc
+        print("Test Accuracy ###########", test_accuracy_list)
+        #
+        # if epoch >= 10:
+        #     val_acc, test_acc = evaluate(model, g, nfeat, labels, val_nid, test_nid, device)
+        #     print(f'Val: {val_acc:.4f}, Test: {test_acc:.4f}')
+        #
+        #     if val_acc > best_val_acc:
+        #         best_val_acc = val_acc
+        #         final_test_acc = test_acc
+    print("edges per epoch:{}".format(average(edges_per_epoch)))    
     if rank == 3:
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch:{}".format(average(epoch_time)))
@@ -295,7 +304,6 @@ def run(rank, args,  data):
         print("data movement:{}MB".format(average(data_movement_epoch)))
     #torch.distributed.barrier()
     #dist.destroy_process_group()
-
     return final_test_acc
 
 if __name__ == '__main__':
@@ -309,8 +317,8 @@ if __name__ == '__main__':
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='20,20,20')
     argparser.add_argument('--batch-size', type=int, default=1024)
-    argparser.add_argument('--lr', type=float, default=0.003)
-    argparser.add_argument('--dropout', type=float, default=0.5)
+    argparser.add_argument('--lr', type=float, default=0.007)
+    argparser.add_argument('--dropout', type=float, default = 0)
     argparser.add_argument('--num-workers', type=int, default=4,
                            help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--save-pred', type=str, default='')
