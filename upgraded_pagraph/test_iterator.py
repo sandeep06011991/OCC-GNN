@@ -11,7 +11,8 @@ import dgl
 from dgl._deprecate.graph import DGLGraph
 import os
 
-PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
+# PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
+PATH_DIR = "/home/spolisetty/occ-gnn/upgraded_pagraph"
 path_set = False
 for p in sys.path:
     # print(p)
@@ -38,7 +39,7 @@ from PaGraph.parallel import SampleLoader
 import nvtx
 
 ROOT_DIR = "/work/spolisetty_umass_edu/data/pagraph"
-
+ROOT_DIR = "/data/sandeep/pagraph"
 
 def trainer(rank, args, backend='nccl'):
   dataset = "{}/{}/".format(ROOT_DIR, args.dataset)
@@ -75,7 +76,7 @@ def trainer(rank, args, backend='nccl'):
   world_size = 4
   train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
   number_of_minibatches = train_nid.shape[0]/args.batch_size
-  print(args.batch_size) 
+  print(args.batch_size)
   print(sampler)
   g = g.add_self_loop()
   print(g)
@@ -85,11 +86,14 @@ def trainer(rank, args, backend='nccl'):
         train_nid,
         sampler,
         device='cpu',
-        batch_size=128,
+        batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        num_workers = 6, 
+        prefetch_factor = 6,
+        num_workers= 4,
         persistent_workers= True)
+         
+
 
   for epoch in range(args.n_epochs):
     it = iter(dataloader)

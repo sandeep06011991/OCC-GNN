@@ -62,7 +62,7 @@ def evaluate(model, g, nfeat, labels, test_nid, device):
     """
     model.eval()
     with th.no_grad():
-        pred = model.module.inference(g, nfeat, device, test_nid)
+        pred = model.module.inference(g, nfeat, device)
     return compute_acc(pred[test_nid], labels[test_nid].to(device))
     # model.train()
     # return compute_acc(pred[test_nid], labels[test_nid].to(device))
@@ -205,8 +205,6 @@ def run(rank, args,  data):
                 #end = offsets[device][1]
                 #hit = torch.where((input_nodes > start) & (input_nodes < end))[0].shape[0]
 
-                hit = torch.where(input_nodes < offsets[3])[0].shape[0]
-                missed = input_nodes.shape[0] - hit
 
                 e1.record()
                 # Load the input features as well as output labels
@@ -232,7 +230,7 @@ def run(rank, args,  data):
                 movement_feature_time += max(t4-t3, e1.elapsed_time(e2)/1000)
                 forward_time += e2.elapsed_time(e3)/1000
                 backward_time += e3.elapsed_time(e4)/1000
-                data_movement += (missed * nfeat.shape[1] * 4/(1024 * 1024))
+                data_movement += (batch_inputs.shape[0] * nfeat.shape[1] * 4/(1024 * 1024))
                 if args.early_stopping and step ==5:
                     break
                 step = step + 1
@@ -290,7 +288,7 @@ def run(rank, args,  data):
         #     if val_acc > best_val_acc:
         #         best_val_acc = val_acc
         #         final_test_acc = test_acc
-    print("edges per epoch:{}".format(average(edges_per_epoch)))    
+    print("edges per epoch:{}".format(average(edges_per_epoch)))
     if rank == 3:
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch:{}".format(average(epoch_time)))
@@ -317,7 +315,7 @@ if __name__ == '__main__':
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='20,20,20')
     argparser.add_argument('--batch-size', type=int, default=1024)
-    argparser.add_argument('--lr', type=float, default=0.007)
+    argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default = 0)
     argparser.add_argument('--num-workers', type=int, default=4,
                            help="Number of sampling processes. Use 0 for no extra process.")
@@ -348,7 +346,7 @@ if __name__ == '__main__':
     test_graph = None
     if (args.test_graph) != None:
         test_graph, _, num_classes = utils.get_process_graph(args.test_graph, True)
-
+        test_graph = test_graph.add_self_loop()
     offsets = {3:0}
     ###################################
     #data = DglNodePropPredDataset(name=args.graph, root=root)

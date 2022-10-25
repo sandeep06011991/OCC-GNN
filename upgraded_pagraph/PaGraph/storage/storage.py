@@ -190,7 +190,7 @@ class GraphCacheServer:
     #   tnid = nf_nids[offsets[i]:offsets[i+1]]
       # get nids -- overhead ~0.1s
     with nvtx.annotate('cache-index'):
-      tnid = input_nds.to(self.gpuid)
+      tnid = input_nodes.to(self.gpu_id)
   # with torch.autograd.profiler.record_function('cache-index'):
       gpu_mask = self.gpu_flag[tnid]
       nids_in_gpu = tnid[gpu_mask]
@@ -206,17 +206,17 @@ class GraphCacheServer:
   # with torch.autograd.profiler.record_function('cache-gpu'):
       if nids_in_gpu.size(0) != 0:
         cacheid = self.localid2cacheid[nids_in_gpu]
-        for name in self.dims:
-          frame[name][gpu_mask] = self.gpu_fix_cache[name][cacheid]
+      for name in self.dims:
+        frame[name][gpu_mask] = self.gpu_fix_cache[name][cacheid]
       # for cpu cached tensors: ##NOTE: Make sure it is in-place update!
     t1 = time.time()
     self.collect_start_e.record()
   #with torch.autograd.profiler.record_function('cache-cpu'):
-    #with nvtx.annotate('cache-cpu'):
+    with nvtx.annotate('cache-cpu'):
   #if True:
-    if nids_in_cpu.size(0) != 0:
-      cpu_data_frame = self.get_feat_from_server(
-        nids_in_cpu, list(self.dims), to_gpu=False)
+      if nids_in_cpu.size(0) != 0:
+        cpu_data_frame = self.get_feat_from_server(
+          nids_in_cpu, list(self.dims), to_gpu=False)
       self.collect_end_e.record()
       for name in self.dims:
         frame[name][cpu_mask] = cpu_data_frame[name].cuda(self.gpuid, non_blocking=True)

@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import dgl.nn as dglnn
 import torch as th
-
+import dgl
 
 class GAT(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, \
@@ -17,6 +17,9 @@ class GAT(torch.nn.Module):
         for _ in range(num_layers -2):
             self.convs.append(dglnn.GATConv(hidden_channels *heads, hidden_channels,num_heads = heads))
         self.convs.append(dglnn.GATConv(hidden_channels * heads, out_channels, num_heads = 1))
+        self.n_classes = out_channels
+        self.n_heads = heads
+        self.n_hidden = hidden_channels
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
 
@@ -54,22 +57,23 @@ class GAT(torch.nn.Module):
         # Therefore, we compute the representation of all nodes layer by layer.  The nodes
         # on each layer are of course splitted in batches.
         # TODO: can we standardize this?
+        self.layers = self.convs
         for l, layer in enumerate(self.layers):
-            y = th.zeros(g.num_nodes(), self.n_hidden if l != len(
+            y = th.zeros(g.num_nodes(), self.n_hidden * self.n_heads if l != len(
                 self.layers) - 1 else self.n_classes).to(device)
 
             sampler = dgl.dataloading.MultiLayerFullNeighborSampler(1)
             dataloader = dgl.dataloading.NodeDataLoader(
                 g,
-                th.arange(g.num_nodes(), device=g.device),
+                th.arange(g.num_nodes()),
                 sampler,
-                device=device,
-                batch_size=4096,
+                device='cpu',
+                batch_size=1032,
                 shuffle=False,
                 drop_last=False,
                 num_workers=2)
 
-            for input_nodes, output_nodes, blocks in tqdm(dataloader):
+            for input_nodes, output_nodes, blocks in (dataloader):
                 block = blocks[0].int().to(device)
 
                 h = x[input_nodes].to(device)
@@ -78,7 +82,7 @@ class GAT(torch.nn.Module):
                 if l != len(self.layers) - 1:
                     h = self.activation(h)
                     h = self.dropout(h)
-
+                h = h.flatten(1)
                 y[output_nodes] = h
 
             x = y

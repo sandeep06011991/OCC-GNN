@@ -42,7 +42,7 @@ class SAGE(nn.Module):
                 h = self.dropout(h)
         return h
 
-    def inference(self, g, x, device, training_nodes):
+    def inference(self, g, x, device):
         """
         Inference with the GraphSAGE model on full neighbors (i.e. without neighbor sampling).
         g : the entire graph.
@@ -90,7 +90,7 @@ class SAGE(nn.Module):
                 th.arange(g.num_nodes(), device=g.device),
                 sampler,
                 device='cpu',
-                batch_size=4096,
+                batch_size=1032,
                 shuffle=False,
                 drop_last=False,
                 )
