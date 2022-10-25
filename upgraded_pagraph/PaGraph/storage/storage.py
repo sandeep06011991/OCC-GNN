@@ -189,30 +189,30 @@ class GraphCacheServer:
     #     #tnid = nodeflow.layer_parent_nid(i).cuda(self.gpuid)
     #   tnid = nf_nids[offsets[i]:offsets[i+1]]
       # get nids -- overhead ~0.1s
-  with nvtx.annotate('cache-index'):
-     tnid = input_nodes.to(self.gpu_id)
+    with nvtx.annotate('cache-index'):
+      tnid = input_nds.to(self.gpuid)
   # with torch.autograd.profiler.record_function('cache-index'):
-    gpu_mask = self.gpu_flag[tnid]
-    nids_in_gpu = tnid[gpu_mask]
-    cpu_mask = ~gpu_mask
-    nids_in_cpu = tnid[cpu_mask]
+      gpu_mask = self.gpu_flag[tnid]
+      nids_in_gpu = tnid[gpu_mask]
+      cpu_mask = ~gpu_mask
+      nids_in_cpu = tnid[cpu_mask]
       # create frame
       # with torch.autograd.profiler.record_function('cache-allocate'):
-  with nvtx.annotate('cache-allocate'):
+    with nvtx.annotate('cache-allocate'):
       frame = {name: torch.cuda.FloatTensor(tnid.size(0), self.dims[name]) \
                 for name in self.dims}
       # for gpu cached tensors: ##NOTE: Make sure it is in-place update!
-  with nvtx.annotate('cache-gpu'):
+    with nvtx.annotate('cache-gpu'):
   # with torch.autograd.profiler.record_function('cache-gpu'):
-    if nids_in_gpu.size(0) != 0:
-      cacheid = self.localid2cacheid[nids_in_gpu]
-      for name in self.dims:
-        frame[name][gpu_mask] = self.gpu_fix_cache[name][cacheid]
+      if nids_in_gpu.size(0) != 0:
+        cacheid = self.localid2cacheid[nids_in_gpu]
+        for name in self.dims:
+          frame[name][gpu_mask] = self.gpu_fix_cache[name][cacheid]
       # for cpu cached tensors: ##NOTE: Make sure it is in-place update!
-  t1 = time.time()
-  self.collect_start_e.record()
+    t1 = time.time()
+    self.collect_start_e.record()
   #with torch.autograd.profiler.record_function('cache-cpu'):
-  with nvtx.annotate('cache-cpu'):
+    #with nvtx.annotate('cache-cpu'):
   #if True:
     if nids_in_cpu.size(0) != 0:
       cpu_data_frame = self.get_feat_from_server(
@@ -220,17 +220,17 @@ class GraphCacheServer:
       self.collect_end_e.record()
       for name in self.dims:
         frame[name][cpu_mask] = cpu_data_frame[name].cuda(self.gpuid, non_blocking=True)
-  t2 = time.time()
+    t2 = time.time()
       #with torch.autograd.profiler.record_function('cache-asign'):
-  self.move_end_e.record()
-  t3 = time.time()
-  self.move_end_e.synchronize()
-  self.collect_time += (t2 - t1)
-  self.move_time += (t3- t2)
-  self.collect_cuda_time += self.collect_start_e.elapsed_time(self.collect_end_e)/1000
-  self.move_cuda_time += self.collect_end_e.elapsed_time(self.move_end_e)/1000
-  self.log_miss_rate(nids_in_cpu.size(0), tnid.size(0))
-  return frame
+    self.move_end_e.record()
+    t3 = time.time()
+    self.move_end_e.synchronize()
+    self.collect_time += (t2 - t1)
+    self.move_time += (t3- t2)
+    self.collect_cuda_time += self.collect_start_e.elapsed_time(self.collect_end_e)/1000
+    self.move_cuda_time += self.collect_end_e.elapsed_time(self.move_end_e)/1000
+    self.log_miss_rate(nids_in_cpu.size(0), tnid.size(0))
+    return frame
 
   def fetch_from_cache(self, train_nids):
     # for i in range(nodeflow.num_layers):

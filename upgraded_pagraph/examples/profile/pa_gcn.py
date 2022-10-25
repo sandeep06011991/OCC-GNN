@@ -107,17 +107,18 @@ def trainer(rank, world_size, args, backend='nccl'):
   cacher = storage.GraphCacheServer(remote_g, adj.shape[0], t2fid, rank, args.cache_per)
   cacher.init_field(embed_names)
   cacher.log = True
-
+  heads = 3
+  in_feats = feat_size
   # prepare model
-  num_hops = args.n_layers if args.preprocess else args.n_layers + 1
-  if args.model == "GCN":
-      model = SAGE(in_feats, args.num_hidden, n_classes,
-               args.num_layers, F.relu, args.dropout)
+  num_hops = args.n_layers 
+  if args.model == "gcn":
+      model = SAGE(in_feats, args.n_hidden, n_classes,
+               args.n_layers, F.relu, args.dropout)
   else:
-      assert(args.model == "GAT")
+      assert(args.model == "gat")
       heads = 3
-      model = GAT(in_feats, args.num_hidden, \
-              n_classes , heads, args.num_layers, F.relu, args.dropout)
+      model = GAT(in_feats, args.n_hidden, \
+              n_classes , heads, args.n_layers, F.relu, args.dropout)
   #
   # if args.model == "gcn":
   #     in_dim = feat_size
@@ -157,11 +158,15 @@ def trainer(rank, world_size, args, backend='nccl'):
   model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
   ctx = torch.device(rank)
 
-  sampler = dgl.dataloading.MultiLayerNeighborSampler(
+  sampler = dgl.dataloading.NeighborSampler(
             [int(args.num_neighbors) for i in range(3)], replace = True)
   world_size = 4
   train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
   number_of_minibatches = train_nid.shape[0]/args.batch_size
+  print(args.batch_size) 
+  print(sampler)
+  g = g.add_self_loop()
+  print(g)
   dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
@@ -227,6 +232,8 @@ def trainer(rank, world_size, args, backend='nccl'):
             with nvtx.annotate('sample',color = 'yellow'):
                 s1 = time.time()
                 input_nodes, seeds, blocks = next(it)
+                assert(input_nodes.shape[0] == blocks[0].number_of_src_nodes())
+                assert(seeds.shape[0] == blocks[-1].number_of_dst_nodes())
                 s2 = time.time()
                 epoch_sample_time += (s2 - s1)
         except StopIteration:
@@ -238,9 +245,11 @@ def trainer(rank, world_size, args, backend='nccl'):
           s0 = time.time()
           e4.record()
           blocks = [b.to(rank) for b in blocks]
+          for b in blocks:
+              print(b.number_of_dst_nodes(), b, "block")
           s1 = time.time()
           e5.record()
-
+          print("Sampled blocks", len(blocks))
           input_data = cacher.fetch_data(input_nodes)
           batch_nids = seeds
           label = labels[batch_nids]
@@ -253,11 +262,14 @@ def trainer(rank, world_size, args, backend='nccl'):
         #with torch.autograd.profiler.record_function('gpu-compute'):
         with nvtx.annotate('compute', color = 'red'):
         #if True:
-          pred = model(blocks, batch_inputs)
+          print(input_data['features'].shape, batch_nids.shape)
+          pred = model(blocks, input_data['features'])
+          
           for i in range(3):
               epoch_edges_processed += blocks[i].num_edges()
+              print(blocks[i].number_of_dst_nodes(), i, "Blocks")
           print("edges:" , epoch_edges_processed)
-
+          print(pred.shape, "Output")
           e2.record()
           loss = loss_fcn(pred, label)
           acc = compute_acc(pred,label)
@@ -363,7 +375,7 @@ if __name__ == '__main__':
                       help="dropout probability")
   parser.add_argument("--n-hidden", type=int, default=16,
                       help="number of hidden gcn units")
-  parser.add_argument("--n-layers", type=int, default=2,
+  parser.add_argument("--n-layers", type=int, default=3,
                       help="number of hidden gcn layers")
   parser.add_argument("--preprocess", dest='preprocess', action='store_true')
   parser.set_defaults(preprocess=False)
