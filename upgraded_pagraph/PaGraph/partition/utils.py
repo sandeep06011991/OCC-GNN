@@ -5,8 +5,36 @@ from dgl import DGLGraph
 import torch
 import numpy as np
 import scipy.sparse as spsp
+import dgl.function as fn
+import torch
 
-def get_sub_graph(dgl_g, train_nid, num_hops):
+def get_sub_graph(graph, train_nid, num_hops):
+  rev_graph = graph.reverse()
+  num_nodes = graph.num_nodes()
+  in_t = torch.zeros(num_nodes)
+  in_t[train_nid] = 1
+  in_t = in_t.reshape(num_nodes,1)
+  rev_graph.ndata['in'] = in_t
+  total = in_t.clone()
+  num_hops  = 3
+  for i in range(num_hops):
+      rev_graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
+      rev_graph.ndata['in'] = rev_graph.ndata['out']
+      total += rev_graph.ndata['out']
+  # set up mappings. 
+  sub2full = torch.where(total != 0)[0]
+  full2sub = torch.zeros(num_nodes, dtype = torch.long)
+  full2sub[sub2full] = torch.arange(0, sub2full.shape[0], dtype = torch.long)
+  subtrain_id = full2sub[train_nid]
+  src, dest = graph.edges()
+  selected_edges = torch.where(total[src] * total[dest] != 0)[0]
+  dgl_graph = dgl.graph((full2sub[src[selected_edges]], full2sub[dest[selected_edges]]))
+  csr_adj = dgl_graph.adj(scipy_fmt = 'csr')
+  sub2full_numpy = sub2full.numpy()
+  subtrainid_numpy = subtrain_id.numpy()
+  return csr_adj, sub2full_numpy , subtrainid_numpy
+
+def get_sub_graph_deprecated(dgl_g, train_nid, num_hops):
   nfs = []
   for nf in dgl.contrib.sampling.NeighborSampler(dgl_g, len(train_nid),
                                                  dgl_g.number_of_nodes(),

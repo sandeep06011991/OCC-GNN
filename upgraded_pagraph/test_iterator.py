@@ -52,7 +52,7 @@ def trainer(rank, args, backend='nccl'):
   dataname = os.path.basename(dataset)
   adj, t2fid = data.get_sub_train_graph(dataset, rank, world_size)
 
-  g = dgl.DGLGraph(adj, readonly=True)
+  g = dgl.from_scipy(adj)
   n_classes = N_CLASSES[args.dataset]
   rank = 0
   world_size = 4
@@ -106,6 +106,7 @@ def trainer(rank, args, backend='nccl'):
              print(input_nodes, seeds, blocks)
              assert(input_nodes.shape[0] == blocks[0].number_of_src_nodes())
              assert(seeds.shape[0] == blocks[-1].number_of_dst_nodes())
+             continue
              s2 = time.time()
              epoch_sample_time += (s2 - s1)
       except StopIteration:
