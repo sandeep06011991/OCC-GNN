@@ -190,7 +190,7 @@ def pagraph_partition(FILENAME):
         PAGRAPH_DIR, '{}naive'.format(4))
     if not os.path.exists(partition_dataset):
         os.mkdir(partition_dataset)
-    dgl_g = dgl.DGLGraphStale(scipyCSC, readonly=True)
+    dgl_g = dgl.from_scipy(scipyCSC)
 
     for pid, (pv, ptrainv) in enumerate(zip(p_v, p_trainv)):
         print('generating subgraph# {}...'.format(pid))
@@ -219,6 +219,7 @@ def pagraph_partition(FILENAME):
 if __name__=="__main__":
     graph_names = ["ogbn-arxiv","ogbn-products", "reorder-papers100M", "amazon", "com-orkut"]
     print("others are done!")
-    graph_names = ["amazon"]
+    graph_names = ["ogbn-products", "reorder-papers100M", "amazon"]
     for graph in graph_names:
         pagraph_partition(graph)
+        print("done with",graph)
