@@ -50,6 +50,7 @@ class SharedMemClient():
         assert(type(data) == np.ndarray)
         assert(len(data.shape) == 1)
         if(data.shape[0] * data.dtype.itemsize > SHARED_MEMORY_SIZE):
+            print("Shared Memory bucket size is not enouch for {}".format(data.shape[0] * data.dtype.itemsize))
             self.log.log("Shared Memory bucket size is not enouch for {}".format(data.shape[0] * data.dtype.itemsize))
         assert(data.shape[0] * data.dtype.itemsize < SHARED_MEMORY_SIZE)
         self.log.log("Trying to write, avail shared memory buckets {}".format(self.free_memory_filenames.qsize()))

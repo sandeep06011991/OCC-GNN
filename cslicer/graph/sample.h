@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdlib>
 #include "spdlog/spdlog.h"
-
+#include <iostream>
 // A simple sample structure
 // The zeroth block is constructed from the set of target nodes as follows
 // [null, null, batch_ids]
@@ -18,6 +18,28 @@ public:
     indices.clear();
     layer_nds.clear();
     in_degree.clear();
+  }
+
+  void debug(){
+    std::cout <<"offsets:";
+    for(auto nd: offsets){
+      std::cout << nd <<  " ";
+    }
+
+      std::cout <<"\nindices:";
+    for(auto nd: indices){
+      std::cout << nd <<  " ";
+    }
+      std::cout <<"\nlayer nds:";
+    for(auto nd: layer_nds){
+      std::cout << nd <<  " ";
+    }
+    std::cout <<"\nin degree:";
+    for(auto nd: in_degree){
+      std::cout << nd <<  " ";
+    }
+    std::cout << "\n";
+
   }
 };
 
@@ -37,6 +59,11 @@ public:
   void clear(){
     for(int i=0;i<num_layers;i++){
       block[i]->clear();
+    }
+  }
+  void debug(){
+    for(int i=0;i<num_layers + 1;i++){
+      block[i]->debug();
     }
   }
 };

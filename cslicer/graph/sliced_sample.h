@@ -42,12 +42,15 @@ public:
     }
     for(int i=0;i<4;i++){
       refresh_map[i].clear();
+      cache_hit[i].clear();
     }
   }
 
   void debug(){
     for(int i=0;i < 3; i++){
+      std::cout << "Layer" << i <<"\n";
       layers[i].debug();
+
     }
   }
 };

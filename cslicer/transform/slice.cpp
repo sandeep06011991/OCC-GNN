@@ -19,6 +19,10 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         long nd2 = bl.indices[j];
         if(nd1 == nd2){
             l.bipartite[to]->add_self_edge(nd1, in_degree);
+            // If Attention
+            if(this->self_edge){
+              l.bipartite[to]->add_edge(nd1, nd1, true);
+            }
         }else{
             int from = this->workload_map[nd2];
             if(layer_id == 2){

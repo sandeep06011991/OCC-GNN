@@ -5,7 +5,7 @@ from torch.nn.parallel import gather
 from dgl.nn.pytorch.conv.gatconv import GATConv
 import dgl.nn.pytorch.conv.sageconv as sgc
 import torch.multiprocessing as mp
-from data.test_bipartite import get_dummy_bipartite_graph
+from data.test_bipartite import get_dummy_bipartite_graph, get_local_bipartite_graph
 from torch.nn.parallel import DistributedDataParallel
 from layers.dist_gatconv import DistGATConv
 
@@ -19,40 +19,41 @@ def test_base():
             dest_ids.append(dest)
 
     g = dgl.create_block((src_ids, dest_ids), 8, 4)
-    dglGat = GATConv((4, 4), 8, num_heads=1)
+    dglGat = GATConv(4, 8, num_heads=3)
 
-    dglGat.fc_src.weight = torch.nn.Parameter(
-        torch.ones(dglGat.fc_src.weight.shape))
-    dglGat.fc_dst.weight = torch.nn.Parameter(
-        torch.ones(dglGat.fc_dst.weight.shape))
+    dglGat.fc.weight = torch.nn.Parameter(
+        torch.ones(dglGat.fc.weight.shape))
+
     dglGat.attn_l = torch.nn.Parameter(
         torch.ones(dglGat.attn_l.shape))
     dglGat.attn_r = torch.nn.Parameter(
         torch.ones(dglGat.attn_r.shape))
 
-    v_ones = torch.ones(4, 4)
-    u_ones = torch.ones(8, 4)
+    u_ones = torch.ones(8, 4, requires_grad = True)
 
-    res = dglGat(g, (u_ones, v_ones), get_attention=False)
+
+    res = dglGat(g, u_ones , get_attention=False)
     forward_correct = res
 
     res.sum().backward()
 
-    fc_src = dglGat.fc_src.weight.grad
-    fc_dest = dglGat.fc_dst.weight.grad
+    # fc_src = dglGat.fc_src.weight.grad
+    # fc_dest = dglGat.fc_dst.weight.grad
 
-    return forward_correct, fc_src, fc_dest
+    print("Correct answer", res, dglGat.attn_r.grad, dglGat.attn_l.grad, dglGat.fc.weight.grad)
+
+    # return forward_correct, fc_src, fc_dest
 
 
 class ToyModel(nn.Module):
 
     def __init__(self, gpu_id):
         super().__init__()
-        self.ll = DistGATConv(4, 8, gpu_id,  num_heads=1)
+        self.ll = DistGATConv(4, 8, gpu_id,  num_heads=3)
         self.gpu_id = gpu_id
 
     def forward(self, bipartite_graph, f):
-        return self.ll(bipartite_graph, f, self.gpu_id)
+        return self.ll(bipartite_graph, f, self.gpu_id, None, testing = True)
 
 
 def test_dist_bipartite_process(proc_id, n_gpus):
@@ -81,13 +82,15 @@ def test_dist_bipartite_process(proc_id, n_gpus):
     model = model.to(dev_id)
     model = DistributedDataParallel(
         model, device_ids=[dev_id], output_device=dev_id)
-    bg = get_bipartite_graph(proc_id)
-    bg.to_gpu()
+    bg = get_local_bipartite_graph(dev_id)
+    bg.reconstruct_graph()
+
     f = torch.ones((2, 4), device=proc_id)
 
     out = model(bg, f)
+    print(out)
     out.sum().backward()
-
+    print(model.module.ll.attn_l.grad)
 
 def test_dist_bipartite():
     mp.set_start_method('spawn')
@@ -105,3 +108,4 @@ def test_dist_bipartite():
 
 if __name__ == "__main__":
     test_base()
+    test_dist_bipartite()

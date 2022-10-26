@@ -15,7 +15,7 @@ def compute_acc(pred, labels):
 
 class TestAccuracy:
 
-    def __init__(self, test_filename, device):
+    def __init__(self, test_filename, device, self_edge):
         filename = test_filename
         fsize = -1
         ##### Read all data
@@ -25,9 +25,10 @@ class TestAccuracy:
         gpu_local_storage = [i for i in range(num_nodes)]
         storage_vector = [gpu_local_storage,[],[],[]]
         fanout = -1 # is irrelevant
-        self.sampler = cslicer(filename, storage_vector, fanout, deterministic, True)
+        self.sampler = cslicer(filename, storage_vector, fanout, deterministic, True, self_edge)
         test_mask = dg_graph.ndata['test_mask']
         self.test_ids = torch.where(test_mask)[0]
+
         device = torch.device(device)
         self.device = device
         # read local test data
@@ -36,7 +37,7 @@ class TestAccuracy:
 
         features = dg_graph.ndata["features"].to(device)
         num_nodes = features.shape[0]
-        
+
         fsize = features.shape[0]
         self.labels = dg_graph.ndata["labels"].to(device)
         gpu_id = torch.device(0)
@@ -70,10 +71,11 @@ class TestAccuracy:
             return predicted
 
     def get_accuracy(self, model):
-        batch_size = 4096 * 4
+        batch_size = 1024 * 4
         num_test = self.test_ids.shape[0]
         test = 0
         correct = 0
+        print("start testing")
         with torch.no_grad():
             for i in range(0, num_test, batch_size):
                 sample_nodes = self.test_ids[i:i + batch_size].tolist()
@@ -90,6 +92,7 @@ class TestAccuracy:
                 # print(data.device , device)
                 construct_from_tensor_on_gpu(data, self.device, gpu_local_sample)
                 gpu_local_sample.prepare()
+
                 predicted = model.forward(gpu_local_sample, self.features[gpu_local_sample.cached_node_ids], None, True)
                 # print(predicted)
                 correct_labels = self.labels[gpu_local_sample.last_layer_nodes]
@@ -98,7 +101,7 @@ class TestAccuracy:
 
                 correct = correct + a.item()
                 test = test + b
-            print(correct,test,num_test)
+                print(i,num_test)
             assert(test == num_test)
         return correct/test
 
@@ -118,7 +121,6 @@ if __name__=="__main__":
     device = torch.device(0)
     # read local test data
     ## Create dummy model
-    hidden = 16
     features = dg_graph.ndata["features"].to(device)
     fsize = features.shape[0]
     labels = dg_graph.ndata["labels"]

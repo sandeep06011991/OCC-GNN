@@ -69,6 +69,8 @@ public:
         out_nodes.push_back(nd1);
       }
     }
+
+
   }
 
   inline void add_from_node(long nd1, int gpu_id){
@@ -95,10 +97,10 @@ public:
 
 
   inline void add_edge(int nd1, int nd2, bool islocal){
-    if(nd1 == nd2){
-      std::cout << "Should never happen" << nd1 <<"\n";
-      assert(false);
-    }
+    // if(nd1 == nd2){
+    //   std::cout << "Should never happen" << nd1 <<"\n";
+    //   assert(false);
+    // }
     if(islocal && ((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
 		  owned_out_nodes.push_back(nd1);
       }
@@ -161,14 +163,14 @@ public:
     std::cout << "BiPartitie" << "\n";
     out << "num_ in nodes" << num_in_nodes <<"\n";
     out << "nun_ out nodes" << num_out_nodes <<"\n";
-    // debug_vector("in_nodes", in_nodes, out);
-    // debug_vector("out_nodes", out_nodes, out);
-    // debug_vector("indptr", indptr, out);
-    // debug_vector("expand_indptr", expand_indptr, out);
-    // debug_vector("indices", indices, out);
+    debug_vector("in_nodes", in_nodes, out);
+    debug_vector("out_nodes", out_nodes, out);
+    debug_vector("indptr", indptr, out);
+    debug_vector("expand_indptr", expand_indptr, out);
+    debug_vector("indices", indices, out);
     debug_vector("in_degree", in_degree, out);
-    // debug_vector("missing_node_ids", missing_node_ids, out);
-    // debug_vector("owned_out_nodes", owned_out_nodes, out);
+    debug_vector("missing_node_ids", missing_node_ids, out);
+    debug_vector("owned_out_nodes", owned_out_nodes, out);
 
     // vector<long> from_ids[4];
     // vector<long> to_ids[4];

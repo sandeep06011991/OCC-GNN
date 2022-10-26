@@ -137,13 +137,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print("not setting seeds, use this to match accuracy")
     #     set_all_seeds(seed)
 
-    if proc_id ==0:
-        print(args.test_graph_dir)
-        if args.test_graph_dir != None:
-            device = 0
-            test_acc_func = TestAccuracy(args.test_graph_dir, device)
-        else:
-            test_acc_func = None
+
     #     graph_name = "test_graph"
     #     fanout = -1
     #     deterministic = true
@@ -154,10 +148,19 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     if args.model == "gcn":
         model = get_sage_distributed(args.num_hidden, features, num_classes,
             proc_id, args.deterministic, args.model)
+        self_edge = False
     else:
         assert(args.model == "gat")
         model = get_gat_distributed(args.num_hidden, features, num_classes,
             proc_id, args.deterministic, args.model)
+        self_edge = True
+    if proc_id ==0:
+        print(args.test_graph_dir)
+        if args.test_graph_dir != None:
+            device = 0
+            test_acc_func = TestAccuracy(args.test_graph_dir, device, self_edge)
+        else:
+            test_acc_func = None
     model = model.to(proc_id)
     model =  DistributedDataParallel(model, device_ids = [proc_id],\
                 output_device = proc_id)

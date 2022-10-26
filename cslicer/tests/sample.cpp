@@ -30,6 +30,7 @@ void aggregate(std::vector<long>& layer_nds, \
         t  += acc;
       }
     }
+    // std::cout << "aggregated value of sample" << layer_nds[i] <<  " " << t <<"\n";
 
     out[src] = (t/degree[i]) + self;
   }
@@ -68,8 +69,10 @@ void aggregate(vector<int> &out, vector<int> &in, BiPartite *bp){
           if(in[indices[off]] < 0){
             std::cout <<"Incorrect read "<<  indices[off] << " " << in[indices[off]] <<"\n";
           }
-          // assert(in[indices[off]] > 0);
+          assert(in[indices[off]] >= 0);
       }
+      // std::cout << "Bipartite aggregated value of sample" << bp->out_nodes[i] <<  " " << t <<"\n";
+
       out[i] = t;
     }
 }
@@ -94,6 +97,9 @@ void pull_own_node(BiPartite *bp,
   in.resize(bp->owned_out_nodes.size());
   for(int i=0;i< bp->owned_out_nodes.size(); i++){
     in[i] = out[bp->owned_out_nodes[i]];
+    if(in[i] < 0){
+      std::cout << "Mistake" << bp->owned_out_nodes[i] <<"\n";
+    }
     assert(in[i] >= 0);
   }
 }
@@ -108,9 +114,12 @@ int sample_flow_up_ps(PartitionedSample &s,
   spdlog::info("Ignore the perf results as this is wrong");
   std::cout << "start test \n";
   for(int i=0;i<4; i++ ){
+     in[i].clear();
+     std::cout << "cache hit ratio" << s.cache_hit[i].size() <<":" << s.refresh_map[i].size() << "\n";
       for (int j:s.cache_hit[i]){
-      in[i].push_back(test_storage_map[i][j]);
-    }
+          assert(test_storage_map[i][j] >=0);
+          in[i].push_back(test_storage_map[i][j]);
+        }
     for(int j:s.refresh_map[i]){
       in[i].push_back(j);
     }
@@ -157,18 +166,18 @@ void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
   std::vector<int> storage_map[4], int gpu_capacity[4], int num_nodes){
     int correct = sample_flow_up_sample(s, num_nodes);
     std::cout << "correct " << correct <<"\n";
-    for(int i=0;i<4;i++){
-      std::vector<long> add  = ps.layers[2].bipartite[i]->missing_node_ids;
-      std::cout << "missing node size " << add.size() << "\n";
-      int c = gpu_capacity[i];
-      assert(storage_map[i].size() == gpu_capacity[i]);
-      for(auto nd: add){
-        storage_map[i].push_back(nd);
-        std::cout << "replacing  " << nd <<" ";
-        c ++;
-      }
-      std::cout << "\n";
-    }
+    // for(int i=0;i<4;i++){
+    //   std::vector<long> add  = ps.layers[2].bipartite[i]->missing_node_ids;
+    //   std::cout << "missing node size " << add.size() << "\n";
+    //   int c = gpu_capacity[i];
+    //   assert(storage_map[i].size() == gpu_capacity[i]);
+    //   for(auto nd: add){
+    //     storage_map[i].push_back(nd);
+    //     std::cout << "replacing  " << nd <<" ";
+    //     c ++;
+    //   }
+    //   std::cout << "\n";
+    // }
     std::cout << "Void start sample flow up \n";
     std::vector<int> ret(4);
     int out = sample_flow_up_ps(ps, storage_map, ret );

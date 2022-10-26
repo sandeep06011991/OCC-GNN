@@ -9,31 +9,39 @@ import torch
 # [0,5,1,6,2,7,1,8] layer l
 # everything is connected to everything
 class cobject:
-    indptr = torch.tensor([0, 2, 4, 6, 8])
-    # Fix me:
-    # Self nodes are now handled inpependent of the data graph
-    # Therefore must not appear in indices and indptr
-    indices = torch.tensor([0, 1, 0, 1, 0, 1, 0, 1])
-    expand_indptr = torch.tensor([0, 0, 1, 1, 2, 2, 3, 3])
-    num_in_nodes = 2
-    indegree = torch.tensor([3])
-    num_out_nodes = 4
-    gpu_id = 0
-    out_nodes = torch.tensor([0, 1, 2, 3])
-    owned_out_nodes = torch.tensor([gpu_id])
-    in_nodes = torch.tensor([0, 1])
-    from_ids = {}
-    to_ids = {}
-    self_ids_in = torch.tensor([0])
-    self_ids_out = torch.tensor([gpu_id])
-    in_degrees = torch.tensor([2])
-    for i in range(4):
-        if i == gpu_id:
-            from_ids[i] = torch.tensor([])
-            to_ids[i] = torch.tensor([])
-        else:
-            from_ids[i] = torch.tensor([gpu_id])
-            to_ids  [i] = torch.tensor([i])
+    def __init__(self, gpu_id):
+        self.gpu_id = gpu_id
+        self.indptr = torch.tensor([0, 2, 4, 6, 8], device = self.gpu_id, dtype = torch.long)
+        # Fix me:
+        # Self nodes are now handled inpependent of the data graph
+        # Therefore must not appear in indices and indptr
+        self.indices = torch.tensor([0, 1, 0, 1, 0, 1, 0, 1], device = self.gpu_id, dtype = torch.long)
+        self.expand_indptr = torch.tensor([0, 0, 1, 1, 2, 2, 3, 3], device = self.gpu_id, dtype = torch.long)
+        self.num_in_nodes = 2
+        self.indegree = torch.tensor([3], device = self.gpu_id, dtype = torch.long)
+        self.num_out_nodes = 4
+        self.gpu_id = gpu_id
+        self.out_nodes = torch.tensor([0, 1, 2, 3], device = self.gpu_id, dtype = torch.long)
+        self.owned_out_nodes = torch.tensor([gpu_id], device = self.gpu_id, dtype = torch.long)
+        self.in_nodes = torch.tensor([0, 1], device = self.gpu_id, dtype = torch.long)
+        self.from_ids = {}
+        self.to_ids = {}
+        self.self_ids_in = torch.tensor([0], device = self.gpu_id, dtype = torch.long)
+        self.self_ids_out = torch.tensor([gpu_id], device = self.gpu_id, dtype = torch.long)
+        self.in_degrees = torch.tensor([2], device = self.gpu_id, dtype = torch.long)
+        for i in range(4):
+            if i == gpu_id:
+                self.from_ids[i] = torch.tensor([], device = self.gpu_id, dtype = torch.long)
+                self.to_ids[i] = torch.tensor([], device = self.gpu_id, dtype = torch.long)
+            else:
+                self.from_ids[i] = torch.tensor([gpu_id], device = self.gpu_id, dtype = torch.long)
+                self.to_ids  [i] = torch.tensor([i], device = self.gpu_id, dtype = torch.long)
+
+
+def get_local_bipartite_graph(gpu_id):
+    bp = Bipartite()
+    bp.construct_from_cobject(cobject(gpu_id))
+    return bp
 
 def get_dummy_bipartite_graph():
     bp = Bipartite()

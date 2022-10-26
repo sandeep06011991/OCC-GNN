@@ -10,10 +10,11 @@ class Slice{
   // Used for new node ordering
   int gpu_capacity[4];
   DuplicateRemover *dr;
+  bool self_edge;
 public:
 
   Slice(std::vector<int> workload_map,
-      std::vector<int> storage_map[4]){
+      std::vector<int> storage_map[4], bool self_edge){
     this->workload_map = workload_map;
     #pragma unroll
     for(int i=0;i<4;i++){
@@ -29,6 +30,7 @@ public:
       gpu_capacity[i] = count;
     }
     dr = new DuplicateRemover(this->workload_map.size());
+    this->self_edge = self_edge;
   }
 
   void slice_sample(Sample &s, PartitionedSample &ps);

@@ -112,6 +112,8 @@ def main(args):
     fanout = [(int(f)) for f in fanout]
     for i in fanout:
         assert(i == fanout[0])
+        # Onlysupport same fanout currently.
+
     fanout_val = fanout[0]
     import random
     file_id = random.randint(0,10000)
@@ -139,7 +141,10 @@ def main(args):
         # When debugging at node level
         # train_nid = torch.arange(0,32)
     minibatches_per_epoch = int(len(train_nid)/minibatch_size)
-
+    if args.model == "gcn":
+        self_edge = False
+    if args.model == "gat":
+        self_edge = True
     print("Training on num nodes = ",train_nid.shape)
     # global train_nid_list
     # train_nid_list= train_nid.tolist()
@@ -162,7 +167,7 @@ def main(args):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, sample_queues[0], lock,\
                                 storage_vector, args.deterministic,
-                                proc, sm_filename_queue, no_worker_process, fanout_val, file_id))
+                                proc, sm_filename_queue, no_worker_process, fanout_val, file_id, self_edge))
         slice_producer_process.start()
         slice_producer_processes.append(slice_producer_process)
 
@@ -198,7 +203,8 @@ if __name__=="__main__":
     # training details
     argparser.add_argument('--log-every', type=int, default=20)
     argparser.add_argument('--eval-every', type=int, default=5)
-    argparser.add_argument('--lr', type=float, default=0.007)
+    argparser.add_argument('--lr', type=float, default=0.003)
+    # .007 is best
     argparser.add_argument('--num-workers', type=int, default=16,
        help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
