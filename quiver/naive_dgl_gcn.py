@@ -205,6 +205,8 @@ def run(rank, args,  data):
                 #end = offsets[device][1]
                 #hit = torch.where((input_nodes > start) & (input_nodes < end))[0].shape[0]
 
+                #hit = torch.where(input_nodes < offsets[3])[0].shape[0]
+                missed = input_nodes.shape[0] 
 
                 e1.record()
                 # Load the input features as well as output labels
@@ -252,16 +254,16 @@ def run(rank, args,  data):
             print("Accuracy: {}, device:{}, epoch:{}".format(test_accuracy, device, epoch))
 
         if rank == 0:
-            log.info("accuracy:{}".format(accuracy))
-            log.info("epoch:{}".format(epoch_time))
-            log.info("sample_time:{}".format(sample_time_epoch))
-            log.info("movement graph:{}".format(movement_time_graph_epoch))
-            log.info("movement feature:{}".format(movement_time_feature_epoch))
-            log.info("forward time:{}".format(forward_time_epoch))
-            log.info("backward time:{}".format(backward_time_epoch))
-            log.info("edges per epoch:{}".format(edges_per_epoch))
+            log.info("log accuracy:{}".format(accuracy))
+            log.info("log epoch:{}".format(epoch_time))
+            log.info("log sample_time:{}".format(sample_time_epoch))
+            log.info("log movement graph:{}".format(movement_time_graph_epoch))
+            log.info("log movement feature:{}".format(movement_time_feature_epoch))
+            log.info("log forward time:{}".format(forward_time_epoch))
+            log.info("log backward time:{}".format(backward_time_epoch))
+            log.info("log edges per epoch:{}".format(edges_per_epoch))
             log.info(data_movement_epoch)
-            log.info("data movement:{}MB".format(data_movement_epoch))
+            log.info("log data movement:{}MB".format(data_movement_epoch))
         print("EPOCH TIME",time.time() - epoch_start)
         epoch_time.append(time.time()-epoch_start)
         sample_time_epoch.append(sample_time)
@@ -291,7 +293,7 @@ def run(rank, args,  data):
     print("edges per epoch:{}".format(average(edges_per_epoch)))
     if rank == 3:
         print("accuracy:{}".format(accuracy[-1]))
-        print("epoch:{}".format(average(epoch_time)))
+        print("epoch_time:{}".format(average(epoch_time)))
         print("sample_time:{}".format(average(sample_time_epoch)))
         print("movement graph:{}".format(average(movement_time_graph_epoch)))
         print("movement feature:{}".format(average(movement_time_feature_epoch)))

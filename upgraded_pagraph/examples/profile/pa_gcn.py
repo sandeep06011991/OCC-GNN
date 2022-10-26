@@ -65,6 +65,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   # init multi process
   init_process(rank, world_size, backend)
   # load datai
+  
   if rank == 0:
     os.makedirs('{}/logs'.format(PATH_DIR),exist_ok = True)
     FILENAME= ('{}/logs/{}_{}_{}_{}.txt'.format(PATH_DIR, \
@@ -81,7 +82,7 @@ def trainer(rank, world_size, args, backend='nccl'):
 
   dataname = os.path.basename(dataset)
   remote_g = dgl.contrib.graph_store.create_graph_from_store(dataname, "shared_mem")
-
+  
   num_nodes, num_edges = remote_g.proxy.get_graph_info(dataname)
   num_nodes, num_edges = int(num_nodes), int(num_edges)
   adj, t2fid = data.get_sub_train_graph(dataset, rank, world_size)
@@ -104,11 +105,12 @@ def trainer(rank, world_size, args, backend='nccl'):
   labels = torch.LongTensor(labels)
   embed_names = ['features']
   print("Training subgraph nodes", adj.shape[0], "Main graph nodes", num_nodes)
-  cacher = storage.GraphCacheServer(remote_g, adj.shape[0], t2fid, rank, args.cache_per)
+  cacher = storage.GraphCacheServer(remote_g, num_nodes, t2fid, rank, args.cache_per)
   cacher.init_field(embed_names)
   cacher.log = True
   heads = 3
   in_feats = feat_size
+  in_dim = feat_size
   # prepare model
   num_hops = args.n_layers 
   if args.model == "gcn":
@@ -161,12 +163,9 @@ def trainer(rank, world_size, args, backend='nccl'):
   sampler = dgl.dataloading.NeighborSampler(
             [int(args.num_neighbors) for i in range(3)], replace = True)
   world_size = 4
-  train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
+  #train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
   number_of_minibatches = train_nid.shape[0]/args.batch_size
-  print(args.batch_size) 
-  print(sampler)
   g = g.add_self_loop()
-  print(g)
   dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
@@ -175,7 +174,7 @@ def trainer(rank, world_size, args, backend='nccl'):
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        prefetch_factor = 6,
+        prefetch_factor = 2,
         num_workers= 4,
         persistent_workers= True)
 
@@ -245,11 +244,8 @@ def trainer(rank, world_size, args, backend='nccl'):
           s0 = time.time()
           e4.record()
           blocks = [b.to(rank) for b in blocks]
-          for b in blocks:
-              print(b.number_of_dst_nodes(), b, "block")
           s1 = time.time()
           e5.record()
-          print("Sampled blocks", len(blocks))
           input_data = cacher.fetch_data(input_nodes)
           batch_nids = seeds
           label = labels[batch_nids]
@@ -262,14 +258,10 @@ def trainer(rank, world_size, args, backend='nccl'):
         #with torch.autograd.profiler.record_function('gpu-compute'):
         with nvtx.annotate('compute', color = 'red'):
         #if True:
-          print(input_data['features'].shape, batch_nids.shape)
           pred = model(blocks, input_data['features'])
           
           for i in range(3):
               epoch_edges_processed += blocks[i].num_edges()
-              print(blocks[i].number_of_dst_nodes(), i, "Blocks")
-          print("edges:" , epoch_edges_processed)
-          print(pred.shape, "Output")
           e2.record()
           loss = loss_fcn(pred, label)
           acc = compute_acc(pred,label)
@@ -278,7 +270,6 @@ def trainer(rank, world_size, args, backend='nccl'):
           optimizer.step()
           e3.record()
         e3.synchronize()
-        print("Training time", e1.elapsed_time(e3)/1000)
         #print("Compute time without sync", e1.elapsed_time(e2)/1000)
         forward_time_epoch += (e1.elapsed_time(e2)/1000)
         backward_time_epoch += (e2.elapsed_time(e3)/1000)
@@ -310,20 +301,18 @@ def trainer(rank, world_size, args, backend='nccl'):
         event_cache_gather.append(collect_c)
         event_cache_move.append(move_c)
         log.info("epoch:{}, cache gather {},cache move {}".format(epoch, time_cache_gather\
-                , time_cache_move))
+              , time_cache_move))
         forward_time.append(forward_time_epoch)
         backward_time.append(backward_time_epoch)
         log.info("epoch: {}, forward time:{}".format(epoch, forward_time))
         log.info("epoch: {}, backward time:{}".format(epoch, backward_time))
         #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
-        miss_rate, miss_num = cacher.get_miss_rate()
-        miss_rate_per_epoch.append(miss_rate)
+      miss_rate, miss_num = cacher.get_miss_rate()
+      miss_rate_per_epoch.append(miss_rate)
         # Append in MB
-        miss_num_per_epoch.append(miss_num * in_dim * 4 / (1024 * 1024))
+      miss_num_per_epoch.append(miss_num * in_dim * 4 / (1024 * 1024))
         #print('Epoch average miss rate: {:.4f}'.format(miss_rate))
-        edges_processed.append(epoch_edges_processed)
-        log.info("miss num: {}".format(miss_num_per_epoch))
-        log.info("edges processed: {}".format(edges_processed))
+      edges_processed.append(epoch_edges_processed)
 
     toc = time.time()
   print("Exiting training working to collect profiler results")
@@ -339,7 +328,7 @@ def trainer(rank, world_size, args, backend='nccl'):
       print("CUDA move: {:.4f}s\n".format(avg(event_cache_move)))
       print("Epoch time: {:.4f}s\n".format(avg(epoch_dur)))
       print("Miss rate: {:.4f}s\n".format(avg(miss_rate_per_epoch)))
-      print("Miss num per epoch: {:.4f}MB, device {}\n".format(int(avg(miss_num_per_epoch)),rank))
+  print("Miss num per epoch: {:.4f}MB, device {}\n".format(int(avg(miss_num_per_epoch)),rank))
   print("Edges processed per epoch: {}".format(avg(edges_processed)))
   # Profiling everything is unstable and overweight.
   # torch profiler uses events under it.
@@ -348,7 +337,8 @@ def trainer(rank, world_size, args, backend='nccl'):
   print('Total Time: {:.4f}s'.format(toc - tic))
   if rank == 0:
     remote_g.destroy()
-  remote_g.proxy = None
+  else:
+    remote_g.proxy = None
 
   print("All cleaned up")
 

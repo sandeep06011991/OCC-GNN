@@ -98,7 +98,8 @@ class GraphCacheServer:
     print("However, caching 25% of node capacity")
     self.capability = int(self.cache_per * self.node_num)
     # Step3: cache
-    if self.capability >= self.node_num:
+    # Use else block more general . 
+    if self.capability >= self.node_num and False:
       # fully cache
       print('cache the full graph...')
       full_nids = torch.arange(self.node_num).cuda(self.gpuid)
@@ -176,9 +177,9 @@ class GraphCacheServer:
       nodeflow: DGL nodeflow. all nids in nodeflow should
                 under sub-graph space
     """
-    if self.full_cached:
-      self.fetch_from_cache(input_nodes)
-      return
+    #if self.full_cached:
+    #  self.fetch_from_cache(self.localid2cacheid[input_nd])
+    #  return
     #with torch.autograd.profiler.record_function('cache-idxload'):
     # with nvtx.annotate('cache-idxload',color = 'green'):
     #   nf_nids = nodeflow._node_mapping.tousertensor()
@@ -247,7 +248,6 @@ class GraphCacheServer:
   def log_miss_rate(self, miss_num, total_num):
     self.try_num += total_num
     self.miss_num += miss_num
-
   def get_miss_rate(self):
     if self.try_num == 0:
           return 0,0
@@ -267,3 +267,6 @@ class GraphCacheServer:
     self.collect_time = 0
     self.move_time = 0
     return (a,b,c,d)
+
+  def __del__(self):
+    self.graph.proxy = None

@@ -64,7 +64,7 @@ def run_quiver(graphname, model, epochs, hidden_size, fsize, minibatch_size):
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
     try:
         accuracy  = re.findall("accuracy:(\d+\.\d+)",out)[0]
-        epoch = re.findall("epoch:(\d+\.\d+)",out)[0]
+        epoch = re.findall("epoch_time:(\d+\.\d+)",out)[0]
         sample_get  = re.findall("sample_time:(\d+\.\d+)",out)[0]
         movement_graph =  re.findall("movement graph:(\d+\.\d+)",out)[0]
         movement_feat = re.findall("movement feature:(\d+\.\d+)",out)[0]
@@ -105,17 +105,17 @@ def run_experiment_quiver( model ):
                 #("ogbn-arxiv",16, 128, 1024), \
                 # ("ogbn-arxiv",16, 128, 4096), \
                 # ("ogbn-arxiv",16, 128, 256),  \
-                #("ogbn-products",16, 100, 1024), \
-                 ("ogbn-products",16, 100, 4096), \
-                 ("ogbn-products",16, 100, 256),  \
-                 ("reorder-papers100M", 16, 128,  256),\
-                 ("reorder-papers100M", 16, 128, 4096),\
+                ("ogbn-products",16, 100, 1024), \
+                # ("ogbn-products",16, 100, 4096), \
+                # ("ogbn-products",16, 100, 256),  \
+                # ("reorder-papers100M", 16, 128,  256),\
+                # ("reorder-papers100M", 16, 128, 4096),\
                 #("reorder-papers100M", 16, 128, 1024),\
-                 ("amazon", 16, 200, 256),\
-                 ("amazon", 16, 200,4096),\
+                # ("amazon", 16, 200, 256),\
+                # ("amazon", 16, 200,4096),\
                 #("amazon", 16, 200, 1024),\
                  ]
-    no_epochs = 4
+    no_epochs = 5
     # settings = [("ogbn-arxiv",16, 128, 1024)]
     # settings = [("ogbn-papers100M",2)]
     # cache_rates = [".05",".10",".24",".5"]
@@ -133,6 +133,7 @@ def run_experiment_quiver( model ):
               " backward  | epoch_time | accuracy | data_movement | edges \n")
     for graphname, hidden_size, fsize, batch_size in settings:
         out = run_quiver(graphname, model ,no_epochs, hidden_size, fsize, batch_size)
+        print(out)
         with open('{}/exp6_{}_naive.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
             fp.write(("{} | {} | {} | {} | {} "+\
                    "| {} | {} | {} | {} | {} | {} |"+\
@@ -145,5 +146,5 @@ def run_experiment_quiver( model ):
 
 
 if __name__=="__main__":
-    #run_experiment_quiver("GAT")
+    run_experiment_quiver("GAT")
     run_experiment_quiver("GCN")

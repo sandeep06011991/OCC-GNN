@@ -48,10 +48,11 @@ echo "#SBATCH --job-name=$SLURMJOBNAME   # Job name" >> $JOBFILE
 echo "#SBATCH --mail-type=END          # Mail events (NONE, BEGIN, END, FAIL, ALL)" >> $JOBFILE
 echo "#SBATCH --mail-user=spolisetty@cs.umass.edu     # Where to send mail" >> $JOBFILE	
 echo "#SBATCH --ntasks=1                    # Run on a single CPU" >> $JOBFILE
+echo "#SBATCH --cpus-per-task=48 " >> $JOBFILE
 echo "#SBATCH --mem=200G                     # Job memory request" >> $JOBFILE
 echo "#SBATCH --time=8:00:00               # Time limit hrs:min:sec" >> $JOBFILE
 echo "#SBATCH --gres=gpu:4" >> $JOBFILE
-echo "#SBATCH --partition=gpu-preempt" >> $JOBFILE
+echo "#SBATCH --partition=gypsum-2080ti" >> $JOBFILE
 echo "#SBATCH --gpus-per-node=4" >> $JOBFILE
 echo "#SBATCH --output=$DIR/slurm-job-$SLURMJOBNAME.log   # Standard output and error log" >> $JOBFILE
 echo "#SBATCH -e $DIR/slurm-$SLURMJOBNAME.err" >> $JOBFILE
@@ -59,17 +60,17 @@ echo "#SBATCH -o $DIR/slurm-$SLURMJOBNAME.out" >> $JOBFILE
 echo "pwd; hostname; date" >> $JOBFILE
 
 echo "module load conda" >> $JOBFILE
-echo "module load cuda/10.2">> $JOBFILE
+echo "module load cuda/11.3">> $JOBFILE
 
 
 echo "source /home/spolisetty_umass_edu/.bashrc " >> $JOBFILE
 
 echo "conda deactivate" >> $JOBFILE
-echo "conda activate /work/spolisetty_umass_edu/pa-env2/" >> $JOBFILE
+echo "conda activate /work/spolisetty_umass_edu/occ-env/" >> $JOBFILE
 
 echo "echo conda setup done!" >> $JOBFILE
 
-echo "export PYTHONPATH=/home/spolisetty_umass_edu/OCC-GNN/pagraph" >> $JOBFILE
+echo "export PYTHONPATH=/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph" >> $JOBFILE
 
 echo "export DGLBACKEND=pytorch" >> $JOBFILE
 echo "export HOME=/home/spolisetty_umass_edu/OCC-GNN/" >> $JOBFILE

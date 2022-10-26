@@ -6,7 +6,9 @@
 #SBATCH --mem=200G                     # Job memory request
 #SBATCH --time=8:00:00               # Time limit hrs:min:sec
 #SBATCH --gres=gpu:1
-#SBATCH --partition=gpu-preempt
+#SBATCH --cpus-per-task=48 
+
+#SBATCH --partition=gyspsum-2080ti
 #SBATCH --output=/home/spolisetty_umass_edu/OCC-GNN/pagraph/slurm-job.log   # Standard output and error log
 #SBATCH -e slurm-%j.err
 #SBATCH -o slurm-%j.out

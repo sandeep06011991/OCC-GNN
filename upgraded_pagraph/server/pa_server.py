@@ -4,7 +4,7 @@ import argparse
 import numpy as np
 import torch
 import dgl
-from dgl import DGLGraph
+from dgl._deprecate.graph import DGLGraph
 from dgl.contrib.sampling import SamplerPool
 import dgl.function as fn
 import multiprocessing
@@ -12,7 +12,7 @@ import multiprocessing
 
 ROOT_DIR = "/work/spolisetty_umass_edu/data/pagraph"
 
-PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
+PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
 path_set = False
 for p in sys.path:
     print(p)
@@ -32,7 +32,7 @@ def main(args):
   dataset = "{}/{}/".format(ROOT_DIR, args.dataset)
   coo_adj, feat = data.get_graph_data(dataset)
 
-  graph = dgl.DGLGraph(coo_adj, readonly=True)
+  graph = DGLGraph(coo_adj, readonly=True)
   features = torch.FloatTensor(feat)
 
   graph_name = os.path.basename(dataset)
@@ -50,7 +50,7 @@ def main(args):
   g = dgl.contrib.graph_store.create_graph_store_server(
         graph, graph_name,
         'shared_mem', args.num_workers, 
-        False, edge_dir='in')
+        None)
   
   # calculate norm for gcn
   dgl_g = DGLGraph(graph, readonly=True)

@@ -3,7 +3,7 @@ import subprocess
 import os
 import time
 
-ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN/pagraph"
+ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
 DATA_DIR = "/home/spolisetty_umass_edu/OCC-GNN/experiments/exp6/"
 import sys
 import re
@@ -86,8 +86,18 @@ def start_client(filename, model, num_hidden, batch_size, cache_per):
     move  = float(re.findall("CUDA move: (\d+\.\d+)s",output)[0])
     epoch  = float(re.findall("Epoch time: (\d+\.\d+)s",output)[0])
     miss_rate = float(re.findall("Miss rate: (\d+\.\d+)s",output)[0])
-    miss_num = int(float(re.findall("Miss num per epoch: (\d+\.\d+)MB, device \d+",output)[0]))
-    edges_processed = int(float(re.findall("Edges processed per epoch: (\d+\.\d+)",output)[0]))
+    miss_num = re.findall("Miss num per epoch: (\d+\.\d+)MB, device \d+",output)
+    s = 0
+    e =0
+    edges_processed = re.findall("Edges processed per epoch: (\d+\.\d+)",output)
+    for i in range(4):
+        s = s + int(float(miss_num[i]))
+        e = e + int(float(edges_processed[i]))
+    miss_num = s/4    
+    edges_processed = e/4
+    #miss_num = int(float(re.findall("Miss num per epoch: (\d+\.\d+)MB, device \d+",output)[0]))
+    
+    #edges_processed = int(float(re.findall("Edges processed per epoch: (\d+\.\d+)",output)[0]))
     return {"sample":sample, "forward": forward, "backward": backward,\
             "move_feat":"{:.3f}".format(move + collect), "epoch_time":epoch, "miss_rate": miss_rate, "move_graph":move_graph\
                 , "accuracy": accuracy, "miss_num":miss_num, "edges":edges_processed}
