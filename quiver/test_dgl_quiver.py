@@ -84,7 +84,7 @@ def run(rank, args,  data):
     dist.init_process_group('nccl', rank=rank, world_size=4)
 
     device = rank
-    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets = data
+    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets, test_feat = data
     if args.data == 'gpu':
         nfeat = nfeat.to(rank)
     if args.sample_gpu:
@@ -199,22 +199,36 @@ def run(rank, args,  data):
                 #batch_pred = model(blocks, batch_inputs)
                 print("start interation")
                 #with torch.autograd.profiler.profile(enabled=(rank == 0), use_cuda=True, profile_memory = True) as prof:
-                e3.record()
-                print(torch.cuda.current_stream())
+                if True:
+                    e3.record()
+                    print(torch.cuda.current_stream())
                     #with torch.autograd.profiler.record_function("model_loss"):
-                e2.record()
-                batch_pred = model(blocks, batch_inputs)
-                e3.record()
-                with torch.autograd.profiler.profile(enabled=(rank == 0), use_cuda=True, profile_memory = True) as prof:
-                    loss = loss_fcn(batch_pred, batch_labels)
+                    for i in range(1):
+                        e2.record()
+                        #batch_pred = model(blocks, batch_inputs)
+                        with torch.autograd.profiler.profile(enabled=(rank == 0), use_cuda=True, profile_memory = True) as prof:
+                            batch_pred = model(blocks, batch_inputs)
+                            e3.record()
+                            loss = loss_fcn(batch_pred, batch_labels)
                     #e3.record()
-                    loss.backward()
-                    e4.record()
-                    e4.synchronize()
-                    print("Forward time", e2.elapsed_time(e3)/1000)
-                    print("Backward time", e3.elapsed_time(e4)/1000)
-                if rank==0:    
-                    print(prof.key_averages().table(sort_by='cuda_time_total'))
+                            loss.backward()
+                            e4.record()
+                            e4.synchronize()
+                        if rank == 0 :
+                            print(prof.key_averages().table(sort_by='cuda_time_total'))
+
+                        f1 = e2.elapsed_time(e3)/1000
+                        b1 = e3.elapsed_time(e4)/1000
+                        batch_inputs = test_feat[input_nodes].to(device)
+                        e2.record()
+                        batch_pred = model(blocks, batch_inputs)
+                        e3.record()
+                        loss = loss_fcn(batch_pred, batch_labels)
+                        loss.backward()
+                        e4.record()
+                        e4.synchronize()
+                        print("Forward time1", e2.elapsed_time(e3)/1000)
+                        print("Backward time1", e3.elapsed_time(e4)/1000)
                 print("end iteration")
                 optimizer.step()
                 sample_time += (t2 - t1)
@@ -328,6 +342,7 @@ if __name__ == '__main__':
 
     # feat = graph.ndata.pop('feat')
     #year = graph.ndata.pop('year')
+    test_feat = feat.clone()
     if args.data == 'cpu':
         nfeat = feat
         offsets = {}
@@ -384,7 +399,7 @@ if __name__ == '__main__':
     # This avoids creating certain formats in each data loader process, which saves momory and CPU.
     graph.create_formats_()
     # Pack data
-    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets
+    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, test_feat
 
     #test_accs = []
     #for i in range(1, 11):

@@ -105,15 +105,15 @@ def run_experiment_quiver( model ):
                 #("ogbn-arxiv",16, 128, 1024), \
                 # ("ogbn-arxiv",16, 128, 4096), \
                 # ("ogbn-arxiv",16, 128, 256),  \
-                ("ogbn-products",16, 100, 1024), \
+                #("ogbn-products",16, 100, 1024), \
                 # ("ogbn-products",16, 100, 4096), \
                 # ("ogbn-products",16, 100, 256),  \
                 # ("reorder-papers100M", 16, 128,  256),\
                 # ("reorder-papers100M", 16, 128, 4096),\
                 #("reorder-papers100M", 16, 128, 1024),\
                 # ("amazon", 16, 200, 256),\
-                # ("amazon", 16, 200,4096),\
-                #("amazon", 16, 200, 1024),\
+                #("amazon", 16, 200,4096),\
+                ("amazon", 16, 200, 1024),\
                  ]
     no_epochs = 5
     # settings = [("ogbn-arxiv",16, 128, 1024)]

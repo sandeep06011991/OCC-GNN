@@ -1,0 +1,1 @@
+b'/home/q91/occ-env/lib/python3.8/site-packages/dgl/heterograph.py:3516: DGLWarning: DGLGraph.out_degree is deprecated. Please use DGLGraph.out_degrees\n  dgl_warning("DGLGraph.out_degree is deprecated. Please use DGLGraph.out_degrees")\n'

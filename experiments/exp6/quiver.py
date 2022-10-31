@@ -84,15 +84,16 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
 def run_experiment_quiver( model ):
     # graph, hidden_size, fsize, minibatch_size
     settings = [
-                ("ogbn-arxiv",16, 128, 1024), \
-                ("ogbn-arxiv",16, 128, 4096), \
-                ("ogbn-arxiv",16, 128, 256),  \
-                ("ogbn-products",16, 100, 1024), \
-                ("ogbn-products",16, 100, 4096), \
-                ("ogbn-products",16, 100, 256),  \
-                ("reorder-papers100M", 16, 256),\
-                ("reorder-papers100M", 16, 4096),\
-                ("reorder-papers100M", 16, 1024),\
+                ("amazon", 16, 200, 1024)    
+            #("ogbn-arxiv",16, 128, 1024), \
+                #("ogbn-arxiv",16, 128, 4096), \
+                #("ogbn-arxiv",16, 128, 256),  \
+                #("ogbn-products",16, 100, 1024), \
+                #("ogbn-products",16, 100, 4096), \
+                #("ogbn-products",16, 100, 256),  \
+                #("reorder-papers100M", 16, 256),\
+                #("reorder-papers100M", 16, 4096),\
+                #("reorder-papers100M", 16, 1024),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -102,12 +103,12 @@ def run_experiment_quiver( model ):
                  # ("com-orkut",5, 256, 256, 4096) \
                  ]
     no_epochs = 6
-    settings = [("ogbn-arxiv",16, 128, 1024)]
+    #settings = [("ogbn-arxiv",16, 128, 1024)]
     # settings = [("ogbn-papers100M",2)]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
     cache_rates = ["0", ".10", ".25"]
-    #cache_rates = [".25"]
+    cache_rates = [".10"]
     #settings = [settings[0]]
     check_path()
     print(settings)

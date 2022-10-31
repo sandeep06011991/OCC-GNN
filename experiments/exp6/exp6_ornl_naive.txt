@@ -1,0 +1,4 @@
+sha:87e2aaa6e72d9868f155feb5e3b050c6d2336568, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data_movement | edges 
+amazon | ornl | 16 | 200 | 4096 | GAT | 30.66 | 8.07 | 31.53 | 6.41 | 25.65 | 103.24 | 0.38  | 56220 | 472462870 
+amazon | ornl | 16 | 200 | 4096 | GCN | 32.21 | 8.64 | 32.85 | 2.60 | 21.63 | 98.47 | 0.63  | 56223 | 472199250 

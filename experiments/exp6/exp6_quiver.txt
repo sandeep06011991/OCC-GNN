@@ -1,0 +1,4 @@
+sha:87e2aaa6e72d9868f155feb5e3b050c6d2336568, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data_movement | edges 
+sha:87e2aaa6e72d9868f155feb5e3b050c6d2336568, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data_movement | edges 

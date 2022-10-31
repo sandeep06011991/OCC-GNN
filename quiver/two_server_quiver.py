@@ -30,6 +30,7 @@ def average(ls):
     return (sum(ls[1:]) -a -b)/(len(ls)-3)
 
 ROOT_DIR ="/home/q91/torch-quiver/srcs/python"
+
 import sys
 def check_path():
     path_set = False
@@ -77,16 +78,16 @@ def load_subtensor(nfeat, labels, seeds, input_nodes, device):
 
 # Entry point
 
-def run(rank, args,  data):
+def run(rank, args,  data, device_list):
     # Unpack data
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '11112'
-    dist.init_process_group('nccl', rank=rank, world_size=4)
-
-    device = rank
+    dist.init_process_group('nccl', rank=rank, world_size=len(device_list))
+    device = device_list[rank]
+    torch.cuda.set_device(device)
     train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets = data
     if args.data == 'gpu':
-        nfeat = nfeat.to(rank)
+        nfeat = nfeat.to(device)
     if args.sample_gpu:
         train_nid = train_nid.to(device)
         # copy only the csc to the GPU
@@ -98,7 +99,6 @@ def run(rank, args,  data):
             [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
     world_size = 4
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
-    print("expected number of mini batches", train_nid.shape[0]/args.batch_size)
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
@@ -107,7 +107,7 @@ def run(rank, args,  data):
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        # prefetch_factor = 8,
+        prefetch_factor = 8,
         num_workers=0 if args.sample_gpu else args.num_workers,
         persistent_workers=not args.sample_gpu)
 
@@ -120,8 +120,14 @@ def run(rank, args,  data):
         heads = 3
         model = GAT(in_feats, args.num_hidden, \
                 n_classes , heads, args.num_layers, F.relu, args.dropout)
+    print("Device", device)
     model = model.to(device)
-    model = DistributedDataParallel(model, device_ids=[device])
+    print(device)
+    t = torch.cuda.get_device_properties(0).total_memory
+    r = torch.cuda.memory_reserved(0)
+    a = torch.cuda.memory_allocated(0)
+    print("Current memory", r-a)
+    model = DistributedDataParallel(model, device_ids= [device])
     loss_fcn = nn.CrossEntropyLoss()
     optimizer = optim.Adam(
         model.parameters(), lr=args.lr, weight_decay=args.wd)
@@ -170,7 +176,6 @@ def run(rank, args,  data):
                 optimizer.zero_grad()
                 t1 = time.time()
                 input_nodes, seeds, blocks = next(dataloader_i)
-
                 t2 = time.time()
                 # copy block to gpu
                 blocks = [blk.to(device) for blk in blocks]
@@ -180,14 +185,14 @@ def run(rank, args,  data):
                 for blk in blocks:
                     blk.create_formats_()
                     edges_computed += blk.edges()[0].shape[0]
-                #print(edges_computed)
+                #print(edges_computed)    
                 t3 = time.time()
                 #start = offsets[device][0]
                 #end = offsets[device][1]
                 #hit = torch.where((input_nodes > start) & (input_nodes < end))[0].shape[0]
-
-                hit = torch.where(input_nodes < offsets[3])[0].shape[0]
-                missed = input_nodes.shape[0] - hit
+                
+                #hit = torch.where(input_nodes < offsets[3])[0].shape[0]
+                #missed = input_nodes.shape[0] - hit
 
                 e1.record()
                 # Load the input features as well as output labels
@@ -196,26 +201,15 @@ def run(rank, args,  data):
                 e2.record()
                 t4 = time.time()
                 # Compute loss and prediction
-                #batch_pred = model(blocks, batch_inputs)
-                print("start interation")
-                #with torch.autograd.profiler.profile(enabled=(rank == 0), use_cuda=True, profile_memory = True) as prof:
-                e3.record()
-                print(torch.cuda.current_stream())
-                    #with torch.autograd.profiler.record_function("model_loss"):
-                e2.record()
-                batch_pred = model(blocks, batch_inputs)
-                e3.record()
                 with torch.autograd.profiler.profile(enabled=(rank == 0), use_cuda=True, profile_memory = True) as prof:
+                    e2.record()
+                    batch_pred = model(blocks, batch_inputs)
+                    e3.record()
                     loss = loss_fcn(batch_pred, batch_labels)
                     #e3.record()
                     loss.backward()
                     e4.record()
                     e4.synchronize()
-                    print("Forward time", e2.elapsed_time(e3)/1000)
-                    print("Backward time", e3.elapsed_time(e4)/1000)
-                if rank==0:    
-                    print(prof.key_averages().table(sort_by='cuda_time_total'))
-                print("end iteration")
                 optimizer.step()
                 sample_time += (t2 - t1)
                 movement_graph_time += (t3 - t2)
@@ -223,15 +217,16 @@ def run(rank, args,  data):
                 #print("Time feature", device, e1.elapsed_time(e2)/1000)
                 #print("Expected bandwidth", missed * nfeat.shape[1] * 4/ ((e1.elapsed_time(e2)/1000) * 1024 * 1024 * 1024), "GB device", rank, "cache rate", hit/(hit + missed))
                 movement_feature_time += max(t4-t3, e1.elapsed_time(e2)/1000)
+                if rank == 0:
+                    print("Anomoly",(t4-t3), (e1.elapsed_time(e2)/1000), e2.elapsed_time(e3)/1000)
                 forward_time += e2.elapsed_time(e3)/1000
                 backward_time += e3.elapsed_time(e4)/1000
-                data_movement += (missed * nfeat.shape[1] * 4/(1024 * 1024))
-                if args.early_stopping and step ==20:
+                #data_movement += (missed * nfeat.shape[1] * 4/(1024 * 1024))
+                if args.early_stopping and step ==5:
                     break
                 step = step + 1
-                print(step)
-                print("forward time", forward_time)
-                print("backward time", backward_time)
+                #print("forward time", e2.elapsed_time(e3)/1000)
+                #print("backward time", e3.elapsed_time(e4)/1000)
                 total_loss += loss.item()
                 total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
         #        pbar.update(args.batch_size)
@@ -262,7 +257,7 @@ def run(rank, args,  data):
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 final_test_acc = test_acc
-    if rank == 3 or True:
+    if rank == 0 or True:
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch:{}".format(average(epoch_time)))
         print("sample_time:{}".format(average(sample_time_epoch)))
@@ -301,10 +296,7 @@ if __name__ == '__main__':
 
     args = argparser.parse_args()
     assert args.model in ["GCN","GAT"]
-    if args.gpu >= 0:
-        device = th.device('cuda:%d' % args.gpu)
-    else:
-        device = th.device('cpu')
+    device = th.device('cpu')
 
     # load ogbn-products data
     root = "/mnt/bigdata/sandeep/"
@@ -328,6 +320,7 @@ if __name__ == '__main__':
 
     # feat = graph.ndata.pop('feat')
     #year = graph.ndata.pop('year')
+    device_list = [1,2]
     if args.data == 'cpu':
         nfeat = feat
         offsets = {}
@@ -335,12 +328,12 @@ if __name__ == '__main__':
     elif args.data == 'gpu':
         nfeat = feat.to(device)
     elif args.data == 'quiver':
-        quiver.init_p2p(device_list = [0,1,2,3])
+        quiver.init_p2p(device_list = device_list)
         csr_topo = quiver.CSRTopo(th.stack(graph.edges('uv')))
         cache_size = int(float(args.cache_per) * feat.shape[0] * feat.shape[1] * 4/(1024 * 1024))
         device_cache_size = "{}M".format(cache_size)
         print("calculated cache_size ", cache_size)
-        if float(args.cache_per) > .25:
+        if float(args.cache_per) > .25 and False:
             cache_policy = "device_replicate"
             last_node_stored = nfeat.shape[0]
         else:
@@ -349,22 +342,23 @@ if __name__ == '__main__':
             #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
             #    end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
             #    offsets[device] = (start,end)
-        nfeat = quiver.Feature(rank=0, device_list=[0,1,2,3],
+        nfeat = quiver.Feature(rank=device_list[0], device_list=device_list,
                                #device_cache_size="200M",
                                device_cache_size = device_cache_size,
                                cache_policy = cache_policy)
                                #cache_policy="device_replicate",
                                #csr_topo=csr_topo)
         nfeat.from_cpu_tensor(feat)
+        
         if float(args.cache_per) <= .25:
-            if len(nfeat.clique_tensor_list) != 0:
-                last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
-            else:
-                last_node_stored = 0
+            #if len(nfeat.clique_tensor_list) != 0:
+            pass
+            #    last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
+            #else:
+            #    last_node_stored = 0
         print("Using quiver feature")
-        print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
+        #offsets[3] = last_node_stored
         offsets = {}
-        offsets[3] = last_node_stored
         # Temporary disable
         #for device in range(4):
         #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
@@ -394,10 +388,10 @@ if __name__ == '__main__':
     #test_accs = th.tensor(test_accs)
     print('============================')
     #print(f'Final Test: {test_accs.mean():.4f} ± {test_accs.std():.4f}')
-    world_size = 4
+    world_size = len(device_list)
     mp.spawn(
         run,
-        args=(args,  data),
+        args=(args,  data, device_list),
         nprocs=world_size,
         join=True
     )

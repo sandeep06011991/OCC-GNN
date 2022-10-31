@@ -165,6 +165,8 @@ def run(rank, args,  data):
     e3 = torch.cuda.Event(enable_timing = True)
     e4 = torch.cuda.Event(enable_timing = True)
     test_accuracy_list = []
+    prof = torch.autograd.profiler.profile(enabled=(rank==0), use_cuda=True, profile_memory = True) 
+    prof.__enter__()
     for epoch in range(args.num_epochs):
         tic = time.time()
 
@@ -215,14 +217,22 @@ def run(rank, args,  data):
                 e2.record()
                 t4 = time.time()
                 # Compute loss and prediction
-                with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
+                batch_pred = model(blocks, batch_inputs)
+                print("start iteration")
+                #with torch.autograd.profiler.record_function('model_loss'):
+                for j in range(10):
+                    e2.record()
                     batch_pred = model(blocks, batch_inputs)
-                    e3.record()
+                    e3.record(torch.cuda.current_stream())
+                    print(torch.cuda.current_stream())
                     loss = loss_fcn(batch_pred, batch_labels)
                     #e3.record()
                     loss.backward()
-                    e4.record()
-                e4.synchronize()
+                    e4.record(torch.cuda.current_stream())
+                    e4.synchronize()
+                    print("forward time", e2.elapsed_time(e3)/1000)
+                    print("backward time",e3.elapsed_time(e4)/1000)
+                print("end iteration")
                 optimizer.step()
                 sample_time += (t2 - t1)
                 movement_graph_time += (t3 - t2)
@@ -233,14 +243,14 @@ def run(rank, args,  data):
                 forward_time += e2.elapsed_time(e3)/1000
                 backward_time += e3.elapsed_time(e4)/1000
                 data_movement += (batch_inputs.shape[0] * nfeat.shape[1] * 4/(1024 * 1024))
-                if args.early_stopping and step ==5:
+                if args.early_stopping and step ==20:
                     break
                 step = step + 1
                 if rank == 0:
                     log.info("step {}, epoch {}, number_of_minibatches {}".format(step, epoch, number_of_minibatches))
 
-                #print("forward time", e2.elapsed_time(e3)/1000)
-                #print("backward time", e3.elapsed_time(e4)/1000)
+                print("forward time", forward_time)
+                print("backward time", backward_time)
                 total_loss += loss.item()
                 total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
         #        pbar.update(args.batch_size)
@@ -254,16 +264,16 @@ def run(rank, args,  data):
             print("Accuracy: {}, device:{}, epoch:{}".format(test_accuracy, device, epoch))
 
         if rank == 0:
-            log.info("log accuracy:{}".format(accuracy))
-            log.info("log epoch:{}".format(epoch_time))
-            log.info("log sample_time:{}".format(sample_time_epoch))
-            log.info("log movement graph:{}".format(movement_time_graph_epoch))
-            log.info("log movement feature:{}".format(movement_time_feature_epoch))
-            log.info("log forward time:{}".format(forward_time_epoch))
-            log.info("log backward time:{}".format(backward_time_epoch))
-            log.info("log edges per epoch:{}".format(edges_per_epoch))
+            log.info("log_accuracy:{}".format(accuracy))
+            log.info("log_epoch:{}".format(epoch_time))
+            log.info("log_sample_time:{}".format(sample_time_epoch))
+            log.info("log_movement graph:{}".format(movement_time_graph_epoch))
+            log.info("log_movement feature:{}".format(movement_time_feature_epoch))
+            log.info("log_forward time:{}".format(forward_time_epoch))
+            log.info("log_backward time:{}".format(backward_time_epoch))
+            log.info("log_edges per epoch:{}".format(edges_per_epoch))
             log.info(data_movement_epoch)
-            log.info("log data movement:{}MB".format(data_movement_epoch))
+            log.info("log_data movement:{}MB".format(data_movement_epoch))
         print("EPOCH TIME",time.time() - epoch_start)
         epoch_time.append(time.time()-epoch_start)
         sample_time_epoch.append(sample_time)
@@ -280,7 +290,8 @@ def run(rank, args,  data):
         accuracy.append(approx_acc)
         print(f'Epoch {epoch:02d}, Loss: {loss:.4f}, Approx. Train: {approx_acc:.4f}, Epoch Time: {time.time() - tic:.4f}')
     if rank == 0 :
-        #print(prof.key_averages().table(sort_by='cuda_time_total'))
+        prof.__exit__()
+        print(prof.key_averages().table(sort_by='cuda_time_total'))
         print("Test Accuracy ###########", test_accuracy_list)
         #
         # if epoch >= 10:

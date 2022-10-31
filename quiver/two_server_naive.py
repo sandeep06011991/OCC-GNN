@@ -1,5 +1,5 @@
 # Reaches around 0.7866 ± 0.0041 test accuracy.
-
+import logging
 import dgl
 import torch
 import torch as th
@@ -20,6 +20,21 @@ import torch.autograd.profiler as profiler
 from dgl_sage import SAGE
 from dgl_gat import GAT
 
+def get_data_dir():
+    import os
+    username = os.environ['USER']
+    if username == 'spolisetty_umass_edu':
+        DATA_DIR = "/work/spolisetty_umass_edu/data"
+        PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN"
+    if username == "spolisetty":
+        DATA_DIR = "/data/sandeep"
+        PATH_DIR = "/home/spolisetty/OCC-GNN"
+    if username == "q91":
+        DATA_DIR = "/mnt/bigdata/sandeep"
+        PATH_DIR = "/home/q91/OCC-GNN"
+    return DATA_DIR,PATH_DIR
+
+DATA_DIR, PATH_DIR = get_data_dir()
 def average(ls):
     if(len(ls) == 1):
         return ls[0]
@@ -29,21 +44,6 @@ def average(ls):
     b = min(ls[1:])
     return (sum(ls[1:]) -a -b)/(len(ls)-3)
 
-ROOT_DIR ="/home/q91/torch-quiver/srcs/python"
-import sys
-def check_path():
-    path_set = False
-    for p in sys.path:
-        if ROOT_DIR in p:
-            path_set = True
-    if (not path_set):
-        print(sys.path)
-        sys.path.append(ROOT_DIR)
-        print("Setting Path")
-        print(sys.path)
-
-check_path()
-import quiver
 def compute_acc(pred, labels):
     """
     Compute the accuracy of prediction given the labels.
@@ -51,7 +51,7 @@ def compute_acc(pred, labels):
     return (th.argmax(pred, dim=1) == labels).float().sum() / len(pred)
 
 
-def evaluate(model, g, nfeat, labels, val_nid, test_nid, device):
+def evaluate(model, g, nfeat, labels, test_nid, device):
     """
     Evaluate the model on the validation set specified by ``val_mask``.
     g : The entire graph.
@@ -64,29 +64,45 @@ def evaluate(model, g, nfeat, labels, val_nid, test_nid, device):
     with th.no_grad():
         pred = model.module.inference(g, nfeat, device)
     model.train()
-    return compute_acc(pred[val_nid], labels[val_nid]), compute_acc(pred[test_nid], labels[test_nid])
+    return compute_acc(pred[test_nid], labels[test_nid].to(device))
 
 
 def load_subtensor(nfeat, labels, seeds, input_nodes, device):
     """
     Extracts features and labels for a set of nodes.
     """
+    print(nfeat.device, input_nodes.device, "checl")
     batch_inputs = nfeat[input_nodes].to(device)
     batch_labels = labels[seeds].to(device)
     return batch_inputs, batch_labels
 
 # Entry point
 
-def run(rank, args,  data):
+def run(rank, args,  data, device_list):
     # Unpack data
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '11112'
-    dist.init_process_group('nccl', rank=rank, world_size=4)
+    dist.init_process_group('nccl', rank=rank, world_size=len(device_list))
 
-    device = rank
-    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets = data
-    if args.data == 'gpu':
-        nfeat = nfeat.to(rank)
+    device = device_list[rank]
+
+    torch.cuda.set_device(device)
+    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets, test_graph = data
+    if rank == 0:
+      os.makedirs('{}/quiver/logs_naive'.format(PATH_DIR),exist_ok = True)
+      FILENAME= ('{}/quiver/logs_naive/{}_{}_{}.txt'.format(PATH_DIR, \
+               args.graph, args.batch_size, args.model))
+
+      fileh = logging.FileHandler(FILENAME, 'w')
+      formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+      fileh.setFormatter(formatter)
+
+      log = logging.getLogger()  # root logger
+      log.addHandler(fileh)      # set the new handler
+      log.setLevel(logging.INFO)
+
+    #if args.data == 'gpu':
+    #    nfeat = nfeat.to(rank)
     if args.sample_gpu:
         train_nid = train_nid.to(device)
         # copy only the csc to the GPU
@@ -98,16 +114,16 @@ def run(rank, args,  data):
             [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
     world_size = 4
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
-    print("expected number of mini batches", train_nid.shape[0]/args.batch_size)
+    number_of_minibatches = train_nid.shape[0]/args.batch_size
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
         sampler,
-        device=device,
+        device='cpu',
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        # prefetch_factor = 8,
+        prefetch_factor = 8,
         num_workers=0 if args.sample_gpu else args.num_workers,
         persistent_workers=not args.sample_gpu)
 
@@ -144,7 +160,7 @@ def run(rank, args,  data):
     e2 = torch.cuda.Event(enable_timing = True)
     e3 = torch.cuda.Event(enable_timing = True)
     e4 = torch.cuda.Event(enable_timing = True)
-
+    print("start training")
     for epoch in range(args.num_epochs):
         tic = time.time()
 
@@ -170,7 +186,6 @@ def run(rank, args,  data):
                 optimizer.zero_grad()
                 t1 = time.time()
                 input_nodes, seeds, blocks = next(dataloader_i)
-
                 t2 = time.time()
                 # copy block to gpu
                 blocks = [blk.to(device) for blk in blocks]
@@ -196,26 +211,14 @@ def run(rank, args,  data):
                 e2.record()
                 t4 = time.time()
                 # Compute loss and prediction
-                #batch_pred = model(blocks, batch_inputs)
-                print("start interation")
-                #with torch.autograd.profiler.profile(enabled=(rank == 0), use_cuda=True, profile_memory = True) as prof:
-                e3.record()
-                print(torch.cuda.current_stream())
-                    #with torch.autograd.profiler.record_function("model_loss"):
-                e2.record()
-                batch_pred = model(blocks, batch_inputs)
-                e3.record()
-                with torch.autograd.profiler.profile(enabled=(rank == 0), use_cuda=True, profile_memory = True) as prof:
+                with torch.autograd.profiler.profile(enabled=(rank==0), use_cuda=True, profile_memory = True) as prof:
+                    batch_pred = model(blocks, batch_inputs)
+                    e3.record()
                     loss = loss_fcn(batch_pred, batch_labels)
                     #e3.record()
                     loss.backward()
                     e4.record()
-                    e4.synchronize()
-                    print("Forward time", e2.elapsed_time(e3)/1000)
-                    print("Backward time", e3.elapsed_time(e4)/1000)
-                if rank==0:    
-                    print(prof.key_averages().table(sort_by='cuda_time_total'))
-                print("end iteration")
+                e4.synchronize()
                 optimizer.step()
                 sample_time += (t2 - t1)
                 movement_graph_time += (t3 - t2)
@@ -225,18 +228,39 @@ def run(rank, args,  data):
                 movement_feature_time += max(t4-t3, e1.elapsed_time(e2)/1000)
                 forward_time += e2.elapsed_time(e3)/1000
                 backward_time += e3.elapsed_time(e4)/1000
+                #print("Forward time", e2.elapsed_time(e3)/1000, "back time",  e3.elapsed_time(e4)/1000)
                 data_movement += (missed * nfeat.shape[1] * 4/(1024 * 1024))
                 if args.early_stopping and step ==20:
+                    print(prof.key_averages().table(sort_by='cuda_time_total'))
                     break
                 step = step + 1
-                print(step)
-                print("forward time", forward_time)
-                print("backward time", backward_time)
+                if rank == 0:
+                    log.info("step {}, epoch {}, number_of_minibatches {}".format(step, epoch, number_of_minibatches))
+
+                #print("forward time", e2.elapsed_time(e3)/1000)
+                #print("backward time", e3.elapsed_time(e4)/1000)
                 total_loss += loss.item()
                 total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
         #        pbar.update(args.batch_size)
         except StopIteration:
             pass
+        if test_graph != None and rank== 0:
+            test_nid = torch.where(test_graph.ndata['test_mask'])[0]
+            test_accuracy = evaluate(model, test_graph, test_graph.ndata['features'], test_graph.ndata['labels'], \
+                        test_nid, device)
+            print("Accuracy: {}, device:{}, epoch:{}".format(test_accuracy, device, epoch))
+
+        if rank == 0:
+            log.info("accuracy:{}".format(accuracy))
+            log.info("epoch:{}".format(epoch_time))
+            log.info("sample_time:{}".format(sample_time_epoch))
+            log.info("movement graph:{}".format(movement_time_graph_epoch))
+            log.info("movement feature:{}".format(movement_time_feature_epoch))
+            log.info("forward time:{}".format(forward_time_epoch))
+            log.info("backward time:{}".format(backward_time_epoch))
+            log.info("edges per epoch:{}".format(edges_per_epoch))
+            log.info(data_movement_epoch)
+            log.info("data movement:{}MB".format(data_movement_epoch))
         print("EPOCH TIME",time.time() - epoch_start)
         epoch_time.append(time.time()-epoch_start)
         sample_time_epoch.append(sample_time)
@@ -262,7 +286,8 @@ def run(rank, args,  data):
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 final_test_acc = test_acc
-    if rank == 3 or True:
+    print("edges per epoch:{}".format(average(edges_per_epoch)))
+    if rank == 0:
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch:{}".format(average(epoch_time)))
         print("sample_time:{}".format(average(sample_time_epoch)))
@@ -273,14 +298,14 @@ def run(rank, args,  data):
         print("edges per epoch:{}".format(average(edges_per_epoch)))
         print(data_movement_epoch)
         print("data movement:{}MB".format(average(data_movement_epoch)))
-    dist.destroy_process_group()
+    #torch.distributed.barrier()
+    #dist.destroy_process_group()
 
     return final_test_acc
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("multi-gpu training")
     argparser.add_argument('--graph',type = str, required = True)
-    argparser.add_argument('--cache-per', type =float, required = True)
     argparser.add_argument('--model',type = str, required = True)
     argparser.add_argument('--gpu', type=int, default=0,
                            help="GPU device ID. Use -1 for CPU training")
@@ -296,28 +321,29 @@ if __name__ == '__main__':
     argparser.add_argument('--save-pred', type=str, default='')
     argparser.add_argument('--wd', type=float, default=0)
     argparser.add_argument('--sample-gpu', action='store_true')
-    argparser.add_argument('--data', type=str, choices=('cpu', 'gpu', 'quiver', 'unified'), default = 'quiver')
     argparser.add_argument('--early-stopping', action = 'store_true')
-
+    argparser.add_argument('--test-graph',type = str)
     args = argparser.parse_args()
     assert args.model in ["GCN","GAT"]
-    if args.gpu >= 0:
-        device = th.device('cuda:%d' % args.gpu)
-    else:
-        device = th.device('cpu')
-
+    device = th.device('cpu')
+    device_list = [1,2]
     # load ogbn-products data
-    root = "/mnt/bigdata/sandeep/"
-    from utils import  get_process_graph
-    dg_graph, partition_map, num_classes = get_process_graph(args.graph)
+    #root = "/mnt/bigdata/sandeep/"
+    import utils
+    dg_graph, partition_map, num_classes = utils.get_process_graph(args.graph)
     data = dg_graph
     train_idx = torch.where(data.ndata.pop('train_mask'))[0]
     val_idx = torch.where(data.ndata.pop('val_mask'))[0]
     test_idx = torch.where(data.ndata.pop('test_mask'))[0]
     graph = dg_graph
     labels = dg_graph.ndata.pop('labels')
-    feat = dg_graph.ndata.pop('features')
+    nfeat = dg_graph.ndata.pop('features')
     graph = graph.add_self_loop()
+    test_graph = None
+    if (args.test_graph) != None:
+        test_graph, _, num_classes = utils.get_process_graph(args.test_graph, True)
+
+    offsets = {3:0}
     ###################################
     #data = DglNodePropPredDataset(name=args.graph, root=root)
     #splitted_idx = data.get_idx_split()
@@ -328,63 +354,15 @@ if __name__ == '__main__':
 
     # feat = graph.ndata.pop('feat')
     #year = graph.ndata.pop('year')
-    if args.data == 'cpu':
-        nfeat = feat
-        offsets = {}
-        offsets[3] = 0
-    elif args.data == 'gpu':
-        nfeat = feat.to(device)
-    elif args.data == 'quiver':
-        quiver.init_p2p(device_list = [0,1,2,3])
-        csr_topo = quiver.CSRTopo(th.stack(graph.edges('uv')))
-        cache_size = int(float(args.cache_per) * feat.shape[0] * feat.shape[1] * 4/(1024 * 1024))
-        device_cache_size = "{}M".format(cache_size)
-        print("calculated cache_size ", cache_size)
-        if float(args.cache_per) > .25:
-            cache_policy = "device_replicate"
-            last_node_stored = nfeat.shape[0]
-        else:
-            cache_policy = "p2p_clique_replicate"
-            #for device in range(4):
-            #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
-            #    end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
-            #    offsets[device] = (start,end)
-        nfeat = quiver.Feature(rank=0, device_list=[0,1,2,3],
-                               #device_cache_size="200M",
-                               device_cache_size = device_cache_size,
-                               cache_policy = cache_policy)
-                               #cache_policy="device_replicate",
-                               #csr_topo=csr_topo)
-        nfeat.from_cpu_tensor(feat)
-        if float(args.cache_per) <= .25:
-            if len(nfeat.clique_tensor_list) != 0:
-                last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
-            else:
-                last_node_stored = 0
-        print("Using quiver feature")
-        print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
-        offsets = {}
-        offsets[3] = last_node_stored
-        # Temporary disable
-        #for device in range(4):
-        #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
-        #    end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
-        #    offsets[device] = (start,end)
-    elif args.data == 'unified':
-        from distutils.version import LooseVersion
-        assert LooseVersion(dgl.__version__) >= LooseVersion('0.8.0'), \
-            f'Current DGL version ({dgl.__version__}) does not support UnifiedTensor.'
-        feat = dgl.contrib.UnifiedTensor(feat, device=device)
-    else:
-        raise ValueError(f'Unsupported feature storage location {args.data}.')
 
     in_feats = nfeat.shape[1]
+    print(nfeat.device)
     n_classes = (labels.max() + 1).item()
     # Create csr/coo/csc formats before launching sampling processes
     # This avoids creating certain formats in each data loader process, which saves momory and CPU.
     graph.create_formats_()
     # Pack data
-    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets
+    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, test_graph
 
     #test_accs = []
     #for i in range(1, 11):
@@ -394,10 +372,10 @@ if __name__ == '__main__':
     #test_accs = th.tensor(test_accs)
     print('============================')
     #print(f'Final Test: {test_accs.mean():.4f} ± {test_accs.std():.4f}')
-    world_size = 4
+    world_size = len(device_list)
     mp.spawn(
         run,
-        args=(args,  data),
+        args=(args,  data, device_list),
         nprocs=world_size,
         join=True
     )

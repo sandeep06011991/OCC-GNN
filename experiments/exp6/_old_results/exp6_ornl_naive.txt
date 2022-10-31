@@ -1,0 +1,32 @@
+sha:1d6d0886fbe63483785ce8aa117b723168db9a53, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data_movement | edges 
+ogbn-products | ornl | 16 | 100 | 4096 | GAT | 4.33 | 3.52 | 14.48 | 1.95 | 5.36 | 29.76 | 0.55  | 19289 | 235646340 
+reorder-papers100M | ornl | 16 | 128 | 4096 | GAT | 19.76 | 3.21 | 17.24 | 4.11 | 47.64 | 93.00 | 0.35  | 10776 | 144512120 
+amazon | ornl | 16 | 200 | 4096 | GAT | 27.97 | 7.80 | 41.69 | 6.49 | 32.79 | 114.78 | 0.27  | 56241 | 472450600 
+ogbn-products | ornl | 16 | 100 | 4096 | GCN | 4.68 | 3.52 | 14.23 | 0.83 | 4.44 | 28.09 | 0.72  | 19285 | 235645040 
+reorder-papers100M | ornl | 16 | 128 | 4096 | GCN | 22.20 | 3.69 | 16.42 | 2.24 | 43.16 | 87.10 | 0.23  | 10775 | 144459280 
+amazon | ornl | 16 | 200 | 4096 | GCN | 29.11 | 7.49 | 43.98 | 2.53 | 25.65 | 109.13 | 0.35  | 56222 | 472293720 
+ogbn-products | ornl | 16 | 100 | 16384 | GAT | 6.73 | 2.00 | 4.68 | 1.01 | 2.96 | 17.28 | 0.34  | 7266 | 164103820 
+ogbn-products | ornl | 16 | 100 | 1024 | GAT | 15.95 | 4.55 | 29.47 | 4.23 | 18.42 | 72.33 | 0.83  | 36104 | 271887180 
+reorder-papers100M | ornl | 16 | 128 | 1024 | GAT | 101.58 | 8.29 | 17.80 | 24.31 | 132.08 | 286.86 | 0.36  | 11871 | 146927800 
+reorder-papers100M | ornl | 16 | 128 | 16384 | GAT | 4.47 | 1.78 | 7.86 | 1.61 | 22.19 | 38.33 | 0.30  | 8465 | 136419500 
+amazon | ornl | 16 | 200 | 1024 | GAT | 102.18 | 15.52 | 131.93 | 21.36 | 80.73 | 354.37 | 0.31  | 133920 | 637771340 
+amazon | ornl | 16 | 200 | 16384 | GAT | 5.93 | 4.27 | 15.57 | 2.34 | 8.35 | 37.11 | 0.26  | 19967 | 281433260 
+reorder-papers100M | ornl | 16 | 128 | 1024 | GCN | 112.07 | 8.70 | 18.27 | 13.17 | 121.39 | 277.81 | 0.24  | 11893 | 147011000 
+reorder-papers100M | ornl | 16 | 128 | 16384 | GCN | 4.34 | 1.90 | 8.33 | 0.59 | 21.13 | 36.38 | 0.20  | 8470 | 136504920 
+amazon | ornl | 16 | 200 | 1024 | GCN | 109.38 | 15.74 | 133.08 | 10.10 | 73.74 | 345.54 | 0.37  | 133872 | 637754860 
+amazon | ornl | 16 | 200 | 16384 | GCN | 5.81 | 4.16 | 16.81 | 1.06 | 5.45 | 33.64 | 0.28  | 19967 | 281528220 
+sha:1d6d0886fbe63483785ce8aa117b723168db9a53, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data_movement | edges 
+sha:1d6d0886fbe63483785ce8aa117b723168db9a53, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data_movement | edges 
+sha:1d6d0886fbe63483785ce8aa117b723168db9a53, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data_movement | edges 
+ogbn-products | ornl | 16 | 100 | 16384 | GCN | 8.00 | 1.79 | 4.58 | 0.44 | 1.92 | 16.57 | 0.44  | 7269 | 164155060 
+ogbn-products | ornl | 16 | 100 | 1024 | GCN | 16.83 | 4.63 | 27.24 | 1.73 | 16.94 | 68.61 | 0.86  | 36102 | 271830760 
+sha:87e2aaa6e72d9868f155feb5e3b050c6d2336568, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data_movement | edges 
+amazon | ornl | 16 | 200 | 4096 | GAT | 31.29 | 8.12 | 31.86 | 6.40 | 24.46 | 103.73 | 0.38  | 56233 | 474731420 
+sha:87e2aaa6e72d9868f155feb5e3b050c6d2336568, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data_movement | edges 
+amazon | ornl | 16 | 200 | 4096 | GCN | 31.59 | 8.68 | 33.26 | 2.65 | 22.88 | 99.98 | 0.62  | 56218 | 472143250 
