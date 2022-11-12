@@ -98,7 +98,7 @@ class GraphCacheServer:
     print("However, caching 25% of node capacity")
     self.capability = int(self.cache_per * self.node_num)
     # Step3: cache
-    # Use else block more general . 
+    # Use else block more general .
     if self.capability >= self.node_num and False:
       # fully cache
       print('cache the full graph...')
@@ -167,7 +167,7 @@ class GraphCacheServer:
     print("cache fixed",self.gpuid)
 
 
-  def fetch_data(self, input_nds):
+  def fetch_data(self, input_nodes):
     """
     copy feature from local GPU memory or
     remote CPU memory, which depends on feature
@@ -191,7 +191,7 @@ class GraphCacheServer:
     #   tnid = nf_nids[offsets[i]:offsets[i+1]]
       # get nids -- overhead ~0.1s
     with nvtx.annotate('cache-index'):
-      tnid = input_nodes.to(self.gpu_id)
+      tnid = input_nodes.to(self.gpuid)
   # with torch.autograd.profiler.record_function('cache-index'):
       gpu_mask = self.gpu_flag[tnid]
       nids_in_gpu = tnid[gpu_mask]

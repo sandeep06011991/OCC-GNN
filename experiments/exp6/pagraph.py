@@ -5,6 +5,8 @@ import time
 
 ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
 DATA_DIR = "/home/spolisetty_umass_edu/OCC-GNN/experiments/exp6/"
+ROOT_DIR = "/home/spolisetty/OCC-GNN/upgraded_pagraph"
+DATA_DIR = "/home/spolisetty/OCC-GNN/experiments/exp6/"
 import sys
 import re
 import git
@@ -108,7 +110,7 @@ def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per)
     res = start_client(filename, model, hidden_size, batch_size, cache_per)
     WRITE = "{}/exp6_pagraph.txt".format(DATA_DIR)
     with open(WRITE,'a') as fp:
-        fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "unity", cache_per, hidden_size, feat_size, \
+        fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "jupiter", cache_per, hidden_size, feat_size, \
                 4 * batch_size, model, res["sample"], res["move_graph"], res["move_feat"],res["forward"], \
                     res["backward"],res["epoch_time"], res["accuracy"],res["miss_num"], res["edges"] ))
     fp.close()
@@ -117,19 +119,19 @@ def run_model(model):
     graphs = ['ogbn-arxiv','ogbn-products']
     #graphs = ['ogbn-papers100M']
     #graphs = ['ogbn-arxiv']
-    settings = [('ogbn-arxiv', 16, 1024),
+    settings = [#('ogbn-arxiv', 16, 1024),
                 #('ogbn-arxiv', 16, 256),
                 #('ogbn-arxiv', 16, 4096),
                 #('ogbn-products', 16, 1024),
                 #('ogbn-products', 16, 256),
                 #('ogbn-products', 16, 4096),
-                #('reorder-papers100M',16, 1024), 
+                ('reorder-papers100M',16, 1024), 
                 #('reorder-papers100M',16, 256),
                 #('reorder-papers100M',16, 4096)
                 ]
 
     cache_per = ["0",".1",".25",".5","1"]
-    cache_per = [ "0"]
+    cache_per = [ ".1"]
     run_experiment(model, settings, cache_per)
 
     #settings = [('ogbn-arxiv',16,1024)]
@@ -155,9 +157,10 @@ def run_experiment(model, settings, cache_per):
                 traceback.print_exception(ex_type, ex, tb, file = fp)
 
 if __name__ == "__main__":
-    #run_model("gcn")
-    #print("Success!!!!!!!!!!!!!!!!!!!")
-    #run_model("gat")
+    run_model("gcn")
+    print("Success!!!!!!!!!!!!!!!!!!!")
+    run_model("gat")
+    assert(False)
     #return
     import argparse
     argparser = argparse.ArgumentParser("multi-gpu training")

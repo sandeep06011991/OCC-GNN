@@ -17,7 +17,7 @@ class Sample:
             self.missing_node_ids.append(csample.missing_node_ids[i])
             self.debug_vals.append(csample.debug_vals[i])
             self.cached_node_ids.append(csample.cached_node_ids[i])
-            
+
         # print(len(csample.layers))
         for layer in csample.layers:
             l = []
@@ -28,6 +28,12 @@ class Sample:
                 l.append(bp)
             self.layers.append(l)
 
+    def get_number_of_edges(self):
+        s = 0
+        for l in self.layers:
+            for bp in l:
+                s += bp.get_number_of_edges()
+        return s
 
 class Gpu_Local_Sample:
     # Serialize layer

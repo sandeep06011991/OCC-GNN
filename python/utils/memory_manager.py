@@ -127,7 +127,8 @@ class MemoryManager():
     # @profile
 class GpuLocalStorage():
 
-    def __init__(self, cache_percentage, features, batch_in, cached_feature_size, proc_id):
+    def __init__(self, cache_percentage, features, batch_in, \
+                cached_feature_size, proc_id):
         self.cache_percentage = cache_percentage
         self.features = features
         # Batch_in tensor with space for extra
@@ -136,10 +137,16 @@ class GpuLocalStorage():
         self.log = LogFile("Trainer", proc_id)
         self.proc_id = proc_id
 
+    
     def get_input_features(self, cached_node_ids, missing_node_ids):
         # Slicer reorders and gives them
+        # Add unit test to check acieved bandwidth
         if (self.cache_percentage >= .25):
             assert(missing_node_ids.shape[0] == 0)
+        cached = self.batch_in[cached_node_ids]
+        missed = self.features[missing_node_ids].to(self.proc_id)
+        features = torch.cat([cached,missed])
+        return features
         node_ids = torch.cat([ cached_node_ids, missing_node_ids])
         assert(self.batch_in.device == torch.device(self.proc_id))
         total_features = torch.empty(node_ids.shape[0], self.features.shape[1], device = self.proc_id, dtype = torch.float)

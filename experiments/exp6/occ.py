@@ -48,6 +48,9 @@ def average_string(ls):
     return c
 
 # measures cost of memory transfer of dataset
+def check_single(ls):
+    assert(len(ls) == 1)
+    return ls[0]
 
 def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
 
@@ -65,15 +68,15 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
     print(out,error)
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
     try:
-    # if True:
-        accuracy  = re.findall("accuracy:(\d+\.\d+)",out)[0]
-        epoch = re.findall("epoch:(\d+\.\d+)",out)[0]
-        sample_get  = re.findall("sample_time:(\d+\.\d+)",out)[0]
-        movement_graph =  re.findall("movement graph:(\d+\.\d+)",out)[0]
-        movement_feat = re.findall("movement feature:(\d+\.\d+)",out)[0]
-        forward_time = re.findall("forward time:(\d+\.\d+)",out)[0]
-        backward_time = re.findall("backward time:(\d+\.\d+)",out)[0]
-        data_moved = re.findall("data movement:(\d+\.\d+)MB",out)[0]
+    #if True:
+        accuracy  = check_single(re.findall("accuracy:(\d+\.\d+)",out))
+        epoch = check_single(re.findall("epoch_time:(\d+\.\d+)",out))
+        sample_get  = check_single(re.findall("sample_time:(\d+\.\d+)",out))
+        movement_graph =  check_single(re.findall("movement graph:(\d+\.\d+)",out))
+        movement_feat = check_single(re.findall("movement feature:(\d+\.\d+)",out))
+        forward_time = check_single(re.findall("forward time:(\d+\.\d+)",out))
+        backward_time = check_single(re.findall("backward time:(\d+\.\d+)",out))
+        data_moved = check_single(re.findall("data movement:(\d+\.\d+)MB",out))
         edges_moved = re.findall("edges per epoch:(\d+\.\d+)",out)
         s = 0
         for i in range(4):
@@ -120,7 +123,7 @@ def run_experiment_occ(model):
                 #("reorder-papers100M", 16, 128, 1024),\
                 ("reorder-papers100M", 16, 128, 4096),\
                 #("reorder-papers100M", 16, 128, 16384),\
-                ("amazon", 16, 200, 4096),\
+                #("amazon", 16, 200, 4096),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -140,7 +143,7 @@ def run_experiment_occ(model):
     #cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
     cache_rates = ["0", ".10", ".25"]
     #settings = [("ogbn-arxiv", 16, 128, 1024),]
-    #cache_rates = [".10"]
+    cache_rates = [".10"]
     #cache_rates = [".25"]
     #settings = [settings[0]]
     check_path()
@@ -189,9 +192,10 @@ def run_sbatch(model, settings, cache_rates):
 
 
 if __name__ == "__main__":
-    #run_model("gcn")
+    run_experiment_occ("gcn")
     #print("Success!!!!!!!!!!!!!!!!!!!")
     #run_model("gat")
+    assert(False)
     #return
     import argparse
     argparser = argparse.ArgumentParser("multi-gpu training")

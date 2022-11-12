@@ -15,6 +15,18 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
       for(int ii = 0;ii<4; ii ++ ){
         t[ii] = 0;
       }
+      int a[4];
+      for(int i=0;i<4;i++)a[i] == 0;
+      for(int j=bl.offsets[i];j <bl.offsets[i+1]; j++){
+        long nd2 = bl.indices[j];
+        int from = this->workload_map[nd2];
+        a[from] ++;
+      }
+      for(int i=0;i<4;i++){
+        if((a[i] == 1) || (a[i]== 2)){
+          std::cout << "Idle node out of" << bl.in_degree[i] <<"\n";
+        }
+      }
       for(int j= bl.offsets[i] ; j < bl.offsets[i+1]; j++){
         long nd2 = bl.indices[j];
         if(nd1 == nd2){

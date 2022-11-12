@@ -158,6 +158,22 @@ public:
         this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, deterministic);
     }
 
+    bool test_correctness(vector<long> sample_nodes){
+      sample.clear();
+      p_sample.clear();
+      this->neighbour_sampler->sample(sample_nodes, sample);
+      int sample_val =  sample_flow_up_sample(sample, num_nodes);
+      this->slicer->slice_sample(sample, p_sample);
+      // spdlog::info("covert to torch");
+      PySample *sample = new PySample(p_sample);
+      std::vector<int> ret(4);
+      for(int i=0;i<4;i++){
+        ret[i] = 0;
+      }
+      int p_val =  sample_flow_up_ps(p_sample, dummy_storage_map, ret);
+      return (sample_val  == p_val);
+    }
+
     PySample * getSample(vector<long> sample_nodes){
       sample.clear();
       p_sample.clear();
@@ -210,6 +226,7 @@ public:
       // Delete dataset
       // Delete cslicer
     }
+
 };
 
 PYBIND11_MODULE(cslicer, m) {
@@ -217,7 +234,8 @@ PYBIND11_MODULE(cslicer, m) {
     py::class_<CSlicer>(m,"cslicer")
          .def(py::init<const std::string &,
                std::vector<std::vector<long>>, int, bool, bool,bool>())
-         .def("getSample", &CSlicer::getSample, py::return_value_policy::take_ownership);
+         .def("getSample", &CSlicer::getSample, py::return_value_policy::take_ownership)\
+         .def("sampleAndVerify",&CSlicer::test_correctness);
          py::class_<PySample>(m,"sample")
              .def_readwrite("layers",&PySample::layers)
              .def_readwrite("in_nodes", &PySample::in_nodes)

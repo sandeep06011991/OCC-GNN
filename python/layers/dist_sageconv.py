@@ -86,6 +86,11 @@ class DistSageConv(nn.Module):
             #             "Real ID ", low_degree_nodes[:10],
             #             "local degrees", avg_degrees[indices[:10]],"layer ",l)
             # print("avg degrees", avg_degrees, torch.sum(avg_degrees < 2), torch.sum(avg_degrees)/avg_degrees.shape[0])
+        t = torch.ones(bipartite_graph.num_nodes_v)
+        for i in bipartite_graph.to_ids:
+            if i != self.gpu_id:
+                t[bipartite_graph.to_ids[i]] = 0
+        print("potential to pipeline", torch.sum(t), bipartite_graph.num_nodes_v)
         if self.fc1.in_features > self.fc1.out_features:
             # Could incur more communication potentially
             # Makes backward pass mode complaceted

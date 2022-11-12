@@ -9,10 +9,14 @@ from dgl.contrib.sampling import SamplerPool
 import dgl.function as fn
 import multiprocessing
 
+username = os.environ['USER']
+if username =="spolisetty_umass_edu":
+    ROOT_DIR = "/work/spolisetty_umass_edu/data/pagraph"
+    PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
+if username == "spolisetty":
+    ROOT_DIR = "/data/sandeep/pagraph"
+    PATH_DIR = "/home/spolisetty/OCC-GNN/upgraded_pagraph"
 
-ROOT_DIR = "/work/spolisetty_umass_edu/data/pagraph"
-
-PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
 path_set = False
 for p in sys.path:
     print(p)
@@ -28,8 +32,8 @@ from PaGraph.parallel import SampleDeliver
 
 def main(args):
   print("Start server")
-  
-  dataset = "{}/{}/".format(ROOT_DIR, args.dataset)
+
+  dataset = "{}/{}".format(ROOT_DIR, args.dataset)
   coo_adj, feat = data.get_graph_data(dataset)
 
   graph = DGLGraph(coo_adj, readonly=True)
@@ -49,16 +53,16 @@ def main(args):
   # create server
   g = dgl.contrib.graph_store.create_graph_store_server(
         graph, graph_name,
-        'shared_mem', args.num_workers, 
+        'shared_mem', args.num_workers,
         None)
-  
+
   # calculate norm for gcn
   dgl_g = DGLGraph(graph, readonly=True)
 
   if args.model == 'gcn':
     dgl_g = DGLGraph(graph, readonly=True)
     norm = 1. / dgl_g.in_degrees().float().unsqueeze(1)
-    # preprocess 
+    # preprocess
     if args.preprocess:
       print('Preprocessing features...')
       dgl_g.ndata['norm'] = norm
@@ -77,7 +81,7 @@ def main(args):
       g.ndata['neigh'] = features
     g.ndata['features'] = features
 
-  # remote sampler 
+  # remote sampler
   if args.sample:
     subgraph = []
     sub_trainnid = []
@@ -104,10 +108,10 @@ if __name__ == '__main__':
 
   parser.add_argument("--dataset", type=str, default="None",
                       help="dataset folder path")
-  
+
   parser.add_argument("--num-workers", type=int, default=1,
                       help="the number of workers")
-  
+
   parser.add_argument("--model", type=str, default="gcn",
                       help="model type for preprocessing")
 
@@ -123,9 +127,9 @@ if __name__ == '__main__':
   parser.set_defaults(one2all=False)
 
   parser.add_argument("--preprocess", dest='preprocess', action='store_true')
-  
+
   args = parser.parse_args()
-  
+
   parser.set_defaults(preprocess = False)
 
   main(args)

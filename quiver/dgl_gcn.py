@@ -197,9 +197,10 @@ def run(rank, args,  data):
                 # Compute loss and prediction
                 with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
                     batch_pred = model(blocks, batch_inputs)
-                    e3.record()
+
                     loss = loss_fcn(batch_pred, batch_labels)
-                    #e3.record()
+                    e3.record()
+                    torch.distrubuted.barrier()
                     loss.backward()
                     e4.record()
                 e4.synchronize()
@@ -248,7 +249,7 @@ def run(rank, args,  data):
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 final_test_acc = test_acc
-    if rank == 3 or True:
+    if rank == 0:
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch:{}".format(average(epoch_time)))
         print("sample_time:{}".format(average(sample_time_epoch)))

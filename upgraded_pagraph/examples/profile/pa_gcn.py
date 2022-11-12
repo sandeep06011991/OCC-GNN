@@ -45,7 +45,22 @@ def init_process(rank, world_size, backend):
   torch.manual_seed(rank)
   print('rank [{}] process successfully launches'.format(rank))
 
-ROOT_DIR = "/work/spolisetty_umass_edu/data/pagraph"
+username = os.environ['USER']
+if username =="spolisetty_umass_edu":
+    ROOT_DIR = "/work/spolisetty_umass_edu/data/pagraph"
+    PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
+if username == "spolisetty":
+    ROOT_DIR = "/data/sandeep/pagraph"
+    PATH_DIR = "/home/spolisetty/OCC-GNN/upgraded_pagraph"
+
+path_set = False
+for p in sys.path:
+    print(p)
+    if PATH_DIR ==  p:
+       path_set = True
+if (not path_set):
+    print("Setting Path")
+    sys.path.append(PATH_DIR)
 
 def avg(ls):
     return (sum(ls[1:])/(len(ls)-1))
@@ -60,12 +75,12 @@ import logging
 
 
 def trainer(rank, world_size, args, backend='nccl'):
-  dataset = "{}/{}/".format(ROOT_DIR, args.dataset)
+  dataset = "{}/{}".format(ROOT_DIR, args.dataset)
   feat_size = FEAT_DICT[args.dataset]
   # init multi process
   init_process(rank, world_size, backend)
   # load datai
-  
+
   if rank == 0:
     os.makedirs('{}/logs'.format(PATH_DIR),exist_ok = True)
     FILENAME= ('{}/logs/{}_{}_{}_{}.txt'.format(PATH_DIR, \
@@ -82,7 +97,7 @@ def trainer(rank, world_size, args, backend='nccl'):
 
   dataname = os.path.basename(dataset)
   remote_g = dgl.contrib.graph_store.create_graph_from_store(dataname, "shared_mem")
-  
+
   num_nodes, num_edges = remote_g.proxy.get_graph_info(dataname)
   num_nodes, num_edges = int(num_nodes), int(num_edges)
   adj, t2fid = data.get_sub_train_graph(dataset, rank, world_size)
@@ -112,7 +127,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   in_feats = feat_size
   in_dim = feat_size
   # prepare model
-  num_hops = args.n_layers 
+  num_hops = args.n_layers
   if args.model == "gcn":
       model = SAGE(in_feats, args.n_hidden, n_classes,
                args.n_layers, F.relu, args.dropout)
@@ -259,19 +274,26 @@ def trainer(rank, world_size, args, backend='nccl'):
         with nvtx.annotate('compute', color = 'red'):
         #if True:
           pred = model(blocks, input_data['features'])
-          
+
           for i in range(3):
               epoch_edges_processed += blocks[i].num_edges()
           e2.record()
           loss = loss_fcn(pred, label)
           acc = compute_acc(pred,label)
+          e2.synchronize()
           optimizer.zero_grad()
+          forward_time_epoch += (e1.elapsed_time(e2)/1000)
+          t1 = time.time()
+          torch.distributed.barrier()
+          t2 = time.time()
+          e2.record()
           loss.backward()
           optimizer.step()
           e3.record()
         e3.synchronize()
+
         #print("Compute time without sync", e1.elapsed_time(e2)/1000)
-        forward_time_epoch += (e1.elapsed_time(e2)/1000)
+        #forward_time_epoch += (e1.elapsed_time(e2)/1000)
         backward_time_epoch += (e2.elapsed_time(e3)/1000)
         t11 = time.time()
         step += 1
@@ -281,8 +303,6 @@ def trainer(rank, world_size, args, backend='nccl'):
         if rank == 0:
           log.info("iteration : {}, epoch: {}, iteration time: {}".format(step, epoch, t11-t00))
 
-        if epoch == 0 and step == 1:
-          pass
             #cacher.auto_cache(g, embed_names)
         if rank == 0 and step % 20 == 0:
           print('epoch [{}] step [{}]. Loss: {:.4f}'
@@ -291,21 +311,21 @@ def trainer(rank, world_size, args, backend='nccl'):
       if rank == 0:
         # compute_time.append(epoch_compute_time)
         sample_time.append(epoch_sample_time)
-        log.info("epoch:{} collected_sample:{}".format(epoch, sample_time))
+        # log.info("epoch:{} collected_sample:{}".format(epoch, sample_time))
         graph_move_time.append(epoch_move_graph_time)
-        log.info("epoch:{} graph move time:{}".format(epoch, graph_move_time))
+        # log.info("epoch:{} graph move time:{}".format(epoch, graph_move_time))
         epoch_dur.append(time.time() - epoch_start_time)
         collect_c, move_c, coll_t, mov_t = cacher.get_time_and_reset_time()
         time_cache_gather.append(coll_t)
         time_cache_move.append(mov_t)
         event_cache_gather.append(collect_c)
         event_cache_move.append(move_c)
-        log.info("epoch:{}, cache gather {},cache move {}".format(epoch, time_cache_gather\
-              , time_cache_move))
+        # log.info("epoch:{}, cache gather {},cache move {}".format(epoch, time_cache_gather\
+              # , time_cache_move))
         forward_time.append(forward_time_epoch)
         backward_time.append(backward_time_epoch)
-        log.info("epoch: {}, forward time:{}".format(epoch, forward_time))
-        log.info("epoch: {}, backward time:{}".format(epoch, backward_time))
+        # log.info("epoch: {}, forward time:{}".format(epoch, forward_time))
+        # log.info("epoch: {}, backward time:{}".format(epoch, backward_time))
         #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
       miss_rate, miss_num = cacher.get_miss_rate()
       miss_rate_per_epoch.append(miss_rate)
@@ -391,8 +411,9 @@ if __name__ == '__main__':
 
   args = parser.parse_args()
 
-  os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
-  gpu_num = len(args.gpu.split(','))
+  # os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+  # gpu_num = len(args.gpu.split(','))
+  gpu_num = 4
 
   mp.spawn(trainer, args=(gpu_num, args), nprocs=gpu_num, join=True)
 import os

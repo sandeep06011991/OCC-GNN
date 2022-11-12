@@ -9,6 +9,9 @@ from dgl.utils  import Index
 from utils.log import *
 class Bipartite:
 
+    def get_number_of_edges(self):
+        return self.indices.shape[0]
+
     def __init__(self):
         self.gpu_id = torch.device(0)
         self.indptr = torch.tensor([],dtype = torch.int64)
