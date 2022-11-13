@@ -31,6 +31,7 @@ public:
   // Easy fill
   vector<long> from_ids[4];
   vector<long> to_ids[4];
+  
 
   // Used for self attention.
   vector<long> self_ids_in;

@@ -36,6 +36,8 @@ public:
   void slice_sample(Sample &s, PartitionedSample &ps);
 
   void slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int layer_id);
+
+  void measure_pull_benefits(Sample &s);
 };
 
 void check_allocation_for_optimality(Sample &s, int *workload_map, long num_nodes);

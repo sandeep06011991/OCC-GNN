@@ -164,6 +164,7 @@ public:
       this->neighbour_sampler->sample(sample_nodes, sample);
       int sample_val =  sample_flow_up_sample(sample, num_nodes);
       this->slicer->slice_sample(sample, p_sample);
+      this->slicer->measure_pull_benefits(sample);
       // spdlog::info("covert to torch");
       PySample *sample = new PySample(p_sample);
       std::vector<int> ret(4);

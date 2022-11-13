@@ -1,0 +1,72 @@
+  File "pagraph.py", line 149, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 110, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 81, in start_client
+    accuracy = float(re.findall("accuracy: (\d+\.\d+)", output)[0])
+Traceback (most recent call last):
+  File "pagraph.py", line 149, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 110, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 81, in start_client
+    accuracy = float(re.findall("accuracy: (\d+\.\d+)", output)[0])
+IndexError: list index out of range
+  File "pagraph.py", line 149, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 108, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "pagraph.py", line 65, in start_server
+    time.sleep(1)
+Traceback (most recent call last):
+  File "pagraph.py", line 149, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 108, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "pagraph.py", line 65, in start_server
+    time.sleep(1)
+KeyboardInterrupt
+  File "pagraph.py", line 149, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 110, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 81, in start_client
+    accuracy = float(re.findall("accuracy: (\d+\.\d+)", output)[0])
+Traceback (most recent call last):
+  File "pagraph.py", line 149, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 110, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 81, in start_client
+    accuracy = float(re.findall("accuracy: (\d+\.\d+)", output)[0])
+IndexError: list index out of range
+  File "pagraph.py", line 149, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 110, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 76, in start_client
+    output = subprocess.run(cmd, capture_output=True)
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1868, in _communicate
+    ready = selector.select(timeout)
+  File "/usr/lib/python3.8/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+Traceback (most recent call last):
+  File "pagraph.py", line 149, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 110, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 76, in start_client
+    output = subprocess.run(cmd, capture_output=True)
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1868, in _communicate
+    ready = selector.select(timeout)
+  File "/usr/lib/python3.8/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+KeyboardInterrupt
