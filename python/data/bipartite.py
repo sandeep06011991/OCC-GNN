@@ -12,6 +12,9 @@ class Bipartite:
     def get_number_of_edges(self):
         return self.indices.shape[0]
 
+
+ # dgl.heterograph({('a','b','c'):('csc',(torch.tensor([0,2]),torch.tensor([0,1]),torch.tensor([])))},{'a':2,'c':1})
+
     def __init__(self):
         self.gpu_id = torch.device(0)
         self.indptr = torch.tensor([],dtype = torch.int64)

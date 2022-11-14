@@ -339,9 +339,9 @@ if __name__ == '__main__':
         nfeat = quiver.Feature(rank=0, device_list=[0,1,2,3],
                                #device_cache_size="200M",
                                device_cache_size = device_cache_size,
-                               cache_policy = cache_policy)
+                               cache_policy = cache_policy,
                                #cache_policy="device_replicate",
-                               #csr_topo=csr_topo)
+                               csr_topo=csr_topo)
         nfeat.from_cpu_tensor(feat)
         if float(args.cache_per) <= .25:
             if len(nfeat.clique_tensor_list) != 0:

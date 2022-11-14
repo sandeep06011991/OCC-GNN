@@ -27,7 +27,7 @@ public:
   }
 
   void sample(std::vector<long> &target_nodes, Sample &s);
-
+private: 
   void layer_sample(std::vector<long> &in, std::vector<long> &in_degrees, \
      std::vector<long> &offsets,
       std::vector<long> &indices);

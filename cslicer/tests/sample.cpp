@@ -4,7 +4,7 @@
 #include "graph/bipartite.h"
 #include <vector>
 #include <assert.h>
-#include "spdlog/spdlog.h"
+// Test gcn and gat
 using namespace std;
 
 void aggregate(std::vector<long>& layer_nds, \

@@ -17,10 +17,11 @@ public:
   int num_in_nodes;
   int num_out_nodes;
 
-  vector<long> indptr;
-  vector<long> expand_indptr;
-  vector<long> indices;
+  vector<long> indptr_L;
   vector<long> in_degree;
+  vector<long> indptr_R;
+  vector<long> indices_L;
+  vector<long> indices_R;
 
   // Used to fresh gpu map.
   vector<long> missing_node_ids;
@@ -31,7 +32,10 @@ public:
   // Easy fill
   vector<long> from_ids[4];
   vector<long> to_ids[4];
-  
+
+  vector<long> pull_from_ids[4];
+  vector<long> push_to_ids[4];
+
 
   // Used for self attention.
   vector<long> self_ids_in;

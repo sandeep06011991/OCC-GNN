@@ -3,6 +3,16 @@
 #include "graph/sample.h"
 #include "graph/sliced_sample.h"
 
+enum POLICY {
+  PUSH,
+  PULL,
+  LOCAL
+};
+
+struct gpu_cost{
+   int cost[4];
+};
+
 class Slice{
 
   std::vector<int> workload_map;
@@ -16,9 +26,12 @@ public:
   Slice(std::vector<int> workload_map,
       std::vector<int> storage_map[4], bool self_edge){
     this->workload_map = workload_map;
+    int num_nodes = this->workload_map.size();
     #pragma unroll
     for(int i=0;i<4;i++){
-      this->storage_map[i] = storage_map[i];
+      this->storage_map[i]  = storage_map[i];
+      this->in_degrees[i] = new SparseMap(num_nodes);
+      this->out_degrees[i] = new SparseMap(num_nodes);
     }
     for(int i=0;i<4;i++){
       int count = 0;

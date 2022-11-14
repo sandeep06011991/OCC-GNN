@@ -1,5 +1,4 @@
 #include "bipartite.h"
-#include "spdlog/spdlog.h"
 
 void BiPartite::reorder(DuplicateRemover* dr){
   dr->order_and_remove_duplicates(in_nodes);

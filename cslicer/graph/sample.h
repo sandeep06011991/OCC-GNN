@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdlib>
-#include "spdlog/spdlog.h"
 #include <iostream>
 // A simple sample structure
 // The zeroth block is constructed from the set of target nodes as follows

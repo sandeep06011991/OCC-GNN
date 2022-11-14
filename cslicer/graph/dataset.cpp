@@ -4,7 +4,6 @@
 #include <string>
 #include <fstream>
 #include <assert.h>
-#include <spdlog/spdlog.h>
 
 
 Dataset::Dataset(std::string dir, bool testing){
