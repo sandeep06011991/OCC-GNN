@@ -12,8 +12,6 @@ Dataset::Dataset(std::string dir, bool testing){
   read_meta_file();
   read_graph();
   read_node_data();
-  spdlog::info("Read graph with num nodes {}",(num_nodes));
-
   // assert(noClasses != 0);
   // read_training_splits();
 }

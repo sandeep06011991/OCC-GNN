@@ -9,7 +9,7 @@ enum POLICY {
   LOCAL
 };
 
-struct gpu_cost{
+struct gpu{
    int cost[4];
 };
 
@@ -21,17 +21,16 @@ class Slice{
   int gpu_capacity[4];
   DuplicateRemover *dr;
   bool self_edge;
+  int rounds;
 public:
 
   Slice(std::vector<int> workload_map,
-      std::vector<int> storage_map[4], bool self_edge){
+      std::vector<int> storage_map[4], bool self_edge, int rounds){
     this->workload_map = workload_map;
     int num_nodes = this->workload_map.size();
     #pragma unroll
     for(int i=0;i<4;i++){
       this->storage_map[i]  = storage_map[i];
-      this->in_degrees[i] = new SparseMap(num_nodes);
-      this->out_degrees[i] = new SparseMap(num_nodes);
     }
     for(int i=0;i<4;i++){
       int count = 0;

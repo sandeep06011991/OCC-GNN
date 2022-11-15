@@ -7,10 +7,8 @@
 #include "graph/dataset.h"
 #include "transform/slice.h"
 #include "util/environment.h"
-#include "spdlog/spdlog.h"
 #include "samplers/samplers.h"
 #include "graph/sample.h"
-#include "spdlog/sinks/basic_file_sink.h"
 #include <cstdlib>
 #include <iostream>
 #include <ctime>

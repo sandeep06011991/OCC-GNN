@@ -4,6 +4,16 @@
 using namespace std;
 #pragma once
 
+// ================BiPartite Dest Nodes Order========================
+// |             |             |             |             |
+// |   Local     | remote[1]   | remote[2]   | remote[3]   |
+// |             |             |             |             |
+// ==================================================================
+// ================BiPartite Src Nodes Order=========================
+// |             |             |             |             |
+// |   Local     | Pulled[1]   | Pulled[2]   | pulled[3]   |
+// |             |             |             |             |
+// ==================================================================
 class BiPartite{
 
 public:
@@ -11,41 +21,62 @@ public:
   // Used to find mapping between local id and global id
   // nd2 is in_nodes as sampling is top down, but flow is bottom up.
   vector<long> in_nodes;
-  vector<long> out_nodes;
+  vector<long> out_nodes_local;
+  vector<long> out_nodes_remote;
+
   // Num in nodes can be much larger then in the actual graph, if we use
   // cached node order on the gpu.
   int num_in_nodes;
   int num_out_nodes;
 
+  vector<long> out_degree;
   vector<long> indptr_L;
-  vector<long> in_degree;
-  vector<long> indptr_R;
   vector<long> indices_L;
+  vector<long> indptr_R;
   vector<long> indices_R;
 
-  // Used to fresh gpu map.
-  vector<long> missing_node_ids;
-  vector<long> cached_node_ids;
-  vector<long> owned_out_nodes;
+  vector<long> indptr[4];
+  vector<long> indices[4];
 
-  // Filled afer reordering
-  // Easy fill
   vector<long> from_ids[4];
-  vector<long> to_ids[4];
+  int to_offsets[5];
 
+  // Pull operator executed only once.
   vector<long> pull_from_ids[4];
   vector<long> push_to_ids[4];
 
-
   // Used for self attention.
-  vector<long> self_ids_in;
-  vector<long> self_ids_out;
+  int self_ids_offset;
 
   int gpu_id = -1;
 
-
   BiPartite(int gpu_id){
     this->gpu_id = gpu_id;
+  }
+
+  void add_out_node_degree(long nd_dest, int degree){
+    out_nodes_local.push_back(nd_dest);
+    out_degree.push_back(degree);
+  }
+  
+  // Single function for all remote graphs.
+  void merge_graph(vector<long> &edges, long nd_dest, int partition_id){
+      // Both GCN and GAT need in node
+      in_nodes.push_back(nd_dest);
+      out_nodes_local.push_back(nd_dest);
+      out_degree.push_back(out_degree);
+      if(indptr_L.sizes() == 0)indptr_L.push_back(0);
+      indptr_L.push_back(indptr_L[indptr_L.size()-1]+edges.size());
+      indices_L.insert(indices_L.end(), edges.begin(), edges.end());
+  }
+
+  void merge_remote_graph(vector<long> edges,long nd_dest){
+      out_nodes_remo
+      indices_R.insert(indices_R.end(), edges.begin(), edges.end());
+  }
+
+  void merge_pull_nodes(vector<long> pull_nodes){
+
   }
 
   inline void add_self_edge(long nd1, int degree){
