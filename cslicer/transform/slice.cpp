@@ -72,15 +72,13 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
       }
       long nd_dest = in[i];
       long in_degree = bl.in_degree[i];
-      l.bipartite[p_dest].merge_local_graph(partition_edges[p_dest], in_degree, nd_dest);
+      l.bipartite[p_dest].add_local_out_node(partition_edges[p_dest], in_degree, nd_dest);
       for(int src=0;src < 4; src++){
-        if(src != p_dest){
-          l.bipartite[p_src].merge_remote_graph(partition_edges[src], nd_dest);
+          l.bipartite[p_src].merge_graph(partition_edges[src], nd_dest);
           l.bipartite[p_src].merge_pull_nodes(pull_nodes[src]);
-        }
       }
     }
-  }  
+  }
 
   void Slice::reorder(PartitionedLayer &l){
      for(int i=0;i < 4; i++){

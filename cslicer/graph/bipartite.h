@@ -20,32 +20,50 @@ public:
   // sorted and no duplicate nodes using graph_ids.
   // Used to find mapping between local id and global id
   // nd2 is in_nodes as sampling is top down, but flow is bottom up.
+  // Follows global order.
+  // Built during REORDERING
   vector<long> in_nodes;
-  vector<long> out_nodes_local;
+  vector<long> pulled_in_nodes;
   vector<long> out_nodes_remote;
+  int remote_sizes[4];
+  int pull_offsets[4];
+  // Built during slicing.
+  vector<long> out_nodes_local;
+  vector<long> out_degree_local;
 
+  // Built during REORDERING
   // Num in nodes can be much larger then in the actual graph, if we use
   // cached node order on the gpu.
   int num_in_nodes;
+  // out_nodes_local + out_nodes_remote
   int num_out_nodes;
 
-  vector<long> out_degree;
+  // Built during REORDERING
+  // built locally
   vector<long> indptr_L;
   vector<long> indices_L;
   vector<long> indptr_R;
   vector<long> indices_R;
 
+  // Build during slicing
   vector<long> indptr[4];
   vector<long> indices[4];
+  vector<long> to_ids[4];
 
+  // Built during reordering
   vector<long> from_ids[4];
   int to_offsets[5];
 
-  // Pull operator executed only once.
-  vector<long> pull_from_ids[4];
+  // Built during slicing
+  vector<long> part_in_nodes[4];
+
+  // Built during reoridering
   vector<long> push_to_ids[4];
+  int pull_from_sizes[4];
 
   // Used for self attention.
+  // Built during re-ordering.
+  // Self Nodes are never assigned to a different partition and never pulled therefore.
   int self_ids_offset;
 
   int gpu_id = -1;
@@ -54,113 +72,113 @@ public:
     this->gpu_id = gpu_id;
   }
 
-  void add_out_node_degree(long nd_dest, int degree){
+  void add_local_out_node(long nd_dest, int degree){
     out_nodes_local.push_back(nd_dest);
-    out_degree.push_back(degree);
+    out_degree_local.push_back(degree);
+    in_nodes.push_back(nd_dest);
   }
-  
+
   // Single function for all remote graphs.
   void merge_graph(vector<long> &edges, long nd_dest, int partition_id){
       // Both GCN and GAT need in node
-      in_nodes.push_back(nd_dest);
-      out_nodes_local.push_back(nd_dest);
-      out_degree.push_back(out_degree);
-      if(indptr_L.sizes() == 0)indptr_L.push_back(0);
-      indptr_L.push_back(indptr_L[indptr_L.size()-1]+edges.size());
-      indices_L.insert(indices_L.end(), edges.begin(), edges.end());
-  }
+      vector<long> indptr & = indptr[partition_id];
+      vector<long> indices & = indices[partition_id];
+      vector<long> to_ids & = to_ids[partition_id];
 
-  void merge_remote_graph(vector<long> edges,long nd_dest){
-      out_nodes_remo
-      indices_R.insert(indices_R.end(), edges.begin(), edges.end());
-  }
-
-  void merge_pull_nodes(vector<long> pull_nodes){
-
-  }
-
-  inline void add_self_edge(long nd1, int degree){
-    if((self_ids_in.size()!=0) && (self_ids_in.back() == nd1)){
-      return;
-    }
-    self_ids_in.push_back(nd1);
-    self_ids_out.push_back(nd1);
-    in_degree.push_back(degree);
-    assert(degree > 0);
-    // in_nodes and out nodes are pushed here instead of at add_edge
-    // as self loops are not counted in the main graph
-    //
-    in_nodes.push_back(nd1);
-    owned_out_nodes.push_back(nd1);
-    if(indptr.size() == 0){
-      indptr.push_back(0);
-      indptr.push_back(0);
-      if((out_nodes.size()==0) || (out_nodes.back() != nd1)){
-        out_nodes.push_back(nd1);
-      }
-    }else{
-      if(out_nodes.back()!=nd1){
-        int l = indptr.size();
-        indptr.push_back(indptr[l-1]);
-        out_nodes.push_back(nd1);
-      }
-    }
-
-
-  }
-
-  inline void add_from_node(long nd1, int gpu_id){
-      if((from_ids[gpu_id].size() != 0 ) && (from_ids[gpu_id].back() == nd1)){
-        return;
-      }
-      from_ids[gpu_id].push_back(nd1);
-     if(((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
-        owned_out_nodes.push_back(nd1);
-     }
-
-  }
-
-  inline void add_to_node(long nd1, int gpu_id){
-    if((to_ids[gpu_id].size() != 0 ) && (to_ids[gpu_id].back() == nd1)){
-      return;
-    }
-    to_ids[gpu_id].push_back(nd1);
-
-    // if(((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
-    //  owned_out_nodes.push_back(nd1);
-    // }
+      if(indptr.sizes() == 0)indptr.push_back(0);
+      indptr.push_back(indptr[indptr.size()-1]+edges.size());
+      indices.insert(indices.end(), edges.begin(), edges.end());
+      to_ids.insert(nd_dest);
   }
 
 
-  inline void add_edge(int nd1, int nd2, bool islocal){
-    // if(nd1 == nd2){
-    //   std::cout << "Should never happen" << nd1 <<"\n";
-    //   assert(false);
-    // }
-    if(islocal && ((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
-		  owned_out_nodes.push_back(nd1);
-      }
-      if(indptr.size() == 0){
-        indptr.push_back(0);
-        indptr.push_back(0);
-        if((out_nodes.size()==0) || (out_nodes.back() != nd1)){
-          out_nodes.push_back(nd1);
-        }
-      }else{
-        if(out_nodes.back()!=nd1){
-          int l = indptr.size();
-          indptr.push_back(indptr[l-1]);
-          out_nodes.push_back(nd1);
-        }
-      }
-      in_nodes.push_back(nd2);
-      expand_indptr.push_back(nd1);
-      indices.push_back(nd2);
-      int l = indptr.size();
-      indptr[l-1] = indptr[l-1] + 1;
+  void merge_in_nodes(vector<long> pull_nodes, long p_id){
+      pull_from_ids[p_id].insert(pull_from_ids.end(), pull_nodes.begin(), pull_nodes.end());
   }
+
+  // inline void add_self_edge(long nd1, int degree){
+  //   if((self_ids_in.size()!=0) && (self_ids_in.back() == nd1)){
+  //     return;
+  //   }
+  //   self_ids_in.push_back(nd1);
+  //   self_ids_out.push_back(nd1);
+  //   in_degree.push_back(degree);
+  //   assert(degree > 0);
+  //   // in_nodes and out nodes are pushed here instead of at add_edge
+  //   // as self loops are not counted in the main graph
+  //   //
+  //   in_nodes.push_back(nd1);
+  //   owned_out_nodes.push_back(nd1);
+  //   if(indptr.size() == 0){
+  //     indptr.push_back(0);
+  //     indptr.push_back(0);
+  //     if((out_nodes.size()==0) || (out_nodes.back() != nd1)){
+  //       out_nodes.push_back(nd1);
+  //     }
+  //   }else{
+  //     if(out_nodes.back()!=nd1){
+  //       int l = indptr.size();
+  //       indptr.push_back(indptr[l-1]);
+  //       out_nodes.push_back(nd1);
+  //     }
+  //   }
+  //
+  //
+  // }
+  //
+  // inline void add_from_node(long nd1, int gpu_id){
+  //     if((from_ids[gpu_id].size() != 0 ) && (from_ids[gpu_id].back() == nd1)){
+  //       return;
+  //     }
+  //     from_ids[gpu_id].push_back(nd1);
+  //    if(((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
+  //       owned_out_nodes.push_back(nd1);
+  //    }
+  //
+  // }
+  //
+  // inline void add_to_node(long nd1, int gpu_id){
+  //   if((to_ids[gpu_id].size() != 0 ) && (to_ids[gpu_id].back() == nd1)){
+  //     return;
+  //   }
+  //   to_ids[gpu_id].push_back(nd1);
+  //
+  //   // if(((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
+  //   //  owned_out_nodes.push_back(nd1);
+  //   // }
+  // }
+  //
+  //
+  // inline void add_edge(int nd1, int nd2, bool islocal){
+  //   // if(nd1 == nd2){
+  //   //   std::cout << "Should never happen" << nd1 <<"\n";
+  //   //   assert(false);
+  //   // }
+  //   if(islocal && ((owned_out_nodes.size() == 0) || (owned_out_nodes.back() != nd1))){
+	// 	  owned_out_nodes.push_back(nd1);
+  //     }
+  //     if(indptr.size() == 0){
+  //       indptr.push_back(0);
+  //       indptr.push_back(0);
+  //       if((out_nodes.size()==0) || (out_nodes.back() != nd1)){
+  //         out_nodes.push_back(nd1);
+  //       }
+  //     }else{
+  //       if(out_nodes.back()!=nd1){
+  //         int l = indptr.size();
+  //         indptr.push_back(indptr[l-1]);
+  //         out_nodes.push_back(nd1);
+  //       }
+  //     }
+  //     in_nodes.push_back(nd2);
+  //     expand_indptr.push_back(nd1);
+  //     indices.push_back(nd2);
+  //     int l = indptr.size();
+  //     indptr[l-1] = indptr[l-1] + 1;
+  // }
 
   void refresh(){
+    assert(False);
     for(int i=0;i<4;i++){
       from_ids[i].clear();
       to_ids[i].clear();

@@ -2,15 +2,59 @@
 
 // Replace everything with one local ordering.
 void Bipartite::reorder_local(DuplicateRemoved *dr){
-  // Order Destination nodes;
-  dr->order_and_remove_duplicates(dest_nodes);
+  // Order destination nodes;
+  dr->order_and_remove_duplicates(to_ids[gpu_id]);
+  int c1 = to_ids[gpu_id].size();
+  remote_sizes[i] = to_ids[gpu_id].size();
+  dr->clear();
+
   for(int i=0;i<4;i++){
-    dr->order_and_remove_duplicates(remote_nodes[i]);
+    if(i != gpu_id){
+      dr->order_and_remove_duplicates(to_ids[i]);
+      remote_sizes[i] = to_ids[i].size();
+    }
+  }
+  dr->clear();
+
+  // Order src nodes and associated data structures.
+  // self nodes;
+  dr->order_and_remove_duplicates(in_nodes);
+  self_id_offset = in_nodes.size();
+  assert(c1 == self_id_offset);
+  // local_id
+  dr->order_and_remove_duplicates(part_in_nodes[gpu_id]);
+  pull_from_sizes[gpu_id] = part_in_nodes[gpu_id].size();
+  for(int i=0;i<4; i++){
+    if(i!=gpu_id){
+      dr->order_and_remove_duplicates(part_in_nodes[i]);
+      pull_from_sizes[i] = part_in_nodes[i].size();
+    }
   }
 
-  // Order Src Nodes
+  // Create all local graphs.
+  indptr_L = indptr[gpu_id];
+  indices_L = indices[gpu_id];
+  dr->replace(indices_L);
+
+  // Remote partition nodes
+  for(int i=0;i<4;i++){
+      if(i!=gpu_id){
+          if(indptr_R.size() != 0){
+             int back = indptr.back();
+             for(int j=0;j<indptr[i].size();j++){
+                indptr[j] += back;
+             }
+             indptr_R.resize(indptr_R.size()-1);
+          }
+          dr->replace(indices[i]);
+          indptr_R.insert(indptr_R.end(),indptr[i].begin(), indptr[i].end());
+          indices_R.insert(indices_R.end(), indices[i].begin(), indices[i].end());
+      }
+  }
 
   // Order pull and Meta nodes
+  // Add assertions
+
 }
 
 // void BiPartite::reorder(DuplicateRemover* dr){
