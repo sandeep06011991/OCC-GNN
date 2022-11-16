@@ -7,7 +7,7 @@ void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy,
     vector<gpu> out_degree;
     out_degree.size(bl.layer_nds.size());
     in_degree.size(in.size());
-    memset(in_degree.data(), 0, sizeof(gpu) * in.size());
+    memset(in_degree.data(), 0, sizeof(gpu) * bl.layer_nds.size());
     memset(out_degree.data(), 0, sizeof(gpu) * in.size());
     for(int i=0;i < in.size(); i++){
         int p_dest = this->partition_map[in[i]];
@@ -84,11 +84,18 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
      for(int i=0;i < 4; i++){
        l.bipartite[i].local_reorder();
      }
-     for(int i = 0;i < 4; i++){
-       for(int from = 0; from < 4; from ++ ){
-         if(i==from)continue;
-         dr->order(in_nodes);
-         vector<long> incoming_nodes;
+     for(int pull_from = 0;pull_from < 4; pull_from++){
+       dr->clear();
+       dr->order(in_nodes);
+       for(int pull_to = 0; pull_to < 4; pull_to ++ ){
+         if(pull_from == pull_to)continue;
+         int start = 0;
+         int end = 0;
+         for(int i=0;i<4;i++){
+           if(pull_from == i)continue;
+           
+         }
+         l.bipiartite[pull_from].push_to_ids[pull_from] =
          dr->replace(incoming_nodes)
          l.bipartite[i]->from_nodes.push_back(incoming_nodes);
        }
