@@ -33,21 +33,33 @@ public:
   // Fixed max layers == 4
   // Can be made a compile time constant. Do later.
   // Can allocate max possible layers or use compiler directives.
-  PartitionedLayer layers[3];
-  std::vector<long> refresh_map[4];
-  std::vector<long> cache_hit[4];
+  PartitionedLayer layers[4];
+
+  // From ids are storage order ids in the local cache or local feature
+  // To ids are the position they are moved to in the input tensor
+  std::vector<long> cache_hit_from[4];
+  std::vector<long> cache_hit_to[4];
+  std::vector<long> cache_miss_from[4];
+  std::vector<long> cache_miss_to[4];
+
+  PartitionedSample(int num_layers){
+    this->num_layers = num_layers;
+  }
+
   void clear(){
-    for(int i=0;i<3;i++){
+    for(int i=0;i<num_layers;i++){
       layers[i].clear();
     }
     for(int i=0;i<4;i++){
-      refresh_map[i].clear();
-      cache_hit[i].clear();
+      cache_hit_from[i].clear();
+      cache_hit_to[i].clear();
+      cache_miss_from[i].clear();
+      cache_miss_to[i].clear();
     }
   }
 
   void debug(){
-    for(int i=0;i < 3; i++){
+    for(int i=0;i < num_layers; i++){
       std::cout << "Layer" << i <<"\n";
       layers[i].debug();
 

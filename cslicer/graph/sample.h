@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 // A simple sample structure
 // The zeroth block is constructed from the set of target nodes as follows
 // [null, null, batch_ids]

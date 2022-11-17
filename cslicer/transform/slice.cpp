@@ -1,43 +1,49 @@
 #include "transform/slice.h"
+#include <cstring>
 
 // Get Edge selection.
-void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy, int layer_id){
+void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy, int layer_id, int no_layers){
     policy.clear();
     vector<gpu> in_degree;
     vector<gpu> out_degree;
-    out_degree.size(bl.layer_nds.size());
-    in_degree.size(in.size());
-    memset(in_degree.data(), 0, sizeof(gpu) * bl.layer_nds.size());
-    memset(out_degree.data(), 0, sizeof(gpu) * in.size());
+    gpu zero;
+    for(int i = 0; i <4; i++){
+       zero.cost[i] = 0;
+    };
+    for(int i=0; i < bl.layer_nds.size(); i++){
+      out_degree.push_back(zero);
+    }
     for(int i=0;i < in.size(); i++){
-        int p_dest = this->partition_map[in[i]];
-        for(int j= offsets[i]; j <offsets[i+1]; j++){
+      in_degree.push_back(zero);
+    }
+    for(int i=0;i < in.size(); i++){
+        int p_dest = this->workload_map[in[i]];
+        for(int j= bl.offsets[i]; j < bl.offsets[i+1]; j++){
           int nd2 = bl.layer_nds[bl.indices[j]];
-          int p_src = this->partition_map[nd2];
-          if(layer_id == 2){
+          int p_src = this->workload_map[nd2];
+          if(layer_id == (no_layers - 1)){
             if(this->storage_map[p_dest][nd2] != -1){
               p_src = p_dest;
             }
           }
           if(p_src == p_dest) {
-            policy.pushback(LOCAL);
+            policy.push_back(LOCAL);
           }else{
-            policy.pushback(PUSH);
+            policy.push_back(PUSH);
           }
           int from = this->workload_map[nd2];
-          in_degree[i].gpu[p_src] ++;
-          out_degree[j].gpu[p_dest] ++;
+          in_degree[i].cost[p_src] ++;
+          out_degree[bl.indices[j]].cost[p_dest] ++;
         }
     }
     for(int i=0;i<in.size();i ++ ){
-      int p_dest = this->partition_map[in[i]];
-      for(int j= offsets[i]; j <offsets[i+1]; j++){
+      int p_dest = this->workload_map[in[i]];
+      for(int j= bl.offsets[i]; j <bl.offsets[i+1]; j++){
         int nd2 = bl.layer_nds[bl.indices[j]];
-        int p_src = this->partition_map[nd2];
-        if(this->p_indegree[i].gpus[p_src] < this->p_outdegree[j].gpus[p_dest] * this->rounds)policy[j] = PULL;
+        int p_src = this->workload_map[nd2];
+        if(in_degree[i].cost[p_src] < out_degree[bl.indices[j]].cost[p_dest] * this->rounds)policy[j] = PULL;
       }
     }
-    assert(policy.size() == bl.offsets)
 }
 
 // [Not in this version of the paper] To add redudancy, color all the nodes with bitflags
@@ -54,12 +60,12 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         partition_edges[i].clear();
         pull_nodes[i].clear();
       }
-      int p_dest = this->partition_map[in[i]]
+      int p_dest = this->workload_map[in[i]];
       for(int j= bl.offsets[i]; j < bl.offsets[i+1]; j++){
         POLICY  p = policy[j];
         long nd_src = bl.layer_nds[bl.indices[j]];
+        int p_src = this->workload_map[nd_src];
         if(p == PUSH){
-          int p_src = this->partition_map[nd_src];
           partition_edges[p_src].push_back(nd_src);
         }
         if(p == LOCAL){
@@ -67,37 +73,52 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         }
         if(p == PULL){
           partition_edges[p_dest].push_back(nd_src);
-          pull_nodes[p_src].push_back(nd_src);
+          pull_nodes[p_dest].push_back(nd_src);
         }
       }
       long nd_dest = in[i];
       long in_degree = bl.in_degree[i];
-      l.bipartite[p_dest].add_local_out_node(partition_edges[p_dest], in_degree, nd_dest);
+      l.bipartite[p_dest]->add_local_out_node(nd_dest, in_degree);
       for(int src=0;src < 4; src++){
-          l.bipartite[p_src].merge_graph(partition_edges[src], nd_dest);
-          l.bipartite[p_src].merge_pull_nodes(pull_nodes[src]);
+          // Its not actually src but destination for remote nodes in this line.
+          if(partition_edges[src].size() != 0)l.bipartite[src]->merge_graph(partition_edges[src], nd_dest, src);
+          if(pull_nodes[src].size() != 0) l.bipartite[src]->merge_pull_nodes(pull_nodes[src], src);
       }
     }
   }
 
   void Slice::reorder(PartitionedLayer &l){
      for(int i=0;i < 4; i++){
-       l.bipartite[i].local_reorder();
+       l.bipartite[i]->reorder_local(dr);
      }
+     // Handle remote destination nodes
+     for(int to = 0; to < 4; to ++){
+       dr->clear();
+       dr->order_and_remove_duplicates(l.bipartite[to]->out_nodes_local);
+       for(int from = 0; from<4; from++){
+	        if(from == to) continue;
+         int start = l.bipartite[from]->to_offsets[to];
+         int end = l.bipartite[from]->to_offsets[to + 1];
+         l.bipartite[to]->from_ids[from].clear();
+         vector<long> &t = l.bipartite[to]->from_ids[from];
+      	 vector<long> &f = l.bipartite[from]->out_nodes_remote;
+      	 t.insert(t.end(), f.begin() + start, f.begin() + end );
+      	 dr->replace(t);
+       }
+     }
+
      for(int pull_from = 0;pull_from < 4; pull_from++){
        dr->clear();
-       dr->order(in_nodes);
+       dr->order_and_remove_duplicates(l.bipartite[pull_from]->in_nodes);
        for(int pull_to = 0; pull_to < 4; pull_to ++ ){
          if(pull_from == pull_to)continue;
-         int start = 0;
-         int end = 0;
-         for(int i=0;i<4;i++){
-           if(pull_from == i)continue;
-           
-         }
-         l.bipiartite[pull_from].push_to_ids[pull_from] =
-         dr->replace(incoming_nodes)
-         l.bipartite[i]->from_nodes.push_back(incoming_nodes);
+         int start = l.bipartite[pull_to]->pull_from_offsets[pull_from];
+         int end = l.bipartite[pull_to]->pull_from_offsets[pull_from + 1];
+         vector<long> &f = l.bipartite[pull_from]->push_to_ids[pull_to];
+      	 vector<long> &t = l.bipartite[pull_from]->pulled_in_nodes;
+      	 f.clear();
+      	 f.insert(f.end(), t.begin() + start, t.begin() + end);
+         dr->replace(f);
        }
      }
   }
@@ -108,10 +129,10 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
     for(int i= 1; i< s.num_layers + 1;i++){
         PartitionedLayer& l = ps.layers[i-1];
         int layer_id = i-1;
-        this->get_edge_policy( *s.block[i], edge_plicy);
+        this->get_edge_policy(s.block[i-1]->layer_nds,  *s.block[i], edge_policy, i-1, s.num_layers );
         // std::cout << "Attempting to slice ################### \n";
-        this->partition_edges(s.block[i-1]->layer_nds, \
-          (* s.block[i]), l, layer_id);
+        this->slice_layer(s.block[i-1]->layer_nds, \
+          (* s.block[i]), l, layer_id, edge_policy);
         this->reorder(l);
         // l.debug();
     }
@@ -120,8 +141,8 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         ps.cache_hit_from[i].clear();
         ps.cache_miss_to[i].clear();
         ps.cache_hit_to[i].clear();
-        for(int j = 0; j <ps.layers[2].bipartite[i].in_nodes.size(); j++){
-          auto nd = ps.layers[2].bipartite[i].in_nodes[j];
+        for(int j = 0; j <ps.layers[s.num_layers].bipartite[i]->in_nodes.size(); j++){
+          auto nd = ps.layers[s.num_layers].bipartite[i]->in_nodes[j];
           if (this->storage_map[i][nd] != -1){
               ps.cache_hit_from[i].push_back(this->storage_map[i][nd]);
               ps.cache_hit_to[i].push_back(j);

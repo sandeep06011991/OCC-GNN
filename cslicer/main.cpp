@@ -3,9 +3,9 @@
 #include "util/environment.h"
 #include "graph/sample.h"
 #include "samplers/samplers.h"
-#include "memory"
+// #include "memory"
 #include "transform/slice.h"
-#include "tests/test.h"
+// #include "tests/test.h"
 int main(){
 
   // Test1: Read graph datastructure.
@@ -15,11 +15,12 @@ int main(){
 
   // Test2: Construct simple k-hop neighbourhood sample.
   // Sample datastructure.
-  Sample *s  = new Sample(3);
+  Sample *s1  = new Sample(3);
   std::vector<long> training_nodes{0};
   int fanout = 2;
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, false);
-  ns->sample(training_nodes,(*s));
+  ns->sample(training_nodes,(*s1));
+
   // sample_neighbourhood((*s), training_nodes, (*dataset));
   // Issues over memory who is responsibe for this.
   // Who creats it, uses it and destroys it.
@@ -36,7 +37,6 @@ int main(){
   for(int i=0;i < 4; i++)gpu_capacity[i] = 0;
   for(int i=0;i<dataset->num_nodes;i++){
     workload_map.push_back(i%4);
-
     #pragma unroll
     for(int j=0;j<4;j++){
       if(is_present == 1){
@@ -55,12 +55,13 @@ int main(){
   //   storage_map[j][100] = 0;
   //   gpu_capacity[j]++;
   // }
-  Slice * sc = new Slice(workload_map, storage_map, false);
-  s->debug();
-  PartitionedSample ps;
-
-  sc->slice_sample((*s), ps);
-  ps.debug();
-  test_sample_partition_consistency((*s),ps, storage, gpu_capacity, dataset->num_nodes);
-  std::cout << "Hello World\n";
+  int rounds = 2;
+  Slice * sc = new Slice(workload_map, storage_map, false, rounds);
+  // s->debug();
+  // PartitionedSample ps;
+  //
+  // sc->slice_sample((*s), ps);
+  // ps.debug();
+  // test_sample_partition_consistency((*s),ps, storage, gpu_capacity, dataset->num_nodes);
+  // std::cout << "Hello World\n";
 }
