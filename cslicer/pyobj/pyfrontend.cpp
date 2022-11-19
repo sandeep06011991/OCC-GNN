@@ -139,7 +139,9 @@ public:
               storage_map[k].push_back(-1);
             }
         }
-
+        assert(False);
+        // Dont exapnd here storage map is undordered.
+        
         for(int i=0;i<4;i++){
           int j = 0;
           int order =0;

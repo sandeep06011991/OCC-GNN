@@ -25,21 +25,24 @@ class Slice{
 public:
 
   Slice(std::vector<int> workload_map,
-      std::vector<int> storage_map[4], bool self_edge, int rounds){
+      std::vector<int> storage[4], bool self_edge, int rounds){
     this->workload_map = workload_map;
     int num_nodes = this->workload_map.size();
-    #pragma unroll
-    for(int i=0;i<4;i++){
-      this->storage_map[i]  = storage_map[i];
+
+    for(int j = 0; j < num_nodes; j++){
+      #pragma unroll
+      for(int i=0;i<4;i++){
+        this->storage_map[i].push_back(-1);
+      }
     }
     for(int i=0;i<4;i++){
       int count = 0;
-      for(auto j:this->storage_map[i]){
-        if(j != -1){
+      for(auto j:storage[i]){
+          this->storage_map[i][j] = count;
           count ++ ;
-        }
       }
       gpu_capacity[i] = count;
+      std::cout << "gpu" << i <<"contains" << count <<"\n";
     }
     dr = new DuplicateRemover(this->workload_map.size());
     this->self_edge = self_edge;

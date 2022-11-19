@@ -44,6 +44,8 @@ void DuplicateRemover::replace(vector<long> &v){
     if(v[i] == -1){
       std::cout << "failed to find " <<  t <<"\n";
       failed ++ ;
+
+      assert(false);
     }
   }
   // std::cout << "failed for " << failed << " " << v.size()  <<"\n";

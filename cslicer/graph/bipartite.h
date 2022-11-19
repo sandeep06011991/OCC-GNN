@@ -22,7 +22,10 @@ public:
   // nd2 is in_nodes as sampling is top down, but flow is bottom up.
   // Follows global order.
   // Built during REORDERING
+  // All locally present in nodes
   vector<long> in_nodes;
+  // Self nodes that are reordered first
+  vector<long> self_in_nodes;
   vector<long> pulled_in_nodes;
   vector<long> out_nodes_remote;
   // out nodes_remote[gpu_i] = out_nodes_remote[remote_offsets[i]:[i+1]]
@@ -83,12 +86,13 @@ public:
 
   BiPartite(int gpu_id){
     this->gpu_id = gpu_id;
+    refresh();
   }
 
   void add_local_out_node(long nd_dest, int degree){
     out_nodes_local.push_back(nd_dest);
     out_degree_local.push_back(degree);
-    in_nodes.push_back(nd_dest);
+    self_in_nodes.push_back(nd_dest);
   }
 
   // Single function for all remote graphs.
@@ -107,6 +111,10 @@ public:
 
   void merge_pull_nodes(vector<long> pull_nodes, long p_id){
       pull_from_ids_[p_id].insert(pull_from_ids_[p_id].end(), pull_nodes.begin(), pull_nodes.end());
+  }
+
+  void merge_local_in_nodes(vector<long> in_nodes){
+      this->in_nodes.insert(this->in_nodes.end(), in_nodes.begin(), in_nodes.end());
   }
 
 
@@ -137,6 +145,7 @@ public:
     indptr_R.clear();
     indices_R.clear();
     self_ids_offset = 0;
+    self_in_nodes.clear();
   }
 
   void reorder_local(DuplicateRemover *dr);
@@ -153,12 +162,34 @@ public:
   }
   void debug(){
     std::ostream &out = std::cout ;
-    std::cout << "BiPartitie" << "\n";
-    out << "num_ in nodes local" << num_in_nodes_local <<"\n";
-    out << "nun_ out nodes" << num_out_local <<"\n";
+    std::cout << "BiPartitie############" << gpu_id <<  "\n";
     debug_vector("in_nodes", in_nodes, out);
+    debug_vector("self in  nodes", self_in_nodes, out);
     debug_vector("pulled in_nodes", pulled_in_nodes, out);
     debug_vector("out nodes remote", out_nodes_remote, out);
-
+    debug_vector("out nodes local", out_nodes_local, out);
+    debug_vector("out degree local", out_degree_local, out);
+    std::cout << "To";
+    for(int i=0;i<4;i++){
+      std::cout << to_offsets[i+1] << " ";
+    }
+    std::cout << "\n From";
+    for(int i=0;i<4;i++){
+      std::cout << pull_from_offsets[i+1] << " ";
+    }
+    for(int i=0;i<4;i++){
+        std::cout <<  i << ":\n";
+        debug_vector("from_ids", from_ids[i], out);
+        debug_vector("to_ids_", to_ids_[i], out);
+        debug_vector("indptr_",indptr_[i], out);
+        debug_vector("indices_", indices_[i], out);
+        debug_vector("push_to_ids", push_to_ids[i], out);
+        debug_vector("pull_from_ids", pull_from_ids_[i], out);
+      }
+    debug_vector("indptr_L", indptr_L, out);
+    debug_vector("indices_L", indices_L, out);
+    debug_vector("indptr_R", indptr_R, out);
+    debug_vector("indices_R", indices_R, out);
+    std::cout << "End \n";
   }
 };

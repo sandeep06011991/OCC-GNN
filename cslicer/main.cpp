@@ -10,13 +10,14 @@
 int main(){
 
   // Test1: Read graph datastructure.
-  std::string graph_name = "ogbn-products";
+  std::string graph_name = "ogbn-arxiv";
   std::string file = get_dataset_dir() + graph_name;
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false);
 
   // Test2: Construct simple k-hop neighbourhood sample.
   // Sample datastructure.
-  Sample *s1  = new Sample(3);
+  int num_layers = 1;
+  Sample *s1  = new Sample(num_layers);
   std::vector<long> training_nodes{0};
   int fanout = 2;
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, false);
@@ -32,14 +33,12 @@ int main(){
   std::vector<int> storage_map[4];
   std::vector<int> storage[4];
   // Test 3a.
-  int is_present =0;
+  int is_present =1;
   // Test 3b. is_present = 1;
   int gpu_capacity[4];
   for(int i=0;i < 4; i++)gpu_capacity[i] = 0;
   for(int i=0;i<dataset->num_nodes;i++){
     workload_map.push_back(i%4);
-    storage_map[i%4].push_back(i);
-    continue;
     #pragma unroll
     for(int j=0;j<4;j++){
       if(is_present == 1){
@@ -59,11 +58,12 @@ int main(){
   //   gpu_capacity[j]++;
   // }
   int rounds = 2;
-  Slice * sc = new Slice(workload_map, storage_map, false, rounds);
+  Slice * sc = new Slice(workload_map, storage, false, rounds);
   // s->debug();
-  PartitionedSample ps(3);
+  PartitionedSample ps(num_layers);
 
   sc->slice_sample((*s1), ps);
+  std::cout << "slicing done \n";
   // ps.debug();
   test_sample_partition_consistency((*s1),ps, storage, gpu_capacity, dataset->num_nodes);
   // std::cout << "Hello World\n";

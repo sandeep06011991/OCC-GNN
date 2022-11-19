@@ -7,6 +7,7 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
   dr->order_and_remove_duplicates(to_ids_[gpu_id]);
   int c1 = to_ids_[gpu_id].size();
   num_out_local = to_ids_[gpu_id].size();
+  // It is a seperate graph.
   dr->clear();
   to_offsets[0] = 0;
   for(int i=0;i<4;i++){
@@ -18,19 +19,23 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
     }else{
     	to_offsets[i+1] = to_offsets[i];
     }
-
   }
-  num_out_remote = to_offsets[5];
+  num_out_remote = to_offsets[4];
+  std::cout << "Num remote " << num_out_remote <<"\n";
   dr->clear();
 
   // Order src nodes and associated data structures.
   // self nodes;
+  dr->order_and_remove_duplicates(self_in_nodes);
+  self_ids_offset = self_in_nodes.size();
   dr->order_and_remove_duplicates(in_nodes);
-  self_ids_offset = in_nodes.size();
+  std::vector<long> in_nodes_;
+  in_nodes_.insert(in_nodes_.end(), self_in_nodes.begin(), self_in_nodes.end());
+  in_nodes_.insert(in_nodes_.end(), in_nodes.begin(), in_nodes.end());
+  in_nodes.clear();
+  in_nodes = in_nodes_;
   assert(c1 == self_ids_offset);
   // local_id
-  in_nodes.insert(in_nodes.end(), indices_[gpu_id].begin(), indices_[gpu_id].end());
-  dr->order_and_remove_duplicates(in_nodes);
   num_in_nodes_local = in_nodes.size();
 
   pull_from_offsets[0] = 0;
@@ -45,7 +50,6 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
       pull_from_offsets[i + 1] = pull_from_offsets[i];
     }
   }
-
   // Create all local graphs.
   indptr_L = indptr_[gpu_id];
   indices_L = indices_[gpu_id];

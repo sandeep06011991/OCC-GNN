@@ -58,12 +58,16 @@ int naive_flow_up_sample(Sample &s, int number_of_nodes){
 
 void aggregate(vector<int> &out, vector<int> &in,
         vector<long> &indptr, vector<long> &indices){
+    if(indptr.size()>0)assert(out.size() == indptr.size()-1);
     for(int i=0;i< (int) indptr.size()-1;i ++){
       int off_start = indptr[i];
       int off_end = indptr[i+1];
       int t = 0;
       for(int off = off_start; off < off_end; off ++ ){
+        std::cout << indices[off] << " " << in.size() <<"\n";
+          assert(indices[off] < in.size());
           t += in[indices[off]];
+          std::cout << i << " " << indices[off] <<"\n";
           if(in[indices[off]] < 0){
             std::cout <<"Incorrect read "<<  indices[off] << " " << in[indices[off]] <<"\n";
           }
@@ -97,31 +101,40 @@ int sample_flow_up_ps(PartitionedSample &s,
   // refresh storage map with local_ids.
   std::vector<int> in[4];
   std::vector<int> out[4];
+  std::vector<int> remote_out[4];
   std::vector<long> cache_hit_from[4];
   std::vector<long> cache_hit_to[4];
   std::vector<long> cache_miss_from[4];
   std::vector<long> cache_miss_to[4];
   for(int i=0;i<4; i++ ){
      in[i].clear();
-     int cache_hit = cache_hit_to[i].size();
-     int cache_miss = cache_miss_to[i].size();
+     int cache_hit = s.cache_hit_to[i].size();
+     int cache_miss = s.cache_miss_to[i].size();
      in[i].resize(cache_hit + cache_miss);
      for(int j=0; j < cache_hit; j++) {
+          std::cout << s.cache_hit_to[i][j] << " " << s.cache_hit_from[i][j] << " " << \
+                storage_map[i].size() << "\n";
           in[i][s.cache_hit_to[i][j]] = storage_map[i][s.cache_hit_from[i][j]];
      }
      for(int j=0; j < cache_miss; j++) {
            in[i][s.cache_miss_to[i][j]] = storage_map[i][s.cache_miss_from[i][j]];
      }
   }
+  std::cout << "cache management complete\n";
   for(int i =  s.num_layers-1  ; i>=0; i--){
     // Bipartite local aggregation.
+
+    std::cout << "local up " << i <<"\n";
     PartitionedLayer &layer = s.layers[i];
     // PULL
+    std::cout << "pull \n";
     for(int j=0;j < 4;j ++){
       BiPartite *bp = layer.bipartite[j];
-      assert(in[i].size() == bp->in_nodes.size());
+      std::cout << in[i].size() << " " << bp->in_nodes.size() <<"\n";
+      bp->debug_vector("in_nodes",  bp->in_nodes, std::cout);
+      assert(in[j].size() == bp->in_nodes.size());
       int new_size = bp->num_in_nodes_local + bp->num_in_nodes_pulled;
-      in[i].resize(new_size);
+      in[j].resize(new_size);
       for(int pull_from = 0; pull_from <4; pull_from ++){
         if(pull_from == j)continue;
         int start = bp->pull_from_offsets[pull_from];
@@ -134,20 +147,34 @@ int sample_flow_up_ps(PartitionedSample &s,
       }
     }
     // AGGREGATE
+
     // layer.debug();
     for(int j=0; j<4; j++ ){
         BiPartite *bp = layer.bipartite[j];
-        out[j].resize(bp->num_out_local + bp->num_out_remote);
+        if(bp->num_out_local>0){
+          out[j].resize(bp->num_out_local);
+        }else{
+          out[j].clear();
+        }
+        if(bp->num_out_remote>0){
+          out[j].resize(bp->num_out_remote);
+        }else{
+          out[j].clear();
+        }
+        std::cout << "aggregate " << j <<" " << bp->num_out_remote << " " << bp->num_out_local << "\n";
         aggregate(out[j], in[j], bp->indptr_L, bp->indices_L);
-        aggregate(out[j], in[j], bp->indptr_R, bp->indices_R);
+        std::cout << "local\n";
+        aggregate(remote_out[j], in[j], bp->indptr_R, bp->indices_R);
+        std::cout <<"remote\n";
     }
     // PUSH
+    std::cout << "pull\n";
     for(int from = 0; from < 4; from ++) {
       for(int to = 0; to < 4 ; to++) {
           if(from != to){
             int start = layer.bipartite[from]->to_offsets[to];
             int end = layer.bipartite[from]->to_offsets[to + 1];
-            shuffle(layer.bipartite[to]->from_ids[from], out[to], out[from], \
+            shuffle(layer.bipartite[to]->from_ids[from], out[to], remote_out[from], \
                     start , end);
           }
       }
@@ -179,7 +206,9 @@ int sample_flow_up_ps(PartitionedSample &s,
 void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
   std::vector<int> local_storage[4], int gpu_capacity[4], int num_nodes){
     int correct = naive_flow_up_sample(s, num_nodes);
+    std::cout << "correct value" << correct << "\n";
     for(int i=0;i<4; i++){
+
       assert(local_storage[i].size() == gpu_capacity[i]);
     }
 

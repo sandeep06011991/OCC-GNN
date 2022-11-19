@@ -55,10 +55,12 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
     // For pulling node.
     vector<long> partition_edges[4];
     vector<long> pull_nodes[4];
+    vector<long> local_in_nodes[4];
     for(int i=0;i<in.size(); i++){
       for(int i=0;i<4;i++){
         partition_edges[i].clear();
         pull_nodes[i].clear();
+        local_in_nodes[i].clear();
       }
       int p_dest = this->workload_map[in[i]];
       for(int j= bl.offsets[i]; j < bl.offsets[i+1]; j++){
@@ -66,12 +68,17 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         long nd_src = bl.layer_nds[bl.indices[j]];
         int p_src = this->workload_map[nd_src];
         if(p == PUSH){
+          std::cout << "push" << nd_src <<"\n";
           partition_edges[p_src].push_back(nd_src);
+          local_in_nodes[p_src].push_back(nd_src);
         }
         if(p == LOCAL){
+            std::cout << "local" << nd_src <<"\n";
           partition_edges[p_dest].push_back(nd_src);
+          local_in_nodes[p_dest].push_back(nd_src);
         }
         if(p == PULL){
+          std::cout << "pull " << nd_src <<"\n";
           partition_edges[p_dest].push_back(nd_src);
           pull_nodes[p_dest].push_back(nd_src);
         }
@@ -79,10 +86,12 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
       long nd_dest = in[i];
       long in_degree = bl.in_degree[i];
       l.bipartite[p_dest]->add_local_out_node(nd_dest, in_degree);
+
       for(int src=0;src < 4; src++){
           // Its not actually src but destination for remote nodes in this line.
-          if(partition_edges[src].size() != 0)l.bipartite[src]->merge_graph(partition_edges[src], nd_dest, src);
+          if(partition_edges[src].size() != 0)l.bipartite[src]->merge_graph(partition_edges[src], nd_dest, p_dest);
           if(pull_nodes[src].size() != 0) l.bipartite[src]->merge_pull_nodes(pull_nodes[src], src);
+          if(local_in_nodes[src].size()!=0)l.bipartite[src]->merge_local_in_nodes(local_in_nodes[src]);
       }
     }
   }
@@ -124,29 +133,42 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
   }
 
   void Slice::slice_sample(Sample &s, PartitionedSample &ps){
-    // std::cout << "Reached here\n";
+    std::cout << "Reached here\n";
     vector<POLICY> edge_policy;
+    s.debug();
     for(int i= 1; i< s.num_layers + 1;i++){
         PartitionedLayer& l = ps.layers[i-1];
         int layer_id = i-1;
+        edge_policy.clear();
+        std::cout << "policy\n";
         this->get_edge_policy(s.block[i-1]->layer_nds,  *s.block[i], edge_policy, i-1, s.num_layers );
-        // std::cout << "Attempting to slice ################### \n";
+        std::cout << "slice\n";
         this->slice_layer(s.block[i-1]->layer_nds, \
           (* s.block[i]), l, layer_id, edge_policy);
+        std::cout << "order slice\n";
+        l.debug();
         this->reorder(l);
         // l.debug();
     }
+    std::cout << "end  slicing \n";
     for(int i=0;i<4;i++){
         ps.cache_miss_from[i].clear();
         ps.cache_hit_from[i].clear();
         ps.cache_miss_to[i].clear();
         ps.cache_hit_to[i].clear();
-        for(int j = 0; j <ps.layers[s.num_layers].bipartite[i]->in_nodes.size(); j++){
-          auto nd = ps.layers[s.num_layers].bipartite[i]->in_nodes[j];
+        std::cout << "final in node";
+          // ps.layers[s.num_layers-1].bipartite[i]->debug();
+        ps.layers[s.num_layers-1].bipartite[i]->debug_vector("in nodes", ps.layers[s.num_layers-1].bipartite[i]->in_nodes, std::cout);
+        for(int j = 0; j <ps.layers[s.num_layers- 1].bipartite[i]->in_nodes.size(); j++){
+          auto nd = ps.layers[s.num_layers-1].bipartite[i]->in_nodes[j];
+
           if (this->storage_map[i][nd] != -1){
+            std::cout << "add cache hit" << nd <<"\n";
               ps.cache_hit_from[i].push_back(this->storage_map[i][nd]);
               ps.cache_hit_to[i].push_back(j);
           }else{
+
+              std::cout << "add cache miss" << nd <<"\n";
             ps.cache_miss_from[i].push_back(nd);
             ps.cache_miss_to[i].push_back(j);
           }
