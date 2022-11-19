@@ -21,7 +21,6 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
     }
   }
   num_out_remote = to_offsets[4];
-  std::cout << "Num remote " << num_out_remote <<"\n";
   dr->clear();
 
   // Order src nodes and associated data structures.
