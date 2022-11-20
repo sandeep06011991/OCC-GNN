@@ -87,35 +87,3 @@ redundant  print_statistics(Sample &s,std::vector<int> ** layer_color, long num_
   r.redundant_communication = redundant_communication;
   return r;
 }
-//
-// void check_allocation_for_optimality(Sample &s, int *workload_map, long num_nodes){
-//   vector<int> partition_map[s.num_layers + 1];
-//   for(int i=1; i < s.num_layers; i ++){
-//     int correct_nodes = 0;
-//     int bad_nodes = 0;
-//
-//       vector<int> in_partitions = color_with_dest_gpu(s.block[i+1]->offsets,
-//               s.block[i+1]->indices, workload_map);
-//       vector<int> out_partitions = color_with_src_gpu(s.block[i-1]->layer_nds, s.block[i]->offsets,
-//               s.block[i]->indices, workload_map,s.block[i]->layer_nds, num_nodes);
-//       assert(in_partitions.size() == out_partitions.size());
-//       for(int j=0; j < s.block[i]->layer_nds.size(); j++){
-//         long nd =  s.block[i]->layer_nds[j];
-//         if(!((1 << workload_map[nd]) & in_partitions[j] & out_partitions[j])){
-//           // std::cout << "Missmatch " << (1 << workload_map[nd]) << " " << in_partitions[j] << " " <<  out_partitions[j] <<"\n";
-//           bad_nodes ++ ;
-//         }else{
-//           if(1<<workload_map[nd] == in_partitions[j] && (in_partitions[j] == out_partitions[j])){
-//
-//           }else{
-//             correct_nodes ++;
-//
-//           }
-//           // std::cout << "good partition\n";
-//         }
-//       }
-//       // 10% overall decrease in traffic if I have smarter coloring.
-//       std::cout << "layer" << i << " " << correct_nodes <<" " << bad_nodes << " " << s.block[i]->layer_nds.size() << "\n";
-//     }
-//
-// }

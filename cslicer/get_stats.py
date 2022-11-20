@@ -1,6 +1,7 @@
 import torch
 from cslicer import stats
 s = stats("ogbn-arxiv","occ",10)
+# Todo make this global partitioning.
 print("Redundant computation in our partitioning")
 print("Make partition map as a variable. ")
 t = s.get_stats([0,1,2,3,4,5])

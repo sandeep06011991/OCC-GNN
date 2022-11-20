@@ -33,7 +33,7 @@ int main(){
   std::vector<int> storage_map[4];
   std::vector<int> storage[4];
   // Test 3a.
-  int is_present =1;
+  int is_present =0;
   // Test 3b. is_present = 1;
   int gpu_capacity[4];
   for(int i=0;i < 4; i++)gpu_capacity[i] = 0;
@@ -58,14 +58,15 @@ int main(){
   //   storage_map[j][100] = 0;
   //   gpu_capacity[j]++;
   // }
-  int rounds = 2;
-  Slice * sc = new Slice(workload_map, storage, false, rounds);
-  // s->debug();
+  int rounds = 4;
+  bool pull_optim = true;
+  Slice * sc = new Slice(workload_map, storage, false, rounds, pull_optim);
+  // // s->debug();
   PartitionedSample ps(num_layers);
-
   sc->slice_sample((*s1), ps);
-  std::cout << "slicing done \n";
+  // std::cout << "slicing done \n";
   // ps.debug();
   test_sample_partition_consistency((*s1),ps, storage, gpu_capacity, dataset->num_nodes);
+  // test_pull_benefits(*s1, workload_map, storage, rounds);
   // std::cout << "Hello World\n";
 }

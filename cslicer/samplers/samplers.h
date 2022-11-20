@@ -23,11 +23,11 @@ public:
       this->dataset = dataset;
       this->fanout = fanout;
       this->deterministic = deterministic;
-      dr = new DuplicateRemover(this->dataset->num_nodes);
+      dr = new ArrayMap(this->dataset->num_nodes);
   }
 
   void sample(std::vector<long> &target_nodes, Sample &s);
-private: 
+private:
   void layer_sample(std::vector<long> &in, std::vector<long> &in_degrees, \
      std::vector<long> &offsets,
       std::vector<long> &indices);

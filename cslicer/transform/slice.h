@@ -20,12 +20,18 @@ class Slice{
   // Used for new node ordering
   int gpu_capacity[4];
   DuplicateRemover *dr;
-  bool self_edge;
+  // Use this for GAT
+  bool self_edge = false;
+  bool pull_optimization = false;
+  bool use_map_for_duplicates = false;
+  bool add_debug = false;
+
   int rounds;
+
 public:
 
   Slice(std::vector<int> workload_map,
-      std::vector<int> storage[4], bool self_edge, int rounds){
+      std::vector<int> storage[4], bool self_edge, int rounds, bool pull_optimization){
     this->workload_map = workload_map;
     int num_nodes = this->workload_map.size();
 
@@ -42,10 +48,12 @@ public:
           count ++ ;
       }
       gpu_capacity[i] = count;
-      std::cout << "gpu" << i <<"contains" << count <<"\n";
     }
-    dr = new DuplicateRemover(this->workload_map.size());
+    this->rounds = rounds;
+    dr = new ArrayMap(this->workload_map.size());
     this->self_edge = self_edge;
+    std::cout << pull_optimization << "is in mode" <<"\n";
+    this->pull_optimization = pull_optimization;
   }
 
   void slice_sample(Sample &s, PartitionedSample &ps);

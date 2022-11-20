@@ -67,5 +67,5 @@ int main(){
   ps.clear();
   Slice * slice1 = new Slice(workload_map, storage_map_nil);
   slice1->slice_sample(s,ps);
-  std::cout << "Running";
+
 }

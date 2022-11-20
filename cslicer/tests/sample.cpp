@@ -113,7 +113,7 @@ int sample_flow_up_ps(PartitionedSample &s,
           in[i][s.cache_hit_to[i][j]] = storage_map[i][s.cache_hit_from[i][j]];
      }
      for(int j=0; j < cache_miss; j++) {
-           in[i][s.cache_miss_to[i][j]] = storage_map[i][s.cache_miss_from[i][j]];
+           in[i][s.cache_miss_to[i][j]] = s.cache_miss_from[i][j];
      }
   }
   for(int i =  s.num_layers-1  ; i>=0; i--){
@@ -204,7 +204,7 @@ void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
     for(int i=0;i<4; i++){
       assert(local_storage[i].size() == gpu_capacity[i]);
     }
-
+    std::cout <<"reached here !\n";
     int out = sample_flow_up_ps(ps, local_storage);
     std::cout << correct << "==" << out << "\n";
     assert(correct == out);

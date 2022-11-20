@@ -8,8 +8,11 @@
 using namespace std;
 namespace py = pybind11;
 
+
 class PyBipartite{
+
 public:
+
   torch::Tensor in_nodes;
   torch::Tensor expand_indptr;
   torch::Tensor indptr;
@@ -53,7 +56,7 @@ public:
   long in_nodes = 0;
   long out_nodes = 0;
 
-  PySample(PartitionedSample &s);
+  PySample(PartitionedSample &s, bool debug);
 
   ~PySample();
 };

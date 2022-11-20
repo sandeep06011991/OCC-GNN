@@ -2,7 +2,8 @@
 #include <cstring>
 
 // Get Edge selection.
-void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy, int layer_id, int no_layers){
+void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy,
+    int layer_id, int no_layers){
     policy.clear();
     vector<gpu> in_degree;
     vector<gpu> out_degree;
@@ -28,20 +29,34 @@ void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy,
           }
           if(p_src == p_dest) {
             policy.push_back(LOCAL);
+            continue;
           }else{
             policy.push_back(PUSH);
           }
           int from = this->workload_map[nd2];
           in_degree[i].cost[p_src] ++;
+          assert(bl.indices[j] < out_degree.size());
           out_degree[bl.indices[j]].cost[p_dest] ++;
         }
     }
-    for(int i=0;i<in.size();i ++ ){
-      int p_dest = this->workload_map[in[i]];
-      for(int j= bl.offsets[i]; j <bl.offsets[i+1]; j++){
-        int nd2 = bl.layer_nds[bl.indices[j]];
-        int p_src = this->workload_map[nd2];
-        if(in_degree[i].cost[p_src] < out_degree[bl.indices[j]].cost[p_dest] * this->rounds)policy[j] = PULL;
+    assert(bl.indices.size()== policy.size());
+    if(this->pull_optimization){
+      for(int i=0;i<in.size();i ++ ){
+        int p_dest = this->workload_map[in[i]];
+        for(int j= bl.offsets[i]; j <bl.offsets[i+1]; j++){
+          int nd2 = bl.layer_nds[bl.indices[j]];
+          int p_src = this->workload_map[nd2];
+          if(layer_id == (no_layers - 1)){
+            if(this->storage_map[p_dest][nd2] != -1){
+              p_src = p_dest;
+            }
+          }
+          if(policy[j] != PUSH)continue;
+          assert(policy[j]==PUSH);
+          if(in_degree[i].cost[p_src] < out_degree[bl.indices[j]].cost[p_dest] * this->rounds){
+            policy[j] = PULL;
+          }
+        }
       }
     }
 }
@@ -68,7 +83,6 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
       for(int j= bl.offsets[i]; j < bl.offsets[i+1]; j++){
         POLICY  p = policy[j];
         long nd_src = bl.layer_nds[bl.indices[j]];
-
         int p_src = this->workload_map[nd_src];
         if(p == PUSH){
           partition_edges[p_src].push_back(nd_src);
@@ -76,11 +90,11 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         }
         if(p == LOCAL){
           // Self loops are not present
-	  if(nd_src != nd_dest){
-              partition_edges[p_dest].push_back(nd_src);
-          }
-        local_in_nodes[p_dest].push_back(nd_src);
-        }
+    	  if(nd_src != nd_dest){
+                  partition_edges[p_dest].push_back(nd_src);
+              }
+            local_in_nodes[p_dest].push_back(nd_src);
+            }
         if(p == PULL){
           assert(p_src != p_dest);
           partition_edges[p_dest].push_back(nd_src);
@@ -146,7 +160,7 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
   void Slice::slice_sample(Sample &s, PartitionedSample &ps){
 
     vector<POLICY> edge_policy;
-    s.debug();
+    // s.debug();
     for(int i= 1; i< s.num_layers + 1;i++){
         PartitionedLayer& l = ps.layers[i-1];
         int layer_id = i-1;
