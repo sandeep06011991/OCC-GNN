@@ -44,8 +44,10 @@ void NeighbourSampler::sample(std::vector<long> &target_nodes, Sample &s){
     s.block[i]->clear();
     layer_sample(s.block[i-1]->layer_nds,s.block[i]->in_degree,
             s.block[i]->offsets, s.block[i]->indices);
-    s.block[i]->layer_nds = s.block[i]->indices;
-
+    // Hack. Nodes for next layer must always be first. 
+    s.block[i]->layer_nds = s.block[i-1]->layer_nds;
+    s.block[i]->layer_nds.insert(s.block[i]->layer_nds.end(), s.block[i]->indices.begin(), \
+                s.block[i]->indices.end());
     dr->order_and_remove_duplicates(s.block[i]->layer_nds);
     dr->replace(s.block[i]->indices);
     dr->clear();

@@ -63,31 +63,44 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         local_in_nodes[i].clear();
       }
       int p_dest = this->workload_map[in[i]];
+      long nd_dest = in[i];
+      long in_degree = bl.in_degree[i];
       for(int j= bl.offsets[i]; j < bl.offsets[i+1]; j++){
         POLICY  p = policy[j];
         long nd_src = bl.layer_nds[bl.indices[j]];
+
         int p_src = this->workload_map[nd_src];
         if(p == PUSH){
           partition_edges[p_src].push_back(nd_src);
           local_in_nodes[p_src].push_back(nd_src);
         }
         if(p == LOCAL){
-          partition_edges[p_dest].push_back(nd_src);
-          local_in_nodes[p_dest].push_back(nd_src);
+          // Self loops are not present
+	  if(nd_src != nd_dest){
+              partition_edges[p_dest].push_back(nd_src);
+          }
+        local_in_nodes[p_dest].push_back(nd_src);
         }
         if(p == PULL){
+          assert(p_src != p_dest);
           partition_edges[p_dest].push_back(nd_src);
-          pull_nodes[p_dest].push_back(nd_src);
+          local_in_nodes[p_src].push_back(nd_src);
+          pull_nodes[p_src].push_back(nd_src);
         }
       }
-      long nd_dest = in[i];
-      long in_degree = bl.in_degree[i];
+
       l.bipartite[p_dest]->add_local_out_node(nd_dest, in_degree);
 
       for(int src=0;src < 4; src++){
           // Its not actually src but destination for remote nodes in this line.
-          if(partition_edges[src].size() != 0)l.bipartite[src]->merge_graph(partition_edges[src], nd_dest, p_dest);
-          if(pull_nodes[src].size() != 0) l.bipartite[src]->merge_pull_nodes(pull_nodes[src], src);
+
+          // Contains local and remote nodes if src == p_dest local, else remote
+          if((src == p_dest) ||  (partition_edges[src].size() != 0)){
+              l.bipartite[src]->merge_graph(partition_edges[src], nd_dest, p_dest);
+            }
+          // Local edges, but p_dest must pull node from p_src
+          if(pull_nodes[src].size() != 0) l.bipartite[p_dest]->merge_pull_nodes(pull_nodes[src], src);
+          // local in nodes for every partition, seperate from self nodes
           if(local_in_nodes[src].size()!=0)l.bipartite[src]->merge_local_in_nodes(local_in_nodes[src]);
       }
     }
@@ -112,7 +125,7 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
       	 dr->replace(t);
        }
      }
-
+     // Think on paper what I am trying to do here.
      for(int pull_from = 0;pull_from < 4; pull_from++){
        dr->clear();
        dr->order_and_remove_duplicates(l.bipartite[pull_from]->in_nodes);
@@ -121,8 +134,9 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
          int start = l.bipartite[pull_to]->pull_from_offsets[pull_from];
          int end = l.bipartite[pull_to]->pull_from_offsets[pull_from + 1];
          vector<long> &f = l.bipartite[pull_from]->push_to_ids[pull_to];
-      	 vector<long> &t = l.bipartite[pull_from]->pulled_in_nodes;
-      	 f.clear();
+      	 vector<long> &t = l.bipartite[pull_to]->pulled_in_nodes;
+         assert((end-start) <= t.size());
+         f.clear();
       	 f.insert(f.end(), t.begin() + start, t.begin() + end);
          dr->replace(f);
        }
@@ -148,7 +162,6 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         ps.cache_hit_from[i].clear();
         ps.cache_miss_to[i].clear();
         ps.cache_hit_to[i].clear();
-        std::cout << "final in node";
           // ps.layers[s.num_layers-1].bipartite[i]->debug();
         for(int j = 0; j <ps.layers[s.num_layers- 1].bipartite[i]->in_nodes.size(); j++){
           auto nd = ps.layers[s.num_layers-1].bipartite[i]->in_nodes[j];

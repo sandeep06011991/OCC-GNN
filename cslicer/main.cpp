@@ -16,10 +16,10 @@ int main(){
 
   // Test2: Construct simple k-hop neighbourhood sample.
   // Sample datastructure.
-  int num_layers = 1;
+  int num_layers = 3;
   Sample *s1  = new Sample(num_layers);
   std::vector<long> training_nodes{0};
-  int fanout = 2;
+  int fanout = 10;
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, false);
   ns->sample(training_nodes,(*s1));
 
@@ -43,6 +43,7 @@ int main(){
     for(int j=0;j<4;j++){
       if(is_present == 1){
         gpu_capacity[j]++;
+           // in_f.push_back(nd%10);
         storage[j].push_back(i);
         // Since this case is all nodes are present
         storage_map[j].push_back(i);

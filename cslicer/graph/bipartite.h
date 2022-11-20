@@ -101,10 +101,9 @@ public:
       vector<long> & indptr_c  = indptr_[partition_id];
       vector<long> & indices_c  = indices_[partition_id];
       vector<long> & to_ids_c  = to_ids_[partition_id];
-
       if(indptr_c.size() == 0)indptr_c.push_back(0);
-      indptr_c.push_back(indptr_c[indptr_c.size()-1]+edges.size());
       indices_c.insert(indices_c.end(), edges.begin(), edges.end());
+      indptr_c.push_back(indices_c.size());
       to_ids_c.push_back(nd_dest);
   }
 

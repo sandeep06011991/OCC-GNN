@@ -29,6 +29,18 @@ void DuplicateRemover::order_and_remove_duplicates(std::vector<long>& nodes){
     nodes.resize(j);
 }
 
+void DuplicateRemover::order(std::vector<long> &nodes){
+  int i = this->used_nodes.size();
+  for(long nd1: nodes){
+      if(mask[nd1] == 0){
+        i++;
+	mask[nd1] = i;
+        this->used_nodes.push_back(nd1);
+      }
+    }
+
+}
+
 void DuplicateRemover::clear(){
   for(long nd1: this->used_nodes){
     mask[nd1] = 0;

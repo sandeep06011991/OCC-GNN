@@ -40,6 +40,7 @@ int naive_flow_up_sample(Sample &s, int number_of_nodes){
    // num lyaers = 3
    // since tehre is null layer iinitially ()
    for(auto nd:s.block[s.num_layers]->layer_nds){
+     // in_f.push_back(nd);
      in_f.push_back(nd);
    }
    for(int i=s.num_layers - 1; i >=0; i--){
@@ -63,8 +64,8 @@ void aggregate(vector<int> &out, vector<int> &in,
       int off_end = indptr[i+1];
       int t = 0;
       for(int off = off_start; off < off_end; off ++ ){
-          assert(indices[off] < in.size());
           t += in[indices[off]];
+          // std::cout << "adding" << in[indices[off]] <<"\n";
           if(in[indices[off]] < 0){
             std::cout <<"Incorrect read "<<  indices[off] << " " << in[indices[off]] <<"\n";
           }
@@ -87,7 +88,7 @@ void pull_own_node(BiPartite *bp,
       vector<int> &out, vector<int> &in){
   assert(bp->self_ids_offset == bp->out_degree_local.size());
   for(int i=0; i < bp->self_ids_offset; i++){
-    out[i] = out[i] /bp->out_degree_local[i]  + (in[i]);
+    out[i] = (out[i] /bp->out_degree_local[i])  + (in[i]);
   }
 }
 
@@ -132,9 +133,17 @@ int sample_flow_up_ps(PartitionedSample &s,
         if(end - start == 0)continue;
         vector<long> &push_to = layer.bipartite[pull_from]->push_to_ids[j];
         for(int k=0;k<push_to.size() ; k++){
-            in[j][start + k] = in[pull_from][push_to[k]];
+            in[j][bp->num_in_nodes_local + start + k] = in[pull_from][push_to[k]];
         }
       }
+      // std::cout << "Input nodes" << j <<"\n";
+      // for(int i = 0;i < bp->in_nodes.size() ; i++){
+      //   std::cout << bp->in_nodes[i] << ":" << in[j][i] <<"\n";
+      // }
+      //
+      // for(int i = 0;i < bp->num_in_nodes_pulled ; i++){
+      //   std::cout << bp->pulled_in_nodes[i] << ":" << in[j][bp->num_in_nodes_local + i] <<"\n";
+      // }
     }
     // AGGREGATE
 
@@ -192,9 +201,7 @@ int sample_flow_up_ps(PartitionedSample &s,
 void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
   std::vector<int> local_storage[4], int gpu_capacity[4], int num_nodes){
     int correct = naive_flow_up_sample(s, num_nodes);
-    std::cout << "correct value" << correct << "\n";
     for(int i=0;i<4; i++){
-
       assert(local_storage[i].size() == gpu_capacity[i]);
     }
 

@@ -16,6 +16,8 @@ public:
 
   void order_and_remove_duplicates(std::vector<long>& nodes);
 
+  void order(std::vector<long> &nodes);
+
   ~ DuplicateRemover();
 
   void clear();
