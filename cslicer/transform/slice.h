@@ -76,6 +76,13 @@ struct redundant{
   int redundant_computation = 0;
   int total_communication = 0;
   int redundant_communication = 0;
+
+  void debug(){
+    std::cout << "total_communication" << total_communication <<"\n";
+    std::cout << "redundant_communication" << redundant_communication <<"\n";
+    std::cout << "total_computation" << total_computation <<"\n";
+    std::cout << "redundant_computation" << redundant_communication <<"\n";
+  }
 };
 
 
@@ -87,5 +94,6 @@ struct gpu_meta{
 
 void populate_meta_dict();
 
-redundant  print_statistics(Sample &s, std::vector<int> ** layer_color, long num_nodes, std::vector<int> & workload_map);
+redundant  print_statistics(Sample &s, std::vector<int> ** layer_color, long num_nodes,\
+          std::vector<int> & workload_map,std::vector<int> storage_map[4]);
 // redundant  print_statistics(Sample &s, vector<int>** layer_color, long num_nodes, vector<int>& workload_map){

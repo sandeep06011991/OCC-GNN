@@ -31,14 +31,14 @@ void populate_meta_dict(){
 // The assigned partition must be one of the intersection of the 2.
 // If it is not simply switching to it will decrease shuffle cost.
 void  color_with_src_gpu(vector<long>& layer_nds, vector<long> &offsets, vector<long> &indices,
-                        vector<int> & color_in ,   vector<int> &color_out){
+                        vector<int> & color_in ,   vector<int> &color_out, vector<long> &layer_in_nodes){
   for(int i=0;i< (int)offsets.size()-1; i++){
     int start = offsets[i];
     int end = offsets[i+1];
     int color = 0;
     long src = layer_nds[i];
     for(; start < end; start ++){
-       long dest = indices[start];
+       long dest = layer_in_nodes[indices[start]];
        color_out[dest] = color_out[dest]  | color_in[src];
       }
   }
@@ -48,16 +48,19 @@ void  color_with_src_gpu(vector<long>& layer_nds, vector<long> &offsets, vector<
 
 
 // Assume 3 hops or 4 layers
-redundant  print_statistics(Sample &s,std::vector<int> ** layer_color, long num_nodes, vector<int>& workload_map){
+redundant  print_statistics(Sample &s,std::vector<int> ** layer_color, long num_nodes,
+        vector<int>& workload_map, std::vector<int> storage_map[4]){
   // color first layer
+  populate_meta_dict();
   for(auto nd:  s.block[0]->layer_nds){
-      assert(workload[nd] <4);
+      assert(workload_map[nd] <4);
       ( * layer_color[0])[nd] = 1 << (workload_map[nd]);
   }
   for(int i = 1; i < s.num_layers + 1; i ++){
     vector<int>& src_color = *layer_color[i-1];
     vector<int>& dest_color = *layer_color[i];
-    color_with_src_gpu(s.block[i-1]->layer_nds, s.block[i]->offsets, s.block[i]->indices, src_color, dest_color );
+    color_with_src_gpu(s.block[i-1]->layer_nds, s.block[i]->offsets, s.block[i]->indices, src_color, dest_color,
+          s.block[i]->layer_nds);
   }
 
   // Resetting
@@ -66,20 +69,23 @@ redundant  print_statistics(Sample &s,std::vector<int> ** layer_color, long num_
   int total_communication = 0;
   int redundant_communication = 0;
   for(int i=0;i<4;i++){
-    for(auto nd:s.block[i]->layer_nds){
+    for(int j=0; j < s.block[i]->layer_nds.size(); j++){
+      auto nd = s.block[i]->layer_nds[j];
       int color = (*layer_color[i])[nd];
-      std::cout << color << "\n";
+
       if (i!=3){
-          total_computation += meta_dict[color].set_partitions;
-          redundant_computation += (meta_dict[color].set_partitions -1);
+          int degree= s.block[i+1]->offsets[j+1] - s.block[i+1]->offsets[j];
+          total_computation += meta_dict[color].set_partitions * degree;
+          redundant_computation += (meta_dict[color].set_partitions -1) * degree;
       }else{
-        total_communication += meta_dict[color].set_partitions;
-        redundant_communication += (meta_dict[color].set_partitions -1);
+        if(storage_map[i][nd] == -1){
+          total_communication += meta_dict[color].set_partitions;
+          redundant_communication += (meta_dict[color].set_partitions -1);
+        }
       }
       (*layer_color[i])[nd] = 0;
     }
   }
-  std::cout << "total compuitation" << total_computation <<"\n";
   redundant r;
   r.total_computation = total_computation;
   r.redundant_computation = redundant_computation;

@@ -25,6 +25,11 @@ class PartitionedLayer{
           bipartite[i]->debug();
         }
     }
+    ~PartitionedLayer(){
+       for(int i=0;i<4;i++){
+         delete this->bipartite[i];
+       }
+    }
 };
 
 class PartitionedSample{

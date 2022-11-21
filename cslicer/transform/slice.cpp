@@ -165,10 +165,20 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         PartitionedLayer& l = ps.layers[i-1];
         int layer_id = i-1;
         edge_policy.clear();
+        int num_edges = s.block[i]->indices.size();
         this->get_edge_policy(s.block[i-1]->layer_nds,  *s.block[i], edge_policy, i-1, s.num_layers );
         this->slice_layer(s.block[i-1]->layer_nds, \
           (* s.block[i]), l, layer_id, edge_policy);
-        this->reorder(l);
+          this->reorder(l);
+        int p_edges = 0;
+        for(int j=0;j<4;j++){
+          p_edges += l.bipartite[j]->indices_L.size();
+          p_edges += l.bipartite[j]->indices_R.size();
+          p_edges += l.bipartite[j]->self_ids_offset;
+        }
+        // std::cout << num_edges << " "<<p_edges<<"\n";
+        assert(num_edges == p_edges);
+
         // l.debug();
     }
     for(int i=0;i<4;i++){
@@ -179,7 +189,6 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
           // ps.layers[s.num_layers-1].bipartite[i]->debug();
         for(int j = 0; j <ps.layers[s.num_layers- 1].bipartite[i]->in_nodes.size(); j++){
           auto nd = ps.layers[s.num_layers-1].bipartite[i]->in_nodes[j];
-
           if (this->storage_map[i][nd] != -1){
               ps.cache_hit_from[i].push_back(this->storage_map[i][nd]);
               ps.cache_hit_to[i].push_back(j);
@@ -189,6 +198,7 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
           }
         }
     }
+    edge_policy.clear();
   }
 
 
