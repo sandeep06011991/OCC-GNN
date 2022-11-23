@@ -48,6 +48,10 @@ void  color_with_src_gpu(vector<long>& layer_nds, vector<long> &offsets, vector<
 
 
 // Assume 3 hops or 4 layers
+// This is incorrect
+// Must take into account duplication happens only across samples.
+// Possibly wrong.
+
 redundant  print_statistics(Sample &s,std::vector<int> ** layer_color, long num_nodes,
         vector<int>& workload_map, std::vector<int> storage_map[4]){
   // color first layer

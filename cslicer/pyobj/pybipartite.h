@@ -13,30 +13,27 @@ class PyBipartite{
 
 public:
 
-  torch::Tensor in_nodes;
-  torch::Tensor expand_indptr;
-  torch::Tensor indptr;
-  torch::Tensor indegree;
-  torch::Tensor out_nodes;
-  torch::Tensor owned_out_nodes;
+  torch::Tensor out_degree_local;
 
-  int num_in_nodes;
-  int num_out_nodes;
+  int num_in_nodes_local = 0;
+  int num_in_nodes_pulled = 0;
+  int num_out_local = 0;
+  int num_out_remote = 0;
 
-  // Filled afer reordering
-  torch::Tensor indices;
+  torch::Tensor indptr_L;
+  torch::Tensor indices_L;
+  torch::Tensor indptr_R;
+  torch::Tensor indices_R;
 
-  // Easy fill
   std::vector<torch::Tensor> from_ids;
-  std::vector<torch::Tensor> to_ids;
+  std::vector<int> to_offsets;
 
-  torch::Tensor self_ids_in;
-  torch::Tensor self_ids_out;
+  vector<torch::Tensor> push_to_ids;
+  std::vector<int> pull_from_offsets;
 
-  int gpu_id = -1;
+  int self_ids_offset = 0;
 
-  torch::Tensor missing_node_ids;
-  torch::Tensor cached_node_ids;
+  int gpu_id;
 
   PyBipartite(BiPartite *bp);
 
@@ -48,15 +45,18 @@ public:
   std::vector<std::vector<PyBipartite *> *> layers;
 
   // Pass missing_node_ids
-  std::vector<torch::Tensor> missing_node_ids;
-  std::vector<torch::Tensor> cached_node_ids;
+  std::vector<torch::Tensor> cache_hit_from;
+  std::vector<torch::Tensor> cache_hit_to;
+  std::vector<torch::Tensor>cache_miss_from;
+  std::vector<torch::Tensor> cache_miss_to;
+
+  int num_layers = 0;
 
   std::vector<int> debug_vals;
 
-  long in_nodes = 0;
-  long out_nodes = 0;
 
-  PySample(PartitionedSample &s, bool debug);
+
+  PySample(PartitionedSample &s);
 
   ~PySample();
 };

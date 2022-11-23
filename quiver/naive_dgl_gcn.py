@@ -243,7 +243,7 @@ def run(rank, args,  data):
     # print("edges per epoch:{}".format(average(edges_per_epoch)))
     # print("movement", device, data_movement_epoch)
 
-    with open('metrics{}'.format(rank), 'wb') as outp:  # Overwrites any existing file.
+    with open('metrics{}.pkl'.format(rank), 'wb') as outp:  # Overwrites any existing file.
         pickle.dump(epoch_metrics, outp, pickle.HIGHEST_PROTOCOL)
 
     if rank == 0:
@@ -341,7 +341,7 @@ if __name__ == '__main__':
     )
     collected_metrics = []
     for i in range(4):
-        with open("metrics{}".format(i), "rb") as input_file:
+        with open("metrics{}.pkl".format(i), "rb") as input_file:
             cm = pickle.load(input_file)
 
         collected_metrics.append(cm)

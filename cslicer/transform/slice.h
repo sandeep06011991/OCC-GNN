@@ -29,9 +29,10 @@ class Slice{
   int rounds;
 
 public:
-
+// Are all these options really needed. 
   Slice(std::vector<int> workload_map,
-      std::vector<int> storage[4], bool self_edge, int rounds, bool pull_optimization){
+      std::vector<int> storage[4], bool self_edge, int rounds,
+        bool pull_optimization){
     this->workload_map = workload_map;
     int num_nodes = this->workload_map.size();
 
