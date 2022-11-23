@@ -7,6 +7,7 @@ import random
 from dgl import heterograph_index
 from dgl.utils  import Index
 from utils.log import *
+
 class Bipartite:
 
     def get_number_of_edges(self):
@@ -16,103 +17,76 @@ class Bipartite:
  # dgl.heterograph({('a','b','c'):('csc',(torch.tensor([0,2]),torch.tensor([0,1]),torch.tensor([])))},{'a':2,'c':1})
 
     def __init__(self):
+        self.num_in_nodes_local = 0
+        self.num_in_nodes_pulled = 0
+        self.num_out_local = 0
+        self.num_out_remote = 0
+        self.self_ids_offset = 0
+
         self.gpu_id = torch.device(0)
-        self.indptr = torch.tensor([],dtype = torch.int64)
-        self.expand_indptr = torch.tensor([],dtype = torch.int64)
-        self.indices = torch.tensor([],dtype = torch.int64)
-        self.N = 0
-        self.M = 0
-        self.num_nodes_v = 0
+        self.indptr_L = torch.tensor([],dtype = torch.int64)
+        self.indices_L = torch.tensor([],dtype = torch.int64)
+        self.indptr_R = torch.tensor([],dtype = torch.int64)
+        self.indices_R = torch.tensor([],dtype = torch.int64)
+
+
         self.from_ids = {}
-        self.to_ids = {}
-        self.graph = dgl.heterograph({('_V', '_E', '_U'): ([],[])}, \
+        self.push_to_ids = {}
+        self.to_offsets = []
+        self.pull_from_offsets = []
+
+        self.graph_local = dgl.heterograph({('_U', '_E', '_V_local'): ([],[])}, \
                                      {'_U': 1, '_V': 1})
-        self.in_nodes = torch.tensor([],dtype = torch.int64)
-        self.out_nodes = torch.tensor([],dtype = torch.int64)
-        self.owned_out_nodes = torch.tensor([],dtype = torch.int64)
-        self.in_degree = torch.tensor([],dtype = torch.int64)
-        # self.from_size = {i:torch.tensor([],dtype = torch.int32) for i in range(4)}
-        # self.to_size = {i:torch.tensor([],dtype = torch.int32) for i in range(4)}
-        self.self_ids_in = torch.tensor([],dtype = torch.int64)
-        self.self_ids_out = torch.tensor([],dtype = torch.int64)
+
+        self.graph_remote = dgl.heterograph({('_U', '_E', '_V_remote'): ([],[])}, \
+                                     {'_U': 1, '_V_remote': 1})
 
     def reconstruct_graph(self):
-        metagraph_index = heterograph_index.create_metagraph_index(['_U','_V'],[('_V','_E','_U')])
-        # # Note dont have to create coo graphs
-        # # I can use csr graphs directly
-        # But coo will be created in back pass
-        # Look for ways to avoid this.
-        hg = heterograph_index.create_unitgraph_from_coo(\
-                    2,  self.N, self.M, self.expand_indptr, self.indices, ['coo','csr','csc'])
-        graph = heterograph_index.create_heterograph_from_relations( \
-                metagraph_index[0], [hg], Index([self.M,self.N]))
-        self.graph = dgl.DGLHeteroGraph(graph,['_U','_V'],['_E'])
-        self.graph = self.graph.reverse()
-        self.graph.create_formats_()
-        # self.graph = self.graph.reverse()
-        # self.graph = self.graph.formats('csc')
-        # self.graph = self.graph.reverse()
-        # self.graph = self.graph.formats('csc')
-        # self.graph = dgl.heterograph({('_V', '_E', '_U'): (self.expand_indptr.clone(), self.indices.clone())},
-        #                              {'_U': self.M, '_V': self.N})
-        # self.graph = self.graph.reverse()
-        # # print(self.graph.edges(), self.graph)
-        # # Check if the graph looks same
-        # self.graph_csr = self.graph.formats('csc')
-        # self.graph_csc = self.graph.formats('csr')
+        in = self.num_in_nodes_local + self.num_in_nodes_pulled
+
+        metagraph_index_local = heterograph_index.create_metagraph_index(['_U','_V_local'],[('_U','_E','_V_local')])
+        hg_local = heterograph_index.create_unitgraph_from_coo(\
+                    2,  in, self.num_out_local, self.indptr_L, self.indices_L, transpose = True)
+        metagraph_index_remote = heterograph_index.create_metagraph_index(['_U','_V_local'],[('_U','_E','_V_remote')])
+        hg_remote = heterograph_index.create_unitgraph_from_coo(\
+                    2,  in, self.num_out_remote, self.indptr_R, self.indices_R, transpose = True)
+
+        graph_remote = heterograph_index.create_heterograph_from_relations( \
+                metagraph_index_remote, [hg_remote], Index([in,self.num_out_local]))
+
+        graph_local = heterograph_index.create_heterograph_from_relations( \
+                metagraph_index_local, [hg_local], Index([in,self.num_out_local]))
+
+        self.graph_local = dgl.DGLHeteroGraph(graph_local,['_U','_V_local'],['_E'])
+        self.graph_remote = dgl.DGLHeteroGraph(graph_remote,['_U','_V_remote'],['_E'])
 
     def construct_from_cobject(self, cobject, has_attention= False):
-        self.gpu_id = torch.device(cobject.gpu_id)
-        self.indptr = cobject.indptr
-        self.expand_indptr = cobject.expand_indptr
-        self.indices = cobject.indices
-        if (len(self.indices) != 0):
-            N = cobject.num_out_nodes
-            M = cobject.num_in_nodes
-            self.M = M
-            self.N = N
-            self.num_nodes_v = N
-            assert(self.indptr[-1] == len(self.indices))
-            t11 = time.time()
-            # self.graph = dgl.heterograph({('_V', '_E', '_U'): ([],[])}, \
-            #                              {'_U': M, '_V': N})
-            # self.graph = dgl.heterograph({('_V', '_E', '_U'): (self.expand_indptr.clone(), self.indices.clone())},
-            #                              {'_U': M, '_V': N})
-            # self.graph = self.graph.reverse()
-            # self.graph_csr = self.graph.formats('csc')
-            # self.graph_csc = self.graph.formats('csr')
-            assert ['csc' in self.graph.formats()]
-        else:
-            N = cobject.num_out_nodes
-            M = cobject.num_in_nodes
-            self.M = M
-            self.N = N
-            self.num_nodes_v = N
-            # print("graph created attempt", N, M)
-            # self.graph = dgl.heterograph({('_V', '_E', '_U'): ([],[])}, \
-            #                              {'_U': M, '_V': N})
-            # self.graph = self.graph.reverse()
-            # self.graph = self.graph.formats('csc')
-        self.in_nodes = cobject.in_nodes
-        self.out_nodes = cobject.out_nodes
-        self.owned_out_nodes = cobject.owned_out_nodes
-        self.owned_out_nodes = cobject.owned_out_nodes
-        self.in_nodes = cobject.in_nodes
-        self.out_nodes = cobject.out_nodes
-        self.owned_out_nodes = cobject.owned_out_nodes
-        self.in_degree = cobject.indegree
-        self.from_ids = {}
-        self.to_ids = {}
 
-        from_size = {}
-        to_size = {}
+        self.num_in_nodes_local = cobject.num_in_nodes_local
+        self.num_in_nodes_pulled = cobject.num_in_nodes_pulled
+        self.num_out_local = cobject.num_out_local
+        self.num_out_remote = cobject.num_out_remote
+        self.self_ids_offset = cobject.self_ids_offset
+        self.gpu_id = torch.device(cobject.gpu_id)
+
+        self.indptr_L = cobject.indptr_L
+        self.indices_L = cobject.indices_L
+        self.indptr_R = cobject.indptr_R
+        self.indices_R = cobject.indices_R
+
+        self.from_ids = {}
+        self.push_to_ids = {}
+        self.to_offsets = []
+        self.pull_from_offsets = []
+        self.to_offsets.append(cobject.to_offsets[0])
+        self.pull_from_offsets.append(cobject.to_offsets[0])
+
         for i in range(4):
             self.from_ids[i] = cobject.from_ids[i]
-            self.to_ids[i] = cobject.to_ids[i]
+            self.to_ids[i] = cobject.push_to_ids[i]
+            self.to_offsets.append(cobject.to_offsets[i+1])
+            self.pull_from_offsets.append(cobject.pull_from_offsets[i+1])
             #print("pre serialziation gpu id",self.gpu_id, from_size, to_size)
-        self.self_ids_in = cobject.self_ids_in
-        self.self_ids_out = cobject.self_ids_out
-        self.owned_out_nodes =cobject.owned_out_nodes
 
     def gather(self, f_in):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
