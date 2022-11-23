@@ -36,29 +36,39 @@ class Bipartite:
         self.pull_from_offsets = []
 
         self.graph_local = dgl.heterograph({('_U', '_E', '_V_local'): ([],[])}, \
-                                     {'_U': 1, '_V': 1})
+                                     {'_U': 1, '_V_local': 1})
 
         self.graph_remote = dgl.heterograph({('_U', '_E', '_V_remote'): ([],[])}, \
                                      {'_U': 1, '_V_remote': 1})
 
     def reconstruct_graph(self):
-        in = self.num_in_nodes_local + self.num_in_nodes_pulled
+        edge_ids_local= torch.arange(self.indices_L.shape[0])
+        edge_ids_remote = torch.arange(self.indices_R.shape[0])
+        formats = "csc"
+        in_nodes = self.num_in_nodes_local + self.num_in_nodes_pulled
 
         metagraph_index_local = heterograph_index.create_metagraph_index(['_U','_V_local'],[('_U','_E','_V_local')])
-        hg_local = heterograph_index.create_unitgraph_from_coo(\
-                    2,  in, self.num_out_local, self.indptr_L, self.indices_L, transpose = True)
-        metagraph_index_remote = heterograph_index.create_metagraph_index(['_U','_V_local'],[('_U','_E','_V_remote')])
-        hg_remote = heterograph_index.create_unitgraph_from_coo(\
-                    2,  in, self.num_out_remote, self.indptr_R, self.indices_R, transpose = True)
+        if(self.num_out_local != 0 ):
+            hg_local = heterograph_index.create_unitgraph_from_csr(\
+                        2,  in_nodes , self.num_out_local, self.indptr_L,
+                            self.indices_L, edge_ids_local , formats , transpose = True)
+            graph_local = heterograph_index.create_heterograph_from_relations( \
+                    metagraph_index_local[0], [hg_local], Index([in_nodes ,self.num_out_local]))
+            self.graph_local = dgl.DGLHeteroGraph(graph_local,['_U','_V_local'],['_E'])
+        else:
+            self.graph_local = None
 
-        graph_remote = heterograph_index.create_heterograph_from_relations( \
-                metagraph_index_remote, [hg_remote], Index([in,self.num_out_local]))
-
-        graph_local = heterograph_index.create_heterograph_from_relations( \
-                metagraph_index_local, [hg_local], Index([in,self.num_out_local]))
-
-        self.graph_local = dgl.DGLHeteroGraph(graph_local,['_U','_V_local'],['_E'])
-        self.graph_remote = dgl.DGLHeteroGraph(graph_remote,['_U','_V_remote'],['_E'])
+        if self.num_out_remote != 0:
+            metagraph_index_remote = heterograph_index.create_metagraph_index\
+                    (['_U','_V_remote'],[('_U','_E','_V_remote')])
+            hg_remote = heterograph_index.create_unitgraph_from_csr(\
+                        2,  in_nodes , self.num_out_remote, self.indptr_R,
+                            self.indices_R, edge_ids_remote, formats  , transpose = True)
+            graph_remote = heterograph_index.create_heterograph_from_relations( \
+                    metagraph_index_remote[0], [hg_remote], Index([in_nodes ,self.num_out_local]))
+            self.graph_remote = dgl.DGLHeteroGraph(graph_remote,['_U','_V_remote'],['_E'])
+        else:
+            self.graph_remote = None
 
     def construct_from_cobject(self, cobject, has_attention= False):
 
@@ -83,7 +93,7 @@ class Bipartite:
 
         for i in range(4):
             self.from_ids[i] = cobject.from_ids[i]
-            self.to_ids[i] = cobject.push_to_ids[i]
+            self.push_to_ids[i] = cobject.push_to_ids[i]
             self.to_offsets.append(cobject.to_offsets[i+1])
             self.pull_from_offsets.append(cobject.pull_from_offsets[i+1])
             #print("pre serialziation gpu id",self.gpu_id, from_size, to_size)

@@ -15,7 +15,7 @@ class Sample:
             self.cache_hit_to.append(csample.cache_hit_to[i])
             self.cache_hit_from.append(csample.cache_hit_from[i])
             self.cache_miss_to.append(csample.cache_miss_to[i])
-            self.cache_miss_from.append(csampe.cache_miss_from[i])
+            self.cache_miss_from.append(csample.cache_miss_from[i])
 
         # print(len(csample.layers))
         for layer in csample.layers:
@@ -66,8 +66,8 @@ class Gpu_Local_Sample:
         # self.last_layer_nodes = global_sample.last_layer_nodes[device_id]
         self.device_id = device_id
 
-        self.cache_hit_from = global_sample.missing_node_ids[device_id]
-        self.cache_hit_to = global_sample.cached_node_ids[device_id]
+        self.cache_hit_from = global_sample.cache_hit_from [device_id]
+        self.cache_hit_to = global_sample.cache_hit_to[device_id]
         self.cache_miss_from = global_sample.cache_miss_from[device_id]
         self.cache_miss_to = global_sample.cache_miss_to[device_id]
 
