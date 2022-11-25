@@ -126,77 +126,101 @@ class Bipartite:
             assert(f == self.graph_remote.formats())
             return self.graph_remote.nodes['_V_remote'].data['out']
 
-    def gather_max(self, nf):
+    def gather_local_max(self, nf):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
-        with self.graph.local_scope():
-            self.graph.edges['_E'].data['nf'] = nf
-            self.graph.update_all(fn.copy_e('nf', 'm'), fn.max('m', 'out'))
-            return self.graph.nodes['_V'].data['out']
+        with self.graph_local.local_scope():
+            self.graph_local.edges['_E'].data['nf'] = nf
+            self.graph_local.update_all(fn.copy_e('nf', 'm'), fn.max('m', 'out'))
+            return self.graph_local.nodes['_V_local'].data['out']
 
+    def gather_remote_max(self, nf):
+        #print(f_in.shape, self.graph.number_of_nodes('_U'))
+        with self.graph_remote.local_scope():
+            self.graph_remote.edges['_E'].data['nf'] = nf
+            self.graph_remote.update_all(fn.copy_e('nf', 'm'), fn.max('m', 'out'))
+            return self.graph_remote.nodes['_V_remote'].data['out']
 
-    def slice_owned_nodes(self, f_in):
-        with self.graph.local_scope():
-            if self.owned_out_nodes.shape[0] == 0:
-                return f_in[0:0,:]
-            return f_in[self.owned_out_nodes]
+    def slice_owned_nodes(self):
+        assert(False)
+    def self_gather(self,local_in):
+        assert(False)
 
-    def attention_gather(self, attention, u_in):
-        with self.graph.local_scope():
-            self.graph.edges['_E'].data['in_e'] = attention
-            self.graph.nodes['_U'].data['in'] = u_in
-            self.graph.update_all(fn.u_mul_e(
+    def attention_gather_local(self, attention, u_in):
+        with self.graph_local.local_scope():
+            self.graph_local.edges['_E'].data['in_e'] = attention
+            self.graph_local.nodes['_U'].data['in'] = u_in
+            self.graph_local.update_all(fn.u_mul_e(
                 'in', 'in_e', 'h'), fn.sum('h', 'out'))
-            return self.graph.nodes['_V'].data['out']
+            return self.graph_local.nodes['_V_local'].data['out']
 
-    def self_gather(self, local_in):
-        with self.graph.local_scope():
-            out = torch.zeros(self.num_nodes_v,
-                              *local_in.shape[1:], device=self.gpu_id)
-            out[self.self_ids_out] = local_in[self.self_ids_in]
-            return out
+    def attention_gather_local(self, attention, u_in):
+        with self.graph_remote.local_scope():
+            self.graph_remote.edges['_E'].data['in_e'] = attention
+            self.graph_remote.nodes['_U'].data['in'] = u_in
+            self.graph_remote.update_all(fn.u_mul_e(
+                'in', 'in_e', 'h'), fn.sum('h', 'out'))
+            return self.graph_remote.nodes['_V_remote'].data['out']
 
-    def pull_for_remotes(self, local_out, gpu_id):
+    def pull_dest_remotes(self, local_out, gpu_id):
+        assert(local_out.shape[0] == self.num_out_remote )
         with self.graph.local_scope():
-            if(self.to_ids[gpu_id].shape[0] == 0):
+            start = self.to_offsets[gpu_id]
+            end = self.to_offsets[gpu_id + 1]
+            if(end - start  == 0):
                 return None
-            return local_out[self.to_ids[gpu_id]]
+            return local_out[start:end]
 
-    def push_from_remotes(self, local_out, remote_out, gpu_id):
+    def push_dest_remotes(self, local_out, remote_out, gpu_id):
         with self.graph.local_scope():
             # global_ids is wrong !!
             # Average out these outputs.
-            if(self.from_ids[gpu_id].shape[0] == 0):
+            if(self.push_to_ids[gpu_id].shape[0] == 0):
                 return None
-            local_out[self.from_ids[gpu_id]] += remote_out.to(self.gpu_id)
+            local_out[self.push_to_ids[gpu_id]] += remote_out.to(self.gpu_id)
             return local_out
 
+            
+    def apply_edge_local(self, el, er):
+        with self.graph_local.local_scope():
+            self.graph_local.nodes['_V_local'].data['er'] = er
+            self.graph_local.nodes['_U'].data['el'] = el
+            self.graph_local.apply_edges(fn.u_add_v('el', 'er', 'e'))
+            return self.graph_local.edata['e']
+    def apply_edge_remote(self, el, er):
+        with self.graph_remote.local_scope():
+            self.graph_remote.nodes['_V_local'].data['er'] = er
+            self.graph_remote.nodes['_U'].data['el'] = el
+            self.graph_remote.apply_edges(fn.u_add_v('el', 'er', 'e'))
+            return self.graph_remote.edata['e']
 
-    def apply_edge(self, el, er):
-        with self.graph.local_scope():
-            self.graph.nodes['_V'].data['er'] = er
-            self.graph.nodes['_U'].data['el'] = el
-            self.graph.apply_edges(fn.u_add_v('el', 'er', 'e'))
-            return self.graph.edata['e']
 
-    def apply_node(self, nf):
-        with self.graph.local_scope():
-            self.graph.edges['_E'].data['nf'] = nf
-            self.graph.update_all(fn.copy_e('nf', 'm'), fn.sum('m', 'out'))
-            return self.graph.nodes['_V'].data['out']
+    def apply_node_local(self, nf):
+        with self.graph_local.local_scope():
+            self.graph_local.edges['_E'].data['nf'] = nf
+            self.graph_local.update_all(fn.copy_e('nf', 'm'), fn.sum('m', 'out'))
+            return self.graph_local.nodes['_V_local'].data['out']
+
+    def apply_node_remote(self, nf):
+        with self.graph_remote.local_scope():
+            self.graph_remote.edges['_E'].data['nf'] = nf
+            self.graph_remote.update_all(fn.copy_e('nf', 'm'), fn.sum('m', 'out'))
+            return self.graph_remote.nodes['_V_remote'].data['out']
 
     def copy_from_out_nodes(self, local_out):
-        with self.graph.local_scope():
-            self.graph.nodes['_V'].data['out'] = local_out
-            self.graph.edges['_E'].data['temp'] = torch.zeros(
-                    self.graph.num_edges('_E'), *local_out.shape[1:], device=self.gpu_id)
-            self.graph.apply_edges(fn.v_add_e('out', 'temp', 'm'))
-            return self.graph.edata['m']
+        assert(False)
+        # with self.graph.local_scope():
+        #     self.graph.nodes['_V'].data['out'] = local_out
+        #     self.graph.edges['_E'].data['temp'] = torch.zeros(
+        #             self.graph.num_edges('_E'), *local_out.shape[1:], device=self.gpu_id)
+        #     self.graph.apply_edges(fn.v_add_e('out', 'temp', 'm'))
+        #     return self.graph.edata['m']
 
     def set_remote_data_to_zero(self, data):
+        assert(False)
         # Checked that backward pass is not broken.
-        clonedData = data.clone()
-        for i in range(4):
-            if i != self.gpu_id:
-                clonedData[self.to_ids[i]] = torch.zeros(
-                    self.to_ids[i].shape[0], *clonedData.shape[1:], device=self.gpu_id)
-        return clonedData
+        # clonedData = data.clone()
+        # for i in range(4):
+        #     if i != self.gpu_id:
+        #         clonedData[self.to_ids[i]] = torch.zeros(
+        #             self.to_ids[i].shape[0], *clonedData.shape[1:], device=self.gpu_id)
+        # return clonedData
