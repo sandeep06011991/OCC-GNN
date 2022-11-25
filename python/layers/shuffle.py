@@ -3,7 +3,7 @@ import torch
 from torch import multiprocessing as mp
 import torch as th
 from torch.nn.parallel import DistributedDataParallel
-
+# Queues is uselsss
 class Shuffle(torch.autograd.Function):
 
     @staticmethod
