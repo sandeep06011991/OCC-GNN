@@ -89,10 +89,9 @@ class CSlicer{
     NeighbourSampler *neighbour_sampler;
     Slice *slicer;
     std::shared_ptr<Dataset> dataset;
-    PartitionedSample p_sample = PartitionedSample(3);
-    Sample sample = Sample(3);
+    PartitionedSample *p_sample;
+    Sample *sample;
     bool deterministic;
-    // static const auto my_logger = spdlog::basic_logger_mt("file_logger", "logs/basic-log.txt", true);
     bool self_edge;
 public:
     // py::list v;
@@ -101,7 +100,7 @@ public:
       std::vector<std::vector<long>> gpu_map,
       int fanout,
        bool deterministic, bool testing,
-          bool self_edge, int rounds, bool pull_optimization){
+          bool self_edge, int rounds, bool pull_optimization, int num_layers){
 
         this->name = get_dataset_dir() + name;
         // std::cout << this->name << "\n";
@@ -125,29 +124,30 @@ public:
           }
           gpu_capacity[i] = gpu_map[i].size();
         }
-
+	this->sample = new Sample(num_layers);
+	this->p_sample = new PartitionedSample(num_layers);
         this->slicer = new Slice((workload_map), storage_map, self_edge, rounds, pull_optimization);
         this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, deterministic);
     }
 
     bool test_correctness(vector<long> sample_nodes){
-      sample.clear();
-      p_sample.clear();
-      this->neighbour_sampler->sample(sample_nodes, sample);
-      this->slicer->slice_sample(sample, p_sample);
+      sample->clear();
+      p_sample->clear();
+      this->neighbour_sampler->sample(sample_nodes, *sample);
+      this->slicer->slice_sample(*sample, *p_sample);
       // spdlog::info("covert to torch");
-      PySample *sample = new PySample(p_sample);
+      PySample *sample = new PySample(*p_sample);
     }
 
     PySample * getSample(vector<long> sample_nodes){
-      sample.clear();
-      p_sample.clear();
+      sample->clear();
+      p_sample->clear();
       // spdlog::info("sample begin");
-      this->neighbour_sampler->sample(sample_nodes, sample);
+      this->neighbour_sampler->sample(sample_nodes, *sample);
       // spdlog::info("slice begin");
-      this->slicer->slice_sample(sample, p_sample);
+      this->slicer->slice_sample(*sample, *p_sample);
       // spdlog::info("covert to torch");
-      PySample *sample = new PySample(p_sample);
+      PySample *sample = new PySample(*p_sample);
       return sample;
     }
 
@@ -163,7 +163,7 @@ PYBIND11_MODULE(cslicer, m) {
     m.doc() = "pybind11 example plugin"; // optional module docstring
     py::class_<CSlicer>(m,"cslicer")
          .def(py::init<const std::string &,
-               std::vector<std::vector<long>>, int, bool, bool, bool, int, bool>())
+               std::vector<std::vector<long>>, int, bool, bool, bool, int, bool,int >())
          .def("getSample", &CSlicer::getSample, py::return_value_policy::take_ownership)\
          .def("sampleAndVerify",&CSlicer::test_correctness);
          py::class_<PySample>(m,"sample")

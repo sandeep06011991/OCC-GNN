@@ -72,6 +72,5 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
           indices_R.insert(indices_R.end(), indices_[i].begin(), indices_[i].end());
       }
   }
-  std::cout << indices_L.size() <<"\n";
   dr->clear();
 }

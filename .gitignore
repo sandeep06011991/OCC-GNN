@@ -15,4 +15,4 @@ graphs/
 *.err
 slurm-log/
 slurm-log-occ/
-
+*.pkl

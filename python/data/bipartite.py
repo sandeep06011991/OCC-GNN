@@ -32,8 +32,8 @@ class Bipartite:
 
         self.from_ids = {}
         self.push_to_ids = {}
-        self.to_offsets = []
-        self.pull_from_offsets = []
+        self.to_offsets = [0]
+        self.pull_from_offsets = [0]
 
         self.graph_local = dgl.heterograph({('_U', '_E', '_V_local'): ([],[])}, \
                                      {'_U': 1, '_V_local': 1})
@@ -42,8 +42,8 @@ class Bipartite:
                                      {'_U': 1, '_V_remote': 1})
 
     def reconstruct_graph(self):
-        edge_ids_local= torch.arange(self.indices_L.shape[0])
-        edge_ids_remote = torch.arange(self.indices_R.shape[0])
+        edge_ids_local= torch.arange(self.indices_L.shape[0], device = self.gpu_id)
+        edge_ids_remote = torch.arange(self.indices_R.shape[0], device = self.gpu_id)
         formats = "csc"
         in_nodes = self.num_in_nodes_local + self.num_in_nodes_pulled
 
@@ -65,7 +65,7 @@ class Bipartite:
                         2,  in_nodes , self.num_out_remote, self.indptr_R,
                             self.indices_R, edge_ids_remote, formats  , transpose = True)
             graph_remote = heterograph_index.create_heterograph_from_relations( \
-                    metagraph_index_remote[0], [hg_remote], Index([in_nodes ,self.num_out_local]))
+                    metagraph_index_remote[0], [hg_remote], Index([in_nodes ,self.num_out_remote]))
             self.graph_remote = dgl.DGLHeteroGraph(graph_remote,['_U','_V_remote'],['_E'])
         else:
             self.graph_remote = None
@@ -98,28 +98,33 @@ class Bipartite:
             self.pull_from_offsets.append(cobject.pull_from_offsets[i+1])
             #print("pre serialziation gpu id",self.gpu_id, from_size, to_size)
 
-    def gather(self, f_in):
+    def gather_local(self, f_in):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
-        if self.num_nodes_v == 0:
+        if self.num_out_local == 0:
             return f_in[0:0,:]
-            #assert(False)
-            # Might cause a silent failure.
-            #return f_in
-        with self.graph.local_scope():
+        with self.graph_local.local_scope():
             # FixME Todo: Fix this inconsistency in number of nodes
             # print(f_in.shape[0], self.graph.number_of_nodes('_U'))
-            assert(f_in.shape[0] == self.graph.number_of_nodes('_U'))
-            self.graph.nodes['_U'].data['in'] = f_in
-            f = self.graph.formats()
-            self.graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
+            assert(f_in.shape[0] == self.graph_local.number_of_nodes('_U'))
+            self.graph_local.nodes['_U'].data['in'] = f_in
+            f = self.graph_local.formats()
+            self.graph_local.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
+            assert(f == self.graph_local.formats())
+            return self.graph_local.nodes['_V_local'].data['out']
 
-            # No new formats must be created.
-            if(f != self.graph.formats()):
-                LogFile("bipartite", 1).log("Created new graph formats from {} to {}".format(f, self.graph.formats()))
-                print("Created new graph formats from {} to {}".format(f, self.graph.formats()))
-            # assert(f == self.graph.formats())
-            # print(self.graph.nodes['_V'].data['out'])
-            return self.graph.nodes['_V'].data['out']
+    def gather_remote(self, f_in):
+        #print(f_in.shape, self.graph.number_of_nodes('_U'))
+        if self.num_out_remote  == 0:
+            return f_in[0:0,:]
+        with self.graph_remote.local_scope():
+            # FixME Todo: Fix this inconsistency in number of nodes
+            # print(f_in.shape[0], self.graph.number_of_nodes('_U'))
+            assert(f_in.shape[0] == self.graph_local.number_of_nodes('_U'))
+            self.graph_remote.nodes['_U'].data['in'] = f_in
+            f = self.graph_remote.formats()
+            self.graph_remote.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
+            assert(f == self.graph_remote.formats())
+            return self.graph_remote.nodes['_V_remote'].data['out']
 
     def gather_max(self, nf):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
@@ -127,6 +132,7 @@ class Bipartite:
             self.graph.edges['_E'].data['nf'] = nf
             self.graph.update_all(fn.copy_e('nf', 'm'), fn.max('m', 'out'))
             return self.graph.nodes['_V'].data['out']
+
 
     def slice_owned_nodes(self, f_in):
         with self.graph.local_scope():

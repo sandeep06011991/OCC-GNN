@@ -49,7 +49,6 @@ class Gpu_Local_Sample:
         self.layers = [Bipartite() for i in range(3)]
 
     def prepare(self):
-        self.last_layer_nodes = []
         last_layer = self.layers[0]
         i = 0
         l = self.layers[0]

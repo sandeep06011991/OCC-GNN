@@ -5,7 +5,7 @@ from data.part_sample import Gpu_Local_Sample
 from dgl import DGLGraph
 
 OBJECT_LIST = [Bipartite,Sample,Gpu_Local_Sample, torch.device]
-
+# I dont have to serialize the graph
 IGNORED_LIST = [DGLGraph]
 
 # todo: Add ordering to global object.
@@ -39,16 +39,17 @@ def get_attr_order_and_offset_size(object):
             # Dont handle silently.
             print(attr,val,type(val))
             assert(False)
-
     tensors.sort()
     integers.sort()
     dictionary.sort()
+    lists.sort()
     objects.sort()
-    assert(len(lists) < 2)
+
+
     # All integer offsets can be put into 1
     # Final size of the offset
-    offset_size = len(tensors) +  len(lists) * 3 + (len(dictionary) * 4) + len(objects) + len(integers) + 1
-    return (integers + tensors  + objects + dictionary + lists), offset_size
+    offset_size = len(tensors) + len(lists) + (len(dictionary) * 4) + len(objects) + len(integers) + 1
+    return (integers + tensors  + objects + dictionary + lists ), offset_size
 
 global_order_dict = {}
 global_order_dict[Bipartite] = get_attr_order_and_offset_size(Bipartite())
@@ -83,10 +84,25 @@ def construct_from_tensor_on_gpu(tensor, device, object):
             offset_ptr = offset_ptr + 1
             continue
         if type(attr_value) == list:
-            for obj in (attr_value):
-                val_tensor = data[offsets[offset_ptr].item():offsets[offset_ptr + 1].item()]
-                constructed_object = construct_from_tensor_on_gpu(val_tensor,device, obj)
-                offset_ptr = offset_ptr + 1
+            object_type = type(getattr(object,attr_name)[0])
+            list_data = data[offsets[offset_ptr].item() : offsets[offset_ptr + 1].item()]
+            if (object_type) == int:
+                len = list_data[0]
+                final_value = []
+                for i in list_data[1:]:
+                    final_value.append(i.item())
+                assert(len == list_data[1:].shape[0])
+            else:
+                len = list_data[0]
+                final_value = []
+                tensor_list_data = list_data[len + 1 +1:]
+                for i in range(len):
+                    start = list_data[i+1]
+                    end = list_data[i+2]
+                    data_ = tensor_list_data[start:end]
+                    final_value.append(construct_from_tensor_on_gpu(data_, device, object_type()))
+            setattr(object, attr_name, final_value)
+            offset_ptr = offset_ptr + 1
             continue
         if type(attr_value) == type({}):
             d = {}
@@ -97,19 +113,27 @@ def construct_from_tensor_on_gpu(tensor, device, object):
             setattr(object, attr_name, d)
             continue
         if type(attr_value) in OBJECT_LIST:
-            constructed_object = construct_from_tensor_on_gpu(val_tensor,device, attr_value)
-            setattr(object, attr_name, constructed_object)
+            if(val_tensor.shape[0]):
+                constructed_object = None
+                setattr(object, attr_name, constructed_object)
+            else:
+                constructed_object = construct_from_tensor_on_gpu(val_tensor,device, attr_value)
+                setattr(object, attr_name, constructed_object)
             offset_ptr = offset_ptr + 1
             continue
         assert(False)
     return object
 
 def serialize_to_tensor(object):
-    serialization_order, offset_size = get_attr_order_and_offset_size(object)
+    serialization_order, offset_size =  global_order_dict[type(object)]
     data = []
     offsets = [0]
     for attr in serialization_order:
         attr_value = getattr(object, attr)
+        # print(attr, offsets)
+        if attr_value == None:
+            offsets.append(offsets[-1])
+            continue
         if(type(attr_value) == torch.device):
             data.append(torch.tensor([attr_value.index]))
             offsets.append(offsets[-1] + 1)
@@ -124,16 +148,27 @@ def serialize_to_tensor(object):
             offsets.append(offsets[-1] + attr_value.shape[0])
             continue
         if type(attr_value) == list:
-            assert(len(attr_value) == 3)
-            for i in range(3):
-                item = attr_value[i]
-                assert(type(item) in OBJECT_LIST)
-                tensor = serialize_to_tensor(item)
-                assert(tensor.shape[0] >10)
-                data.append(tensor)
-                offsets.append(offsets[-1] + tensor.shape[0])
+            local_tensors = []
+            length = torch.tensor([len(attr_value)])
+            object_type = type(attr_value[0])
+            if object_type  == int:
+                local_tensors.append(length)
+                local_tensors.append(torch.tensor(attr_value))
+                # print(local_tensors)
+                local_tensors = torch.cat(local_tensors, dim = 0)
+            else:
+                objects_serialized = []
+                local_offsets = [0]
+                for i in range(len(attr_value)):
+                    item = attr_value[i]
+                    assert(type(item) in OBJECT_LIST)
+                    tensor = serialize_to_tensor(item)
+                    objects_serialized.append(tensor)
+                    local_offsets.append(local_offsets[-1] + tensor.shape[0])
+                local_tensors = torch.cat([length, torch.tensor(local_offsets)] + objects_serialized, dim = 0)
+            data.append(local_tensors)
+            offsets.append(offsets[-1] + local_tensors.shape[0])
             continue
-                # How to handle this serializationn
         if type(attr_value) == type({}):
             assert(len(attr_value) == 4)
             for i in range(4):
@@ -150,7 +185,6 @@ def serialize_to_tensor(object):
             data.append(tensor_value)
             offsets.append(offsets[-1] + tensor_value.shape[0])
             continue
-
         print(attr_value, attr, type(attr_value))
         # Unknown data data type
         raise Exception("Unknown object found")
