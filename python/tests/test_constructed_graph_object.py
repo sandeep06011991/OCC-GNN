@@ -120,53 +120,5 @@ def get_correct_gnn():
     f_out = nn(blocks[0], torch.ones(input_nodes.shape[0],10))
     print(f_out)
 
-def sampler_baseline_latency():
-    graph_name = "ogbn-arxiv"
-    dg_graph, partition_map, num_classes  = get_process_graph(graph_name, -1)
-    train_nid = dg_graph.ndata['train_mask'].nonzero().flatten()
-    sampler = dgl.dataloading.MultiLayerNeighborSampler([10,10,10])
-    dataloader = dgl.dataloading.NodeDataLoader(
-        dg_graph,
-        train_nid,
-        sampler,
-        device='cpu',
-        batch_size= 4096,
-        shuffle=True,
-        drop_last=True,
-        num_workers=0 )
-    for i in range(3):
-        t1 = time.time()
-        for _ in dataloader:
-            pass
-        t2 = time.time()
-        print("Sampler total time",t2-t1)
-
-def groot_baseline_latency():
-    graph_name = "ogbn-arxiv"
-    dg_graph, partition_map, num_classes  = get_process_graph(graph_name, -1)
-    train_nid = dg_graph.ndata['train_mask'].nonzero().flatten()
-    gpu_map = [[] for _ in range(4)]
-    fanout = 10
-    deterministic = False
-    testing = False
-    self_edge = False
-    batch_size= 4096
-    rounds = 1
-    pull_optimization = False
-    no_layers = 3
-    slicer = cslicer(graph_name, gpu_map, fanout,
-       deterministic, testing,
-          self_edge, rounds, pull_optimization, no_layers)
-    for i in range(3):
-        j = 0
-        t1 = time.time()
-        while(j < train_nid.shape[0]):
-            csample = slicer.getSample(train_nid[j:j + batch_size].tolist())
-            j = j + batch_size
-        t2 = time.time()
-        print("GRoot Sampler",t2 - t1)
-if __name__=="__main__":
-    sampler_baseline_latency()
-    groot_baseline_latency()
     # get_correct_gnn()
     # test_heterograph_construction_python()

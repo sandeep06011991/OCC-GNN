@@ -7,7 +7,10 @@ import random
 from dgl import heterograph_index
 from dgl.utils  import Index
 from utils.log import *
-
+dummy_local_graph = dgl.heterograph({('_U', '_E', '_V_local'): ([],[])}, \
+                             {'_U': 1, '_V_local': 1})
+dummy_remote_graph = dgl.heterograph({('_U', '_E', '_V_remote'): ([],[])}, \
+                             {'_U': 1, '_V_remote': 1})
 class Bipartite:
 
     def get_number_of_edges(self):
@@ -15,7 +18,6 @@ class Bipartite:
 
 
  # dgl.heterograph({('a','b','c'):('csc',(torch.tensor([0,2]),torch.tensor([0,1]),torch.tensor([])))},{'a':2,'c':1})
-
     def __init__(self):
         self.num_in_nodes_local = 0
         self.num_in_nodes_pulled = 0
@@ -35,12 +37,10 @@ class Bipartite:
         self.to_offsets = [0]
         self.pull_from_offsets = [0]
 
-        self.graph_local = dgl.heterograph({('_U', '_E', '_V_local'): ([],[])}, \
-                                     {'_U': 1, '_V_local': 1})
+        self.graph_local = dummy_local_graph
+        self.graph_remote = dummy_remote_graph
 
-        self.graph_remote = dgl.heterograph({('_U', '_E', '_V_remote'): ([],[])}, \
-                                     {'_U': 1, '_V_remote': 1})
-
+    
     def reconstruct_graph(self):
         edge_ids_local= torch.arange(self.indices_L.shape[0], device = self.gpu_id)
         edge_ids_remote = torch.arange(self.indices_R.shape[0], device = self.gpu_id)
@@ -179,7 +179,7 @@ class Bipartite:
             local_out[self.push_to_ids[gpu_id]] += remote_out.to(self.gpu_id)
             return local_out
 
-            
+
     def apply_edge_local(self, el, er):
         with self.graph_local.local_scope():
             self.graph_local.nodes['_V_local'].data['er'] = er

@@ -6,12 +6,12 @@ using namespace std;
 
 // ================BiPartite Dest Nodes Order========================
 // |             |             |             |             |
-// |   Local     | remote[1]   | remote[2]   | remote[3]   |
+// |   Local_Out | remote[1]   | remote[2]   | remote[3]   |
 // |             |             |             |             |
 // ==================================================================
 // ================BiPartite Src Nodes Order=========================
 // |             |             |             |             |
-// |   Local     | Pulled[1]   | Pulled[2]   | pulled[3]   |
+// |   Local_Out | Local In    |  Pulled[1]  | Pulled[2]   | pulled[3]  
 // |             |             |             |             |
 // ==================================================================
 class BiPartite{

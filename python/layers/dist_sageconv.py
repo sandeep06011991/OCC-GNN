@@ -12,7 +12,7 @@ class DistSageConv(nn.Module):
 
     # Not exactly matching SageConv as normalization and activation as removed.
     def __init__(self, in_feats, out_feats, gpu_id, \
-        feat_drop=0.1, bias=True, queues = None, deterministic = False):
+        feat_drop=0.1, bias=True, deterministic = False):
         super( DistSageConv, self).__init__()
         self.device_ids = [0,1,2,3]
         self._in_src_feats = in_feats
@@ -21,7 +21,6 @@ class DistSageConv(nn.Module):
         aggregator_type = "sum"
         self._aggre_type = aggregator_type
         self.feat_drop = nn.Dropout(feat_drop)
-        self.queues = queues
         self.gpu_id = gpu_id
 
         # aggregator type: mean/pool/lstm/gcn

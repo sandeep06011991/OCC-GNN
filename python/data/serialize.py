@@ -56,6 +56,7 @@ global_order_dict[Bipartite] = get_attr_order_and_offset_size(Bipartite())
 global_order_dict[Gpu_Local_Sample] = get_attr_order_and_offset_size(Gpu_Local_Sample())
 # print(global_order_dict.keys())
 
+
 def construct_from_tensor_on_gpu(tensor, device, object):
     # print("Warning. Dont have to reanalyze the object everytime. ")
     # order, offset_size = get_attr_order_and_offset_size(object)
@@ -64,12 +65,12 @@ def construct_from_tensor_on_gpu(tensor, device, object):
     # assert(len(order) == len(global_order_dict[type(object)][0]))
     assert(tensor.device == device)
     # header Compute
-    offsets = tensor[:offset_size]
+    offsets = tensor[:offset_size].tolist()
     data = tensor[offset_size:]
     offset_ptr = 0
     for  attr_name in order:
         attr_value = getattr(object, attr_name)
-        val_tensor = data[offsets[offset_ptr].item():offsets[offset_ptr + 1].item()]
+        val_tensor = data[offsets[offset_ptr]:offsets[offset_ptr + 1]]
         if type(attr_value) == (torch.Tensor):
             setattr(object, attr_name, val_tensor )
             offset_ptr = offset_ptr + 1
@@ -85,18 +86,19 @@ def construct_from_tensor_on_gpu(tensor, device, object):
             continue
         if type(attr_value) == list:
             object_type = type(getattr(object,attr_name)[0])
-            list_data = data[offsets[offset_ptr].item() : offsets[offset_ptr + 1].item()]
+            list_data = data[offsets[offset_ptr] : offsets[offset_ptr + 1]]
             if (object_type) == int:
-                len = list_data[0]
-                final_value = []
-                for i in list_data[1:]:
-                    final_value.append(i.item())
-                assert(len == list_data[1:].shape[0])
+                ls = list_data.tolist()
+                length = ls[0]
+                final_value = ls[1:]
+                # for i in list_data[1:]:
+                #     final_value.append(i.item())
+                assert(length == len(final_value))
             else:
-                len = list_data[0]
+                length = list_data[0]
                 final_value = []
-                tensor_list_data = list_data[len + 1 +1:]
-                for i in range(len):
+                tensor_list_data = list_data[length + 1 +1:]
+                for i in range(length):
                     start = list_data[i+1]
                     end = list_data[i+2]
                     data_ = tensor_list_data[start:end]
@@ -107,7 +109,7 @@ def construct_from_tensor_on_gpu(tensor, device, object):
         if type(attr_value) == type({}):
             d = {}
             for i in range(4):
-                val_tensor = data[offsets[offset_ptr].item():offsets[offset_ptr + 1].item()]
+                val_tensor = data[offsets[offset_ptr] :offsets[offset_ptr + 1]]
                 d[i] = val_tensor
                 offset_ptr = offset_ptr + 1
             setattr(object, attr_name, d)

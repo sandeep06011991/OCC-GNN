@@ -29,7 +29,7 @@ class Slice{
   int rounds;
 
 public:
-// Are all these options really needed. 
+// Are all these options really needed.
   Slice(std::vector<int> workload_map,
       std::vector<int> storage[4], bool self_edge, int rounds,
         bool pull_optimization){
