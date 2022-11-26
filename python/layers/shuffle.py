@@ -68,10 +68,10 @@ class ToySingle(torch.nn.Module):
             else:
                 to_offsets.append(to_offsets[i] + 25)
                 from_sizes.append(torch.Size([25,100]))
-        b = Shuffle.apply(remote_input, self.device_id, from_sizes, to_offsets, 0)
-        for i in range(4):
-            if i != self.device_id:
-                local_input += b[i]
+        # b = Shuffle.apply(remote_input, self.device_id, from_sizes, to_offsets, 0)
+        # for i in range(4):
+        #     if i != self.device_id:
+        #         local_input += b[i]
         return local_input
 
 def test_single(proc_id, n_gpus):
