@@ -21,6 +21,7 @@ def sampler_baseline_latency():
         drop_last=True,
         num_workers=0 )) for i in range(4)]
     data_sizes_moved = []
+    sampler_and_movenent = []
     for i in range(3):
         t1 = time.time()
         dataloaders_it = [iter(i) for i in dataloaders]
@@ -36,8 +37,10 @@ def sampler_baseline_latency():
         except StopIteration:
             pass
         t2 = time.time()
-        print("Sampler + Movement total time",t2-t1)
-    print("Average data moved", sum(data_sizes_moved)/len(data_sizes_moved))
+        sampler_and_movenent.append(t2-t1)
+    data_movement = sum(data_sizes_moved)/len(data_sizes_moved)
+    sampler_and_movement = sum(sampler_and_movement[1:])/2
+    return data_movement, sampler_movement
 
 
 def groot_baseline_latency():
@@ -57,6 +60,8 @@ def groot_baseline_latency():
     slicer = cslicer(graph_name, gpu_map, fanout,
        deterministic, testing,
           self_edge, rounds, pull_optimization, no_layers)
+    data_sizes_moved = []
+    sampler_and_movenent = []
     for i in range(3):
         j = 0
         t1 = time.time()
@@ -76,12 +81,14 @@ def groot_baseline_latency():
             j = j + batch_size
             data_sizes_moved.append(s)
         t2 = time.time()
-        print("Groot Sampler and Serialization and Movement",t2 - t1)
-    print("Average data moved", sum(data_sizes_moved)/len(data_sizes_moved))
+        sampler_and_movenent.append(t2-t1)
+    return  sum(data_sizes_moved)/len(data_sizes_moved)), sum(sampler_and_movement[1:])/2
 
 def test_data_movement():
-    pass
-    
+    data_moved_1, time_avg_1 = sampler_baseline_latency()
+    data_moved_2, time_avg_2 = groot_baseline_latency()
+    assert(data_moved_2 < data_moved_1 * 2)
+    assert(time_avg_2 < time_avg_1 * 2)
 
 if __name__ == "__main__":
     sampler_baseline_latency()

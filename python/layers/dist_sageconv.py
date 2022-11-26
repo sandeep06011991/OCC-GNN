@@ -31,19 +31,8 @@ class DistSageConv(nn.Module):
         # self.deterministic = deterministic
         self.deterministic = deterministic
         self.reset_parameters()
-
-        # self.sgc = sgc.SAGEConv(self._in_src_feats, out_feats, aggregator_type = 'mean')
-        # if aggregator_type == 'pool':
-        #     self.fc_pool = nn.Linear(self._in_src_feats, self._in_src_feats)
-        # if aggregator_type != 'gcn':
-        #     self.fc_self = nn.Linear(self._in_dst_feats, out_feats, bias=False)
-        # self.fc_neigh = nn.Linear(self._in_src_feats, out_feats, bias=False)
-        # if bias:
-        #     self.bias = nn.parameter.Parameter(torch.zeros(self._out_feats))
-        # else:
-            # self.register_buffer('bias', None)
-
-
+        self.local_stream = torch.cuda.Stream()
+        self.remote_stream = torch.cuda.Stream()
 
     def reset_parameters(self):
         gain = nn.init.calculate_gain('relu')
@@ -67,55 +56,29 @@ class DistSageConv(nn.Module):
             print("layer self grad",l,self.fc2.weight.grad[:3,0], torch.sum(self.fc2.weight.grad))
 
 
-    def forward(self, bipartite_graph, x, l, in_degree, testing):
+    # Infeatures are post pulled.
+    def forward(self, bipartite_graph, in_features, layer_id):
         t1 = time.time()
-        #if l == 0 or l == 1:
-        # Code to perform statistics on computaiton graph
-        #    num_nodes = bipartite_graph.graph.nodes('_V').shape[0]
-        #    node_degree = bipartite_graph.graph.in_degrees(\
-        #        torch.arange(num_nodes,device = self.gpu_id))
-        #    print("Node degree", node_degree.shape, "layer", torch.where(node_degree ==10)[0].shape, l)
-            # mask = torch.zeros(bipartite_graph.graph.nodes('_V').shape[0], dtype=torch.bool, device = x.device)
-            # mask[bipartite_graph.owned_out_nodes] = True
-            # mask = ~ mask
-            # ghost_nodes = torch.where(mask)[0]
-            # avg_degrees = bipartite_graph.graph.in_degrees(ghost_nodes)
-            # low_degree_nodes,indices = torch.sort(bipartite_graph.out_nodes[torch.where(avg_degrees == 1)[0]])
-            # print("Actual in degree", in_degree[low_degree_nodes[:10]], \
-            #             "Real ID ", low_degree_nodes[:10],
-            #             "local degrees", avg_degrees[indices[:10]],"layer ",l)
-            # print("avg degrees", avg_degrees, torch.sum(avg_degrees < 2), torch.sum(avg_degrees)/avg_degrees.shape[0])
-        t = torch.ones(bipartite_graph.num_nodes_v)
-        for i in bipartite_graph.to_ids:
-            if i != self.gpu_id:
-                t[bipartite_graph.to_ids[i]] = 0
-        print("potential to pipeline", torch.sum(t), bipartite_graph.num_nodes_v)
         if self.fc1.in_features > self.fc1.out_features:
             # Could incur more communication potentially
             # Makes backward pass mode complaceted
             # t00 = time.time()
-            out = self.fc1(x)
-            # t11 = time.time()
-            out1 = bipartite_graph.gather(out)
-            out2 = out1
-            t11 = time.time()
-            if not testing:
-                out2 = Shuffle.apply(out1, self.queues, self.gpu_id,bipartite_graph.to_ids, bipartite_graph.from_ids, l)
-            t22 = time.time()
+            out = self.fc1(in_features)
         else:
-            out = bipartite_graph.gather(x)
-            out2 = out
-            t11 = time.time()
-            #print("Skip shuffle")
-            if not testing:
-                out2 = Shuffle.apply(out, self.queues, self.gpu_id, bipartite_graph.to_ids, bipartite_graph.from_ids,l)
-            t22 = time.time()
-            # BUG Fixed: Linear layer after in degree meaning
-        #print(t22-t11,"shuffle time")
-        assert(not torch.any(torch.isnan(out2)))
-        out6_b = bipartite_graph.slice_owned_nodes(out2)
-        if(torch.any(bipartite_graph.in_degree == 0)):
-            print(bipartite_graph.in_degree)
+            out = in_features
+            # t11 = time.time()
+        with torch.cuda.stream(self.remote_stream):
+                out1 = bipartite_graph.gather_remote(out)
+                # Work on this signature later.
+                merge_tensors = Shuffle.apply(self.gpu_id, from_tensors = bipartite_graph.from_tensors(out1), \
+                                    to_tensors = bipartite_graph.to_tensors())
+        with torch.cuda.stream(self.local_stream):
+            out3 = bipartite_gather.gather_local(out)
+        self.local_stream.synchronize()
+        self.remote_stream.synchronize()
+        out4 = bipartite_graph.shuffle_merge(out3, merge_tensors)
+
+        assert(not torch.any(torch.isnan(out4)))
         assert(torch.all(bipartite_graph.in_degree != 0))
         a = bipartite_graph.in_degree.shape
         degree = bipartite_graph.in_degree.reshape(a[0],1)
@@ -125,11 +88,11 @@ class DistSageConv(nn.Module):
         if not self.fc1.in_features > self.fc1.out_features:
             out6 = self.fc1(out6)
         # t22 = time.time()
-        out3 = bipartite_graph.self_gather(x)
-        out4 = bipartite_graph.slice_owned_nodes(out3)
-        out5 = self.fc2(out4)
-        final = out5 + out6
+        out3 = bipartite_graph.self_gather(in_feats)
+        out4 = self.fc2(out3)
+        final = out4 + out6
         return final
+
 
 def test_base():
     src_ids = []

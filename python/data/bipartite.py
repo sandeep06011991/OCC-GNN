@@ -30,7 +30,7 @@ class Bipartite:
         self.indices_L = torch.tensor([],dtype = torch.int64)
         self.indptr_R = torch.tensor([],dtype = torch.int64)
         self.indices_R = torch.tensor([],dtype = torch.int64)
-
+        self.out_degrees = torch.tensor([],dtype = torch.int64)
 
         self.from_ids = {}
         self.push_to_ids = {}
@@ -40,7 +40,7 @@ class Bipartite:
         self.graph_local = dummy_local_graph
         self.graph_remote = dummy_remote_graph
 
-    
+
     def reconstruct_graph(self):
         edge_ids_local= torch.arange(self.indices_L.shape[0], device = self.gpu_id)
         edge_ids_remote = torch.arange(self.indices_R.shape[0], device = self.gpu_id)
@@ -71,7 +71,6 @@ class Bipartite:
             self.graph_remote = None
 
     def construct_from_cobject(self, cobject, has_attention= False):
-
         self.num_in_nodes_local = cobject.num_in_nodes_local
         self.num_in_nodes_pulled = cobject.num_in_nodes_pulled
         self.num_out_local = cobject.num_out_local
@@ -83,6 +82,7 @@ class Bipartite:
         self.indices_L = cobject.indices_L
         self.indptr_R = cobject.indptr_R
         self.indices_R = cobject.indices_R
+        self.out_degrees = cobject.out_degrees
 
         self.from_ids = {}
         self.push_to_ids = {}
@@ -140,10 +140,11 @@ class Bipartite:
             self.graph_remote.update_all(fn.copy_e('nf', 'm'), fn.max('m', 'out'))
             return self.graph_remote.nodes['_V_remote'].data['out']
 
-    def slice_owned_nodes(self):
+    def slice_owned_nodes(self, out):
         assert(False)
+
     def self_gather(self,local_in):
-        assert(False)
+        return out(:self_ids_offset)
 
     def attention_gather_local(self, attention, u_in):
         with self.graph_local.local_scope():

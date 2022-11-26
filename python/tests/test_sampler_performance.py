@@ -60,6 +60,8 @@ def groot_baseline_latency(graph_name):
     return average_sample
 
 def test_sampling_overhead():
+    # Slicing should be atmost 2x the cost of sampling
+    # As the sample is read through twice for further processing.
     graph = "ogbn-products"
     t1 = groot_baseline_latency(graph)
     t2 = sampler_baseline_latency(graph)
