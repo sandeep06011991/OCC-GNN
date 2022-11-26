@@ -53,6 +53,8 @@ class ToySingle(torch.nn.Module):
         super(ToySingle, self).__init__()
         self.ll = torch.nn.Linear(100,100)
         self.device_id = device_id
+        self.ll.weight = torch.nn.Parameter(
+            torch.ones(self.ll.weight.shape))
 
     def forward(self, local_input, remote_input):
         local_input = self.ll(local_input)
@@ -81,11 +83,12 @@ def test_single(proc_id, n_gpus):
 
     model = ToySingle(proc_id).to(proc_id)
     model = DistributedDataParallel(model, device_ids = [proc_id])
-    local = torch.rand((25,100),requires_grad = True, device = proc_id)
-    remote = torch.rand((75,100), requires_grad = True, device = proc_id)
+    local = torch.ones((25,100),requires_grad = True, device = proc_id)
+    remote = torch.ones((75,100), requires_grad = True, device = proc_id)
 
     out = model.forward(local, remote)
     out.sum().backward()
+    print(local.grad, remote.grad)
 
 if __name__ == "__main__":
     # Create unit test which can handle  shuffling
