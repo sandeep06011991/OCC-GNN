@@ -70,6 +70,14 @@ class Bipartite:
         else:
             self.graph_remote = None
 
+
+    def get_from_nds_size(self):
+        from_nds_size = {}
+        for i in range(4):
+            if i != self.gpu_id:
+                from_nds_size[i] = self.from_ids[i].shape[0]
+        return from_nds_size
+
     def construct_from_cobject(self, cobject, has_attention= False):
         self.num_in_nodes_local = cobject.num_in_nodes_local
         self.num_in_nodes_pulled = cobject.num_in_nodes_pulled
@@ -144,7 +152,7 @@ class Bipartite:
         assert(False)
 
     def self_gather(self,local_in):
-        return out(:self_ids_offset)
+        return local_in[:self.self_ids_offset]
 
     def attention_gather_local(self, attention, u_in):
         with self.graph_local.local_scope():

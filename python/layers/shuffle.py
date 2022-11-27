@@ -7,8 +7,11 @@ from layers.shuffle_functional import *
 
 class Shuffle(torch.autograd.Function):
 
+    # from_sizes: Shapes exppected from other gpus.
+    # To offsets that iwll be shuffled.
     @staticmethod
-    def forward(ctx, remote_t, device_id, from_sizes, to_offset, layer_id):
+    def forward(ctx, remote_t, device_id, layer_id ,from_nds_size,\
+                to_tensor_offset):
         recv = []
         recv_g = []
         send_dict = []
@@ -20,30 +23,31 @@ class Shuffle(torch.autograd.Function):
                 send_dict.append(None)
             else:
                 # remote has the same shape as local
-                recv.append(torch.empty((from_sizes[i]) \
+                recv.append(torch.empty((from_nds_size[i], *remote_t.shape[1:]) \
                     , device = device_id))
-                recv_g.append(torch.empty((to_offset[i+1] - to_offset[i], *remote_t.shape[1:]) \
+                recv_g.append(torch.empty((to_tensor_offset[i+1] - to_tensor_offset[i], *remote_t.shape[1:]) \
                     , device = device_id))
-                send_dict.append(remote_t[to_offset[i+1] - to_offset[i], :].detach())
+                send_dict.append(remote_t[to_tensor_offset[i]:to_tensor_offset[i+1]].detach())
         shuffle_functional(device_id, send_dict, recv)
         ctx.device_id = device_id
         ctx.layer_id = layer_id
-        # ctx.from_sizes = from_sizes
-        # ctx.to_dict = to_dict
         ctx.recv_g = recv_g
-
+        # torch.cuda.current_stream().synchronize()
         return recv[0],recv[1],recv[2], recv[3]
 
     @staticmethod
     def backward(ctx, grad0, grad1, grad2, grad3):
+
         send_grads = [grad0.clone(), grad1.clone(),grad2.clone(), grad3.clone()]
         device_id = ctx.device_id
-        # from_dict = ctx.from_dict
-        # to_dict = ctx.to_dict
         recv_g = ctx.recv_g
         layer_id = ctx.layer_id
         shuffle_functional(device_id,send_grads, recv_g)
-        remote_g = torch.cat(recv_g, dim = 0)
+        grads = []
+        for i in range(4):
+            if i!= device_id:
+                grads.append(recv_g[i])
+        remote_g = torch.cat(grads, dim = 0)
         return  remote_g, None, None, None, None
 
 
@@ -67,13 +71,19 @@ class ToySingle(torch.nn.Module):
                 from_sizes.append(None)
             else:
                 to_offsets.append(to_offsets[i] + 25)
-                from_sizes.append(torch.Size([25,100]))
-        # b = Shuffle.apply(remote_input, self.device_id, from_sizes, to_offsets, 0)
-        # for i in range(4):
-        #     if i != self.device_id:
-        #         local_input += b[i]
+                from_sizes.append(25)
+        r1,r2,r3,r4 = Shuffle.apply(remote_input, self.device_id, 0,  from_sizes,\
+                    to_offsets)
+        r = [r1,r2,r3,r4]
+        for i in range(4):
+            if i == self.device_id:
+                continue
+            local_input += r[i]
         return local_input
 
+
+# Not  a real correctness test. Just for me to know the shuffle works
+# Hence not migrating
 def test_single(proc_id, n_gpus):
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
         master_ip='127.0.0.1', master_port='12345')

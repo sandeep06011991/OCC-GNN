@@ -29,12 +29,13 @@ def shuffle_functional(device_id, send_dict, recv_dict):
                 recv.append(torch.distributed.irecv(recv_dict[peer_id], src = peer_id))
         else:
             if recv_dict[peer_id].shape[0] != 0:
-                send.append(torch.distributed.irecv(recv_dict[peer_id], src = peer_id))
+                recv.append(torch.distributed.irecv(recv_dict[peer_id], src = peer_id))
             if send_dict[peer_id].shape[0] != 0:
-                recv.append(torch.distributed.isend(send_dict[peer_id], peer_id))
+                send.append(torch.distributed.isend(send_dict[peer_id], peer_id))
     for r in recv:
         r.wait()
-
+    for s in send:
+        s.wait()
 
 
 def using_dist_send_sync_co_ordinated(proc_id, n_gpus):

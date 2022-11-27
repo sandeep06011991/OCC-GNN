@@ -1,9 +1,5 @@
-
-
-
 import torch.nn as nn
 import torch
-
 from layers.opt_shuffle import Shuffle
 from layers.max_shuffle import ShuffleMax
 
