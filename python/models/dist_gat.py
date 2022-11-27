@@ -2,7 +2,7 @@
 import torch
 from torch import nn
 from layers.dist_sageconv import DistSageConv
-from layers.dist_gatconv import DistGATConv
+# from layers.dist_gatconv import DistGATConv
 # Move this function to seperate file after first forward and back pass
 class DistGATModel(torch.nn.Module):
 

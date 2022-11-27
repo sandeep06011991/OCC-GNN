@@ -40,7 +40,11 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         deterministic, worker_id, sm_filename_queue, num_workers, fanout,file_id, self_edge):
     no_worker_threads = 1
     testing = False
-    sampler = cslicer(graph_name,storage_vector,fanout, deterministic, testing , self_edge)
+    rounds = 1
+    pull_optimization = False
+    num_layers = 3
+    sampler = cslicer(graph_name,storage_vector,fanout, deterministic, testing , self_edge, rounds, \
+            pull_optimization, num_layers)
     sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id, num_workers,file_id)
     # Todo clean up unnecessary iterations
     log = LogFile("slice-py", worker_id)

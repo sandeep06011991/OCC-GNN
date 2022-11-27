@@ -90,7 +90,7 @@ class Bipartite:
         self.indices_L = cobject.indices_L
         self.indptr_R = cobject.indptr_R
         self.indices_R = cobject.indices_R
-        self.out_degrees = cobject.out_degrees
+        self.out_degrees = cobject.out_degree_local
 
         self.from_ids = {}
         self.push_to_ids = {}

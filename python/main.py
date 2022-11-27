@@ -25,7 +25,6 @@ import pwd
 import sys
 
 uname = pwd.getpwuid(os.getuid())[0]
-os.environ['NCCL_BUFFSIZE'] = str(1024 * 1024 * 80)
 if uname == 'spolisetty':
     ROOT_DIR = "/home/spolisetty/OCC-GNN/cslicer/"
     SRC_DIR = "/home/spolisetty/OCC-GNN/python/main.py"
@@ -159,6 +158,7 @@ def main(args):
     sample_queues = [mp.Queue(queue_size) for i in range(4)]
 
     # sample_queues = [mp.SimpleQueue() for i in range(4)]
+    
     lock = torch.multiprocessing.Lock()
 
     slice_producer_processes = []

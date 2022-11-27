@@ -24,6 +24,7 @@ public:
   torch::Tensor indices_L;
   torch::Tensor indptr_R;
   torch::Tensor indices_R;
+  
 
   std::vector<torch::Tensor> from_ids;
   std::vector<int> to_offsets;

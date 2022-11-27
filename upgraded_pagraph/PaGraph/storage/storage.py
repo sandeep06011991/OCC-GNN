@@ -137,7 +137,7 @@ class GraphCacheServer:
     #return data_frame
     nids = nids_in_full.cpu()
     if to_gpu:
-      frame = {name: self.graph.get_n_repr(nids)[name].cuda(self.gpuid, non_blocking=True)\
+      frame = {name: self.graph.get_n_repr(nids)[name].cuda(self.gpuid, non_blocking=False)\
                    for name in embed_names}
     else:
       frame = {name: self.graph.get_n_repr(nids)[name] for name in embed_names}
@@ -165,7 +165,8 @@ class GraphCacheServer:
     self.gpu_flag[nids] = True
     self.full_cached = is_full
     print("cache fixed",self.gpuid)
-
+    collected_metrics = []
+    
 
   def fetch_data(self, input_nodes):
     """
@@ -220,7 +221,7 @@ class GraphCacheServer:
           nids_in_cpu, list(self.dims), to_gpu=False)
       self.collect_end_e.record()
       for name in self.dims:
-        frame[name][cpu_mask] = cpu_data_frame[name].cuda(self.gpuid, non_blocking=True)
+        frame[name][cpu_mask] = cpu_data_frame[name].cuda(self.gpuid, non_blocking=False)
     t2 = time.time()
       #with torch.autograd.profiler.record_function('cache-asign'):
     self.move_end_e.record()

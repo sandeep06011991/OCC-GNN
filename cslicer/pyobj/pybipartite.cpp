@@ -18,6 +18,7 @@ PyBipartite::PyBipartite(BiPartite *bp){
 
     indptr_R = torch::from_blob(bp->indptr_R.data(), {bp->indptr_R.size()}, opts);
     indices_R = torch::from_blob(bp->indices_R.data(), {bp->indices_R.size()}, opts);
+    out_degree_local = torch::from_blob(bp->out_degree_local.data(), {bp->out_degree_local.size()}, opts);
 
     to_offsets.push_back(bp->to_offsets[0]);
     pull_from_offsets.push_back(bp->pull_from_offsets[0]);

@@ -8,18 +8,11 @@ import torch.multiprocessing as mp
 import torch.nn.functional as F
 import numpy as np
 import dgl
-from dgl._deprecate.graph import DGLGraph
+# from dgl._deprecate.graph import DGLGraph
 import os
+import torch.multiprocessing as mp
 
-PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
-path_set = False
-for p in sys.path:
-    # print(p)
-    if PATH_DIR ==  p:
-       path_set = True
-if (not path_set):
-    print("Setting Path")
-    sys.path.append(PATH_DIR)
+
 
 FEAT_DICT = {"ogbn-arxiv":128, "ogbn-products":100,\
                 "amazon":200, "reorder-papers100M":128, \
@@ -29,6 +22,10 @@ N_CLASSES = {"ogbn-arxiv":40, "ogbn-products":48,\
                     "com-orkut":48}
 
 
+from utils.timing_analysis import *
+from utils.env import *
+from utils.utils import *
+import pickle
 from PaGraph.model.dgl_sage import  *
 from PaGraph.model.dgl_gat import  *
 
@@ -74,7 +71,7 @@ def compute_acc(pred, labels):
 import logging
 
 
-def trainer(rank, world_size, args, backend='nccl'):
+def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
   dataset = "{}/{}".format(ROOT_DIR, args.dataset)
   feat_size = FEAT_DICT[args.dataset]
   # init multi process
@@ -136,36 +133,6 @@ def trainer(rank, world_size, args, backend='nccl'):
       heads = 3
       model = GAT(in_feats, args.n_hidden, \
               n_classes , heads, args.n_layers, F.relu, args.dropout)
-  #
-  # if args.model == "gcn":
-  #     in_dim = feat_size
-  #     model = GCNSampling(feat_size,
-  #                     args.n_hidden,
-  #                     n_classes,
-  #                     args.n_layers,
-  #                     F.relu,
-  #                     args.dropout,
-  #                     args.preprocess)
-  # else:
-  #     assert(args.model == "gat")
-  #     residual = False
-  #     num_layers = args.n_layers
-  #     in_dim = feat_size
-  #     num_hidden = args.n_hidden
-  #     num_classes = n_classes
-  #     num_heads = 3
-  #     feat_drop = args.dropout
-  #     attn_drop = args.dropout
-  #     model = GATNodeFlow(
-  #                num_layers,
-  #                in_dim,
-  #                num_hidden,
-  #                num_classes,
-  #                num_heads,
-  #                feat_drop,
-  #                attn_drop,
-  #                residual,
-  #                activation=F.relu)
 
   loss_fcn = torch.nn.CrossEntropyLoss()
   optimizer = torch.optim.Adam(model.parameters(),
@@ -193,16 +160,6 @@ def trainer(rank, world_size, args, backend='nccl'):
         num_workers= 4,
         persistent_workers= True)
 
-  #if args.remote_sample:
-  #  sampler = SampleLoader(g, rank, one2all=False)
-  #else:
-  #  sampler = dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
-  #    args.num_neighbors, neighbor_type='in',
-  #    shuffle=True, num_workers=args.num_workers,
-  #    num_hops=num_hops, seed_nodes=train_nid,
-  #    prefetch=True
-  #  )
-  # start training
   epoch_dur = []
   print("Our caching model does not require a warm up")
   tic = time.time()
@@ -214,34 +171,26 @@ def trainer(rank, world_size, args, backend='nccl'):
   event_cache_gather = []
   time_cache_move = []
   event_cache_move = []
-  forward_time = []
-  backward_time = []
-  sample_time = []
-  graph_move_time = []
   edges_processed = []
   e1 = torch.cuda.Event(enable_timing = True)
   e2 = torch.cuda.Event(enable_timing = True)
-  e3 = torch.cuda.Event(enable_timing = True)
-  e4 = torch.cuda.Event(enable_timing = True)
-  e5 = torch.cuda.Event(enable_timing = True)
   if rank == 0:
     log.info("Running for epochs {}".format(args.n_epochs))
+  epoch_metrics = []
   with torch.autograd.profiler.profile(enabled=(False), use_cuda=True) as prof:
     cacher.auto_cache(g,embed_names)
     for epoch in range(args.n_epochs):
       model.train()
       epoch_start_time = time.time()
-      forward_time_epoch = 0
-      backward_time_epoch = 0
-      epoch_sample_time = 0
-      epoch_move_graph_time = 0
       epoch_edges_processed = 0
       step = 0
       #print("start epoch",rank)
       #for nf in sampler:
       it = iter(dataloader)
+      minibatch_metrics = []
       while True:
         t00 = time.time()
+        batch_time = {}
         try:
             with nvtx.annotate('sample',color = 'yellow'):
                 s1 = time.time()
@@ -249,7 +198,8 @@ def trainer(rank, world_size, args, backend='nccl'):
                 assert(input_nodes.shape[0] == blocks[0].number_of_src_nodes())
                 assert(seeds.shape[0] == blocks[-1].number_of_dst_nodes())
                 s2 = time.time()
-                epoch_sample_time += (s2 - s1)
+                batch_time[SAMPLE_START_TIME] = s1
+                batch_time[GRAPH_LOAD_START_TIME] = s2
         except StopIteration:
             break
         #torch.distributed.barrier()
@@ -257,24 +207,21 @@ def trainer(rank, world_size, args, backend='nccl'):
         #with torch.autograd.profiler.record_function('gpu-load'):
         #if True:
           s0 = time.time()
-          e4.record()
           blocks = [b.to(rank) for b in blocks]
           s1 = time.time()
-          e5.record()
+          batch_time[DATALOAD_START_TIME] = s1
           input_data = cacher.fetch_data(input_nodes)
           batch_nids = seeds
           label = labels[batch_nids]
-          label = label.cuda(rank, non_blocking=True)
-          e5.synchronize()
-          epoch_move_graph_time += max((s1 - s0),e4.elapsed_time(e5)/1000)
+          label = label.cuda(rank, non_blocking=False)
+          batch_time[DATALOAD_END_TIME] = time.time()
           # print("move time", e4.elapsed_time(e5)/1000)
           #print("Cache time",s2-s1)
-        e1.record()
         #with torch.autograd.profiler.record_function('gpu-compute'):
         with nvtx.annotate('compute', color = 'red'):
         #if True:
+          e1.record()
           pred = model(blocks, input_data['features'])
-
           for i in range(3):
               epoch_edges_processed += blocks[i].num_edges()
           e2.record()
@@ -282,19 +229,14 @@ def trainer(rank, world_size, args, backend='nccl'):
           acc = compute_acc(pred,label)
           e2.synchronize()
           optimizer.zero_grad()
-          forward_time_epoch += (e1.elapsed_time(e2)/1000)
-          t1 = time.time()
-          torch.distributed.barrier()
-          t2 = time.time()
-          e2.record()
           loss.backward()
+          batch_time[END_BACKWARD] = time.time()
+          batch_time[FORWARD_ELAPSED_EVENT_TIME] = e1.elapsed_time(e2)/1000
           optimizer.step()
-          e3.record()
-        e3.synchronize()
+          minibatch_metrics.append(batch_time)
 
         #print("Compute time without sync", e1.elapsed_time(e2)/1000)
         #forward_time_epoch += (e1.elapsed_time(e2)/1000)
-        backward_time_epoch += (e2.elapsed_time(e3)/1000)
         t11 = time.time()
         step += 1
         #print("current minibatch",step,rank, epoch)
@@ -310,9 +252,9 @@ def trainer(rank, world_size, args, backend='nccl'):
 
       if rank == 0:
         # compute_time.append(epoch_compute_time)
-        sample_time.append(epoch_sample_time)
+        # sample_time.append(epoch_sample_time)
         # log.info("epoch:{} collected_sample:{}".format(epoch, sample_time))
-        graph_move_time.append(epoch_move_graph_time)
+        # graph_move_time.append(epoch_move_graph_time)
         # log.info("epoch:{} graph move time:{}".format(epoch, graph_move_time))
         epoch_dur.append(time.time() - epoch_start_time)
         collect_c, move_c, coll_t, mov_t = cacher.get_time_and_reset_time()
@@ -322,8 +264,8 @@ def trainer(rank, world_size, args, backend='nccl'):
         event_cache_move.append(move_c)
         # log.info("epoch:{}, cache gather {},cache move {}".format(epoch, time_cache_gather\
               # , time_cache_move))
-        forward_time.append(forward_time_epoch)
-        backward_time.append(backward_time_epoch)
+        # forward_time.append(forward_time_epoch)
+        # backward_time.append(backward_time_epoch)
         # log.info("epoch: {}, forward time:{}".format(epoch, forward_time))
         # log.info("epoch: {}, backward time:{}".format(epoch, backward_time))
         #print('Epoch average time: {:.4f}'.format(np.mean(np.array(epoch_dur[2:]))))
@@ -333,23 +275,26 @@ def trainer(rank, world_size, args, backend='nccl'):
       miss_num_per_epoch.append(miss_num * in_dim * 4 / (1024 * 1024))
         #print('Epoch average miss rate: {:.4f}'.format(miss_rate))
       edges_processed.append(epoch_edges_processed)
-
+      epoch_metrics.append(minibatch_metrics)
     toc = time.time()
   print("Exiting training working to collect profiler results")
   if rank == 0:
       print("accuracy: {:.4f}\n".format(acc))
-      print("Sample time: {:.4f}s\n".format(avg(sample_time)))
-      print("forward time: {:.4f}s\n".format(avg(forward_time)))
-      print("backward time: {:.4f}s\n".format(avg(backward_time)))
-      print("movement graph: {:.4f}s\n".format(avg(graph_move_time)))
-      print("CPU collect: {:.4f}s\n".format(avg(time_cache_gather)))
-      print("CUDA collect: {:.4f}s\n".format(avg(event_cache_gather)))
-      print("CPU move: {:.4f}s\n".format(avg(time_cache_move)))
-      print("CUDA move: {:.4f}s\n".format(avg(event_cache_move)))
+      # print("Sample time: {:.4f}s\n".format(avg(sample_time)))
+      # print("forward time: {:.4f}s\n".format(avg(forward_time)))
+      # print("backward time: {:.4f}s\n".format(avg(backward_time)))
+      # print("movement graph: {:.4f}s\n".format(avg(graph_move_time)))
+      # print("CPU collect: {:.4f}s\n".format(avg(time_cache_gather)))
+      # print("CUDA collect: {:.4f}s\n".format(avg(event_cache_gather)))
+      # print("CPU move: {:.4f}s\n".format(avg(time_cache_move)))
+      # print("CUDA move: {:.4f}s\n".format(avg(event_cache_move)))
       print("Epoch time: {:.4f}s\n".format(avg(epoch_dur)))
       print("Miss rate: {:.4f}s\n".format(avg(miss_rate_per_epoch)))
   print("Miss num per epoch: {:.4f}MB, device {}\n".format(int(avg(miss_num_per_epoch)),rank))
   print("Edges processed per epoch: {}".format(avg(edges_processed)))
+  with open('metrics{}.pkl'.format(rank), 'wb') as outp:  # Overwrites any existing file.
+    pickle.dump(epoch_metrics, outp, pickle.HIGHEST_PROTOCOL)
+
   # Profiling everything is unstable and overweight.
   # torch profiler uses events under it.
   #if rank == 0:
@@ -363,7 +308,7 @@ def trainer(rank, world_size, args, backend='nccl'):
   print("All cleaned up")
 
 def train_hook(*args):
-  import line_profiler
+  # import line_profiler
   from line_profiler import LineProfiler
   prof = LineProfiler()
   train_w = prof(trainer)
@@ -410,13 +355,21 @@ if __name__ == '__main__':
   parser.set_defaults(remote_sample=False)
 
   args = parser.parse_args()
-
+  metrics_queue = mp.Queue(4)
   # os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
   # gpu_num = len(args.gpu.split(','))
   gpu_num = 4
 
-  mp.spawn(trainer, args=(gpu_num, args), nprocs=gpu_num, join=True)
-import os
-import sys
-import argparse, time
-import torch
+  mp.spawn(trainer, args=(gpu_num, args, metrics_queue), nprocs=gpu_num, join=True)
+  collected_metrics = []
+  for i in range(4):
+    with open("metrics{}.pkl".format(i), "rb") as input_file:
+      cm = pickle.load(input_file)
+    collected_metrics.append(cm)
+  epoch_batch_sample, epoch_batch_graph, epoch_batch_load_time, epoch_batch_forward, epoch_batch_backward = \
+  compute_metrics(collected_metrics)
+  print("sample_time:{}".format(epoch_batch_sample))
+  print("movement graph:{}".format(epoch_batch_graph))
+  print("movement feature:{}".format(epoch_batch_load_time))
+  print("forward time:{}".format(epoch_batch_forward))
+  print("backward time:{}".format(epoch_batch_backward))
