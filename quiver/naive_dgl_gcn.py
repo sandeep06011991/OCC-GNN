@@ -111,8 +111,8 @@ def run(rank, args,  data):
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        prefetch_factor = 6,
-        num_workers=0 if args.sample_gpu else args.num_workers,
+        prefetch_factor = 0,
+        num_workers = 0 if args.sample_gpu else args.num_workers,
         persistent_workers=not args.sample_gpu)
 
     # Define model and optimizer

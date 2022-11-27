@@ -19,6 +19,10 @@ import torch.autograd.profiler as profiler
 
 from dgl_sage import SAGE
 from dgl_gat import GAT
+from utils.timing_analysis import *
+from utils.env import *
+from utils.utils import *
+import pickle
 
 def average(ls):
     if(len(ls) == 1):
@@ -84,7 +88,7 @@ def run(rank, args,  data):
     dist.init_process_group('nccl', rank=rank, world_size=4)
 
     device = rank
-    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets = data
+    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets, metrics_queue = data
     if args.data == 'gpu':
         nfeat = nfeat.to(rank)
     if args.sample_gpu:
@@ -92,7 +96,7 @@ def run(rank, args,  data):
         # copy only the csc to the GPU
         g = g.formats(['csc'])
         g = g.to(device)
-
+    print("Cross check edges moved !")
     # Create PyTorch DataLoader for constructing blocks
     sampler = dgl.dataloading.MultiLayerNeighborSampler(
             [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
@@ -106,7 +110,7 @@ def run(rank, args,  data):
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        # prefetch_factor = 8,
+        prefetch_factor = 0,
         num_workers=0 if args.sample_gpu else args.num_workers,
         persistent_workers=not args.sample_gpu)
 
@@ -130,17 +134,10 @@ def run(rank, args,  data):
     print("start training")
 
     epoch_time = []
-    sample_time_epoch = []
-    movement_time_graph_epoch = []
-    movement_time_feature_epoch = []
     data_movement_epoch = []
-    forward_time_epoch = []
-    backward_time_epoch = []
+    epoch_metrics = []
     accuracy = []
     edges_per_epoch = []
-    e0 = torch.cuda.Event(enable_timing = True)
-    e1 = torch.cuda.Event(enable_timing = True)
-    e2 = torch.cuda.Event(enable_timing = True)
     e3 = torch.cuda.Event(enable_timing = True)
     e4 = torch.cuda.Event(enable_timing = True)
 
@@ -154,11 +151,6 @@ def run(rank, args,  data):
         # Loop over the dataloader to sample the computation dependency graph as a list of
         # blocks.
         epoch_start = time.time()
-        sample_time = 0
-        movement_graph_time = 0
-        movement_feature_time = 0
-        forward_time = 0
-        backward_time = 0
         dataloader_i = iter(dataloader)
         edges_computed = 0
         data_movement = 0
@@ -166,11 +158,13 @@ def run(rank, args,  data):
         step = 0
         try:
             while True:
+                batch_time = {}
                 optimizer.zero_grad()
                 t1 = time.time()
                 input_nodes, seeds, blocks = next(dataloader_i)
-
                 t2 = time.time()
+                batch_time[SAMPLE_START_TIME] = t1
+                batch_time[GRAPH_LOAD_START_TIME] = t2
                 # copy block to gpu
                 blocks = [blk.to(device) for blk in blocks]
                 #t2 = time.time()
@@ -181,39 +175,33 @@ def run(rank, args,  data):
                     edges_computed += blk.edges()[0].shape[0]
                 #print(edges_computed)
                 t3 = time.time()
+                batch_time[DATALOAD_START_TIME] = t3
                 #start = offsets[device][0]
                 #end = offsets[device][1]
                 #hit = torch.where((input_nodes > start) & (input_nodes < end))[0].shape[0]
 
                 hit = torch.where(input_nodes < offsets[3])[0].shape[0]
                 missed = input_nodes.shape[0] - hit
-
-                e1.record()
                 # Load the input features as well as output labels
                 batch_inputs, batch_labels = load_subtensor(
                     nfeat, labels, seeds, input_nodes, device)
-                e2.record()
-                t4 = time.time()
+                batch_time[DATALOAD_END_TIME] = time.time()
                 # Compute loss and prediction
                 with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
-                    batch_pred = model(blocks, batch_inputs)
-
-                    loss = loss_fcn(batch_pred, batch_labels)
                     e3.record()
-                    torch.distrubuted.barrier()
-                    loss.backward()
+                    batch_pred = model(blocks, batch_inputs)
+                    loss = loss_fcn(batch_pred, batch_labels)
                     e4.record()
+                    loss.backward()
+                    batch_time[END_BACKWARD] = time.time()
                 e4.synchronize()
                 optimizer.step()
-                sample_time += (t2 - t1)
-                movement_graph_time += (t3 - t2)
+                batch_time[FORWARD_ELAPSED_EVENT_TIME] = e3.elapsed_time(e4)/1000
                 #print("sample time", t2-t1, t3-t2)
                 #print("Time feature", device, e1.elapsed_time(e2)/1000)
                 #print("Expected bandwidth", missed * nfeat.shape[1] * 4/ ((e1.elapsed_time(e2)/1000) * 1024 * 1024 * 1024), "GB device", rank, "cache rate", hit/(hit + missed))
-                movement_feature_time += max(t4-t3, e1.elapsed_time(e2)/1000)
-                forward_time += e2.elapsed_time(e3)/1000
-                backward_time += e3.elapsed_time(e4)/1000
                 data_movement += (missed * nfeat.shape[1] * 4/(1024 * 1024))
+                minibatch_metrics.append(batch_time)
                 if args.early_stopping and step ==5:
                     break
                 step = step + 1
@@ -225,12 +213,8 @@ def run(rank, args,  data):
         except StopIteration:
             pass
         print("EPOCH TIME",time.time() - epoch_start)
+        epoch_metrics.append(minibatch_metrics)
         epoch_time.append(time.time()-epoch_start)
-        sample_time_epoch.append(sample_time)
-        movement_time_graph_epoch.append(movement_graph_time)
-        movement_time_feature_epoch.append(movement_feature_time)
-        forward_time_epoch.append(forward_time)
-        backward_time_epoch.append(backward_time)
         edges_per_epoch.append(edges_computed)
         data_movement_epoch.append(data_movement)
         #pbar.close()
@@ -249,16 +233,12 @@ def run(rank, args,  data):
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 final_test_acc = test_acc
+    with open('metrics{}.pkl'.format(rank), 'wb') as outp:  # Overwrites any existing file.
+        pickle.dump(epoch_metrics, outp, pickle.HIGHEST_PROTOCOL)
     if rank == 0:
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch:{}".format(average(epoch_time)))
-        print("sample_time:{}".format(average(sample_time_epoch)))
-        print("movement graph:{}".format(average(movement_time_graph_epoch)))
-        print("movement feature:{}".format(average(movement_time_feature_epoch)))
-        print("forward time:{}".format(average(forward_time_epoch)))
-        print("backward time:{}".format(average(backward_time_epoch)))
         print("edges per epoch:{}".format(average(edges_per_epoch)))
-        print(data_movement_epoch)
         print("data movement:{}MB".format(average(data_movement_epoch)))
     dist.destroy_process_group()
 
@@ -371,7 +351,9 @@ if __name__ == '__main__':
     # This avoids creating certain formats in each data loader process, which saves momory and CPU.
     graph.create_formats_()
     # Pack data
-    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets
+    metrics_queue = mp.Queue(4)
+    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, metrics_queue
+
 
     #test_accs = []
     #for i in range(1, 11):
@@ -388,3 +370,16 @@ if __name__ == '__main__':
         nprocs=world_size,
         join=True
     )
+    collected_metrics = []
+    for i in range(4):
+        with open("metrics{}.pkl".format(i), "rb") as input_file:
+            cm = pickle.load(input_file)
+
+        collected_metrics.append(cm)
+    epoch_batch_sample, epoch_batch_graph, epoch_batch_load_time, epoch_batch_forward, epoch_batch_backward = \
+                compute_metrics(collected_metrics)
+    print("sample_time:{}".format(epoch_batch_sample))
+    print("movement graph:{}".format(epoch_batch_graph))
+    print("movement feature:{}".format(epoch_batch_load_time))
+    print("forward time:{}".format(epoch_batch_forward))
+    print("backward time:{}".format(epoch_batch_backward))
