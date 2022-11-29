@@ -20,7 +20,7 @@ class cobject:
         self.indices_L = torch.tensor([0,1], device =  gpu_id)
         self.indptr_R = torch.tensor([0,2,4,6], device =  gpu_id)
         self.indices_R = torch.tensor([0,1,0,1,0,1], device =  gpu_id)
-        self.out_degrees = torch.tensor([8], device =  gpu_id)
+        self.out_degree_local = torch.tensor([8], device =  gpu_id)
 
         self.from_ids = {}
         self.push_to_ids = {}
@@ -38,7 +38,7 @@ class cobject:
                 self.pull_from_offsets.append(self.pull_from_offsets[-1])
             self.from_ids[i] = torch.tensor([0], device =  gpu_id)
             self.push_to_ids[i] = torch.tensor([], device =  gpu_id)
-        
+
 # Used to testing dist-GCN
 def get_local_bipartite_graph(gpu_id):
     bp = Bipartite()

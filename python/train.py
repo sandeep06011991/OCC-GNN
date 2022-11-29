@@ -42,7 +42,7 @@ def compute_acc(pred, labels):
     false_labels = torch.where(torch.argmax(pred,dim = 1) != labels)[0]
     return (torch.argmax(pred, dim=1) == labels).float().sum(),len(pred )
 
-def get_sample(proc_id, sample_queues,  sm_client, log):
+def get_sample(proc_id, sample_queues,  sm_client, log, attention = False):
     sample_id = None
     device = proc_id
     t0 = time.time()
@@ -83,7 +83,7 @@ def get_sample(proc_id, sample_queues,  sm_client, log):
         device = torch.device(device)
         # Refactor this must not be moving to GPU at this point.
         construct_from_tensor_on_gpu(tensor, device, gpu_local_sample)
-        gpu_local_sample.prepare()
+        gpu_local_sample.prepare(attention)
         t5 = time.time()
         # Memory can be released now as object is constructed from tensor.
         sm_client.free_used_shared_memory(name)
@@ -103,7 +103,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     a = torch.cuda.memory_allocated(0)
     f = r-a  # free inside reserved
     print('total,reserved, allocated',t,r,a)
-    gpu_local_storage = GpuLocalStorage(cache_percentage, features, batch_in, cached_feature_size, proc_id)
+    gpu_local_storage = GpuLocalStorage(cache_percentage, features, batch_in, proc_id)
     print("Num sampler workers ", num_sampler_workers)
     log = LogFile("Trainer", proc_id)
     t = torch.cuda.get_device_properties(0).total_memory
@@ -154,6 +154,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         model = get_gat_distributed(args.num_hidden, features, num_classes,
             proc_id, args.deterministic, args.model)
         self_edge = True
+        attention = True
     if proc_id ==0:
         print(args.test_graph_dir)
         if args.test_graph_dir != None:
@@ -202,7 +203,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     while(True):
         nmb += 1
         log.log("blocked at get sample")
-        sample_id, gpu_local_sample, sample_get_mb, graph_move_mb = get_sample(proc_id, sample_queue,  sm_client, log)
+        sample_id, gpu_local_sample, sample_get_mb, graph_move_mb = get_sample(proc_id, sample_queue,  sm_client, log, attention)
         sample_get_time += sample_get_mb
         movement_graph += graph_move_mb
         log.log("sample recieved and processed")
@@ -257,19 +258,19 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
 
         #assert(features.device == torch.device('cpu'))
         #gpu_local_sample.debug()
-        classes = labels[gpu_local_sample.last_layer_nodes].to(torch.device(proc_id))
+        classes = labels[gpu_local_sample.out_nodes].to(torch.device(proc_id))
         # print("Last layer nodes",gpu_local_sample.last_layer_nodes)
         # with nvtx.annotate("forward",color="blue"):
         torch.cuda.set_device(proc_id)
         optimizer.zero_grad()
         #with torch.autograd.profiler.profile(use_cuda=True, record_shapes=True) as prof:
         m_t0 = time.time()
-        input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cached_node_ids, \
-                    gpu_local_sample.missing_node_ids)
+        input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cache_hit_from, \
+                gpu_local_sample.cache_hit_to, gpu_local_sample.cache_miss_from, gpu_local_sample.cache_miss_to)
         m_t1 = time.time()
         edges, nodes = gpu_local_sample.get_edges_and_send_data()
         edges_per_gpu += edges
-        data_moved_per_gpu += (gpu_local_sample.missing_node_ids.shape[0] * features.shape[1] * 4 /(1024 * 1024)) +\
+        data_moved_per_gpu += (gpu_local_sample.cache_miss_from.shape[0] * features.shape[1] * 4 /(1024 * 1024)) +\
                             (nodes * args.num_hidden * 4/(1024 * 1024))
 
         movement_feat += (m_t1-m_t0)
@@ -311,7 +312,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         if output.shape[0] !=0:
             acc = compute_acc(output,classes)
             acc = (acc[0].item()/acc[1])
-            print("Accuracy ", acc)
+            print("Accuracy ", acc, ii,num_epochs)
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
         # print("Forward time",fp_start.elapsed_time(fp_end)/1000 )

@@ -41,7 +41,7 @@ class Bipartite:
         self.graph_remote = dummy_remote_graph
 
 
-    def reconstruct_graph(self):
+    def reconstruct_graph(self,attention = False):
         edge_ids_local= torch.arange(self.indices_L.shape[0], device = self.gpu_id)
         edge_ids_remote = torch.arange(self.indices_R.shape[0], device = self.gpu_id)
         formats = "csc"
@@ -55,6 +55,9 @@ class Bipartite:
             graph_local = heterograph_index.create_heterograph_from_relations( \
                     metagraph_index_local[0], [hg_local], Index([in_nodes ,self.num_out_local]))
             self.graph_local = dgl.DGLHeteroGraph(graph_local,['_U','_V_local'],['_E'])
+            if attention:
+                self.graph_local = self.graph_local.formats(['csr','csc','coo'])
+                self.graph_local.create_formats_()
         else:
             self.graph_local = None
 
@@ -67,6 +70,10 @@ class Bipartite:
             graph_remote = heterograph_index.create_heterograph_from_relations( \
                     metagraph_index_remote[0], [hg_remote], Index([in_nodes ,self.num_out_remote]))
             self.graph_remote = dgl.DGLHeteroGraph(graph_remote,['_U','_V_remote'],['_E'])
+            # self.graph_remote_csc = self.graph_remote.formats('csr')
+            if attention:
+                self.graph_remote = self.graph_remote.formats(['csr','csc','coo'])
+                self.graph_remote.create_formats_()
         else:
             self.graph_remote = None
 
@@ -126,8 +133,7 @@ class Bipartite:
             return f_in[0:0,:]
         with self.graph_remote.local_scope():
             # FixME Todo: Fix this inconsistency in number of nodes
-            # print(f_in.shape[0], self.graph.number_of_nodes('_U'))
-            assert(f_in.shape[0] == self.graph_local.number_of_nodes('_U'))
+            assert(f_in.shape[0] == self.graph_remote.number_of_nodes('_U'))
             self.graph_remote.nodes['_U'].data['in'] = f_in
             f = self.graph_remote.formats()
             self.graph_remote.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
@@ -162,7 +168,7 @@ class Bipartite:
                 'in', 'in_e', 'h'), fn.sum('h', 'out'))
             return self.graph_local.nodes['_V_local'].data['out']
 
-    def attention_gather_local(self, attention, u_in):
+    def attention_gather_remote(self, attention, u_in):
         with self.graph_remote.local_scope():
             self.graph_remote.edges['_E'].data['in_e'] = attention
             self.graph_remote.nodes['_U'].data['in'] = u_in
@@ -190,14 +196,18 @@ class Bipartite:
 
 
     def apply_edge_local(self, el, er):
+        if self.graph_local == None:
+            print(el.shape,er.shape)
         with self.graph_local.local_scope():
             self.graph_local.nodes['_V_local'].data['er'] = er
             self.graph_local.nodes['_U'].data['el'] = el
             self.graph_local.apply_edges(fn.u_add_v('el', 'er', 'e'))
             return self.graph_local.edata['e']
     def apply_edge_remote(self, el, er):
+        if self.graph_remote == None:
+            return torch.tensor([])
         with self.graph_remote.local_scope():
-            self.graph_remote.nodes['_V_local'].data['er'] = er
+            self.graph_remote.nodes['_V_remote'].data['er'] = er
             self.graph_remote.nodes['_U'].data['el'] = el
             self.graph_remote.apply_edges(fn.u_add_v('el', 'er', 'e'))
             return self.graph_remote.edata['e']
@@ -215,14 +225,23 @@ class Bipartite:
             self.graph_remote.update_all(fn.copy_e('nf', 'm'), fn.sum('m', 'out'))
             return self.graph_remote.nodes['_V_remote'].data['out']
 
-    def copy_from_out_nodes(self, local_out):
-        assert(False)
-        # with self.graph.local_scope():
-        #     self.graph.nodes['_V'].data['out'] = local_out
-        #     self.graph.edges['_E'].data['temp'] = torch.zeros(
-        #             self.graph.num_edges('_E'), *local_out.shape[1:], device=self.gpu_id)
-        #     self.graph.apply_edges(fn.v_add_e('out', 'temp', 'm'))
-        #     return self.graph.edata['m']
+    def copy_from_out_nodes_local(self, local_out):
+        # assert(False)
+        with self.graph_local.local_scope():
+            self.graph_local.nodes['_V_local'].data['out'] = local_out
+            self.graph_local.edges['_E'].data['temp'] = torch.zeros(
+                    self.graph_local.num_edges('_E'), *local_out.shape[1:], device=self.gpu_id)
+            self.graph_local.apply_edges(fn.v_add_e('out', 'temp', 'm'))
+            return self.graph_local.edata['m']
+
+    def copy_from_out_nodes_remote(self, local_out):
+        # assert(False)
+        with self.graph_remote.local_scope():
+            self.graph_remote.nodes['_V_remote'].data['out'] = local_out
+            self.graph_remote.edges['_E'].data['temp'] = torch.zeros(
+                    self.graph_remote.num_edges('_E'), *local_out.shape[1:], device=self.gpu_id)
+            self.graph_remote.apply_edges(fn.v_add_e('out', 'temp', 'm'))
+            return self.graph_remote.edata['m']
 
     def set_remote_data_to_zero(self, data):
         assert(False)

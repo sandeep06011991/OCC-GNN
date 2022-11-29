@@ -24,7 +24,7 @@ public:
   torch::Tensor indices_L;
   torch::Tensor indptr_R;
   torch::Tensor indices_R;
-  
+
 
   std::vector<torch::Tensor> from_ids;
   std::vector<int> to_offsets;
@@ -50,7 +50,7 @@ public:
   std::vector<torch::Tensor> cache_hit_to;
   std::vector<torch::Tensor>cache_miss_from;
   std::vector<torch::Tensor> cache_miss_to;
-
+  std::vector<torch::Tensor> out_nodes;
   int num_layers = 0;
 
   std::vector<int> debug_vals;

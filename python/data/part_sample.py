@@ -11,11 +11,13 @@ class Sample:
         self.cache_hit_to = []
         self.cache_miss_from = []
         self.cache_miss_to = []
+        self.out_nodes = []
         for i in range(4):
             self.cache_hit_to.append(csample.cache_hit_to[i])
             self.cache_hit_from.append(csample.cache_hit_from[i])
             self.cache_miss_to.append(csample.cache_miss_to[i])
             self.cache_miss_from.append(csample.cache_miss_from[i])
+            self.out_nodes.append(csample.out_nodes[i])
 
         # print(len(csample.layers))
         for layer in csample.layers:
@@ -44,18 +46,18 @@ class Gpu_Local_Sample:
         self.cache_hit_to = torch.tensor([])
         self.cache_miss_from =torch.tensor([])
         self.cache_miss_to =torch.tensor([])
-
+        self.out_nodes = torch.tensor([])
         self.debug_val = 0
         self.layers = [Bipartite() for i in range(3)]
 
-    
-    def prepare(self):
+
+    def prepare(self,attention = False):
         last_layer = self.layers[0]
         i = 0
         l = self.layers[0]
 
         for i in self.layers:
-            i.reconstruct_graph()
+            i.reconstruct_graph(attention)
         self.layers.reverse()
 
     def set_from_global_sample(self, global_sample, device_id):
@@ -70,13 +72,12 @@ class Gpu_Local_Sample:
         self.cache_hit_to = global_sample.cache_hit_to[device_id]
         self.cache_miss_from = global_sample.cache_miss_from[device_id]
         self.cache_miss_to = global_sample.cache_miss_to[device_id]
+        self.out_nodes = global_sample.out_nodes[device_id]
 
     def get_edges_and_send_data(self):
-        assert(False)
         edges = 0
         nodes_moved = 0
         for  graph in self.layers:
-            edges += graph.indices.shape[0]
-            for j in range(4):
-                nodes_moved += graph.to_ids[j].shape[0]
+            edges += graph.indices_L.shape[0] + graph.indices_R.shape[0]
+            nodes_moved += graph.indices_R.shape[0]
         return (edges,nodes_moved)

@@ -52,6 +52,7 @@ PySample::PySample(PartitionedSample &s){
       cache_hit_to.push_back(torch::from_blob(s.cache_hit_to[i].data(), {s.cache_hit_to[i].size()}, opts));
       cache_miss_from.push_back(torch::from_blob(s.cache_miss_from[i].data(), {s.cache_miss_from[i].size()}, opts));
       cache_miss_to.push_back(torch::from_blob(s.cache_miss_to[i].data(), {s.cache_miss_to[i].size()}, opts));
+      out_nodes.push_back(torch::from_blob(s.last_layer_nodes[i].data(), {s.last_layer_nodes[i].size()}, opts));
     }
 }
 

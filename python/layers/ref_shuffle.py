@@ -5,12 +5,12 @@ from torch.nn.parallel import DistributedDataParallel
 import time,datetime
 from layers.shuffle_functional import *
 
-class Shuffle(torch.autograd.Function):
+class ShuffleRev(torch.autograd.Function):
 
     # from_sizes: Shapes exppected from other gpus.
     # To offsets that iwll be shuffled.
     @staticmethod
-    def forward(ctx, remote_t, device_id, layer_id ,from_nds_size,\
+    def forward(ctx, local_t, device_id, layer_id ,from_nds,\
                 to_tensor_offset):
         recv = []
         recv_g = []
@@ -18,45 +18,56 @@ class Shuffle(torch.autograd.Function):
         for i in range(4):
             # Do I do work allocation here ?
             if i == device_id:
-                recv.append(torch.empty([0,*remote_t.shape[1:]], device = device_id))
-                recv_g.append(torch.empty([0,*remote_t.shape[1:]], device = device_id))
+                recv.append(torch.empty([0,*local_t.shape[1:]], device = device_id))
+                recv_g.append(torch.empty([0,*local_t.shape[1:]], device = device_id))
                 send_dict.append(None)
             else:
                 # remote has the same shape as local
-                recv.append(torch.empty((from_nds_size[i], *remote_t.shape[1:]) \
+                recv_g.append(torch.empty((from_nds[i].shape[0], *local_t.shape[1:]) \
                     , device = device_id))
-                recv_g.append(torch.empty((to_tensor_offset[i+1] - to_tensor_offset[i], *remote_t.shape[1:]) \
+                recv.append(torch.empty((to_tensor_offset[i+1] - to_tensor_offset[i], *local_t.shape[1:]) \
                     , device = device_id))
-                send_dict.append(remote_t[to_tensor_offset[i]:to_tensor_offset[i+1]].detach())
+                send_dict.append(local_t[from_nds[i]].detach())
         shuffle_functional(device_id, send_dict, recv)
         ctx.device_id = device_id
         ctx.layer_id = layer_id
         ctx.recv_g = recv_g
+        ctx.back = torch.zeros(local_t.shape, device = device_id)
+        ctx.from_nds = from_nds
+        ctx.to_offsets =  to_tensor_offset
         # torch.cuda.current_stream().synchronize()
-        return recv[0],recv[1],recv[2], recv[3]
+        cat = []
+        for i in range(4):
+            if i != device_id:
+                cat.append( recv[i])
+        remote_out = torch.cat(cat,dim = 0)
+        return remote_out
 
     @staticmethod
-    def backward(ctx, grad0, grad1, grad2, grad3):
-
-        send_grads = [grad0.clone(), grad1.clone(),grad2.clone(), grad3.clone()]
+    def backward(ctx, grad0):
         device_id = ctx.device_id
         recv_g = ctx.recv_g
         layer_id = ctx.layer_id
+        send_grads = {}
+        offset = ctx.to_offsets
+        for i in range(4):
+            send_grads[i] = grad0[offset[i]: offset[i+1]]
         shuffle_functional(device_id,send_grads, recv_g)
         grads = []
+        local_g = ctx.back
         for i in range(4):
             if i!= device_id:
-                grads.append(recv_g[i])
-        remote_g = torch.cat(grads, dim = 0)
-        # torch.cuda.current_stream().synchronize()
-        return  remote_g, None, None, None, None, None
+                local_g[ctx.from_nds[i]] += recv_g[i]
+
+
+        return  local_g, None, None, None, None
 
 
 class ToySingle(torch.nn.Module):
 
     def __init__(self,  device_id):
         super(ToySingle, self).__init__()
-        self.ll = torch.nn.Linear(10000,10000)
+        self.ll = torch.nn.Linear(100,100)
         self.device_id = device_id
         self.ll.weight = torch.nn.Parameter(
             torch.ones(self.ll.weight.shape))
@@ -94,17 +105,11 @@ def test_single(proc_id, n_gpus):
 
     model = ToySingle(proc_id).to(proc_id)
     model = DistributedDataParallel(model, device_ids = [proc_id])
-    local = torch.ones((25,10000),requires_grad = True, device = proc_id)
-    remote = torch.ones((75,10000), requires_grad = True, device = proc_id)
+    local = torch.ones((25,100),requires_grad = True, device = proc_id)
+    remote = torch.ones((75,100), requires_grad = True, device = proc_id)
 
-    e1 = torch.cuda.Event(enable_timing = True)
-    e2 = torch.cuda.Event(enable_timing = True)
-    for i in range(100):
-        e1.record()
-        out = model.forward(local, remote)
-        out.sum().backward()
-        e2.record()
-        print("time",e1.elapsed_time(e2/1000))
+    out = model.forward(local, remote)
+    out.sum().backward()
     print(local.grad, remote.grad)
 
 if __name__ == "__main__":

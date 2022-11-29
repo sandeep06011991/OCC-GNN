@@ -186,6 +186,7 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         ps.cache_hit_from[i].clear();
         ps.cache_miss_to[i].clear();
         ps.cache_hit_to[i].clear();
+        ps.last_layer_nodes[i].clear();
           // ps.layers[s.num_layers-1].bipartite[i]->debug();
         for(int j = 0; j <ps.layers[s.num_layers- 1].bipartite[i]->in_nodes.size(); j++){
           auto nd = ps.layers[s.num_layers-1].bipartite[i]->in_nodes[j];
@@ -197,6 +198,8 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
             ps.cache_miss_to[i].push_back(j);
           }
         }
+        vector<long> &last_layer = ps.layers[0].bipartite[i]->out_nodes_local;
+        ps.last_layer_nodes[i].insert(ps.last_layer_nodes[i].end(), last_layer.begin(), last_layer.end());
     }
     edge_policy.clear();
   }

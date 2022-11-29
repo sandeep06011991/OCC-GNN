@@ -278,6 +278,7 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
       epoch_metrics.append(minibatch_metrics)
     toc = time.time()
   print("Exiting training working to collect profiler results")
+  print("Epoch ", epoch_dur)
   if rank == 0:
       print("accuracy: {:.4f}\n".format(acc))
       # print("Sample time: {:.4f}s\n".format(avg(sample_time)))
@@ -366,10 +367,12 @@ if __name__ == '__main__':
     with open("metrics{}.pkl".format(i), "rb") as input_file:
       cm = pickle.load(input_file)
     collected_metrics.append(cm)
-  epoch_batch_sample, epoch_batch_graph, epoch_batch_load_time, epoch_batch_forward, epoch_batch_backward = \
+
+  epoch_batch_sample, epoch_batch_graph, epoch_batch_load_time, epoch_batch_forward, epoch_batch_backward ,epoch_batch_loadtime= \
   compute_metrics(collected_metrics)
   print("sample_time:{}".format(epoch_batch_sample))
   print("movement graph:{}".format(epoch_batch_graph))
   print("movement feature:{}".format(epoch_batch_load_time))
   print("forward time:{}".format(epoch_batch_forward))
   print("backward time:{}".format(epoch_batch_backward))
+  print("Data movement:{}".format(epoch_batch_loadtime))

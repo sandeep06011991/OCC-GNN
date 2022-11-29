@@ -128,50 +128,29 @@ class MemoryManager():
 class GpuLocalStorage():
 
     def __init__(self, cache_percentage, features, batch_in, \
-                cached_feature_size, proc_id):
+                 proc_id):
         self.cache_percentage = cache_percentage
         self.features = features
         # Batch_in tensor with space for extra
         self.batch_in = batch_in.to(proc_id)
-        self.cache_feature_size = cached_feature_size
         self.log = LogFile("Trainer", proc_id)
         self.proc_id = proc_id
 
-    
-    def get_input_features(self, cached_node_ids, missing_node_ids):
+
+    def get_input_features(self, cache_hit_from, cache_hit_to,\
+                cache_miss_from, cache_miss_to):
         # Slicer reorders and gives them
         # Add unit test to check acieved bandwidth
-        if (self.cache_percentage >= .25):
-            assert(missing_node_ids.shape[0] == 0)
-        cached = self.batch_in[cached_node_ids]
-        missed = self.features[missing_node_ids].to(self.proc_id)
-        features = torch.cat([cached,missed])
-        return features
-        node_ids = torch.cat([ cached_node_ids, missing_node_ids])
+        num_in_nodes = cache_hit_from.shape[0] + cache_miss_to.shape[0]
         assert(self.batch_in.device == torch.device(self.proc_id))
-        total_features = torch.empty(node_ids.shape[0], self.features.shape[1], device = self.proc_id, dtype = torch.float)
-        total_features[:cached_node_ids.shape[0],:] = self.batch_in[cached_node_ids,:]
-        total_features[cached_node_ids.shape[0]:cached_node_ids.shape[0] + missing_node_ids.shape[0],:] = \
-            self.features[missing_node_ids].to(self.proc_id)
+        total_features = torch.empty(num_in_nodes, self.features.shape[1], \
+                    device = self.proc_id, dtype = torch.float)
+        total_features[cache_hit_to,:] = self.batch_in[cache_hit_from,:]
+        total_features[cache_miss_to,:] = self.features[cache_miss_from, :].to(self.proc_id)
         # No caching
         # total_features = self.features[node_ids,:].to(self.proc_id)
         return total_features
 
-        if(self.cache_percentage >=.25):
-            # Nothing to return
-
-            assert(last_layer_nodes.shape[0] == 0)
-            return self.batch_in[:self.cache_feature_size, :]
-        # Clear previously loaded vertices for consistency.
-        self.log.log("refreshing cache with nodes {}".format(last_layer_nodes.shape))
-        space = self.batch_in.shape[0] - self.cache_feature_size
-        assert(space > last_layer_nodes.shape[0])
-        total_features  = self.batch_in[0:self.cache_feature_size + last_layer_nodes.shape[0],:]
-        total_features[self.cache_feature_size:self.cache_feature_size + last_layer_nodes.shape[0],:] \
-                = self.features[last_layer_nodes].to(self.proc_id)
-            # assert(self.features.device == torch.device("cpu"))
-            # assert(self.batch_in[gpu_id].device == torch.device(gpu_id))
-        return total_features
 
 
 

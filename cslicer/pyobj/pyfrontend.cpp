@@ -172,6 +172,7 @@ PYBIND11_MODULE(cslicer, m) {
              .def_readwrite("cache_hit_to", &PySample::cache_hit_to)
              .def_readwrite("cache_miss_from", &PySample::cache_miss_from)
              .def_readwrite("cache_miss_to", &PySample::cache_miss_to)
+             .def_readwrite("out_nodes", &PySample::out_nodes)
              .def_readwrite("debug_vals", &PySample::debug_vals);
          py::class_<PyBipartite>(m,"bipartite")
              .def_readwrite("num_in_nodes_local", &PyBipartite::num_in_nodes_local)

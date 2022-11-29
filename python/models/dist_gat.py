@@ -2,7 +2,7 @@
 import torch
 from torch import nn
 from layers.dist_sageconv import DistSageConv
-# from layers.dist_gatconv import DistGATConv
+from layers.dist_gatconv import DistGATConv
 # Move this function to seperate file after first forward and back pass
 class DistGATModel(torch.nn.Module):
 
@@ -33,12 +33,11 @@ class DistGATModel(torch.nn.Module):
         self.deterministic = deterministic
         self.fp_end = torch.cuda.Event(enable_timing=True)
         self.bp_end = torch.cuda.Event(enable_timing=True)
-
-    def forward(self, bipartite_graphs, x, in_degrees, testing = False):
+    def forward(self, bipartite_graphs, x, testing = False):
 
         for l,(layer, bipartite_graph) in  \
             enumerate(zip(self.layers,bipartite_graphs.layers)):
-            x = layer(bipartite_graph, x,l, in_degrees, testing )
+            x = layer(bipartite_graph, x,l, testing )
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
         return x

@@ -2,11 +2,13 @@ import dgl
 import torch.nn as nn
 import torch
 import time
+import nvtx
 from layers.shuffle import Shuffle
 import dgl.nn.pytorch.conv.sageconv as sgc
 import torch.multiprocessing as mp
 from data.test_bipartite import get_local_bipartite_graph
 from torch.nn.parallel import DistributedDataParallel
+
 
 class DistSageConv(nn.Module):
 
@@ -31,8 +33,18 @@ class DistSageConv(nn.Module):
         # self.deterministic = deterministic
         self.deterministic = deterministic
         self.reset_parameters()
-        self.local_stream = torch.cuda.Stream()
-        self.remote_stream = torch.cuda.Stream()
+        # self.local_stream = torch.cuda.default_stream()
+        # self.remote_stream = torch.cuda.default_stream()
+        # Not parallelizing in htis variation
+
+        # self.local_stream = torch.cuda.Stream()
+        # self.remote_stream = torch.cuda.Stream()
+
+        # self.e1 = torch.cuda.Event(enable_timing = True)
+        # self.e2 = torch.cuda.Event(enable_timing = True)
+        # self.e3 = torch.cuda.Event(enable_timing = True)
+        # self.e4 = torch.cuda.Event(enable_timing = True)
+        # self.e5 = torch.cuda.Event(enable_timing = True)
 
     def reset_parameters(self):
         gain = nn.init.calculate_gain('relu')
@@ -70,17 +82,31 @@ class DistSageConv(nn.Module):
         # Note to self. These can be easily overlapped
         # However launching gather local and remote on different streams is easy in fp
         # Will break in the backawrd pass
+
+        # self.local_stream.wait_stream(torch.cuda.current_stream())
+        # self.remote_stream.wait_stream(torch.cuda.current_stream())
+        # with torch.cuda.stream(self.remote_stream):
         out1 = bipartite_graph.gather_remote(out)
         merge_tensors = Shuffle.apply(out1, self.gpu_id, layer_id, bipartite_graph.get_from_nds_size(), \
                             bipartite_graph.to_offsets)
-
-                # Work on this signature later.
+                    # Work on this signature later.
+        # with torch.cuda.stream(self.local_stream):
         out3 = bipartite_graph.gather_local(out)
-    # self.local_stream.synchronize()
+
+        # torch.cuda.current_stream().wait_stream(self.local_stream)
+        # torch.cuda.current_stream().wait_stream(self.remote_stream)
+        # good practice, ensures caching allocator safety of memory created
+        # on one stream and used on another
+        # out.record_stream(self.local_stream)
+        # out.record_stream(self.remote_stream)
+        # out3.record_stream(torch.cuda.current_stream())
         for i in range(4):
             if i != self.gpu_id:
                 out3[bipartite_graph.from_ids[i]] += merge_tensors[i]
-                    # print("Working but assertiosn are wrongself.")
+        # out3 = Merge.apply(out3, merge_tensors[0], merge_tensors[1], merge_tensors[2], merge_tensors[3], \
+        #             self.gpu_id, bipartite_graph.from_ids, self.local_stream, self.remote_stream)
+
+
         assert(not torch.any(torch.isnan(out3)))
         assert(torch.all(bipartite_graph.out_degrees != 0))
         a = bipartite_graph.out_degrees.shape
@@ -94,6 +120,7 @@ class DistSageConv(nn.Module):
         out5 = bipartite_graph.self_gather(in_features)
         out6 = self.fc2(out5)
         final = out4 + out6
+        # print("reamining", c-b)
         return final
 
 
@@ -127,7 +154,7 @@ class ToyModel(nn.Module):
 
     def __init__(self,gpu_id):
         super().__init__()
-        self.ll = DistSageConv(8,4,gpu_id,deterministic = True)
+        self.ll = DistSageConv(8000,8000,gpu_id,deterministic = True)
         self.ll.reset_parameters()
 
     def forward(self,bipartite_graph,f):
@@ -149,12 +176,17 @@ def test_dist_bipartite_process(proc_id,n_gpus):
     model = model.to(dev_id)
     model = DistributedDataParallel(model, device_ids=[dev_id], output_device=dev_id)
     bg = get_local_bipartite_graph(proc_id)
-    f = torch.ones((2,8),device = proc_id, requires_grad = True)
+    f = torch.ones((2,8000),device = proc_id, requires_grad = True)
+    e1 = torch.cuda.Event(enable_timing = True)
+    e2 = torch.cuda.Event(enable_timing = True)
     for i in range(1):
-        out = model(bg,f)
-        print("Forward Pass",out)
+        e1.record()
+        out = model.forward(bg,f)
         out.sum().backward()
-        print("Backward Pass",f.grad)
+        e2.record()
+        e2.synchronize()
+        print("time",e1.elapsed_time(e2)/1000)
+    print(f.grad, out)
 
 def test_dist_bipartite():
     print("Launch multiple gpus")

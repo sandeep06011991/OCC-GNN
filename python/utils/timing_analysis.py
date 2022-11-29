@@ -34,7 +34,8 @@ def compute_stats_for_minibatch(eventlist_for_gpus):
     batch_backward  = max_end_backward - max(start_bw)
     batch_graph = max_graph_end - min_graph_start
     batch_sample = sum([e[GRAPH_LOAD_START_TIME] - e[SAMPLE_START_TIME]  for e in eventlist_for_gpus])/4
-    return batch_sample, batch_graph, batch_load_time, batch_forward, batch_backward
+    all_load_time = max_load_end - min_graph_start
+    return batch_sample, batch_graph, batch_load_time, batch_forward, batch_backward, all_load_time
 
 def compute_metrics(recieved_metrics):
     assert(len(recieved_metrics) == 4)
@@ -43,41 +44,47 @@ def compute_metrics(recieved_metrics):
         assert(len(recieved_metrics[i]) == num_epochs)
     epoch_batch_sample = []
     epoch_batch_graph = []
-    epoch_batch_load_time = []
+    epoch_batch_feat_time = []
     epoch_batch_forward = []
     epoch_batch_backward = []
+    epoch_batch_loadtime = []
     for epoch in range(num_epochs):
         num_batches = len(recieved_metrics[0][epoch])
         total_sample = 0
         total_graph = 0
-        total_load_time = 0
+        total_feat_time = 0
         total_forward = 0
         total_backward = 0
+        total_load_time = 0
+
         for i in range(4):
             assert(len(recieved_metrics[i][epoch]) == num_batches)
         for batch in range(num_batches):
             eventlist_for_gpus = []
             for j in range(4):
                 eventlist_for_gpus.append(recieved_metrics[j][epoch][batch])
-            batch_sample, batch_graph, batch_load_time, batch_forward, batch_backward = compute_stats_for_minibatch(eventlist_for_gpus)
+            batch_sample, batch_graph, batch_load_time, batch_forward, batch_backward, all_load_time= compute_stats_for_minibatch(eventlist_for_gpus)
             total_sample += batch_sample
             total_graph +=  batch_graph
-            total_load_time += batch_load_time
+            total_feat_time += batch_load_time
             total_forward += batch_forward
             total_backward += batch_backward
+            total_load_time += all_load_time
         epoch_batch_sample.append(total_sample)
-        epoch_batch_load_time.append(total_load_time)
+        epoch_batch_feat_time.append(total_feat_time)
         epoch_batch_graph.append(total_graph)
         epoch_batch_forward.append(total_forward)
         epoch_batch_backward.append(total_backward)
-    print("sample", epoch_batch_sample)
-    print("graph", epoch_batch_graph)
-    print("epobh", epoch_batch_load_time)
-    print("forward", epoch_batch_forward)
-    print("backward", epoch_batch_backward)
+        epoch_batch_loadtime.append(total_load_time)
+    # print("sample", epoch_batch_sample)
+    # print("graph", epoch_batch_graph)
+    # print("load", epoch_batch_load_time)
+    # print("forward", epoch_batch_forward)
+    # print("backward", epoch_batch_backward)
     epoch_batch_sample = get_average_ignoring_first(epoch_batch_sample)
     epoch_batch_graph = get_average_ignoring_first(epoch_batch_graph)
-    epoch_batch_load_time = get_average_ignoring_first(epoch_batch_load_time)
+    epoch_batch_feat_time = get_average_ignoring_first(epoch_batch_feat_time)
     epoch_batch_forward = get_average_ignoring_first(epoch_batch_forward)
     epoch_batch_backward = get_average_ignoring_first(epoch_batch_backward)
-    return epoch_batch_sample, epoch_batch_graph, epoch_batch_load_time, epoch_batch_forward, epoch_batch_backward
+    epoch_batch_loadtime = get_average_ignoring_first(epoch_batch_loadtime)
+    return epoch_batch_sample, epoch_batch_graph, epoch_batch_feat_time, epoch_batch_forward, epoch_batch_backward, epoch_batch_loadtime

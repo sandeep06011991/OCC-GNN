@@ -46,6 +46,8 @@ public:
   std::vector<long> cache_hit_to[4];
   std::vector<long> cache_miss_from[4];
   std::vector<long> cache_miss_to[4];
+  // Nodes of the final raining values.
+  std::vector<long> last_layer_nodes[4];
 
   PartitionedSample(int num_layers){
     this->num_layers = num_layers;
