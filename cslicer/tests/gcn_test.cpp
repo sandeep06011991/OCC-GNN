@@ -20,21 +20,21 @@ void aggregate_gcn(std::vector<long>& layer_out_nds, std::vector<long> & layer_i
     long dest_nd = layer_out_nds[i];
     for(int j = start; j < end; j++){
       int src_nd = layer_in_nds[indices[j]];
-
-      if (src_nd == dest_nd){
+      if ((src_nd == dest_nd)){
         self = in[indices[j]];
       }else{
         nbs += in[indices[j]];
       }
     }
     out.push_back((nbs/degree[i]) + self);
+
   }
 }
 
 
 // Sample without any reordering.
 // returns sum of flow up after all layers.
-int naive_flow_up_sample(Sample &s, int number_of_nodes){
+int naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
    std::vector<int> in_f;
    std::vector<int> out_f;
    // num lyaers = 3
@@ -200,7 +200,7 @@ int sample_flow_up_ps(PartitionedSample &s,
 
 void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
   std::vector<int> local_storage[4], int gpu_capacity[4], int num_nodes){
-    int correct = naive_flow_up_sample(s, num_nodes);
+    int correct = naive_flow_up_sample_gcn(s, num_nodes);
     for(int i=0;i<4; i++){
       assert(local_storage[i].size() == gpu_capacity[i]);
     }

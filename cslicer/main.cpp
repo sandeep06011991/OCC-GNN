@@ -10,7 +10,7 @@
 int main(){
 
   // Test1: Read graph datastructure.
-  std::string graph_name = "ogbn-products";
+  std::string graph_name = "ogbn-arxiv";
   std::string file = get_dataset_dir() + graph_name;
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false);
 
@@ -20,7 +20,7 @@ int main(){
   Sample *s1  = new Sample(num_layers);
 
   std::vector<long> training_nodes;
-  for(int i=0;i<4096;i++){
+  for(int i=0;i<1000;i++){
     training_nodes.push_back(i);
   }
   std::cout << training_nodes.size() <<"\n";
@@ -64,17 +64,18 @@ int main(){
   //   gpu_capacity[j]++;
   // }
   int rounds = 4;
-  bool pull_optim = true;
-  // Slice * sc = new Slice(workload_map, storage, false, rounds, pull_optim);
-  // // s->debug();
-  // PartitionedSample ps(num_layers);
-  // sc->slice_sample((*s1), ps);
+  bool pull_optim = false;
+  Slice * sc = new Slice(workload_map, storage, true, rounds, pull_optim);
+  s1->debug();
+  PartitionedSample ps(num_layers);
+  sc->slice_sample((*s1), ps);
   // std::cout << "slicing done \n";
-  // ps.debug();
-  // test_sample_partition_consistency((*s1),ps, storage, gpu_capacity, dataset->num_nodes);
+  ps.debug();
+
+  test_sample_partition_consistency_gat((*s1),ps, storage, gpu_capacity, dataset->num_nodes);
   // test_pull_benefits(*s1, workload_map, storage, rounds);
 
-  test_reduction_communication_computation(*s1,workload_map,
-            storage, storage_map,  rounds );
+  // test_reduction_communication_computation(*s1,workload_map,
+  //           storage, storage_map,  rounds );
   // std::cout << "Hello World\n";
 }

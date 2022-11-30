@@ -21,25 +21,7 @@ def check_path():
 
 import os, pwd
 
-uname = pwd.getpwuid(os.getuid())[0]
-os.environ['NCCL_BUFFSIZE'] = str(1024 * 1024 * 80)
-if uname == 'spolisetty':
-    ROOT_DIR = "/home/spolisetty/OCC-GNN"
-    SRC_DIR = "/home/spolisetty/OCC-GNN/python/main.py"
-    SYSTEM = 'jupiter'
-    OUT_DIR = '/home/spolisetty/OCC-GNN/experiments/exp6'
-if uname == 'q91':
-    ROOT_DIR = "/home/q91/OCC-GNN"
-    SRC_DIR = "/home/q91/OCC-GNN/python/main.py"
-    SYSTEM = 'ornl'
-    OUT_DIR = '/home/q91/OCC-GNN/experiments/exp6'
-if uname == 'spolisetty_umass_edu':
-    ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN"
-    SRC_DIR = "/home/spolisetty_umass_edu/OCC-GNN/python/main.py"
-    SYSTEM = 'unity'
-    OUT_DIR = '/home/spolisetty_umass_edu/OCC-GNN/experiments/exp6'
-
-
+from utils.utils import *
 
 def average_string(ls):
     print(ls)
@@ -105,12 +87,12 @@ def run_experiment_quiver( model ):
                 #("ogbn-arxiv",16, 128, 1024), \
                 # ("ogbn-arxiv",16, 128, 4096), \
                 # ("ogbn-arxiv",16, 128, 256),  \
-                #("ogbn-products",16, 100, 1024), \
+                ("ogbn-products",16, 100, 1024), \
                 # ("ogbn-products",16, 100, 4096), \
                 # ("ogbn-products",16, 100, 256),  \
                 # ("reorder-papers100M", 16, 128,  256),\
                 # ("reorder-papers100M", 16, 128, 4096),\
-                ("reorder-papers100M", 16, 128, 1024),\
+                #("reorder-papers100M", 16, 128, 1024),\
                 # ("amazon", 16, 200, 256),\
                 # ("amazon", 16, 200,4096),\
                 #("amazon", 16, 200, 1024),\

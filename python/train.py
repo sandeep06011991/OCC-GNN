@@ -149,6 +149,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         model = get_sage_distributed(args.num_hidden, features, num_classes,
             proc_id, args.deterministic, args.model)
         self_edge = False
+        attention = False
     else:
         assert(args.model == "gat")
         model = get_gat_distributed(args.num_hidden, features, num_classes,

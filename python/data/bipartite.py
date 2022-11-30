@@ -49,6 +49,7 @@ class Bipartite:
 
         metagraph_index_local = heterograph_index.create_metagraph_index(['_U','_V_local'],[('_U','_E','_V_local')])
         if(self.num_out_local != 0 ):
+        # if True:
             hg_local = heterograph_index.create_unitgraph_from_csr(\
                         2,  in_nodes , self.num_out_local, self.indptr_L,
                             self.indices_L, edge_ids_local , formats , transpose = True)
@@ -59,9 +60,11 @@ class Bipartite:
                 self.graph_local = self.graph_local.formats(['csr','csc','coo'])
                 self.graph_local.create_formats_()
         else:
+            print("Local graph is none")
             self.graph_local = None
 
         if self.num_out_remote != 0:
+        # if True:
             metagraph_index_remote = heterograph_index.create_metagraph_index\
                     (['_U','_V_remote'],[('_U','_E','_V_remote')])
             hg_remote = heterograph_index.create_unitgraph_from_csr(\
@@ -76,6 +79,7 @@ class Bipartite:
                 self.graph_remote.create_formats_()
         else:
             self.graph_remote = None
+            print("remote graph is none")
 
 
     def get_from_nds_size(self):
@@ -98,6 +102,7 @@ class Bipartite:
         self.indptr_R = cobject.indptr_R
         self.indices_R = cobject.indices_R
         self.out_degrees = cobject.out_degree_local
+
 
         self.from_ids = {}
         self.push_to_ids = {}
@@ -149,6 +154,8 @@ class Bipartite:
 
     def gather_remote_max(self, nf):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
+        if self.num_out_remote == 0:
+            return nf[0:0,:]
         with self.graph_remote.local_scope():
             self.graph_remote.edges['_E'].data['nf'] = nf
             self.graph_remote.update_all(fn.copy_e('nf', 'm'), fn.max('m', 'out'))
@@ -169,6 +176,8 @@ class Bipartite:
             return self.graph_local.nodes['_V_local'].data['out']
 
     def attention_gather_remote(self, attention, u_in):
+        if self.num_out_remote == 0:
+            return u_in[0:0,:]
         with self.graph_remote.local_scope():
             self.graph_remote.edges['_E'].data['in_e'] = attention
             self.graph_remote.nodes['_U'].data['in'] = u_in
@@ -205,7 +214,7 @@ class Bipartite:
             return self.graph_local.edata['e']
     def apply_edge_remote(self, el, er):
         if self.graph_remote == None:
-            return torch.tensor([])
+            return  e[0:0,:]
         with self.graph_remote.local_scope():
             self.graph_remote.nodes['_V_remote'].data['er'] = er
             self.graph_remote.nodes['_U'].data['el'] = el
@@ -220,6 +229,8 @@ class Bipartite:
             return self.graph_local.nodes['_V_local'].data['out']
 
     def apply_node_remote(self, nf):
+        if self.num_out_remote == 0:
+            return nf[0:0,:]
         with self.graph_remote.local_scope():
             self.graph_remote.edges['_E'].data['nf'] = nf
             self.graph_remote.update_all(fn.copy_e('nf', 'm'), fn.sum('m', 'out'))
@@ -236,6 +247,8 @@ class Bipartite:
 
     def copy_from_out_nodes_remote(self, local_out):
         # assert(False)
+        if self.num_out_remote == 0:
+            return local_out[0:0,:]
         with self.graph_remote.local_scope():
             self.graph_remote.nodes['_V_remote'].data['out'] = local_out
             self.graph_remote.edges['_E'].data['temp'] = torch.zeros(

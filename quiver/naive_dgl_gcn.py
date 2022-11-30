@@ -111,7 +111,7 @@ def run(rank, args,  data):
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        prefetch_factor = 0,
+        prefetch_factor = 2,
         num_workers = 0 if args.sample_gpu else args.num_workers,
         persistent_workers=not args.sample_gpu)
 
@@ -345,10 +345,12 @@ if __name__ == '__main__':
             cm = pickle.load(input_file)
 
         collected_metrics.append(cm)
-    epoch_batch_sample, epoch_batch_graph, epoch_batch_load_time, epoch_batch_forward, epoch_batch_backward = \
+    epoch_batch_sample, epoch_batch_graph, epoch_batch_feat_time, \
+            epoch_batch_forward, epoch_batch_backward, \
+            epoch_batch_loadtime, epoch_batch_totaltime = \
                 compute_metrics(collected_metrics)
     print("sample_time:{}".format(epoch_batch_sample))
     print("movement graph:{}".format(epoch_batch_graph))
-    print("movement feature:{}".format(epoch_batch_load_time))
+    print("movement feature:{}".format(epoch_batch_loadtime))
     print("forward time:{}".format(epoch_batch_forward))
     print("backward time:{}".format(epoch_batch_backward))

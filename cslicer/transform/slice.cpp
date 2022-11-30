@@ -90,8 +90,8 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         }
         if(p == LOCAL){
           // Self loops are not present
-    	  if(nd_src != nd_dest){
-                  partition_edges[p_dest].push_back(nd_src);
+    	  if((nd_src != nd_dest) || (this->self_edge)) {
+                    partition_edges[p_dest].push_back(nd_src);
               }
             local_in_nodes[p_dest].push_back(nd_src);
             }
@@ -174,9 +174,14 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         for(int j=0;j<4;j++){
           p_edges += l.bipartite[j]->indices_L.size();
           p_edges += l.bipartite[j]->indices_R.size();
-          p_edges += l.bipartite[j]->self_ids_offset;
+          if(l.bipartite[j]->indices_R.size()==0){
+            std::cout << "Alert XXXXXXXXxxx\n";
+          }
+          if(!this->self_edge){
+            p_edges += l.bipartite[j]->self_ids_offset;
+          }
         }
-        // std::cout << num_edges << " "<<p_edges<<"\n";
+        std::cout << num_edges << " "<<p_edges<<"\n";
         assert(num_edges == p_edges);
 
         // l.debug();

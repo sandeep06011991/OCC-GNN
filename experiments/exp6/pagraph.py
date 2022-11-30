@@ -2,17 +2,17 @@
 import subprocess
 import os
 import time
-
-ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
-DATA_DIR = "/home/spolisetty_umass_edu/OCC-GNN/experiments/exp6/"
-ROOT_DIR = "/home/spolisetty/OCC-GNN/upgraded_pagraph"
-DATA_DIR = "/home/spolisetty/OCC-GNN/experiments/exp6/"
+from utils.utils import *
+# ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN/upgraded_pagraph"
+# DATA_DIR = "/home/spolisetty_umass_edu/OCC-GNN/experiments/exp6/"
+# PA_ROOT_DIR = "/home/spolisetty/OCC-GNN/upgraded_pagraph"
+# DATA_DIR = "/home/spolisetty/OCC-GNN/experiments/exp6/"
 import sys
 import re
 import git
 
 Feat = {"ogbn-arxiv":"128","ogbn-products":"100", "reorder-papers100M":"128","amazon":200}
-
+ROOT_DIR = PA_ROOT_DIR
 def get_git_info():
     repo = git.Repo(search_parent_directories = True)
     sha = repo.head.object.hexsha
@@ -79,13 +79,14 @@ def start_client(filename, model, num_hidden, batch_size, cache_per):
     print(out,err)
     output = out
     accuracy = float(re.findall("accuracy: (\d+\.\d+)", output)[0])
-    move_graph = float(re.findall("movement graph: (\d+\.\d+)s", output)[0])
-    forward = float(re.findall("forward time: (\d+\.\d+)s", output)[0])
-    backward = float(re.findall("backward time: (\d+\.\d+)s", output)[0])
-    sample = float(re.findall("Sample time: (\d+\.\d+)s",output)[0])
+    move_graph = float(re.findall("movement graph:(\d+\.\d+)", output)[0])
+    move_feat = float(re.findall("movement feature:(\d+\.\d+)", output)[0])
+    forward = float(re.findall("forward time:(\d+\.\d+)", output)[0])
+    backward = float(re.findall("backward time:(\d+\.\d+)", output)[0])
+    sample = float(re.findall("sample_time:(\d+\.\d+)",output)[0])
     #compute  = float(re.findall("Compute time: (\d+\.\d+)s",output)[0])
-    collect  = float(re.findall("CPU collect: (\d+\.\d+)s",output)[0])
-    move  = float(re.findall("CUDA move: (\d+\.\d+)s",output)[0])
+    # collect  = float(re.findall("CPU collect: (\d+\.\d+)s",output)[0])
+    # move  = float(re.findall("CUDA move: (\d+\.\d+)s",output)[0])
     epoch  = float(re.findall("Epoch time: (\d+\.\d+)s",output)[0])
     miss_rate = float(re.findall("Miss rate: (\d+\.\d+)s",output)[0])
     miss_num = re.findall("Miss num per epoch: (\d+\.\d+)MB, device \d+",output)
@@ -95,20 +96,20 @@ def start_client(filename, model, num_hidden, batch_size, cache_per):
     for i in range(4):
         s = s + int(float(miss_num[i]))
         e = e + int(float(edges_processed[i]))
-    miss_num = s/4    
+    miss_num = s/4
     edges_processed = e/4
     #miss_num = int(float(re.findall("Miss num per epoch: (\d+\.\d+)MB, device \d+",output)[0]))
-    
+
     #edges_processed = int(float(re.findall("Edges processed per epoch: (\d+\.\d+)",output)[0]))
     return {"sample":sample, "forward": forward, "backward": backward,\
-            "move_feat":"{:.3f}".format(move + collect), "epoch_time":epoch, "miss_rate": miss_rate, "move_graph":move_graph\
+            "move_feat":"{:.3f}".format(move_feat), "epoch_time":epoch, "miss_rate": miss_rate, "move_graph":move_graph\
                 , "accuracy": accuracy, "miss_num":miss_num, "edges":edges_processed}
 
 def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per):
     fp = start_server(filename)
     feat_size = Feat[filename]
     res = start_client(filename, model, hidden_size, batch_size, cache_per)
-    WRITE = "{}/exp6_pagraph.txt".format(DATA_DIR)
+    WRITE = "{}/exp6_{}_pagraph.txt".format(OUT_DIR, SYSTEM)
     with open(WRITE,'a') as fp:
         fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "jupiter", cache_per, hidden_size, feat_size, \
                 4 * batch_size, model, res["sample"], res["move_graph"], res["move_feat"],res["forward"], \
@@ -122,10 +123,10 @@ def run_model(model):
     settings = [#('ogbn-arxiv', 16, 1024),
                 #('ogbn-arxiv', 16, 256),
                 #('ogbn-arxiv', 16, 4096),
-                #('ogbn-products', 16, 1024),
+                ('ogbn-products', 16, 1024),
                 #('ogbn-products', 16, 256),
                 #('ogbn-products', 16, 4096),
-                ('reorder-papers100M',16, 1024), 
+                # ('reorder-papers100M',16, 1024),
                 #('reorder-papers100M',16, 256),
                 #('reorder-papers100M',16, 4096)
                 ]
@@ -139,7 +140,7 @@ def run_experiment(model, settings, cache_per):
     sha, dirty = get_git_info()
     check_path()
     check_no_stale()
-    with open('{}/exp6_pagraph.txt'.format(DATA_DIR),'a') as fp:
+    with open('{}/exp6_{}_pagraph.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data-moved | edges-processed\n")
     for graphname, hidden_size, batch_size in settings:
@@ -177,7 +178,7 @@ if __name__ == "__main__":
     args = argparser.parse_args()
     dataset = args.graph
     cache_per = args.cache_per
-    batch_size = args.batch_size 
+    batch_size = args.batch_size
     model = args.model
     settings = [(dataset,"16", batch_size)]
     #print(cache_per)

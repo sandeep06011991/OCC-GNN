@@ -24,15 +24,20 @@ def get_data_dir():
     if username == 'spolisetty_umass_edu':
         DATA_DIR = "/work/spolisetty_umass_edu/data"
         PATH_DIR = "/home/spolisetty_umass_edu/OCC-GNN/python"
+        ROOT_DIR = "/home/spolisetty_umass_edu/OCC-GNN"
     if username == "spolisetty":
         DATA_DIR = "/data/sandeep"
+        SYSTEM = "jupiter"
         PATH_DIR = "/home/spolisetty/OCC-GNN/python"
+        ROOT_DIR = "/home/spolisetty/OCC-GNN"
+        OUT_DIR = '/home/spolisetty/OCC-GNN/experiments/exp6'
+        PA_ROOT_DIR = "/home/spolisetty/OCC-GNN/upgraded_pagraph"
     if username == "q91":
         DATA_DIR = "/mnt/bigdata/sandeep"
         PATH_DIR = "/home/q91/OCC-GNN/python"
-    return DATA_DIR,PATH_DIR
+    return DATA_DIR,PATH_DIR, ROOT_DIR, OUT_DIR, SYSTEM, PA_ROOT_DIR
 
-DATA_DIR,PATH_DIR = get_data_dir()
+DATA_DIR,PATH_DIR,ROOT_DIR, OUT_DIR ,SYSTEM, PA_ROOT_DIR = get_data_dir()
 
 def thread_wrapped_func(func):
     """

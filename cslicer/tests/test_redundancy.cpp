@@ -39,12 +39,12 @@ void test_reduction_communication_computation(vector<long> minibatch,std::vector
         }
       }
 
-      redundant r1 = print_statistics(s, layer_color,workload_map.size(), workload_map, storage_map);
-
-      bool self_edge = false;
-      bool pull_optim= true;
-      Slice *s1 =   new Slice(workload_map, storage, self_edge, rounds, pull_optim);
-      // std::cout << s.num_layers <<" ";
+      // redundant r1 = print_statistics(s, layer_color,workload_map.size(), workload_map, storage_map);
+      //
+      // bool self_edge = false;
+      // bool pull_optim= true;
+      // Slice *s1 =   new Slice(workload_map, storage, self_edge, rounds, pull_optim);
+      // // std::cout << s.num_layers <<" ";
       // PartitionedSample ps1(s.num_layers);
       // s1->slice_sample(s, ps1);
       //

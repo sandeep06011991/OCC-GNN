@@ -230,9 +230,11 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
           e2.synchronize()
           optimizer.zero_grad()
           loss.backward()
-          batch_time[END_BACKWARD] = time.time()
           batch_time[FORWARD_ELAPSED_EVENT_TIME] = e1.elapsed_time(e2)/1000
           optimizer.step()
+          # Use this for consistency
+          # torch.cuda.synchronize()
+          batch_time[END_BACKWARD] = time.time()
           minibatch_metrics.append(batch_time)
 
         #print("Compute time without sync", e1.elapsed_time(e2)/1000)
@@ -249,14 +251,14 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
         if rank == 0 and step % 20 == 0:
           print('epoch [{}] step [{}]. Loss: {:.4f}'
                 .format(epoch + 1, step, loss.item()))
-
+      epoch_dur.append(time.time() - epoch_start_time)
       if rank == 0:
         # compute_time.append(epoch_compute_time)
         # sample_time.append(epoch_sample_time)
         # log.info("epoch:{} collected_sample:{}".format(epoch, sample_time))
         # graph_move_time.append(epoch_move_graph_time)
         # log.info("epoch:{} graph move time:{}".format(epoch, graph_move_time))
-        epoch_dur.append(time.time() - epoch_start_time)
+
         collect_c, move_c, coll_t, mov_t = cacher.get_time_and_reset_time()
         time_cache_gather.append(coll_t)
         time_cache_move.append(mov_t)
@@ -278,7 +280,7 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
       epoch_metrics.append(minibatch_metrics)
     toc = time.time()
   print("Exiting training working to collect profiler results")
-  print("Epoch ", epoch_dur)
+  print("Epoch ", epoch_dur, rank)
   if rank == 0:
       print("accuracy: {:.4f}\n".format(acc))
       # print("Sample time: {:.4f}s\n".format(avg(sample_time)))
@@ -368,11 +370,12 @@ if __name__ == '__main__':
       cm = pickle.load(input_file)
     collected_metrics.append(cm)
 
-  epoch_batch_sample, epoch_batch_graph, epoch_batch_load_time, epoch_batch_forward, epoch_batch_backward ,epoch_batch_loadtime= \
-  compute_metrics(collected_metrics)
+  epoch_batch_sample, epoch_batch_graph, epoch_batch_feat_time, \
+      epoch_batch_forward, epoch_batch_backward, \
+      epoch_batch_loadtime, epoch_batch_totaltime = \
+          compute_metrics(collected_metrics)
   print("sample_time:{}".format(epoch_batch_sample))
   print("movement graph:{}".format(epoch_batch_graph))
-  print("movement feature:{}".format(epoch_batch_load_time))
+  print("movement feature:{}".format(epoch_batch_loadtime))
   print("forward time:{}".format(epoch_batch_forward))
   print("backward time:{}".format(epoch_batch_backward))
-  print("Data movement:{}".format(epoch_batch_loadtime))
