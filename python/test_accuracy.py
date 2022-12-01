@@ -25,7 +25,11 @@ class TestAccuracy:
         gpu_local_storage = [i for i in range(num_nodes)]
         storage_vector = [gpu_local_storage,[],[],[]]
         fanout = -1 # is irrelevant
-        self.sampler = cslicer(filename, storage_vector, fanout, deterministic, True, self_edge)
+        testing = True
+        rounds = 3
+        pull_optimization = False
+        num_layers = 3
+        self.sampler = cslicer(filename, storage_vector, fanout, deterministic, testing, self_edge, rounds, pull_optimization, num_layers)
         test_mask = dg_graph.ndata['test_mask']
         self.test_ids = torch.where(test_mask)[0]
 
@@ -51,6 +55,8 @@ class TestAccuracy:
 
 
     def test_accuracy(self, model , sample_nodes):
+        assert(False)
+        # modify in features properly with cache hits and miss
         sample_nodes = sample_nodes.tolist()
         print("Sample Nodes",sample_nodes)
         if len(sample_nodes) <= 0:
@@ -66,8 +72,8 @@ class TestAccuracy:
         construct_from_tensor_on_gpu(data, self.device, gpu_local_sample)
         gpu_local_sample.prepare()
         with torch.no_grad():
-            print("input nodes", gpu_local_sample.cached_node_ids)
-            predicted = model.forward(gpu_local_sample, self.features[gpu_local_sample.cached_node_ids], None, True)
+            in_features = self.features[gpu_local_sample.cache_miss_from]
+            predicted = model.forward(gpu_local_sample, in_features, True)
             return predicted
 
     def get_accuracy(self, model):
@@ -92,10 +98,11 @@ class TestAccuracy:
                 # print(data.device , device)
                 construct_from_tensor_on_gpu(data, self.device, gpu_local_sample)
                 gpu_local_sample.prepare()
-
-                predicted = model.forward(gpu_local_sample, self.features[gpu_local_sample.cached_node_ids], None, True)
+                in_feat = torch.empty(gpu_local_sample.cache_hit_to.shape[0], *self.features.shape[1:], device = 0) 
+                in_feat[gpu_local_sample.cache_hit_to] = self.features[gpu_local_sample.cache_hit_from]
+                predicted = model.forward(gpu_local_sample, in_feat ,True)
                 # print(predicted)
-                correct_labels = self.labels[gpu_local_sample.last_layer_nodes]
+                correct_labels = self.labels[gpu_local_sample.out_nodes]
                 # print(correct)
                 a, b = compute_acc(predicted, correct_labels)
 
