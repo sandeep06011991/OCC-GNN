@@ -147,6 +147,8 @@ class Bipartite:
 
     def gather_local_max(self, nf):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
+        if self.num_out_local  == 0:
+            return nf[0:0,:]
         with self.graph_local.local_scope():
             self.graph_local.edges['_E'].data['nf'] = nf
             self.graph_local.update_all(fn.copy_e('nf', 'm'), fn.max('m', 'out'))
@@ -168,6 +170,8 @@ class Bipartite:
         return local_in[:self.self_ids_offset]
 
     def attention_gather_local(self, attention, u_in):
+        if self.num_out_local  == 0:
+            return u_in[0:0,:] * attention[0:0,:]
         with self.graph_local.local_scope():
             self.graph_local.edges['_E'].data['in_e'] = attention
             self.graph_local.nodes['_U'].data['in'] = u_in
@@ -177,7 +181,7 @@ class Bipartite:
 
     def attention_gather_remote(self, attention, u_in):
         if self.num_out_remote == 0:
-            return u_in[0:0,:]
+            return u_in[0:0,:] * attention[0:0,:]
         with self.graph_remote.local_scope():
             self.graph_remote.edges['_E'].data['in_e'] = attention
             self.graph_remote.nodes['_U'].data['in'] = u_in
@@ -185,28 +189,28 @@ class Bipartite:
                 'in', 'in_e', 'h'), fn.sum('h', 'out'))
             return self.graph_remote.nodes['_V_remote'].data['out']
 
-    def pull_dest_remotes(self, local_out, gpu_id):
-        assert(local_out.shape[0] == self.num_out_remote )
-        with self.graph.local_scope():
-            start = self.to_offsets[gpu_id]
-            end = self.to_offsets[gpu_id + 1]
-            if(end - start  == 0):
-                return None
-            return local_out[start:end]
+    # def pull_dest_remotes(self, local_out, gpu_id):
+    #     assert(local_out.shape[0] == self.num_out_remote )
+    #     with self.graph.local_scope():
+    #         start = self.to_offsets[gpu_id]
+    #         end = self.to_offsets[gpu_id + 1]
+    #         if(end - start  == 0):
+    #             return None
+    #         return local_out[start:end]
 
-    def push_dest_remotes(self, local_out, remote_out, gpu_id):
-        with self.graph.local_scope():
-            # global_ids is wrong !!
-            # Average out these outputs.
-            if(self.push_to_ids[gpu_id].shape[0] == 0):
-                return None
-            local_out[self.push_to_ids[gpu_id]] += remote_out.to(self.gpu_id)
-            return local_out
+    # def push_dest_remotes(self, local_out, remote_out, gpu_id):
+    #     with self.graph.local_scope():
+    #         # global_ids is wrong !!
+    #         # Average out these outputs.
+    #         if(self.push_to_ids[gpu_id].shape[0] == 0):
+    #             return None
+    #         local_out[self.push_to_ids[gpu_id]] += remote_out.to(self.gpu_id)
+    #         return local_out
 
 
     def apply_edge_local(self, el, er):
         if self.graph_local == None:
-            print(el.shape,er.shape)
+            return er[0:0,:] + el[0:0,:]
         with self.graph_local.local_scope():
             self.graph_local.nodes['_V_local'].data['er'] = er
             self.graph_local.nodes['_U'].data['el'] = el
@@ -214,7 +218,7 @@ class Bipartite:
             return self.graph_local.edata['e']
     def apply_edge_remote(self, el, er):
         if self.graph_remote == None:
-            return  e[0:0,:]
+            return  er[0:0,:] + el[0:0,:]
         with self.graph_remote.local_scope():
             self.graph_remote.nodes['_V_remote'].data['er'] = er
             self.graph_remote.nodes['_U'].data['el'] = el
@@ -223,6 +227,8 @@ class Bipartite:
 
 
     def apply_node_local(self, nf):
+        if self.num_out_local == 0:
+            return nf[0:0,:]
         with self.graph_local.local_scope():
             self.graph_local.edges['_E'].data['nf'] = nf
             self.graph_local.update_all(fn.copy_e('nf', 'm'), fn.sum('m', 'out'))
@@ -238,6 +244,8 @@ class Bipartite:
 
     def copy_from_out_nodes_local(self, local_out):
         # assert(False)
+        if self.num_out_local == 0:
+            return local_out[0:0,:]
         with self.graph_local.local_scope():
             self.graph_local.nodes['_V_local'].data['out'] = local_out
             self.graph_local.edges['_E'].data['temp'] = torch.zeros(

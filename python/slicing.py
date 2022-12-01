@@ -47,7 +47,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
             pull_optimization, num_layers)
     sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id, num_workers,file_id)
     # Todo clean up unnecessary iterations
-    log = LogFile("slice-py", worker_id)
+    #log = LogFile("slice-py", worker_id)
     while(True):
         sample_nodes = work_queue.get()
         # while True:
@@ -69,14 +69,17 @@ def slice_producer(graph_name, work_queue, sample_queue, \
             sample_queue.put("EPOCH")
             lock.release()
             continue
-        log.log("ask cmodule for sample")
+        #log.log("ask cmodule for sample")
         # print("ask cmodule for sample")
+        #print("#################################1")
+        #print("Start sampling")
         csample = sampler.getSample(sample_nodes)
+        #print("Sampling complete ")
         # print("cmodule returns sample, start tensorize")
-        log.log("cmodule returns sample, start tensorize")
+        #log.log("cmodule returns sample, start tensorize")
         tensorized_sample = Sample(csample)
         # print("Finish tensorize")
-        log.log("Tensorization complete. start serialziation")
+        #log.log("Tensorization complete. start serialziation")
         sample_id = tensorized_sample.randid
         gpu_local_samples = []
             # print("Attemtong to serailize")
@@ -90,7 +93,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
             name = sm_client.write_to_shared_memory(data)
             ref = ((name, data.shape, data.dtype.name))
             gpu_local_samples.append(ref)
-        log.log("Serialization complete, write meta data to leader gpu process")
+        #log.log("Serialization complete, write meta data to leader gpu process")
         # print("finish write and serialization.")
         # assert(False)
         #while(sample_queues[0].qsize() >= queue_size - 3):
@@ -98,7 +101,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         #print("ATTEMPT TO PUT SAMPLE",sample_queues[0].qsize(), "WORKER", worker_id)
         #print("Worker puts sample",sample_id)
         # Write to leader gpu
-        log.log("Slicer puts sample {}".format(sample_queue.qsize()))
+        # log.log("Slicer puts sample {}".format(sample_queue.qsize()))
         #print("Attemtpting to put to Sample",sample_queue.qsize())
         sample_queue.put(tuple(gpu_local_samples))
         # for qid,q in enumerate(sample_queues):

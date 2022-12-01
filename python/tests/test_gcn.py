@@ -5,20 +5,19 @@ from data.bipartite import *
 from data.part_sample import *
 from data.serialize import *
 from utils.utils import get_process_graph
-from layers.dist_gatconv import *
+from layers.dist_sageconv import *
 import torch.distributed as dist
 
 class Model(nn.Module):
 
     def __init__(self, gpu_id):
         super().__init__()
-        self.gat_conv1 = DistGATConv(10, 10, gpu_id, num_heads = 1, deterministic = True)
-        self.gat_conv2 = DistGATConv(10, 10, gpu_id, num_heads = 1, deterministic = True)
+        self.gcn_conv1 = DistSageConv(10, 10, gpu_id, deterministic = True)
+        self.gcn_conv2 = DistSageConv(10, 10, gpu_id, deterministic = True)
 
     def forward(self, local_graph, x):
-        l1 = self.gat_conv1(local_graph.layers[0], x, 0)
-        print(l1.shape)
-        l2 = self.gat_conv2(local_graph.layers[1], l1, 1)
+        l1 = self.gcn_conv1(local_graph.layers[0], x, 0)
+        l2 = self.gcn_conv2(local_graph.layers[1], l1, 1)
         return l2
 
 def trainer(proc_id, world_num):
@@ -33,11 +32,13 @@ def trainer(proc_id, world_num):
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
     graph_name = "ogbn-arxiv"
     dg_graph, partition_map, _ = get_process_graph(graph_name, -1)
+    nd = torch.where(dg_graph.in_degrees() == 0)[0][0]
+    
     gpu_map = [[] for _ in range(4)]
     fanout = 1000
     deterministic = True
     testing = False
-    self_edge = True
+    self_edge = False
     rounds = 1
     pull_optimization = False
     no_layers = 2
@@ -45,6 +46,7 @@ def trainer(proc_id, world_num):
        deterministic, testing,
           self_edge, rounds, pull_optimization, no_layers)
     train_nids = torch.arange(1)
+    #train_nids = torch.tensor([nd])
     csample = slicer.getSample(train_nids.tolist())
     print(train_nids, "Train")
     global_sample = Sample(csample)
@@ -66,18 +68,18 @@ def trainer(proc_id, world_num):
     print(torch.sum(out), "my out")
     torch.sum(out).backward()
     print(torch.sum(n1.grad),"my grad")
-
-def test_groot_gat():
+    print(n1.grad[1,:], "sample")
+def test_groot_gcn():
     gpu_num = 4
     # mp.set_start_method('spawn')
     mp.spawn(trainer, args=(gpu_num,), nprocs=gpu_num, join=True)
 
 
-def get_correct_gat():
+def get_correct_gcn():
     graph_name = "ogbn-arxiv"
     dg_graph, partition_map, num_classes  = get_process_graph(graph_name, -1)
     train_nid = torch.arange(1)
-    dg_graph = dg_graph.add_self_loop()
+    #dg_graph = dg_graph.add_self_loop()
     sampler = dgl.dataloading.MultiLayerFullNeighborSampler(2)
     dataloader = dgl.dataloading.NodeDataLoader(
         dg_graph,
@@ -88,31 +90,29 @@ def get_correct_gat():
         shuffle=True,
         drop_last= False,
         num_workers=0 )
-    nn1 = dgl.nn.GATConv(10, 10, 1)
-    nn2 = dgl.nn.GATConv(10 ,10 ,1)
+    nn1 = dgl.nn.SAGEConv(10, 10, aggregator_type = 'mean')
+    nn2 = dgl.nn.SAGEConv(10, 10, aggregator_type = 'mean')
     it = iter(dataloader)
     input_nodes, seeds, blocks = next(it)
     print(seeds.shape,"batch_size")
-    nn1.fc.weight = torch.nn.Parameter(torch.ones(nn1.fc.weight.shape))
-    nn1.attn_r = torch.nn.Parameter(torch.ones(nn1.attn_r.shape))
-    nn1.attn_l = torch.nn.Parameter(torch.ones(nn1.attn_l.shape))
-    nn2.fc.weight = torch.nn.Parameter(torch.ones(nn2.fc.weight.shape))
-    nn2.attn_r = torch.nn.Parameter(torch.ones(nn2.attn_r.shape))
-    nn2.attn_l = torch.nn.Parameter(torch.ones(nn2.attn_l.shape))
+    nn1.fc_self.weight = torch.nn.Parameter(torch.ones(nn1.fc_self.weight.shape))
+    nn1.fc_neigh.weight = torch.nn.Parameter(torch.ones(nn1.fc_neigh.weight.shape))
+    nn2.fc_self.weight = torch.nn.Parameter(torch.ones(nn2.fc_self.weight.shape))
+    nn2.fc_neigh.weight = torch.nn.Parameter(torch.ones(nn2.fc_neigh.weight.shape))
 
     a  =  torch.ones(input_nodes.shape[0],10, requires_grad = True) 
-    f_out = nn1(blocks[0], (input_nodes.reshape(input_nodes.shape[0],1) % 10) * a)
-    print(f_out.shape)
+    f_out = nn1(blocks[0], input_nodes.reshape(input_nodes.shape[0],1) % 10 * a)
     x = nn2(blocks[1], f_out)
     print(torch.sum(x))
     torch.sum(x).backward()
     for i in range(4):
-        print(torch.sum(x[torch.where(partition_map[seeds] ==i)[0]]), i, " correct out")
-        print(torch.sum(a.grad[torch.where(partition_map[input_nodes]==i)[0]]), i , "correct grad")
-
+        print(torch.sum(x[torch.where(partition_map[seeds] ==i)[0]]), i, "correct out")
+        print(torch.sum(a.grad[torch.where(partition_map[input_nodes]==i)[0]]), i , "crrect grad")
+    
 # get_correct_gat()
     # test_heterograph_construction_python()
 
 if __name__ == "__main__":
-    get_correct_gat()
-    test_groot_gat()
+    get_correct_gcn()
+    #print("Seperate")
+    test_groot_gcn()

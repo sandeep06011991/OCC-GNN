@@ -50,15 +50,16 @@ class ShuffleRev(torch.autograd.Function):
         layer_id = ctx.layer_id
         send_grads = {}
         offset = ctx.to_offsets
+        grad0 = grad0.clone()
         for i in range(4):
-            send_grads[i] = grad0[offset[i]: offset[i+1]]
+            send_grads[i] = grad0[offset[i]: offset[i+1]].detach()
         shuffle_functional(device_id,send_grads, recv_g)
         grads = []
         local_g = ctx.back
         for i in range(4):
             if i!= device_id:
                 local_g[ctx.from_nds[i]] += recv_g[i]
-
+        # Cross test if this local_g is getting aggregated. 
 
         return  local_g, None, None, None, None
 

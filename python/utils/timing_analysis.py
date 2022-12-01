@@ -31,13 +31,13 @@ def compute_stats_for_minibatch(eventlist_for_gpus):
     for i in eventlist_for_gpus:
         # 4 + 1 from above
         assert(len(i.keys())==6)
-    # mb = {}
-    # for i in range(4):
-    #     for j in (eventlist_for_gpus[i]):
-    #         mb[eventlist_for_gpus[i][j]] = string_map[j]+" " + str(i) + " " + str(eventlist_for_gpus[i][j])
-    # for i in sorted(mb.keys()):
-    #     print(mb[i])
-    # print("End")
+    mb = {}
+    for i in range(4):
+        for j in (eventlist_for_gpus[i]):
+            mb[eventlist_for_gpus[i][j]] = string_map[j]+" " + str(i) + " " + str(eventlist_for_gpus[i][j])
+    for i in sorted(mb.keys()):
+        print(mb[i])
+    print("End")
 
     min_graph_start = min([e[GRAPH_LOAD_START_TIME] for e in eventlist_for_gpus])
     max_graph_end = max([e[DATALOAD_START_TIME] for e in eventlist_for_gpus])

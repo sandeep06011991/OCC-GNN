@@ -18,6 +18,7 @@ import os
 import time
 import inspect
 from utils import utils
+from utils.utils import *
 from utils.shared_mem_manager import *
 from data.serialize import *
 from utils.log import *
@@ -104,6 +105,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     f = r-a  # free inside reserved
     print('total,reserved, allocated',t,r,a)
     gpu_local_storage = GpuLocalStorage(cache_percentage, features, batch_in, proc_id)
+    # torch.autograd.set_detect_anomaly(True)
     print("Num sampler workers ", num_sampler_workers)
     log = LogFile("Trainer", proc_id)
     t = torch.cuda.get_device_properties(0).total_memory
@@ -111,7 +113,6 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     a = torch.cuda.memory_allocated(0)
     print('again total,reserved, allocated',t,r,a)
     if proc_id == 0:
-        DATA_DIR,PATH_DIR = utils.get_data_dir()
         ## Configure logger
         os.makedirs('{}/logs'.format(PATH_DIR),exist_ok = True)
         FILENAME= ('{}/logs/{}_{}_{}_{}.txt'.format(PATH_DIR, \

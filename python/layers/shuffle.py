@@ -37,8 +37,7 @@ class Shuffle(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad0, grad1, grad2, grad3):
-
-        send_grads = [grad0.clone(), grad1.clone(),grad2.clone(), grad3.clone()]
+        send_grads = [grad0.detach(), grad1.detach(),grad2.detach(), grad3.detach()]
         device_id = ctx.device_id
         recv_g = ctx.recv_g
         layer_id = ctx.layer_id

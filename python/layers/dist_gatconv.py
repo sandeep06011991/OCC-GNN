@@ -50,7 +50,7 @@ class DistGATConv(nn.Module):
             nn.init.xavier_uniform_(self.attn_r, gain=gain)
             nn.init.xavier_uniform_(self.fc.weight,gain = gain)
 
-            
+
     def forward(self, bipartite_graph, in_feats, l, testing = False):
         # Refactor this increase readability.
         # Go for a cleanr convention. Feels very bad.
@@ -77,7 +77,8 @@ class DistGATConv(nn.Module):
         e_r = self.leaky_relu(e_r)
         # TODO: fix exponent overflow
         # print("fix exponent overflow here.")
-        with torch.no_grad():
+        #with torch.no_grad():
+        if True:
             local_max = bipartite_graph.gather_local_max(e)
             remote_max = bipartite_graph.gather_remote_max(e_r)
             if not testing:
@@ -108,6 +109,7 @@ class DistGATConv(nn.Module):
         if not testing:
             merge_sum = Shuffle.apply(
                 sum_exponent_remote_r,self.gpu_id,  l,  bipartite_graph.get_from_nds_size(), bipartite_graph.to_offsets)
+            sum_exponent_local = sum_exponent_local.clone()
             for i in range(4):
                 if i != self.gpu_id:
                     sum_exponent_local[bipartite_graph.from_ids[i]] += merge_sum[i]
@@ -128,13 +130,12 @@ class DistGATConv(nn.Module):
         if not testing:
             merge_out = Shuffle.apply(
                 out_remote, self.gpu_id, l, bipartite_graph.get_from_nds_size(),bipartite_graph.to_offsets)
-        for i in range(4):
-            if i != self.gpu_id:
-                out_local[bipartite_graph.from_ids[i]] += merge_out[i]
+            out_local = out_local.clone()
+            for i in range(4):
+                if i != self.gpu_id:
+                    out_local[bipartite_graph.from_ids[i]] += merge_out[i]
 
         out_local = out_local.flatten(1)
-
-
         return out_local
 
 
