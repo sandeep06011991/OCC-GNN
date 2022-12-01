@@ -17,13 +17,16 @@ class NeighbourSampler{
   int fanout=10;
 
   bool deterministic = false;
+
+  bool self_edge = false;
 public:
 
-  NeighbourSampler(std::shared_ptr<Dataset> dataset, int fanout, bool deterministic){
+  NeighbourSampler(std::shared_ptr<Dataset> dataset, int fanout, bool deterministic, bool self_edge){
       this->dataset = dataset;
       this->fanout = fanout;
       this->deterministic = deterministic;
       dr = new ArrayMap(this->dataset->num_nodes);
+      this->self_edge = self_edge ;
   }
 
   void sample(std::vector<long> &target_nodes, Sample &s);

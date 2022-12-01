@@ -27,7 +27,7 @@ void aggregate_gat(std::vector<long>& layer_out_nds, std::vector<long> & layer_i
         nbs += in[indices[j]];
       }
     }
-    int t = (self % 2)* self + nbs * (self % 2);
+    int t = (self % 10)* self + nbs * (self % 10);
     std::cout << "(" << layer_out_nds[i] <<":"<< t << ")";
     out.push_back(t);
   }
@@ -91,8 +91,8 @@ void pull_own_node_gat(BiPartite *bp,
       vector<int> &out, vector<int> &in){
   assert(bp->self_ids_offset == bp->out_degree_local.size());
   for(int i=0; i < bp->self_ids_offset; i++){
-    out[i] = (out[i] * (in[i] %2 ));
-    std::cout << "(" << out[i] << " : " << i <<")";
+    out[i] = (out[i] * (in[i] % 10 ));
+    std::cout << "(" << i << ":"<< out[i] <<")";
   }
 }
 

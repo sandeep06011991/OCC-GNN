@@ -1,6 +1,6 @@
 #include "transform/slice.h"
 #include <cstring>
-
+#include "tests/test.h"
 // Get Edge selection.
 void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy,
     int layer_id, int no_layers){
@@ -89,10 +89,7 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
           local_in_nodes[p_src].push_back(nd_src);
         }
         if(p == LOCAL){
-          // Self loops are not present
-    	  if((nd_src != nd_dest) || (this->self_edge)) {
-                    partition_edges[p_dest].push_back(nd_src);
-              }
+            partition_edges[p_dest].push_back(nd_src);
             local_in_nodes[p_dest].push_back(nd_src);
             }
         if(p == PULL){
@@ -115,14 +112,14 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
           // Local edges, but p_dest must pull node from p_src
           if(pull_nodes[src].size() != 0) l.bipartite[p_dest]->merge_pull_nodes(pull_nodes[src], src);
           // local in nodes for every partition, seperate from self nodes
-          if(local_in_nodes[src].size()!=0)l.bipartite[src]->merge_local_in_nodes(local_in_nodes[src]);
+    	  if(local_in_nodes[src].size()!=0)l.bipartite[src]->merge_local_in_nodes(local_in_nodes[src]);
       }
     }
   }
 
   void Slice::reorder(PartitionedLayer &l){
      for(int i=0;i < 4; i++){
-       l.bipartite[i]->reorder_local(dr);
+   	l.bipartite[i]->reorder_local(dr);
      }
      // Handle remote destination nodes
      for(int to = 0; to < 4; to ++){
@@ -161,6 +158,7 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
 
     vector<POLICY> edge_policy;
     // s.debug();
+    bool check = false;
     for(int i= 1; i< s.num_layers + 1;i++){
         PartitionedLayer& l = ps.layers[i-1];
         int layer_id = i-1;
@@ -169,22 +167,23 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         this->get_edge_policy(s.block[i-1]->layer_nds,  *s.block[i], edge_policy, i-1, s.num_layers );
         this->slice_layer(s.block[i-1]->layer_nds, \
           (* s.block[i]), l, layer_id, edge_policy);
-          this->reorder(l);
+      	this->reorder(l);
         int p_edges = 0;
         for(int j=0;j<4;j++){
           p_edges += l.bipartite[j]->indices_L.size();
           p_edges += l.bipartite[j]->indices_R.size();
-          if(l.bipartite[j]->indices_R.size()==0){
-            std::cout << "Alert XXXXXXXXxxx\n";
-          }
-          if(!this->self_edge){
-            p_edges += l.bipartite[j]->self_ids_offset;
-          }
+          if((l.bipartite[j]->indices_R.size()==0) || (l.bipartite[j]->indices_L.size() == 0)){
+            check = true;
+            std::cout << "Found empty remote graph" << l.bipartite[j]->indices_R.size() <<" " << l.bipartite[j]->indices_L.size() <<"\n";
+	  }
+	//if(!this->self_edge){
+        //    p_edges += l.bipartite[j]->self_ids_offset;
+        //  }
         }
-        std::cout << num_edges << " "<<p_edges<<"\n";
         assert(num_edges == p_edges);
 
         // l.debug();
+
     }
     for(int i=0;i<4;i++){
         ps.cache_miss_from[i].clear();
@@ -207,6 +206,12 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         ps.last_layer_nodes[i].insert(ps.last_layer_nodes[i].end(), last_layer.begin(), last_layer.end());
     }
     edge_policy.clear();
+    if(check){
+      std::cout << "Cross checking if there are actually 0 remote subgraphs\n";
+      s.check_remote(this->workload_map);
+	//test_sample_partition_consistency_gat(s,ps, \
+	//   this->storage, this->gpu_capacity, this->workload_map.size());
+    }
   }
 
 

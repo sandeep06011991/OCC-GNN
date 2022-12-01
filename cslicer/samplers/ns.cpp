@@ -9,23 +9,26 @@ void NeighbourSampler::layer_sample(std::vector<long> &in,
       in_degrees.clear();
       offsets.push_back(indices.size());
       for(long nd1: in){
+	       int in_degree = 0;
           // Add self loop
           // In GCN self value is needed after normalization.
           // In GAT self value needed for handling zero degree vertices.
-          indices.push_back(nd1);
+          if(this->self_edge){
+      	  	 indices.push_back(nd1);
+      		   in_degree += 1;
+      	   }
           long nbs = dataset->indptr[nd1+1] - dataset->indptr[nd1];
           int offset = dataset->indptr[nd1];
-          int in_degree = 0;
-          if((nbs < fanout) || (this->deterministic)){
-            in_degree = nbs;
+      	  if((nbs < fanout) || (this->deterministic)){
+            in_degree += nbs;
             for(int i=0;i<nbs;i++){
               indices.push_back(dataset->indices[offset + i]);
             }
           }else{
-            in_degree = fanout;
+            in_degree += fanout;
             for(int i=0;i<fanout;i++){
               int rand_nb = this->random_number_engine()%nbs;
-              indices.push_back(dataset->indices[offset + rand_nb ]);
+	            indices.push_back(dataset->indices[offset + rand_nb ]);
             }
           }
           if (in_degree == 0){
@@ -44,7 +47,7 @@ void NeighbourSampler::sample(std::vector<long> &target_nodes, Sample &s){
     s.block[i]->clear();
     layer_sample(s.block[i-1]->layer_nds,s.block[i]->in_degree,
             s.block[i]->offsets, s.block[i]->indices);
-    // Hack. Nodes for next layer must always be first. 
+    // Hack. Nodes for next layer must always be first.
     s.block[i]->layer_nds = s.block[i-1]->layer_nds;
     s.block[i]->layer_nds.insert(s.block[i]->layer_nds.end(), s.block[i]->indices.begin(), \
                 s.block[i]->indices.end());

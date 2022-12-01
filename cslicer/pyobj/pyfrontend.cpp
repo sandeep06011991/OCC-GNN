@@ -127,7 +127,7 @@ public:
 	this->sample = new Sample(num_layers);
 	this->p_sample = new PartitionedSample(num_layers);
         this->slicer = new Slice((workload_map), storage_map, self_edge, rounds, pull_optimization);
-        this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, deterministic);
+        this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, deterministic, self_edge);
     }
 
     bool test_correctness(vector<long> sample_nodes){

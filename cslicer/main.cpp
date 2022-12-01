@@ -20,12 +20,13 @@ int main(){
   Sample *s1  = new Sample(num_layers);
 
   std::vector<long> training_nodes;
-  for(int i=0;i<1000;i++){
+  for(int i=0;i<3;i++){
     training_nodes.push_back(i);
   }
   std::cout << training_nodes.size() <<"\n";
-  int fanout = 10;
-  NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, false);
+  int fanout = 3;
+  bool self_edge = true;
+  NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, false, self_edge);
   ns->sample(training_nodes,(*s1));
 
   // sample_neighbourhood((*s), training_nodes, (*dataset));
@@ -69,8 +70,8 @@ int main(){
   s1->debug();
   PartitionedSample ps(num_layers);
   sc->slice_sample((*s1), ps);
-  // std::cout << "slicing done \n";
-  ps.debug();
+  std::cout << "slicing done \n";
+  //ps.debug();
 
   test_sample_partition_consistency_gat((*s1),ps, storage, gpu_capacity, dataset->num_nodes);
   // test_pull_benefits(*s1, workload_map, storage, rounds);

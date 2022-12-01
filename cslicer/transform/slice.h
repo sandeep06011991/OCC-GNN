@@ -17,6 +17,7 @@ class Slice{
 
   std::vector<int> workload_map;
   std::vector<int> storage_map[4];
+  std::vector<int> storage[4];
   // Used for new node ordering
   int gpu_capacity[4];
   DuplicateRemover *dr;
@@ -41,12 +42,14 @@ public:
       for(int i=0;i<4;i++){
         this->storage_map[i].push_back(-1);
       }
+      
     }
     for(int i=0;i<4;i++){
       int count = 0;
       for(auto j:storage[i]){
           this->storage_map[i][j] = count;
-          count ++ ;
+          this->storage[i].push_back(j);
+	  count ++ ;
       }
       gpu_capacity[i] = count;
     }
