@@ -353,4 +353,5 @@ if __name__ == '__main__':
     print("movement graph:{}".format(epoch_batch_graph))
     print("movement feature:{}".format(epoch_batch_loadtime))
     print("forward time:{}".format(epoch_batch_forward))
+    print("data movement:{}".format(epoch_batch_loadtime))
     print("backward time:{}".format(epoch_batch_backward))

@@ -375,6 +375,7 @@ if __name__ == '__main__':
       epoch_batch_loadtime, epoch_batch_totaltime = \
           compute_metrics(collected_metrics)
   print("sample_time:{}".format(epoch_batch_sample))
+  print("data movement:{}".format(epoch_batch_loadtime))
   print("movement graph:{}".format(epoch_batch_graph))
   print("movement feature:{}".format(epoch_batch_loadtime))
   print("forward time:{}".format(epoch_batch_forward))

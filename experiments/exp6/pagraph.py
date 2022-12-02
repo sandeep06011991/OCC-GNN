@@ -67,6 +67,11 @@ def start_server(filename):
     sys.stdout.flush()
     return fp
 
+def parse_float(string, output):
+    matches = re.findall(string,output)
+    assert(len(matches) == 1)
+    return float(matches[0])
+
 def start_client(filename, model, num_hidden, batch_size, cache_per):
     feat_size = Feat[filename]
     print(cache_per)
@@ -78,17 +83,18 @@ def start_client(filename, model, num_hidden, batch_size, cache_per):
     err = str(output.stderr)
     print(out,err)
     output = out
-    accuracy = float(re.findall("accuracy: (\d+\.\d+)", output)[0])
-    move_graph = float(re.findall("movement graph:(\d+\.\d+)", output)[0])
-    move_feat = float(re.findall("movement feature:(\d+\.\d+)", output)[0])
-    forward = float(re.findall("forward time:(\d+\.\d+)", output)[0])
-    backward = float(re.findall("backward time:(\d+\.\d+)", output)[0])
-    sample = float(re.findall("sample_time:(\d+\.\d+)",output)[0])
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+    move_graph = parse_float("movement graph:(\d+\.\d+)", output)
+    move_feat = parse_float("movement feature:(\d+\.\d+)", output)
+    total_movement = parse_float("data movement:(\d+\.\d+)",output)
+    forward = parse_float("forward time:(\d+\.\d+)", output)
+    backward = parse_float("backward time:(\d+\.\d+)", output)
+    sample = parse_float("sample_time:(\d+\.\d+)",output)
     #compute  = float(re.findall("Compute time: (\d+\.\d+)s",output)[0])
     # collect  = float(re.findall("CPU collect: (\d+\.\d+)s",output)[0])
     # move  = float(re.findall("CUDA move: (\d+\.\d+)s",output)[0])
-    epoch  = float(re.findall("Epoch time: (\d+\.\d+)s",output)[0])
-    miss_rate = float(re.findall("Miss rate: (\d+\.\d+)s",output)[0])
+    epoch  = parse_float("Epoch time: (\d+\.\d+)s",output)
+    miss_rate = parse_float("Miss rate: (\d+\.\d+)s",output)
     miss_num = re.findall("Miss num per epoch: (\d+\.\d+)MB, device \d+",output)
     s = 0
     e =0
@@ -103,7 +109,7 @@ def start_client(filename, model, num_hidden, batch_size, cache_per):
     #edges_processed = int(float(re.findall("Edges processed per epoch: (\d+\.\d+)",output)[0]))
     return {"sample":sample, "forward": forward, "backward": backward,\
             "move_feat":"{:.3f}".format(move_feat), "epoch_time":epoch, "miss_rate": miss_rate, "move_graph":move_graph\
-                , "accuracy": accuracy, "miss_num":miss_num, "edges":edges_processed}
+            , "accuracy": accuracy, "miss_num":miss_num, "edges":edges_processed, "total_movement":total_movement}
 
 def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per):
     fp = start_server(filename)
@@ -111,19 +117,20 @@ def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per)
     res = start_client(filename, model, hidden_size, batch_size, cache_per)
     WRITE = "{}/exp6_{}_pagraph.txt".format(OUT_DIR, SYSTEM)
     with open(WRITE,'a') as fp:
-        fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "jupiter", cache_per, hidden_size, feat_size, \
-                4 * batch_size, model, res["sample"], res["move_graph"], res["move_feat"],res["forward"], \
+        fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "jupiter", cache_per, hidden_size, feat_size, \
+                4 * batch_size, model, res["sample"], res["total_movement"],res["forward"], \
                     res["backward"],res["epoch_time"], res["accuracy"],res["miss_num"], res["edges"] ))
     fp.close()
 
 def run_model(model):
     graphs = ['ogbn-arxiv','ogbn-products']
+    
     #graphs = ['ogbn-papers100M']
     #graphs = ['ogbn-arxiv']
-    settings = [#('ogbn-arxiv', 16, 1024),
+    settings = [('ogbn-arxiv', 16, 1024),
                 #('ogbn-arxiv', 16, 256),
                 #('ogbn-arxiv', 16, 4096),
-                ('ogbn-products', 16, 1024),
+                #('ogbn-products', 16, 1024),
                 #('ogbn-products', 16, 256),
                 #('ogbn-products', 16, 4096),
                 # ('reorder-papers100M',16, 1024),
@@ -142,7 +149,7 @@ def run_experiment(model, settings, cache_per):
     check_no_stale()
     with open('{}/exp6_{}_pagraph.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
-        fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | move-graph | move-feature | forward | backward  | epoch_time | accuracy | data-moved | edges-processed\n")
+        fp.write("graph | system | cache |  hidden-size | fsize  | batch-size | model  | sample_get | data-moved | forward | backward  | epoch_time | accuracy | data-moved | edges-processed\n")
     for graphname, hidden_size, batch_size in settings:
         try:
             for cache in cache_per:

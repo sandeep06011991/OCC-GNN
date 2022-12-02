@@ -5,7 +5,8 @@ import os
 import git
 # Check environment before getting root dir.
 import os, pwd
-
+from utils.utils import *
+'''
 uname = pwd.getpwuid(os.getuid())[0]
 os.environ['NCCL_BUFFSIZE'] = str(1024 * 1024 * 80)
 if uname == 'spolisetty':
@@ -23,13 +24,13 @@ if uname == 'spolisetty_umass_edu':
     SRC_DIR = "/home/spolisetty_umass_edu/OCC-GNN/python/main.py"
     SYSTEM = 'unity'
     OUT_DIR = '/home/spolisetty_umass_edu/OCC-GNN/experiments/exp6/'
-
+'''
 def get_git_info():
     repo = git.Repo(search_parent_directories = True)
     sha = repo.head.object.hexsha
     dirty = repo.is_dirty()
     return sha,dirty
-
+'''
 def check_path():
     path_set = False
     for p in sys.path:
@@ -40,7 +41,7 @@ def check_path():
         sys.path.append(ROOT_DIR)
         print("Setting Path")
         print(sys.path)
-
+'''
 def average_string(ls):
     print(ls)
     c = [float(c) for c in ls]
@@ -55,7 +56,7 @@ def check_single(ls):
 def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
 
     output = subprocess.run(["python3.8",\
-            SRC_DIR,\
+            "{}/python/main.py".format(ROOT_DIR),\
         "--graph",graphname,  \
         "--model", model , \
         "--cache-per" , str(cache_per),\
@@ -113,7 +114,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
 def run_experiment_occ(model):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
     settings = [
-                # ("ogbn-arxiv",16, 128, 1024),
+                #("ogbn-arxiv",16, 128, 1024),
                 # ("ogbn-arxiv", 16, 128, 4096), \
                 #("ogbn-arxiv",16, 128, 16384),\
                 #("ogbn-arxiv",3, 32 , -1 , 1024), \
@@ -121,7 +122,7 @@ def run_experiment_occ(model):
                 ("ogbn-products", 16, 100, 4096), \
                 #("ogbn-products",16, 100 , 16384), \
                 #("reorder-papers100M", 16, 128, 1024),\
-                ("reorder-papers100M", 16, 128, 4096),\
+                #("reorder-papers100M", 16, 128, 4096),\
                 #("reorder-papers100M", 16, 128, 16384),\
                 #("amazon", 16, 200, 4096),\
                 #("com-youtube", 3, 32, 256, 4096),\
@@ -141,12 +142,12 @@ def run_experiment_occ(model):
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
     #cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
-    cache_rates = ["0", ".10", ".25"]
+    #cache_rates = ["0", ".10", ".25"]
     #settings = [("ogbn-arxiv", 16, 128, 1024),]
     cache_rates = [".10"]
     #cache_rates = [".25"]
     #settings = [settings[0]]
-    check_path()
+    #check_path()
     print(settings)
     sha,dirty = get_git_info()
     assert(model in ["gcn","gat"])
@@ -193,6 +194,7 @@ def run_sbatch(model, settings, cache_rates):
 
 if __name__ == "__main__":
     run_experiment_occ("gcn")
+    run_experiment_occ("gat")
     #print("Success!!!!!!!!!!!!!!!!!!!")
     #run_model("gat")
     assert(False)
@@ -223,4 +225,3 @@ if __name__ == "__main__":
         settings = [(dataset,"16", fdict[dataset], batch_size)]
     #print(cache_per)
         run_sbatch(model, settings, [cache_per])
-
