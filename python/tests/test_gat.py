@@ -38,7 +38,7 @@ def trainer(proc_id, world_num):
     deterministic = True
     testing = False
     self_edge = True
-    rounds = 1
+    rounds = 4
     pull_optimization = False
     no_layers = 2
     slicer = cslicer(graph_name, gpu_map, fanout,
@@ -54,18 +54,19 @@ def trainer(proc_id, world_num):
 
     # x = torch.sum(local_samples[i].layers[0].indptr_L)
     t  = serialize_to_tensor(local_samples[proc_id])
-    object = Gpu_Local_Sample()
+    bp_object = Gpu_Local_Sample()
     t = t.to(proc_id)
     construct_from_tensor_on_gpu(t, torch.device(proc_id),  object)
-    object.prepare(attention = True)
-    n = object.cache_hit_from.shape[0] + object.cache_miss_from.shape[0]
+    bp_object.prepare(attention = True)
+    n = bp_object.cache_hit_from.shape[0] + bp_object.cache_miss_from.shape[0]
     n1 = torch.ones(n, 10, device = proc_id, requires_grad = True)
     #print(n1.shape, object.cache_miss_from)
-    n = n1 * (object.cache_miss_from.reshape(object.cache_miss_from.shape[0],1) % 10)
-    out = model(object, n )
-    print(torch.sum(out), "my out")
-    torch.sum(out).backward()
-    print(torch.sum(n1.grad),"my grad")
+    n = n1 * (bp_object.cache_miss_from.reshape(bp_object.cache_miss_from.shape[0],1) % 10)
+    print(bp_object.layers[0].push_to_ids)
+    #out = model(object, n )
+    #print(torch.sum(out), "my out")
+    #torch.sum(out).backward()
+    #print(torch.sum(n1.grad),"my grad")
 
 def test_groot_gat():
     gpu_num = 4
@@ -114,5 +115,5 @@ def get_correct_gat():
     # test_heterograph_construction_python()
 
 if __name__ == "__main__":
-    get_correct_gat()
+    #get_correct_gat()
     test_groot_gat()

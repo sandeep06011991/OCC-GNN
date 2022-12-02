@@ -14,6 +14,8 @@ if uname == "spolisetty_umass_edu":
     ROOT = "/home/spolisetty_umass_edu/OCC-GNN/cslicer"
 if uname == "q91":
     ROOT = "/home/q91/OCC-GNN/cslicer"
+if uname == "ubuntu":
+    ROOT = "/home/ubuntu/OCC-GNN"
 
 
 ext_modules = [

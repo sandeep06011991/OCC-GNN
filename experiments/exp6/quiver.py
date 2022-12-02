@@ -29,6 +29,13 @@ def average_string(ls):
     c = sum(c)/len(c)
     return c
 
+def parse_float(string, output):
+    matches = re.findall(string,output)
+    print(matches)
+    assert(len(matches) == 1)
+    return "{:.2f}".format(float(matches[0]))
+
+
 # measures cost of memory transfer of dataset
 def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch_size):
     output = subprocess.run(["python3",\
@@ -43,52 +50,54 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
 
     out = str(output.stdout)
     error = str(output.stderr)
-    #print(out,error)
+    print(out,error)
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
-    try:
-        accuracy  = re.findall("accuracy:(\d+\.\d+)",out)[0]
-        epoch = re.findall("epoch:(\d+\.\d+)",out)[0]
-        sample_get  = re.findall("sample_time:(\d+\.\d+)",out)[0]
-        movement_graph =  re.findall("movement graph:(\d+\.\d+)",out)[0]
-        movement_feat = re.findall("movement feature:(\d+\.\d+)",out)[0]
-        forward_time = re.findall("forward time:(\d+\.\d+)",out)[0]
-        backward_time = re.findall("backward time:(\d+\.\d+)",out)[0]
-        edges = re.findall("edges per epoch:(\d+\.\d+)",out)[0]
-        data_movement = re.findall("data movement:(\d+\.\d+)MB",out)[0]
-        sample_get = "{:.2f}".format(float(sample_get))
-        movement_graph = "{:.2f}".format(float(movement_graph))
-        movement_feat = "{:.2f}".format(float(movement_feat))
-        accuracy = "{:.2f}".format(float(accuracy))
-        forward_time = "{:.2f}".format(float(forward_time))
-        epoch = "{:.2f}".format(float(epoch))
-        backward_time = "{:.2f}".format(float(backward_time))
-        edges = int(float(edges))
-        data_movement = int(float(data_movement))
+    #try:
+    if True:
+        accuracy  = parse_float("accuracy:(\d+\.\d+)",out)
+        epoch = parse_float("epoch_time:(\d+\.\d+)",out)
+        sample_get  = parse_float("sample_time:(\d+\.\d+)",out)
+        movement_data = parse_float("movement data time:(\d+\.\d+)", out) 
+        movement_graph =  parse_float("movement graph:(\d+\.\d+)",out)
+        movement_feat = parse_float("movement feature:(\d+\.\d+)",out)
+        forward_time = parse_float("forward time:(\d+\.\d+)",out)
+        backward_time = parse_float("backward time:(\d+\.\d+)",out)[0]
+        edges = re.findall("edges_per_epoch:(\d+\.\d+)",out)
+        edges = [float(edge) for edge in edges]
+        assert(len(edges) == 4)
+        edges = sum(edges)/4
+        
+        data_moved = re.findall("data moved :(\d+\.\d+)MB",out)
+        data_moved = [float(d) for d in data_moved]
+        assert(len(data_moved) == 4)
+        data_moved = sum(data_moved)/4
         #print("accuracy",accuracy)
         #print("edges", edges)
-    except Exception as e:
+    #except Exception as e:
         with open('exception_quiver.txt','a') as fp:
             fp.write(error)
         sample_get = "error"
         movement_graph = "error"
         movement_feat = "error"
+        movement_data = "error"
         forward_time = "error"
         backward_time = "error"
         accuracy = "error"
         epoch = "error"
-        data_movement = "error"
+        data_moved = "error"
     return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
-            "movement_graph":movement_graph, "movement_feat": movement_feat, "epoch":epoch,
-                "accuracy": accuracy,"data_movement":data_movement, "edges":edges}
+            "movement_graph":movement_graph, "movement_data": movement_data, \
+                "movement_feat": movement_feat, "epoch":epoch,
+                "accuracy": accuracy,"data_moved":data_moved, "edges":edges}
 
 
 def run_experiment_quiver( model ):
     # graph, hidden_size, fsize, minibatch_size
     settings = [
-                #("ogbn-arxiv",16, 128, 1024), \
+                ("ogbn-arxiv",16, 128, 1024), \
                 #("ogbn-arxiv",16, 128, 4096), \
                 #("ogbn-arxiv",16, 128, 256),  \
-                ("ogbn-products",16, 100, 1024), \
+                #("ogbn-products",16, 100, 1024), \
                 #("ogbn-products",16, 100, 4096), \
                 #("ogbn-products",16, 100, 256),  \
                 #("reorder-papers100M", 16, 256),\
@@ -117,7 +126,7 @@ def run_experiment_quiver( model ):
     with open('{}/exp6_quiver.txt'.format(OUT_DIR),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  |" + \
-            " batch-size | model  | sample_get | move-graph | move-feature | forward |" +\
+            " batch-size | model  | sample_get | move-data | forward |" +\
               " backward  | epoch_time | accuracy | data_movement | edges \n")
     for graphname, hidden_size, fsize, batch_size in settings:
         for cache in cache_rates:
@@ -128,10 +137,10 @@ def run_experiment_quiver( model ):
             with open('{}/exp6_quiver.txt'.format(OUT_DIR),'a') as fp:
                 fp.write(("{} | {} | {} | {} | {} | {} "+\
                        "| {} | {} | {} | {} | {} | {} |"+\
-                       " {} | {}  | {} | {} \n").format(graphname , "quiver", cache, hidden_size, fsize,\
-                        4 * batch_size, model, out["sample_get"], out["movement_graph"], \
+                       " {} | {}  | {} |  {} \n").format(graphname , "quiver", cache, hidden_size, fsize,\
+                        4 * batch_size, model, out["sample_get"], out["movement_data"], \
                         out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"],
-                        out["data_movement"], out["edges"]))
+                        out["data_moved"], out["edges"]))
 
 
 

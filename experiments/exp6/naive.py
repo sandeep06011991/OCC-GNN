@@ -54,15 +54,15 @@ def run_quiver(graphname, model, epochs, hidden_size, fsize, minibatch_size):
         accuracy  = parse_float("accuracy:(\d+\.\d+)",out)
         epoch = parse_float("epoch_time:(\d+\.\d+)",out)
         sample_get  = parse_float("sample_time:(\d+\.\d+)",out)
-        movement_data = parse_float("data movement:(\d+\.\d+)",out)
+        movement_data_time = parse_float("data movement time:(\d+\.\d+)",out)
         movement_graph =  parse_float("movement graph:(\d+\.\d+)",out)
         movement_feat = parse_float("movement feature:(\d+\.\d+)",out)
         forward_time = parse_float("forward time:(\d+\.\d+)",out)
         backward_time = parse_float("backward time:(\d+\.\d+)",out)
-        edges = parse_float("edges per epoch:(\d+\.\d+)",out)
-        data_movement = parse_float("data movement:(\d+\.\d+)MB",out)
+        edges = parse_float("edges_per_epoch:(\d+\.\d+)",out)
+        data_moved = parse_float("data moved:(\d+\.\d+)MB",out)
         edges = int(float(edges))
-        data_movement = int(float(data_movement))
+        data_moved = int(float(data_moved))
         #print("accuracy",accuracy)
         #print("edges", edges)
     except Exception as e:
@@ -75,11 +75,11 @@ def run_quiver(graphname, model, epochs, hidden_size, fsize, minibatch_size):
         backward_time = "error"
         accuracy = "error"
         epoch = "error"
-        movement_data = "error"
-        data_movement = "error"
+        movement_data_time = "error"
+        data_moved = "error"
     return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
             "movement_graph":movement_graph, "movement_feat": movement_feat, "epoch":epoch,
-            "accuracy": accuracy, "movement_data":movement_data, "data_movement":data_movement, "edges":edges}
+            "accuracy": accuracy, "movement_data_time":movement_data_time, "data_moved":data_moved, "edges":edges}
 
 
 def run_experiment_quiver( model ):
@@ -89,7 +89,7 @@ def run_experiment_quiver( model ):
                 # ("ogbn-arxiv",16, 128, 4096), \
                 # ("ogbn-arxiv",16, 128, 256),  \
                 # ("ogbn-products",16, 100, 1024), \
-                 ("ogbn-products",16, 100, 1024), \
+                # ("ogbn-products",16, 100, 1024), \
                 # ("ogbn-products",16, 100, 4096), \
                 # ("ogbn-products",16, 100, 256),  \
                 # ("reorder-papers100M", 16, 128,  256),\
@@ -122,9 +122,9 @@ def run_experiment_quiver( model ):
             fp.write(("{} | {} | {} | {} | {} "+\
                    "| {} | {} | {} | {} | {} |"+\
                    " {} | {}  | {} | {} \n").format(graphname , SYSTEM , hidden_size, fsize,\
-                    4 * batch_size, model, out["sample_get"], out["movement_data"] \
+                    4 * batch_size, model, out["sample_get"], out["movement_data_time"] \
                     , out["forward"], out["backward"],  out["epoch"], out["accuracy"],
-                    out["data_movement"], out["edges"]))
+                    out["data_moved"], out["edges"]))
 
 
 

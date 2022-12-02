@@ -52,7 +52,7 @@ def compute_stats_for_minibatch(eventlist_for_gpus):
     batch_backward  = max_end_backward - max(start_bw)
     batch_graph = max_graph_end - min_graph_start
     batch_sample = sum([e[GRAPH_LOAD_START_TIME] - e[SAMPLE_START_TIME]  for e in eventlist_for_gpus])/4
-    all_load_time = sum([e[DATALOAD_ELAPSED_TIME] for e in eventlist_for_gpus]/4)
+    all_load_time = sum([e[DATALOAD_ELAPSED_EVENT_TIME] for e in eventlist_for_gpus])/4
     #all_load_time = max((max_load_end - min_graph_start), load_elapsed_time)
     max_epoch_time = max_end_backward - min_graph_start
     return batch_sample, batch_graph, batch_load_time, batch_forward, batch_backward, all_load_time, max_epoch_time

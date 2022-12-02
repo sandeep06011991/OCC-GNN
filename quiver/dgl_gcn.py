@@ -244,9 +244,9 @@ def run(rank, args,  data):
         pickle.dump(epoch_metrics, outp, pickle.HIGHEST_PROTOCOL)
     if rank == 0:
         print("accuracy:{}".format(accuracy[-1]))
-        print("epoch:{}".format(average(epoch_time)))
-        print("edges per epoch:{}".format(average(edges_per_epoch)))
-        print("data movement:{}MB".format(average(data_movement_epoch)))
+        print("epoch_time:{}".format(average(epoch_time)))
+    print("edges_per_epoch:{}".format(average(edges_per_epoch)))
+    print("data moved :{}MB".format(average(data_movement_epoch)))
     dist.destroy_process_group()
 
     return final_test_acc
@@ -291,6 +291,7 @@ if __name__ == '__main__':
     graph = dg_graph
     labels = dg_graph.ndata.pop('labels')
     feat = dg_graph.ndata.pop('features')
+    
     graph = graph.add_self_loop()
     ###################################
     #data = DglNodePropPredDataset(name=args.graph, root=root)
@@ -388,7 +389,7 @@ if __name__ == '__main__':
             epoch_batch_loadtime, epoch_batch_totaltime = \
                 compute_metrics(collected_metrics)
     print("sample_time:{}".format(epoch_batch_sample))
-    print("movement data:{}".format(epoch_batch_loadtime))
+    print("movement data time:{}".format(epoch_batch_loadtime))
     print("movement graph:{}".format(epoch_batch_graph))
     print("movement feature:{}".format(epoch_batch_loadtime))
     print("forward time:{}".format(epoch_batch_forward))

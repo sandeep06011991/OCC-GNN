@@ -8,6 +8,8 @@ const std::string unity = "/work/spolisetty_umass_edu/data/";
 
 const std::string ornl = "/mnt/bigdata/sandeep/";
 
+const std::string aws  = "/home/ubuntu/data/";
+
 const std::string ERROR = "dir_error";
 std::string get_dataset_dir(){
 
@@ -19,5 +21,6 @@ std::string get_dataset_dir(){
 	if (user == "spolisetty") return jupiter;
   if (user == "q91") return ornl;
 	std::cout << "Datadir not found !!\n";
+  if (user == "ubuntu") return aws;
 	return ERROR;
 }
