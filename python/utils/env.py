@@ -1,4 +1,4 @@
-
+'''
 
 def get_data_dir():
     import os
@@ -15,3 +15,4 @@ def get_data_dir():
     return DATA_DIR,PATH_DIR
 
 DATA_DIR, PATH_DIR = get_data_dir()
+'''

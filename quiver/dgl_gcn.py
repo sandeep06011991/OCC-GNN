@@ -19,7 +19,7 @@ import torch.autograd.profiler as profiler
 
 from dgl_sage import SAGE
 from dgl_gat import GAT
-from utils.timing_analysis import *
+from utils.async_timing_analysis import *
 from utils.env import *
 from utils.utils import *
 import pickle
@@ -33,8 +33,8 @@ def average(ls):
     b = min(ls[1:])
     return (sum(ls[1:]) -a -b)/(len(ls)-3)
 
-ROOT_DIR ="/home/q91/torch-quiver/srcs/python"
-import sys
+#ROOT_DIR ="/home/q91/torch-quiver/srcs/python"
+'''import sys
 def check_path():
     path_set = False
     for p in sys.path:
@@ -47,6 +47,7 @@ def check_path():
         print(sys.path)
 
 check_path()
+'''
 import quiver
 def compute_acc(pred, labels):
     """
@@ -110,7 +111,7 @@ def run(rank, args,  data):
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        prefetch_factor = 0,
+        prefetch_factor = 2,
         num_workers=0 if args.sample_gpu else args.num_workers,
         persistent_workers=not args.sample_gpu)
 
@@ -138,6 +139,8 @@ def run(rank, args,  data):
     epoch_metrics = []
     accuracy = []
     edges_per_epoch = []
+    e0 = torch.cuda.Event(enable_timing = True)
+    e1 = torch.cuda.Event(enable_timing = True)
     e3 = torch.cuda.Event(enable_timing = True)
     e4 = torch.cuda.Event(enable_timing = True)
 
@@ -156,6 +159,7 @@ def run(rank, args,  data):
         data_movement = 0
         global_cache_misses = 0
         step = 0
+        minibatch_metrics = []
         try:
             while True:
                 batch_time = {}
@@ -176,6 +180,7 @@ def run(rank, args,  data):
                 #print(edges_computed)
                 t3 = time.time()
                 batch_time[DATALOAD_START_TIME] = t3
+                e0.record()
                 #start = offsets[device][0]
                 #end = offsets[device][1]
                 #hit = torch.where((input_nodes > start) & (input_nodes < end))[0].shape[0]
@@ -185,6 +190,7 @@ def run(rank, args,  data):
                 # Load the input features as well as output labels
                 batch_inputs, batch_labels = load_subtensor(
                     nfeat, labels, seeds, input_nodes, device)
+                e1.record()
                 batch_time[DATALOAD_END_TIME] = time.time()
                 # Compute loss and prediction
                 with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
@@ -197,6 +203,7 @@ def run(rank, args,  data):
                 e4.synchronize()
                 optimizer.step()
                 batch_time[FORWARD_ELAPSED_EVENT_TIME] = e3.elapsed_time(e4)/1000
+                batch_time[DATALOAD_ELAPSED_EVENT_TIME] = e0.elapsed_time(e1)/1000
                 #print("sample time", t2-t1, t3-t2)
                 #print("Time feature", device, e1.elapsed_time(e2)/1000)
                 #print("Expected bandwidth", missed * nfeat.shape[1] * 4/ ((e1.elapsed_time(e2)/1000) * 1024 * 1024 * 1024), "GB device", rank, "cache rate", hit/(hit + missed))
@@ -274,9 +281,9 @@ if __name__ == '__main__':
         device = th.device('cpu')
 
     # load ogbn-products data
-    root = "/mnt/bigdata/sandeep/"
-    from utils import  get_process_graph
-    dg_graph, partition_map, num_classes = get_process_graph(args.graph)
+    #root = "/mnt/bigdata/sandeep/"
+    #from utils import  get_process_graph
+    dg_graph, partition_map, num_classes = get_process_graph(args.graph, -1)
     data = dg_graph
     train_idx = torch.where(data.ndata.pop('train_mask'))[0]
     val_idx = torch.where(data.ndata.pop('val_mask'))[0]
@@ -381,6 +388,7 @@ if __name__ == '__main__':
             epoch_batch_loadtime, epoch_batch_totaltime = \
                 compute_metrics(collected_metrics)
     print("sample_time:{}".format(epoch_batch_sample))
+    print("movement data:{}".format(epoch_batch_loadtime))
     print("movement graph:{}".format(epoch_batch_graph))
     print("movement feature:{}".format(epoch_batch_loadtime))
     print("forward time:{}".format(epoch_batch_forward))

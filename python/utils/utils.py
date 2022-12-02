@@ -35,6 +35,14 @@ def get_data_dir():
     if username == "q91":
         DATA_DIR = "/mnt/bigdata/sandeep"
         PATH_DIR = "/home/q91/OCC-GNN/python"
+    if username == "ubuntu":
+        DATA_DIR = "/home/ubuntu/data"
+        SYSTEM = "P4"
+        PATH_DIR = "/home/ubuntu/OCC-GNN/python"
+        ROOT_DIR = "/home/ubuntu/OCC-GNN"
+        OUT_DIR = '/home/ubuntu/OCC-GNN/experiments/exp6'
+        PA_ROOT_DIR = "/home/ubuntu/OCC-GNN/upgraded_pagraph"
+
     return DATA_DIR,PATH_DIR, ROOT_DIR, OUT_DIR, SYSTEM, PA_ROOT_DIR
 
 DATA_DIR,PATH_DIR,ROOT_DIR, OUT_DIR ,SYSTEM, PA_ROOT_DIR = get_data_dir()

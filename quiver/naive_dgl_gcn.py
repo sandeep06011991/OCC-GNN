@@ -21,7 +21,7 @@ import torch.autograd.profiler as profiler
 from dgl_sage import SAGE
 from dgl_gat import GAT
 from utils.timing_analysis import *
-from utils.env import *
+#from utils.env import *
 from utils.utils import *
 import pickle
 
