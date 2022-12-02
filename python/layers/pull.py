@@ -25,7 +25,7 @@ class Pull(torch.autograd.Function):
                 # remote has the same shape as local
                 recv.append(torch.empty((pull_from_offsets[i + 1] - pull_from_offsets[i], *local_t.shape[1:]) \
                     , device = device_id))
-                recv_g.append(torch.empty(push_to_ids[i].shape[0], *local_t.shape[1:]) \
+                recv_g.append(torch.empty((push_to_ids[i].shape[0], *local_t.shape[1:]) \
                     , device = device_id))
                 send_dict.append(local_t[push_to_ids[i]].detach())
         shuffle_functional(device_id, send_dict, recv)
@@ -48,13 +48,14 @@ class Pull(torch.autograd.Function):
         # Aggregate and merge gradients.
         send_grads = []
         pull_from_offsets = ctx.pull_from_offsets
+        device_id = ctx.device_id
+        self_size = ctx.local_size
         for i in range(4):
-            if i==device:
+            if i==device_id:
                 send_grads.append(None)
             else:
-                send_grads.append(grad0[pull_from_offsets[i]:pull_from_offsets[i+1]].detach())
+                send_grads.append(grad0[self_size + pull_from_offsets[i]:self_size + pull_from_offsets[i+1]].detach())
         # send_grads = [grad0.clone(), grad1.clone(),grad2.clone(), grad3.clone()]
-        device_id = ctx.device_id
         recv_g = ctx.recv_g
         layer_id = ctx.layer_id
         shuffle_functional(device_id,send_grads, recv_g)

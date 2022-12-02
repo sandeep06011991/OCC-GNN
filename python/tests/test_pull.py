@@ -7,6 +7,8 @@ from data.serialize import *
 from utils.utils import get_process_graph
 from layers.dist_gatconv import *
 import torch.distributed as dist
+from layers.pull import *
+
 
 class Model(nn.Module):
 
@@ -14,10 +16,14 @@ class Model(nn.Module):
         super().__init__()
         self.gat_conv1 = DistGATConv(10, 10, gpu_id, num_heads = 1, deterministic = True)
         self.gat_conv2 = DistGATConv(10, 10, gpu_id, num_heads = 1, deterministic = True)
+        self.gpu_id = gpu_id
 
     def forward(self, local_graph, x):
+        print("start pull")
+        x = pull(local_graph.layers[0], x, self.gpu_id, 0)
         l1 = self.gat_conv1(local_graph.layers[0], x, 0)
         print(l1.shape)
+        l1 = pull(local_graph.layers[1], l1, self.gpu_id, 1)
         l2 = self.gat_conv2(local_graph.layers[1], l1, 1)
         return l2
 
@@ -26,7 +32,7 @@ def trainer(proc_id, world_num):
     rank = proc_id
     world_size = world_num
     os.environ['MASTER_ADDR'] = '127.0.0.1'
-    os.environ['MASTER_PORT'] = '29511'
+    os.environ['MASTER_PORT'] = '29501'
     dist.init_process_group(backend, rank=rank, world_size=world_size)
     torch.cuda.set_device(rank)
     model = Model(proc_id).to(proc_id)
@@ -39,7 +45,7 @@ def trainer(proc_id, world_num):
     testing = False
     self_edge = True
     rounds = 4
-    pull_optimization = False
+    pull_optimization = True
     no_layers = 2
     slicer = cslicer(graph_name, gpu_map, fanout,
        deterministic, testing,
@@ -56,17 +62,17 @@ def trainer(proc_id, world_num):
     t  = serialize_to_tensor(local_samples[proc_id])
     bp_object = Gpu_Local_Sample()
     t = t.to(proc_id)
-    construct_from_tensor_on_gpu(t, torch.device(proc_id),  object)
+    construct_from_tensor_on_gpu(t, torch.device(proc_id),  bp_object)
     bp_object.prepare(attention = True)
     n = bp_object.cache_hit_from.shape[0] + bp_object.cache_miss_from.shape[0]
     n1 = torch.ones(n, 10, device = proc_id, requires_grad = True)
     #print(n1.shape, object.cache_miss_from)
     n = n1 * (bp_object.cache_miss_from.reshape(bp_object.cache_miss_from.shape[0],1) % 10)
-    print(bp_object.layers[0].push_to_ids)
-    #out = model(object, n )
-    #print(torch.sum(out), "my out")
-    #torch.sum(out).backward()
-    #print(torch.sum(n1.grad),"my grad")
+   
+    out = model(bp_object, n )
+    print(torch.sum(out), "my out")
+    torch.sum(out).backward()
+    print(torch.sum(n1.grad),"my grad")
 
 def test_groot_gat():
     gpu_num = 4
@@ -115,5 +121,5 @@ def get_correct_gat():
     # test_heterograph_construction_python()
 
 if __name__ == "__main__":
-    #get_correct_gat()
+    get_correct_gat()
     test_groot_gat()

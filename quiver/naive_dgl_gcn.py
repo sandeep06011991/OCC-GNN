@@ -299,7 +299,7 @@ if __name__ == '__main__':
         graph = graph.add_self_loop()
     test_graph = None
     if (args.test_graph) != None:
-        test_graph, _, num_classes = get_process_graph(args.test_graph, True)
+        test_graph, _, num_classes = get_process_graph(args.test_graph, -1)
         if args.model == "GAT":
             test_graph = test_graph.add_self_loop()
 
