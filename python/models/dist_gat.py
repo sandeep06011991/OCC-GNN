@@ -25,11 +25,11 @@ class DistGATModel(torch.nn.Module):
         self.num_heads = 3
         self.gpu_id = gpu_id
         num_heads = self.num_heads
-        self.layers.append(DistGATConv(in_feats, n_hidden, gpu_id, is_pulled,
+        self.layers.append(DistGATConv(in_feats, n_hidden, gpu_id,
                     deterministic = deterministic, num_heads = num_heads))
         for i in range(1, n_layers - 1):
-            self.layers.append(DistGATConv(n_hidden * num_heads, n_hidden,  gpu_id, is_pulled, num_heads = 3, deterministic = deterministic))
-        self.layers.append(DistGATConv(n_hidden * num_heads, n_classes, gpu_id, is_pulled, num_heads = 1, deterministic = deterministic))
+            self.layers.append(DistGATConv(n_hidden * num_heads, n_hidden,  gpu_id,  num_heads = 3, deterministic = deterministic))
+        self.layers.append(DistGATConv(n_hidden * num_heads, n_classes, gpu_id, num_heads = 1, deterministic = deterministic))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
         self.is_pulled = is_pulled
@@ -40,9 +40,9 @@ class DistGATModel(torch.nn.Module):
         
         for l,(layer, bipartite_graph) in  \
             enumerate(zip(self.layers,bipartite_graphs.layers)):
-                if(self.is_pulled):
-                    x = pull(bipartite_graph, x, self.gpu_id, l)
-                x = layer(bipartite_graph, x,l, testing )
+            if(self.is_pulled):
+                x = pull(bipartite_graph, x, self.gpu_id, l)
+            x = layer(bipartite_graph, x,l, testing )
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
         return x
@@ -65,6 +65,6 @@ def get_gat_distributed(hidden, features, num_classes, gpu_id, deterministic, mo
 
     n_layers = 3
     activation = torch.nn.ReLU()
-    assert(model==  "gat")
+    assert(model==  "gat" or model == "gat-pull")
     return DistGATModel(in_feats, n_hidden, n_classes, n_layers, activation, \
             dropout, gpu_id, is_pulled, deterministic = deterministic )

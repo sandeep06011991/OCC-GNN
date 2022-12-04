@@ -88,10 +88,10 @@ def run_experiment_quiver( model ):
     # graph, hidden_size, fsize, minibatch_size
     settings = [
                 # ("ogbn-arxiv",16, 128, 1024), \
-                # ("ogbn-arxiv",16, 128, 4096), \
+                ("ogbn-arxiv",16, 128, 4096), \
                 # ("ogbn-arxiv",16, 128, 256),  \
                 # ("ogbn-products",16, 100, 1024), \
-                ("ogbn-products",16, 100, 1024), \
+                # ("ogbn-products",16, 100, 1024), \
                 # ("ogbn-products",16, 100, 4096), \
                 # ("ogbn-products",16, 100, 256),  \
                 # ("reorder-papers100M", 16, 128,  256),\
@@ -112,7 +112,7 @@ def run_experiment_quiver( model ):
     print(settings)
     sha,dirty = get_git_info()
 
-    with open('{}/exp6_{}_naive.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
+    with open('{}/exp6/exp6_{}_naive.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  |" + \
             " batch-size | model  | sample_get | move-data | forward |" +\
@@ -120,7 +120,7 @@ def run_experiment_quiver( model ):
     for graphname, hidden_size, fsize, batch_size in settings:
         out = run_quiver(graphname, model ,no_epochs, hidden_size, fsize, batch_size)
         print(out)
-        with open('{}/exp6_{}_naive.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
+        with open('{}/exp6/exp6_{}_naive.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
             fp.write(("{} | {} | {} | {} | {} "+\
                    "| {} | {} | {} | {} | {} |"+\
                    " {} | {}  | {} | {} \n").format(graphname , SYSTEM , hidden_size, fsize,\

@@ -147,7 +147,7 @@ def main(args):
         self_edge = False
     if args.model == "gat":
         self_edge = True
-    if args.model == "gat_pull"
+    if args.model == "gat-pull":
         self_edge = True
         pull_optimization = True
         rounds = 4

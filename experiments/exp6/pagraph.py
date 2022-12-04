@@ -132,13 +132,13 @@ def run_model(model):
     #graphs = ['ogbn-arxiv']
     settings = [#('ogbn-arxiv', 16, 1024),
                 #('ogbn-arxiv', 16, 256),
-                # ('ogbn-arxiv', 16, 4096),
-                 ('ogbn-products', 16, 1024),
-                 ('ogbn-products', 16, 256),
-                 ('ogbn-products', 16, 4096),
-                 ('reorder-papers100M',16, 1024),
-                 ('reorder-papers100M',16, 256),
-                 ('reorder-papers100M',16, 4096),
+                 ('ogbn-arxiv', 16, 4096),
+                # ('ogbn-products', 16, 1024),
+                # ('ogbn-products', 16, 256),
+                # ('ogbn-products', 16, 4096),
+                # ('reorder-papers100M',16, 1024),
+                # ('reorder-papers100M',16, 256),
+                # ('reorder-papers100M',16, 4096),
                 # ('amazon', 16, 1024), 
                 # ('amazon', 16, 4096), 
                 # ('amazon', 16, 256)
@@ -146,7 +146,7 @@ def run_model(model):
                 ]
 
     cache_per = ["0",".1",".25",".5","1"]
-    # cache_per = [ ".1"]
+    cache_per = [ ".1"]
     run_experiment(model, settings, cache_per)
 
     #settings = [('ogbn-arxiv',16,1024)]

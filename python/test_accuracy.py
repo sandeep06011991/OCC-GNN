@@ -29,6 +29,7 @@ class TestAccuracy:
         rounds = 3
         pull_optimization = False
         num_layers = 3
+        self.self_edge = self_edge
         self.sampler = cslicer(filename, storage_vector, fanout, deterministic, testing, self_edge, rounds, pull_optimization, num_layers)
         test_mask = dg_graph.ndata['test_mask']
         self.test_ids = torch.where(test_mask)[0]
@@ -97,7 +98,7 @@ class TestAccuracy:
                 gpu_local_sample = Gpu_Local_Sample()
                 # print(data.device , device)
                 construct_from_tensor_on_gpu(data, self.device, gpu_local_sample)
-                gpu_local_sample.prepare()
+                gpu_local_sample.prepare(attention = self.self_edge)
                 in_feat = torch.empty(gpu_local_sample.cache_hit_to.shape[0], *self.features.shape[1:], device = 0) 
                 in_feat[gpu_local_sample.cache_hit_to] = self.features[gpu_local_sample.cache_hit_from]
                 predicted = model.forward(gpu_local_sample, in_feat ,True)

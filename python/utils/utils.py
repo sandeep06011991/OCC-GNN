@@ -30,7 +30,7 @@ def get_data_dir():
         SYSTEM = "jupiter"
         PATH_DIR = "/home/spolisetty/OCC-GNN/python"
         ROOT_DIR = "/home/spolisetty/OCC-GNN"
-        OUT_DIR = '/home/spolisetty/OCC-GNN/experiments/exp6'
+        OUT_DIR = '/home/spolisetty/OCC-GNN/experiments'
         PA_ROOT_DIR = "/home/spolisetty/OCC-GNN/upgraded_pagraph"
     if username == "q91":
         DATA_DIR = "/mnt/bigdata/sandeep"
@@ -40,7 +40,7 @@ def get_data_dir():
         SYSTEM = "P4"
         PATH_DIR = "/home/ubuntu/OCC-GNN/python"
         ROOT_DIR = "/home/ubuntu/OCC-GNN"
-        OUT_DIR = '/home/ubuntu/OCC-GNN/experiments/exp6'
+        OUT_DIR = '/home/ubuntu/OCC-GNN/experiments'
         PA_ROOT_DIR = "/home/ubuntu/OCC-GNN/upgraded_pagraph"
 
     return DATA_DIR,PATH_DIR, ROOT_DIR, OUT_DIR, SYSTEM, PA_ROOT_DIR

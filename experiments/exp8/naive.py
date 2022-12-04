@@ -84,7 +84,7 @@ def run_experiment_naive(model):
     print(settings)
     sha,dirty = get_git_info()
 
-    with open('{}/exp8_{}_naive.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
+    with open('{}/exp8/exp8_{}_naive.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  |" + \
             " batch-size | model  | sample_get | move-data | forward |" +\
@@ -92,7 +92,7 @@ def run_experiment_naive(model):
     for graphname, hidden_size, fsize, batch_size, test_graph in settings:
         out = run_quiver(graphname, model ,no_epochs, hidden_size, fsize, batch_size, test_graph)
         print(out)
-        with open('{}/exp8_{}_naive.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
+        with open('{}/exp8/exp8_{}_naive.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
             fp.write(("{} | {} | {} | {} | {} "+\
                    "| {} | {} \n").format(graphname , SYSTEM , hidden_size, fsize,\
                     4 * batch_size, model, out["test_accuracy"]))

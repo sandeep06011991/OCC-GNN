@@ -152,7 +152,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         self_edge = False
         attention = False
     else:
-        assert(args.model == "gat" | args.model == "gat-pull")
+        assert(args.model == "gat" or args.model == "gat-pull")
         if(args.model == "gat"):
             pull = False
         else:

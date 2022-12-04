@@ -73,15 +73,16 @@ class DistGATConv(nn.Module):
 
         e = bipartite_graph.apply_edge_local(el, er)
         e = self.leaky_relu(e)
-        e_r = bipartite_graph.apply_edge_remote(el,er_remote)
-        e_r = self.leaky_relu(e_r)
+        if not testing:
+            e_r = bipartite_graph.apply_edge_remote(el,er_remote)
+            e_r = self.leaky_relu(e_r)
         # TODO: fix exponent overflow
         # print("fix exponent overflow here.")
         #with torch.no_grad():
         if True:
             local_max = bipartite_graph.gather_local_max(e)
-            remote_max = bipartite_graph.gather_remote_max(e_r)
             if not testing:
+                remote_max = bipartite_graph.gather_remote_max(e_r)
                 merge_maxes = Shuffle.apply(
                     remote_max, self.gpu_id, l,  bipartite_graph.get_from_nds_size(),  bipartite_graph.to_offsets)
                 for i in range(4):
@@ -96,15 +97,17 @@ class DistGATConv(nn.Module):
                     local_max , self.gpu_id, l,   bipartite_graph.from_ids,  bipartite_graph.to_offsets)
 
             local_max = bipartite_graph.copy_from_out_nodes_local(local_max)
-            remote_max = bipartite_graph.copy_from_out_nodes_remote(remote_max)
+            if not testing:
+                remote_max = bipartite_graph.copy_from_out_nodes_remote(remote_max)
 
         # m = 0
         exponent_l = e - local_max
         exponent_l = torch.exp(exponent_l)
         sum_exponent_local = bipartite_graph.apply_node_local(exponent_l)
-        exponent_r = e_r - remote_max
-        exponent_r = torch.exp(exponent_r)
-        sum_exponent_remote_r = bipartite_graph.apply_node_remote(exponent_r)
+        if not testing:
+            exponent_r = e_r - remote_max
+            exponent_r = torch.exp(exponent_r)
+            sum_exponent_remote_r = bipartite_graph.apply_node_remote(exponent_r)
 
         if not testing:
             merge_sum = Shuffle.apply(
@@ -120,14 +123,15 @@ class DistGATConv(nn.Module):
         sum_exponent = bipartite_graph.copy_from_out_nodes_local(sum_exponent_local)
         sum_exponent[torch.where(sum_exponent == 0)[0]] = 1
         attention_l = exponent_l / sum_exponent
-
-        remote_sum_l = bipartite_graph.copy_from_out_nodes_remote(remote_sum)
-        remote_sum_l[torch.where(remote_sum_l == 0)[0]] = 1
-        attention_r = exponent_r / remote_sum_l
+        if not testing:
+            remote_sum_l = bipartite_graph.copy_from_out_nodes_remote(remote_sum)
+            remote_sum_l[torch.where(remote_sum_l == 0)[0]] = 1
+            attention_r = exponent_r / remote_sum_l
 
         out_local = bipartite_graph.attention_gather_local(attention_l, in_feats)
-        out_remote = bipartite_graph.attention_gather_remote(attention_r, in_feats)
         if not testing:
+            out_remote = bipartite_graph.attention_gather_remote(attention_r, in_feats)
+
             merge_out = Shuffle.apply(
                 out_remote, self.gpu_id, l, bipartite_graph.get_from_nds_size(),bipartite_graph.to_offsets)
             out_local = out_local.clone()

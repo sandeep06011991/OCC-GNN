@@ -6,6 +6,8 @@ import git
 # Check environment before getting root dir.
 import os, pwd
 from utils.utils import *
+
+
 '''
 uname = pwd.getpwuid(os.getuid())[0]
 os.environ['NCCL_BUFFSIZE'] = str(1024 * 1024 * 80)
@@ -89,13 +91,13 @@ def run_experiment_occ(model):
                 #("ogbn-arxiv",16, 128, 1024),
                 # ("ogbn-arxiv", 16, 128, 4096), \
                 #("ogbn-arxiv",16, 128, 16384),\
-                ("ogbn-arxiv",3, 32 , -1 , 4096, "ogbn-arxiv"), \
-                ("ogbn-products",16, 100, 4096,"ogbn-products"), \
+                ("ogbn-arxiv", 32 , -1 , 4096, "ogbn-arxiv"), \
+                #("ogbn-products",16, 100, 4096,"ogbn-products"), \
                 #("ogbn-products", 16, 100, 4096), \
                 #("ogbn-products",16, 100 , 16384), \
                 #("reorder-papers100M", 16, 128, 1024),\
-                ("reorder-papers100M", 16, 128, 4096, "test_reorder_papers100M"),\
-                ("amazon", 16, 200, 4096, "amazon"),\
+                #("reorder-papers100M", 16, 128, 4096, "test_reorder_papers100M"),\
+                #("amazon", 16, 200, 4096, "amazon"),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -122,6 +124,7 @@ def run_experiment_occ(model):
     print(settings)
     sha,dirty = get_git_info()
     assert(model in ["gcn","gat"])
+    print(OUT_DIR + '/exp8/exp8_occ_{}.txt'.format(SYSTEM))
     with open(OUT_DIR + '/exp8_occ_{}.txt'.format(SYSTEM),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size |"+\
@@ -132,11 +135,11 @@ def run_experiment_occ(model):
                 if float(cache) > .3:
                     continue
             out = run_occ(graphname, model,  cache, hidden_size,fsize, batch_size, test_graph)
-            with open(OUT_DIR + '/exp8_occ_{}.txt'.format(SYSTEM),'a') as fp:
-                fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |{} | {} \n".\
-                    format(graphname , SYSTEM, cache, hidden_size, fsize, batch_size, model, out["test_accuracy"])
+            with open(OUT_DIR + '/exp8/exp8_occ_{}.txt'.format(SYSTEM),'a') as fp:
+                fp.write("{} | {} | {} | {} | {} | {} | {} | {} \n".\
+                    format(graphname , SYSTEM, cache, hidden_size, fsize, batch_size, model, out["test_accuracy"]))
 
-'''
+
 def run_sbatch(model, settings, cache_rates):
     check_path()
     print(settings)
@@ -158,10 +161,10 @@ def run_sbatch(model, settings, cache_rates):
                     format(graphname , SYSTEM, cache, hidden_size, fsize, batch_size, model, out["sample_get"], \
                         out["movement_graph"], out["movement_feat"], out["forward"], out["backward"], \
                          out["epoch"], out["accuracy"], out["data_moved"], out["edges_moved"]))
-'''
+
 
 if __name__ == "__main__":
-    run_experiment_occ("gcn")
+    #run_experiment_occ("gcn")
     run_experiment_occ("gat")
     print("Success!!!!!!!!!!!!!!!!!!!")
     #run_model("gat")

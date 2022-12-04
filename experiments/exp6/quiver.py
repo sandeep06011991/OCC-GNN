@@ -126,7 +126,7 @@ def run_experiment_quiver( model ):
     print(settings)
     sha,dirty = get_git_info()
 
-    with open('{}/exp6_quiver.txt'.format(OUT_DIR),'a') as fp:
+    with open('{}/exp6/exp6_quiver.txt'.format(OUT_DIR),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  |" + \
             " batch-size | model  | sample_get | move-data | forward |" +\
@@ -137,7 +137,7 @@ def run_experiment_quiver( model ):
                 if float(cache) > .3:
                     continue
             out = run_quiver(graphname, model ,no_epochs, cache, hidden_size, fsize, batch_size)
-            with open('{}/exp6_quiver.txt'.format(OUT_DIR),'a') as fp:
+            with open('{}/exp6/exp6_quiver.txt'.format(OUT_DIR),'a') as fp:
                 fp.write(("{} | {} | {} | {} | {} | {} "+\
                        "| {} | {} | {} | {} | {} | {} |"+\
                        " {} | {}  | {} |  {} \n").format(graphname , "quiver", cache, hidden_size, fsize,\
