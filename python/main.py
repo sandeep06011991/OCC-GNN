@@ -141,10 +141,16 @@ def main(args):
         # When debugging at node level
         # train_nid = torch.arange(0,32)
     minibatches_per_epoch = int(len(train_nid)/minibatch_size)
+    pull_optimization = False
+    rounds = 0
     if args.model == "gcn":
         self_edge = False
     if args.model == "gat":
         self_edge = True
+    if args.model == "gat_pull"
+        self_edge = True
+        pull_optimization = True
+        rounds = 4
     print("Training on num nodes = ",train_nid.shape)
     # global train_nid_list
     # train_nid_list= train_nid.tolist()
@@ -168,7 +174,7 @@ def main(args):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, sample_queues[0], lock,\
                                 storage_vector, args.deterministic,
-                                proc, sm_filename_queue, no_worker_process, fanout_val, file_id, self_edge))
+                                proc, sm_filename_queue, no_worker_process, fanout_val, file_id, self_edge, pull_optimization, rounds))
         slice_producer_process.start()
         slice_producer_processes.append(slice_producer_process)
 
@@ -229,5 +235,5 @@ if __name__=="__main__":
     #                        help="Inductive learning setting")
     args = argparser.parse_args()
     mp.set_start_method('spawn')
-    assert(args.model in ["gcn","gat"])
+    assert(args.model in ["gcn","gat", "gat-pull"])
     main(args)

@@ -37,7 +37,20 @@ def compute_stats_for_minibatch(eventlist_for_gpus):
     #        mb[eventlist_for_gpus[i][j]] = string_map[j]+" " + str(i) + " " + str(eventlist_for_gpus[i][j])
     #for i in sorted(mb.keys()):
     #    print(mb[i])
-    # print("End")
+    #print("End")
+    batch_graph = []
+    batch_sample = []
+    all_load_time = []
+    batch_forward = []
+    for e in eventlist_for_gpus:
+        batch_graph.append(e[DATALOAD_START_TIME] - e[GRAPH_LOAD_START_TIME])
+        batch_sample.append(e[GRAPH_LOAD_START_TIME] - e[SAMPLE_START_TIME]) 
+        batch_forward.append(e[FORWARD_ELAPSED_EVENT_TIME])
+        all_load_time.append(e[DATALOAD_END_TIME] - e[GRAPH_LOAD_START_TIME])
+    batch_graph = sum(batch_graph)/4
+    batch_sample = sum(batch_sample)/4
+    batch_forward = sum(batch_forward)/4
+    all_load_time = sum(all_load_time)/4
 
     min_graph_start = min([e[GRAPH_LOAD_START_TIME] for e in eventlist_for_gpus])
     max_graph_end = max([e[DATALOAD_START_TIME] for e in eventlist_for_gpus])
@@ -46,13 +59,14 @@ def compute_stats_for_minibatch(eventlist_for_gpus):
     max_end_backward = max([e[END_BACKWARD] for e in eventlist_for_gpus])
     start_bw = [e[DATALOAD_END_TIME]  + e[FORWARD_ELAPSED_EVENT_TIME] for e in eventlist_for_gpus]
     batch_load_time = max_load_end - min_load_start
-    batch_forward = max(start_bw) - max_load_end
+    #batch_forward = max(start_bw) - max_load_end
     batch_backward  = max_end_backward - max(start_bw)
-    batch_graph = max_graph_end - min_graph_start
-    batch_sample = sum([e[GRAPH_LOAD_START_TIME] - e[SAMPLE_START_TIME]  for e in eventlist_for_gpus])/4
-    all_load_time = max_load_end - min_graph_start
+    #batch_graph = max_graph_end - min_graph_start
+    #batch_sample = sum([e[GRAPH_LOAD_START_TIME] - e[SAMPLE_START_TIME]  for e in eventlist_for_gpus])/4
+    #all_load_time = max_load_end - min_graph_start
     max_epoch_time = max_end_backward - min_graph_start
-    return batch_sample, batch_graph, batch_load_time, batch_forward, batch_backward, all_load_time, max_epoch_time
+    return batch_sample, batch_graph, batch_load_time, \
+                batch_forward, batch_backward, all_load_time, max_epoch_time
 
 def compute_metrics(recieved_metrics):
     assert(len(recieved_metrics) == 4)

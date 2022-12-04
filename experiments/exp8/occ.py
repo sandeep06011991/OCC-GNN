@@ -53,7 +53,7 @@ def check_single(ls):
     assert(len(ls) == 1)
     return ls[0]
 
-def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
+def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, test_graph_dir):
 
     output = subprocess.run(["python3.8",\
             "{}/python/main.py".format(ROOT_DIR),\
@@ -61,7 +61,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         "--model", model , \
         "--cache-per" , str(cache_per),\
         "--num-hidden",  str(hidden_size), \
-        "--batch-size", str(minibatch_size) , "--num-epochs", "6", "--num-workers", "16"] \
+        "--batch-size", str(minibatch_size) , "--num-epochs", "6", "--num-workers", "16", "--test-graph-dir", test_graph_dir] \
             , capture_output = True)
     # print(out,error)
     out = str(output.stdout)
@@ -70,45 +70,17 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
     try:
     #if True:
-        accuracy  = check_single(re.findall("accuracy:(\d+\.\d+)",out))
-        epoch = check_single(re.findall("epoch_time:(\d+\.\d+)",out))
-        sample_get  = check_single(re.findall("sample_time:(\d+\.\d+)",out))
-        movement_graph =  check_single(re.findall("movement graph:(\d+\.\d+)",out))
-        movement_feat = check_single(re.findall("movement feature:(\d+\.\d+)",out))
-        forward_time = check_single(re.findall("forward time:(\d+\.\d+)",out))
-        backward_time = check_single(re.findall("backward time:(\d+\.\d+)",out))
-        data_moved = check_single(re.findall("data movement:(\d+\.\d+)MB",out))
-        edges_moved = re.findall("edges per epoch:(\d+\.\d+)",out)
-        s = 0
-        for i in range(4):
-            s = s + float(edges_moved[i])
-        edges_moved = s / 4
-        sample_get = "{:.2f}".format(float(sample_get))
-        movement_graph = "{:.2f}".format(float(movement_graph))
-        movement_feat = "{:.2f}".format(float(movement_feat))
-        accuracy = "{:.2f}".format(float(accuracy))
-        forward_time = "{:.2f}".format(float(forward_time))
-        epoch = "{:.2f}".format(float(epoch))
-        backward_time = "{:.2f}".format(float(backward_time))
-        data_moved = int(float(data_moved))
-        edges_moved = int(float(edges_moved))
+        test_accuracy = re.findall("test_accuracy_log:(\d+\.\d+), epoch:(\d+)",out)
+        test_accuracy.sort(key = lambda x:int(x[1]))
+        ret = []
+        for i in test_accuracy:
+            ret.append(i[0])
 
     except Exception as e:
         with open('exception_occ.txt','w') as fp:
             fp.write(error)
-
-        sample_get = "error"
-        movement_graph = "error"
-        movement_feat = "error"
-        forward_time = "error"
-        backward_time = "error"
-        accuracy = "error"
-        epoch = "error"
-        data_moved = "error"
-        edges_moved = "error"
-    return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
-            "movement_graph":movement_graph, "movement_feat": movement_feat, "epoch":epoch,
-                "accuracy": accuracy, "data_moved":data_moved, "edges_moved":edges_moved}
+        ret = "error"
+    return {"test_accuracy":ret }
 
 
 def run_experiment_occ(model):
@@ -117,15 +89,13 @@ def run_experiment_occ(model):
                 #("ogbn-arxiv",16, 128, 1024),
                 # ("ogbn-arxiv", 16, 128, 4096), \
                 #("ogbn-arxiv",16, 128, 16384),\
-                #("ogbn-arxiv",3, 32 , -1 , 1024), \
-                ("ogbn-products",16, 100, 1024), \
-                ("ogbn-products", 16, 100, 4096), \
-                ("ogbn-products",16, 100 , 16384), \
-                ("reorder-papers100M", 16, 128, 1024),\
-                ("reorder-papers100M", 16, 128, 4096),\
-                ("reorder-papers100M", 16, 128, 16384),\
-                ("amazon", 16, 200, 4096),\
-                #("amazon", 16, 200, 4096),\
+                ("ogbn-arxiv",3, 32 , -1 , 4096, "ogbn-arxiv"), \
+                ("ogbn-products",16, 100, 4096,"ogbn-products"), \
+                #("ogbn-products", 16, 100, 4096), \
+                #("ogbn-products",16, 100 , 16384), \
+                #("reorder-papers100M", 16, 128, 1024),\
+                ("reorder-papers100M", 16, 128, 4096, "test_reorder_papers100M"),\
+                ("amazon", 16, 200, 4096, "amazon"),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -143,37 +113,30 @@ def run_experiment_occ(model):
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
     #cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
-    cache_rates = ["0", ".10", ".25"]
-    #settings = [("ogbn-arxiv", 16, 128, 1024),]
-    #cache_rates = [".10"]
-    #cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
     #cache_rates = ["0", ".10", ".25"]
     #settings = [("ogbn-arxiv", 16, 128, 1024),]
     #cache_rates = [".10",".25"]
-    #cache_rates = [".25"]
+    cache_rates = [".25"]
     #settings = [settings[0]]
     #check_path()
     print(settings)
     sha,dirty = get_git_info()
     assert(model in ["gcn","gat"])
-    with open(OUT_DIR + '/exp6_occ_{}.txt'.format(SYSTEM),'a') as fp:
+    with open(OUT_DIR + '/exp8_occ_{}.txt'.format(SYSTEM),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size |"+\
-            " model  | sample_get | move-graph | move-feature | forward | backward  |"+\
-                " epoch_time | accuracy | data_moved | edges_computed\n")
-    for graphname, hidden_size, fsize, batch_size in settings:
+            " model  | test_accuracy \n")
+    for graphname, hidden_size, fsize, batch_size, test_graph in settings:
         for cache in cache_rates:
             if graphname in ["ogbn-papers100M","com-friendster"]:
                 if float(cache) > .3:
                     continue
-            out = run_occ(graphname, model,  cache, hidden_size,fsize, batch_size)
-            with open(OUT_DIR + '/exp6_occ_{}.txt'.format(SYSTEM),'a') as fp:
+            out = run_occ(graphname, model,  cache, hidden_size,fsize, batch_size, test_graph)
+            with open(OUT_DIR + '/exp8_occ_{}.txt'.format(SYSTEM),'a') as fp:
                 fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |{} | {} \n".\
-                    format(graphname , SYSTEM, cache, hidden_size, fsize, batch_size, model, out["sample_get"], \
-                        out["movement_graph"], out["movement_feat"], out["forward"], out["backward"], \
-                         out["epoch"], out["accuracy"], out["data_moved"], out["edges_moved"]))
+                    format(graphname , SYSTEM, cache, hidden_size, fsize, batch_size, model, out["test_accuracy"])
 
-
+'''
 def run_sbatch(model, settings, cache_rates):
     check_path()
     print(settings)
@@ -195,7 +158,7 @@ def run_sbatch(model, settings, cache_rates):
                     format(graphname , SYSTEM, cache, hidden_size, fsize, batch_size, model, out["sample_get"], \
                         out["movement_graph"], out["movement_feat"], out["forward"], out["backward"], \
                          out["epoch"], out["accuracy"], out["data_moved"], out["edges_moved"]))
-
+'''
 
 if __name__ == "__main__":
     run_experiment_occ("gcn")

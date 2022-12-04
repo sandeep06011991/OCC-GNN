@@ -24,8 +24,8 @@ from utils.timing_analysis import *
 #from utils.env import *
 from utils.utils import *
 import pickle
-
-
+import torch.autograd.profiler as profiler
+from torch.profiler import profile, record_function, ProfilerActivity
 def average(ls):
     if(len(ls) == 1):
         return ls[0]
@@ -144,93 +144,104 @@ def run(rank, args,  data):
     e4 = torch.cuda.Event(enable_timing = True)
 
     test_accuracy_list = []
-    for epoch in range(args.num_epochs):
-        tic = time.time()
+    #with profile(enabled = False, activities = [ProfilerActivity.CUDA, ProfilerActivity.CPU],\
+    #            use_cuda = True, \
+    #            schedule = torch.profiler.schedule(wait = 2, warmup = 1, active = 1000)) as prof:
+    if True:    
+        for epoch in range(args.num_epochs):
+            tic = time.time()
 
-        model.train()
-        #pbar = tqdm(total=train_nid.size(0))
-        #pbar.set_description(f'Epoch {epoch:02d}')
-        total_loss = total_correct = 0
-        # Loop over the dataloader to sample the computation dependency graph as a list of
-        # blocks.
-        epoch_start = time.time()
-        dataloader_i = iter(dataloader)
-        edges_computed = 0
-        data_movement = 0
-        step = 0
-        # For metrics collection
-        minibatch_metrics = []
-        try:
-            while True:
-                batch_time = {}
-                optimizer.zero_grad()
-                t1 = time.time()
-                input_nodes, seeds, blocks = next(dataloader_i)
-                t2 = time.time()
-                batch_time[SAMPLE_START_TIME] = t1
-                batch_time[GRAPH_LOAD_START_TIME] = t2
+            model.train()
+            #pbar = tqdm(total=train_nid.size(0))
+            #pbar.set_description(f'Epoch {epoch:02d}')
+            total_loss = total_correct = 0
+            # Loop over the dataloader to sample the computation dependency graph as a list of
+            # blocks.
+            epoch_start = time.time()
+            dataloader_i = iter(dataloader)
+            edges_computed = 0
+            data_movement = 0
+            step = 0
+            # For metrics collection
+            minibatch_metrics = []
+            try:
+                while True:
+                    batch_time = {}
+                    optimizer.zero_grad()
+                    t1 = time.time()
+                    with profiler.record_function("sampling"):    
+                        input_nodes, seeds, blocks = next(dataloader_i)
+                    t2 = time.time()
+                    batch_time[SAMPLE_START_TIME] = t1
+                    batch_time[GRAPH_LOAD_START_TIME] = t2
                 # copy block to gpu
-                blocks = [blk.to(device) for blk in blocks]
+                    with profiler.record_function("movement"):
+                        blocks = [blk.to(device) for blk in blocks]
                 #t2 = time.time()
                 # blocks = [blk.formats(['coo','csr','csc']) for blk in blocks]
-                for blk in blocks:
-                    # blk.create_formats_()
-                    edges_computed += blk.edges()[0].shape[0]
+                    for blk in blocks:
+                        # blk.create_formats_()
+                        edges_computed += blk.edges()[0].shape[0]
                 #print(edges_computed)
-                t3 = time.time()
-                batch_time[DATALOAD_START_TIME] = t3
+                    t3 = time.time()
+                    batch_time[DATALOAD_START_TIME] = t3
                 # Load the input features as well as output labels
-                batch_inputs, batch_labels = load_subtensor(
-                    nfeat, labels, seeds, input_nodes, device)
-                t4 = time.time()
-                batch_time[DATALOAD_END_TIME] = t4
+                    with profiler.record_function("movement"):
+                        batch_inputs, batch_labels = load_subtensor(
+                        nfeat, labels, seeds, input_nodes, device)
+                    t4 = time.time()
+                    batch_time[DATALOAD_END_TIME] = t4
                 # Compute loss and prediction
                 #with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
-                if True:
+                #if True:
                     e3.record()
-                    batch_pred = model(blocks, batch_inputs)
-                    loss = loss_fcn(batch_pred, batch_labels)
-                    e4.record()
+                    with profiler.record_function("training"):
+                        batch_pred = model(blocks, batch_inputs)
+                        loss = loss_fcn(batch_pred, batch_labels)
+                        e4.record()
                     #e3.record()
-                    loss.backward()
-                    batch_time[END_BACKWARD] = time.time()
-                e4.synchronize()
-                optimizer.step()
+                        loss.backward()
+                        batch_time[END_BACKWARD] = time.time()
+                        e4.synchronize()
+                        optimizer.step()
                 #print("sample time", t2-t1, t3-t2)
-                batch_time[FORWARD_ELAPSED_EVENT_TIME] = e3.elapsed_time(e4)/1000
+                    batch_time[FORWARD_ELAPSED_EVENT_TIME] = e3.elapsed_time(e4)/1000
                 #print("Time feature", device, e1.elapsed_time(e2)/1000)
                 #print("Expected bandwidth", missed * nfeat.shape[1] * 4/ ((e1.elapsed_time(e2)/1000) * 1024 * 1024 * 1024), "GB device", rank, "cache rate", hit/(hit + missed))
-                data_movement += (batch_inputs.shape[0] * nfeat.shape[1] * 4/(1024 * 1024))
-                minibatch_metrics.append(batch_time)
-                if args.early_stopping and step ==5:
-                    break
-                step = step + 1
-                if rank == 0:
-                    log.info("step {}, epoch {}, number_of_minibatches {}".format(step, epoch, number_of_minibatches))
+                    data_movement += (batch_inputs.shape[0] * nfeat.shape[1] * 4/(1024 * 1024))
+                    minibatch_metrics.append(batch_time)
+                    if args.early_stopping and step ==5:
+                        break
+                    step = step + 1
+                    if rank == 0:
+                        log.info("step {}, epoch {}, number_of_minibatches {}".format(step, epoch, number_of_minibatches))
 
-                total_loss += loss.item()
-                total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
+                    total_loss += loss.item()
+                    total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
         #        pbar.update(args.batch_size)
-        except StopIteration:
-            pass
-        epoch_metrics.append(minibatch_metrics)
-        if test_graph != None and rank== 0:
-            test_nid = torch.where(test_graph.ndata['test_mask'])[0]
-            test_accuracy = evaluate(model, test_graph, test_graph.ndata['features'], test_graph.ndata['labels'], \
+            except StopIteration:
+                pass
+            epoch_metrics.append(minibatch_metrics)
+            if test_graph != None and rank== 0:
+                test_nid = torch.where(test_graph.ndata['test_mask'])[0]
+                test_accuracy = evaluate(model, test_graph, test_graph.ndata['features'], test_graph.ndata['labels'], \
                         test_nid, device)
-            test_accuracy_list.append(test_accuracy.item())
-            print("Accuracy: {}, device:{}, epoch:{}".format(test_accuracy, device, epoch))
+                test_accuracy_list.append(test_accuracy.item())
+                print("Test Accuracy:{} Epoch:{}".format(test_accuracy, epoch))
+                #print("Accuracy: {}, device:{}, epoch:{}".format(test_accuracy, device, epoch))
+            #prof.step()
 
-        epoch_time.append(time.time() - epoch_start)
+            epoch_time.append(time.time() - epoch_start)
         #pbar.close()
-        data_movement_epoch.append(data_movement)
-        edges_per_epoch.append(edges_computed)
-        loss = total_loss / len(dataloader)
-        approx_acc = total_correct / (len(dataloader) * args.batch_size)
-        accuracy.append(approx_acc)
-        print(f'Epoch {epoch:02d}, Loss: {loss:.4f}, Approx. Train: {approx_acc:.4f}, Epoch Time: {time.time() - tic:.4f}')
+            data_movement_epoch.append(data_movement)
+            edges_per_epoch.append(edges_computed)
+            loss = total_loss / len(dataloader)
+            approx_acc = total_correct / (len(dataloader) * args.batch_size)
+            accuracy.append(approx_acc)
+            print(f'Epoch {epoch:02d}, Loss: {loss:.4f}, Approx. Train: {approx_acc:.4f}, Epoch Time: {time.time() - tic:.4f}')
+    #print("PROFF #############")
+    #print(prof.key_averages().table(sort_by="self_cpu_time_total"))
     if rank == 0 :
-        #print(prof.key_averages().table(sort_by='cuda_time_total'))
         print("Test Accuracy ###########", test_accuracy_list)
         #
         # if epoch >= 10:
@@ -247,12 +258,15 @@ def run(rank, args,  data):
         pickle.dump(epoch_metrics, outp, pickle.HIGHEST_PROTOCOL)
 
     if rank == 0:
+        print("Epoch", epoch_time)
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch_time:{}".format(average(epoch_time)))
 
         print("edges_per_epoch:{}".format(average(edges_per_epoch)))
         print("data moved:{}MB".format(average(data_movement_epoch)))
     #torch.distributed.barrier()
+    # print(prof.key_averages(group_by_stack_n=5).table(sort_by='self_gpu_time_total', row_limit=5))
+
     #dist.destroy_process_group()
     return final_test_acc
 
@@ -349,6 +363,7 @@ if __name__ == '__main__':
             epoch_batch_forward, epoch_batch_backward, \
             epoch_batch_loadtime, epoch_batch_totaltime = \
                 compute_metrics(collected_metrics)
+    
     print("sample_time:{}".format(epoch_batch_sample))
     print("movement graph:{}".format(epoch_batch_graph))
     print("movement feature:{}".format(epoch_batch_loadtime))

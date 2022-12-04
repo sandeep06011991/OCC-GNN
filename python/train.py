@@ -152,11 +152,16 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         self_edge = False
         attention = False
     else:
-        assert(args.model == "gat")
+        assert(args.model == "gat" | args.model == "gat-pull")
+        if(args.model == "gat"):
+            pull = False
+        else:
+            pull = True
         model = get_gat_distributed(args.num_hidden, features, num_classes,
-            proc_id, args.deterministic, args.model)
+                proc_id, args.deterministic, args.model, pull)
         self_edge = True
         attention = True
+    
     if proc_id ==0:
         print(args.test_graph_dir)
         if args.test_graph_dir != None:

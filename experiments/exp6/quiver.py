@@ -73,6 +73,9 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         data_moved = sum(data_moved)/4
         #print("accuracy",accuracy)
         #print("edges", edges)
+        sample_get, movement_data, forward_time, backward_time = normalize\
+                (epoch, sample_get, movement_data, forward_time, backward_time)
+
     except Exception as e:
         with open('exception_quiver.txt','a') as fp:
             fp.write(error)

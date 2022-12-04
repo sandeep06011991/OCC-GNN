@@ -40,11 +40,9 @@ def work_producer(work_queue, training_nodes, batch_size,
 # The first process communicates with other processes.
 def slice_producer(graph_name, work_queue, sample_queue, \
     lock , storage_vector, \
-        deterministic, worker_id, sm_filename_queue, num_workers, fanout,file_id, self_edge):
+        deterministic, worker_id, sm_filename_queue, num_workers, fanout,file_id, self_edge, pull_optimization, rounds):
     no_worker_threads = 1
     testing = False
-    rounds = 1
-    pull_optimization = False
     num_layers = 3
     sampler = cslicer(graph_name,storage_vector,fanout, deterministic, testing , self_edge, rounds, \
             pull_optimization, num_layers)

@@ -22,6 +22,7 @@ def check_path():
 import os, pwd
 
 from utils.utils import *
+from normalize import *
 
 def average_string(ls):
     print(ls)
@@ -65,6 +66,7 @@ def run_quiver(graphname, model, epochs, hidden_size, fsize, minibatch_size):
         data_moved = int(float(data_moved))
         #print("accuracy",accuracy)
         #print("edges", edges)
+        sample_get, movement_data_time, forward_time, backward_time = normalize(epoch, sample_get, movement_data_time, forward_time, backward_time)
     except Exception as e:
         with open('exception_naive.txt','a') as fp:
             fp.write(error)
@@ -131,4 +133,4 @@ def run_experiment_quiver( model ):
 
 if __name__=="__main__":
     run_experiment_quiver("GAT")
-    run_experiment_quiver("GCN")
+    #run_experiment_quiver("GCN")

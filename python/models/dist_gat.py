@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from layers.dist_sageconv import DistSageConv
 from layers.dist_gatconv import DistGATConv
+from layers.pull import *
 # Move this function to seperate file after first forward and back pass
 class DistGATModel(torch.nn.Module):
 
@@ -13,7 +14,7 @@ class DistGATModel(torch.nn.Module):
                  n_layers,
                  activation,
                  dropout,
-                 gpu_id,
+                 gpu_id, is_pulled,
                  queues = None, deterministic = False):
         super().__init__()
         self.n_layers = n_layers
@@ -22,22 +23,26 @@ class DistGATModel(torch.nn.Module):
         self.layers = nn.ModuleList()
         self.queues = queues
         self.num_heads = 3
+        self.gpu_id = gpu_id
         num_heads = self.num_heads
-        self.layers.append(DistGATConv(in_feats, n_hidden, gpu_id,
+        self.layers.append(DistGATConv(in_feats, n_hidden, gpu_id, is_pulled,
                     deterministic = deterministic, num_heads = num_heads))
         for i in range(1, n_layers - 1):
-            self.layers.append(DistGATConv(n_hidden * num_heads, n_hidden,  gpu_id, num_heads = 3, deterministic = deterministic))
-        self.layers.append(DistGATConv(n_hidden * num_heads, n_classes, gpu_id,num_heads = 1, deterministic = deterministic))
+            self.layers.append(DistGATConv(n_hidden * num_heads, n_hidden,  gpu_id, is_pulled, num_heads = 3, deterministic = deterministic))
+        self.layers.append(DistGATConv(n_hidden * num_heads, n_classes, gpu_id, is_pulled, num_heads = 1, deterministic = deterministic))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
+        self.is_pulled = is_pulled
         self.deterministic = deterministic
         self.fp_end = torch.cuda.Event(enable_timing=True)
         self.bp_end = torch.cuda.Event(enable_timing=True)
     def forward(self, bipartite_graphs, x, testing = False):
-
+        
         for l,(layer, bipartite_graph) in  \
             enumerate(zip(self.layers,bipartite_graphs.layers)):
-            x = layer(bipartite_graph, x,l, testing )
+                if(self.is_pulled):
+                    x = pull(bipartite_graph, x, self.gpu_id, l)
+                x = layer(bipartite_graph, x,l, testing )
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
         return x
@@ -49,7 +54,7 @@ class DistGATModel(torch.nn.Module):
 
 
 
-def get_gat_distributed(hidden, features, num_classes, gpu_id, deterministic, model):
+def get_gat_distributed(hidden, features, num_classes, gpu_id, deterministic, model, is_pulled):
     dropout = 0
     in_feats = features.shape[1]
     n_hidden = hidden
@@ -62,4 +67,4 @@ def get_gat_distributed(hidden, features, num_classes, gpu_id, deterministic, mo
     activation = torch.nn.ReLU()
     assert(model==  "gat")
     return DistGATModel(in_feats, n_hidden, n_classes, n_layers, activation, \
-            dropout, gpu_id, deterministic = deterministic )
+            dropout, gpu_id, is_pulled, deterministic = deterministic )

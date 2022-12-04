@@ -112,3 +112,117 @@ Traceback (most recent call last):
   File "pagraph.py", line 105, in start_client
     "move_feat":"{:.3f}".format(move_feat), "epoch_time":epoch, "miss_rate": miss_rate, "move_graph":move_graph\
 NameError: name 'epoch' is not defined
+  File "pagraph.py", line 164, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 120, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 88, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+Traceback (most recent call last):
+  File "pagraph.py", line 164, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 120, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 88, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+AssertionError
+  File "pagraph.py", line 164, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 120, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 88, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+Traceback (most recent call last):
+  File "pagraph.py", line 164, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 120, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 88, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+AssertionError
+  File "pagraph.py", line 164, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 120, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 88, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+Traceback (most recent call last):
+  File "pagraph.py", line 164, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 120, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 88, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+AssertionError
+  File "pagraph.py", line 164, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 120, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 83, in start_client
+    output = subprocess.run(cmd, capture_output=True)
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1868, in _communicate
+    ready = selector.select(timeout)
+  File "/usr/lib/python3.8/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+Traceback (most recent call last):
+  File "pagraph.py", line 164, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 120, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 83, in start_client
+    output = subprocess.run(cmd, capture_output=True)
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1868, in _communicate
+    ready = selector.select(timeout)
+  File "/usr/lib/python3.8/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+KeyboardInterrupt
+  File "pagraph.py", line 164, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 120, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 83, in start_client
+    output = subprocess.run(cmd, capture_output=True)
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1868, in _communicate
+    ready = selector.select(timeout)
+  File "/usr/lib/python3.8/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+Traceback (most recent call last):
+  File "pagraph.py", line 164, in run_experiment
+    run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache)
+  File "pagraph.py", line 120, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per)
+  File "pagraph.py", line 83, in start_client
+    output = subprocess.run(cmd, capture_output=True)
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1868, in _communicate
+    ready = selector.select(timeout)
+  File "/usr/lib/python3.8/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+KeyboardInterrupt

@@ -11,6 +11,8 @@ import sys
 import re
 import git
 
+from normalize import *
+
 Feat = {"ogbn-arxiv":"128","ogbn-products":"100", "reorder-papers100M":"128","amazon":200}
 ROOT_DIR = PA_ROOT_DIR
 def get_git_info():
@@ -105,6 +107,7 @@ def start_client(filename, model, num_hidden, batch_size, cache_per):
     miss_num = s/4
     edges_processed = e/4
     #miss_num = int(float(re.findall("Miss num per epoch: (\d+\.\d+)MB, device \d+",output)[0]))
+    sample, total_movement, forward, backward = normalize(epoch, total_movement, move_feat, forward, backward)
 
     #edges_processed = int(float(re.findall("Edges processed per epoch: (\d+\.\d+)",output)[0]))
     return {"sample":sample, "forward": forward, "backward": backward,\
@@ -127,19 +130,23 @@ def run_model(model):
     
     #graphs = ['ogbn-papers100M']
     #graphs = ['ogbn-arxiv']
-    settings = [('ogbn-arxiv', 16, 1024),
+    settings = [#('ogbn-arxiv', 16, 1024),
                 #('ogbn-arxiv', 16, 256),
-                #('ogbn-arxiv', 16, 4096),
-                #('ogbn-products', 16, 1024),
-                #('ogbn-products', 16, 256),
-                #('ogbn-products', 16, 4096),
-                # ('reorder-papers100M',16, 1024),
-                #('reorder-papers100M',16, 256),
-                #('reorder-papers100M',16, 4096)
+                # ('ogbn-arxiv', 16, 4096),
+                 ('ogbn-products', 16, 1024),
+                 ('ogbn-products', 16, 256),
+                 ('ogbn-products', 16, 4096),
+                 ('reorder-papers100M',16, 1024),
+                 ('reorder-papers100M',16, 256),
+                 ('reorder-papers100M',16, 4096),
+                # ('amazon', 16, 1024), 
+                # ('amazon', 16, 4096), 
+                # ('amazon', 16, 256)
+                
                 ]
 
     cache_per = ["0",".1",".25",".5","1"]
-    cache_per = [ ".1"]
+    # cache_per = [ ".1"]
     run_experiment(model, settings, cache_per)
 
     #settings = [('ogbn-arxiv',16,1024)]
