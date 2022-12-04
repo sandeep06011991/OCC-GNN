@@ -17,6 +17,9 @@ def work_producer(work_queue, training_nodes, batch_size,
         while(i < num_nodes):
             work_queue.put(training_nodes[i:i+batch_size])
             i = i + batch_size
+            # Wierd bug on P4
+            if(i + batch_size > num_nodes):
+                break
         work_queue.put("EPOCH")
     for n in range(num_workers):
         work_queue.put("END")

@@ -91,7 +91,7 @@ class DistSageConv(nn.Module):
                             bipartite_graph.to_offsets)
                     # Work on this signature later.
         # with torch.cuda.stream(self.local_stream):
-        out3 = bipartite_graph.gather_local(out)
+        out3 = bipartite_graph.gather_local(out).clone()
 
         # torch.cuda.current_stream().wait_stream(self.local_stream)
         # torch.cuda.current_stream().wait_stream(self.remote_stream)

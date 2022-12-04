@@ -207,8 +207,8 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
     }
     edge_policy.clear();
     if(check){
-      std::cout << "Cross checking if there are actually 0 remote subgraphs\n";
-      s.check_remote(this->workload_map);
+      std::cout << "Skipping Cross checking if there are actually 0 remote subgraphs\n";
+	//s.check_remote(this->workload_map);
 	//test_sample_partition_consistency_gat(s,ps, \
 	//   this->storage, this->gpu_capacity, this->workload_map.size());
     }

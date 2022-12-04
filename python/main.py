@@ -3,7 +3,7 @@ import argparse
 import torch
 import dgl
 # Ensures all enviroments are running on the correct version
-assert(dgl.__version__ == '0.8.2' or dgl.__version__=='0.9.1')
+assert(dgl.__version__ == '0.9.1post1' or dgl.__version__ == '0.8.2' or dgl.__version__=='0.9.1')
 import time
 import nvtx
 from dgl.sampling import sample_neighbors
@@ -23,7 +23,7 @@ import torch.distributed as dist
 import os
 import pwd
 import sys
-
+'''
 uname = pwd.getpwuid(os.getuid())[0]
 if uname == 'spolisetty':
     ROOT_DIR = "/home/spolisetty/OCC-GNN/cslicer/"
@@ -51,7 +51,8 @@ for p in sys.path:
 if (not path_set):
     print("Setting Path")
     sys.path.append(ROOT_DIR)
-
+'''
+from utils.utils import *
 from cslicer import cslicer
 from slicing import slice_producer
 

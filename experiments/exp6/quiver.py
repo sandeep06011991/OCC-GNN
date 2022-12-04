@@ -52,8 +52,8 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
     error = str(output.stderr)
     print(out,error)
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
-    #try:
-    if True:
+    try:
+    #if True:
         accuracy  = parse_float("accuracy:(\d+\.\d+)",out)
         epoch = parse_float("epoch_time:(\d+\.\d+)",out)
         sample_get  = parse_float("sample_time:(\d+\.\d+)",out)
@@ -73,7 +73,7 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         data_moved = sum(data_moved)/4
         #print("accuracy",accuracy)
         #print("edges", edges)
-    #except Exception as e:
+    except Exception as e:
         with open('exception_quiver.txt','a') as fp:
             fp.write(error)
         sample_get = "error"
@@ -94,10 +94,10 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
 def run_experiment_quiver( model ):
     # graph, hidden_size, fsize, minibatch_size
     settings = [
-                ("ogbn-arxiv",16, 128, 1024), \
+                #("ogbn-arxiv",16, 128, 1024), \
                 #("ogbn-arxiv",16, 128, 4096), \
                 #("ogbn-arxiv",16, 128, 256),  \
-                #("ogbn-products",16, 100, 1024), \
+                ("ogbn-products",16, 100, 1024), \
                 #("ogbn-products",16, 100, 4096), \
                 #("ogbn-products",16, 100, 256),  \
                 #("reorder-papers100M", 16, 256),\
