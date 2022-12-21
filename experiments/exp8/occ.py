@@ -63,7 +63,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, tes
         "--model", model , \
         "--cache-per" , str(cache_per),\
         "--num-hidden",  str(hidden_size), \
-        "--batch-size", str(minibatch_size) , "--num-epochs", "6", "--num-workers", "16", "--test-graph-dir", test_graph_dir] \
+        "--batch-size", str(minibatch_size) , "--num-epochs", "30", "--num-workers", "16", "--test-graph-dir", test_graph_dir] \
             , capture_output = True)
     # print(out,error)
     out = str(output.stdout)
@@ -89,14 +89,14 @@ def run_experiment_occ(model):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
     settings = [
                 #("ogbn-arxiv",16, 128, 1024),
-                # ("ogbn-arxiv", 16, 128, 4096), \
+               # ("ogbn-arxiv", 16, 128, 4096), \
                 #("ogbn-arxiv",16, 128, 16384),\
-                ("ogbn-arxiv", 32 , -1 , 4096, "ogbn-arxiv"), \
-                #("ogbn-products",16, 100, 4096,"ogbn-products"), \
-                #("ogbn-products", 16, 100, 4096), \
+               #("ogbn-arxiv", 32 , 128 , 4096, "ogbn-arxiv"), \
+                ("ogbn-products",16, 100, 4096,"ogbn-products"), \
+                #("ogbn-products", 16, 100, 4096, "ogbn-products"), \
                 #("ogbn-products",16, 100 , 16384), \
                 #("reorder-papers100M", 16, 128, 1024),\
-                #("reorder-papers100M", 16, 128, 4096, "test_reorder_papers100M"),\
+                ("reorder-papers100M", 16, 128, 4096, "test_reorder_papers100M"),\
                 #("amazon", 16, 200, 4096, "amazon"),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
@@ -164,7 +164,7 @@ def run_sbatch(model, settings, cache_rates):
 
 
 if __name__ == "__main__":
-    #run_experiment_occ("gcn")
+    run_experiment_occ("gcn")
     run_experiment_occ("gat")
     print("Success!!!!!!!!!!!!!!!!!!!")
     #run_model("gat")

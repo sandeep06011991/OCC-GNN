@@ -256,6 +256,7 @@ class GraphCacheServer:
     miss_num = self.miss_num
     self.miss_num = 0
     self.try_num = 0
+    print("Miss rate", miss_rate)
     return miss_rate, miss_num
 
   def get_time_and_reset_time(self):

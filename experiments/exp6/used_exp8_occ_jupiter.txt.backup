@@ -1,0 +1,21 @@
+sha:9df83b5ae864b00ab32acb7122b97cf641fd6bd5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | test_accuracy 
+sha:9df83b5ae864b00ab32acb7122b97cf641fd6bd5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | test_accuracy 
+ogbn-arxiv | jupiter | .25 | 32 | -1 | 4096 | gcn | [] 
+sha:9df83b5ae864b00ab32acb7122b97cf641fd6bd5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | test_accuracy 
+ogbn-arxiv | jupiter | .25 | 32 | -1 | 4096 | gat | [] 
+sha:9df83b5ae864b00ab32acb7122b97cf641fd6bd5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | test_accuracy 
+ogbn-arxiv | jupiter | .25 | 32 | -1 | 4096 | gcn | [] 
+sha:9df83b5ae864b00ab32acb7122b97cf641fd6bd5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | test_accuracy 
+ogbn-arxiv | jupiter | .25 | 32 | -1 | 4096 | gat | [] 
+sha:9df83b5ae864b00ab32acb7122b97cf641fd6bd5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | test_accuracy 
+ogbn-arxiv | jupiter | .25 | 32 | -1 | 4096 | gcn | ['0.2683990700162541', '0.2939941978890192', '0.3652655185893875', '0.4238627245231776', '0.44719461761619655', '0.46281093759644465'] 
+sha:9df83b5ae864b00ab32acb7122b97cf641fd6bd5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | test_accuracy 
+sha:9df83b5ae864b00ab32acb7122b97cf641fd6bd5, dirty:True
+graph | system | cache |  hidden-size | fsize  | batch-size | model  | test_accuracy 

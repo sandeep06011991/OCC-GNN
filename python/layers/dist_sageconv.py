@@ -33,6 +33,7 @@ class DistSageConv(nn.Module):
         # self.deterministic = deterministic
         self.deterministic = deterministic
         self.reset_parameters()
+        self.shuffle_time = 0
         # self.local_stream = torch.cuda.default_stream()
         # self.remote_stream = torch.cuda.default_stream()
         # Not parallelizing in htis variation
@@ -66,7 +67,11 @@ class DistSageConv(nn.Module):
         if self.fc1.weight.grad != None:
             print("layer neigh grad",l,self.fc1.weight.grad[:3,0], torch.sum(self.fc1.weight.grad))
             print("layer self grad",l,self.fc2.weight.grad[:3,0], torch.sum(self.fc2.weight.grad))
-
+    
+    def get_reset_shuffle_time(self):
+        ret = self.shuffle_time
+        self.shuffle_time = 0
+        return ret
 
     # Infeatures are post pulled.
 
@@ -87,10 +92,13 @@ class DistSageConv(nn.Module):
         # self.remote_stream.wait_stream(torch.cuda.current_stream())
         # with torch.cuda.stream(self.remote_stream):
         out1 = bipartite_graph.gather_remote(out)
+        t1 = time.time()
         merge_tensors = Shuffle.apply(out1, self.gpu_id, layer_id, bipartite_graph.get_from_nds_size(), \
                             bipartite_graph.to_offsets)
                     # Work on this signature later.
         # with torch.cuda.stream(self.local_stream):
+        t2 = time.time()
+        self.shuffle_time += (t2-t1)
         out3 = bipartite_graph.gather_local(out).clone()
 
         # torch.cuda.current_stream().wait_stream(self.local_stream)

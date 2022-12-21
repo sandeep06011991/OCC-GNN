@@ -75,9 +75,9 @@ class Gpu_Local_Sample:
         self.out_nodes = global_sample.out_nodes[device_id]
 
     def get_edges_and_send_data(self):
-        edges = 0
-        nodes_moved = 0
+        edges_total = 0
+        edges_remote = 0
         for  graph in self.layers:
-            edges += graph.indices_L.shape[0] + graph.indices_R.shape[0]
-            nodes_moved += graph.indices_R.shape[0]
-        return (edges,nodes_moved)
+            edges_total += graph.indices_L.shape[0] + graph.indices_R.shape[0]
+            edges_remote += graph.indices_R.shape[0]
+        return (edges_total, edges_remote)

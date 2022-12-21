@@ -104,6 +104,9 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         # Write to leader gpu
         # log.log("Slicer puts sample {}".format(sample_queue.qsize()))
         #print("Attemtpting to put to Sample",sample_queue.qsize())
+        #if(sample_queue.qsize ()> num_workers * num_workers * .4):
+        #    time.sleep(.1)
+        print("Putting into queue", sample_queue.qsize())
         sample_queue.put(tuple(gpu_local_samples))
         # for qid,q in enumerate(sample_queues):
         #     while True:

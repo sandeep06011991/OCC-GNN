@@ -36,10 +36,13 @@ class Pull(torch.autograd.Function):
         ctx.push_to_ids = push_to_ids
         ctx.local_size = local_t.shape[0]
         ret = [local_t]
+        s = 0
         for i in range(4):
             if i != device_id:
                 ret.append(recv[i])
-        return torch.cat(ret, dim = 0)        
+                s = s + recv[i].shape[0]
+        print("recieved", s, layer_id)
+        return  torch.cat(ret, dim = 0)        
         # torch.cuda.current_stream().synchronize()
         # return recv[0],recv[1],recv[2], recv[3]
 

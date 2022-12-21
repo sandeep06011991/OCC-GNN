@@ -45,10 +45,11 @@ def sampler_baseline_latency():
 
 def groot_baseline_latency():
     graph_name = "ogbn-arxiv"
+    graph_name = "reorder-papers100M"
     dg_graph, partition_map, num_classes  = get_process_graph(graph_name, -1)
     train_nid = dg_graph.ndata['train_mask'].nonzero().flatten()
     gpu_map = [[] for _ in range(4)]
-    fanout = 10
+    fanout = 20
     deterministic = False
     testing = False
     self_edge = False
@@ -61,11 +62,12 @@ def groot_baseline_latency():
        deterministic, testing,
           self_edge, rounds, pull_optimization, no_layers)
     data_sizes_moved = []
-    sampler_and_movenent = []
+    sampler_and_movement = []
     for i in range(3):
         j = 0
         t1 = time.time()
         while(j < train_nid.shape[0]):
+            print(j, train_nid.shape[0])
             csample = slicer.getSample(train_nid[j:j + batch_size].tolist())
             global_sample = Sample(csample)
             local_samples = [Gpu_Local_Sample() for i in range(4)]
@@ -73,6 +75,7 @@ def groot_baseline_latency():
             for i in range(4):
                 local_samples[i].set_from_global_sample(global_sample, i)
                 t  = serialize_to_tensor(local_samples[i])
+                continue
                 s += (t.shape[0])# # print(t.shape)
                 t = t.to(torch.device(i))
                 construct_from_tensor_on_gpu(t, torch.device(i), local_samples[i])
@@ -81,8 +84,8 @@ def groot_baseline_latency():
             j = j + batch_size
             data_sizes_moved.append(s)
         t2 = time.time()
-        sampler_and_movenent.append(t2-t1)
-    return  sum(data_sizes_moved)/len(data_sizes_moved)), sum(sampler_and_movement[1:])/2
+        sampler_and_movement.append(t2-t1)
+    return  sum(sampler_and_movement[1:])/2
 
 def test_data_movement():
     data_moved_1, time_avg_1 = sampler_baseline_latency()
@@ -91,5 +94,5 @@ def test_data_movement():
     assert(time_avg_2 < time_avg_1 * 2)
 
 if __name__ == "__main__":
-    sampler_baseline_latency()
-    groot_baseline_latency()
+    #sampler_baseline_latency()
+    print("Sampler performance",groot_baseline_latency())

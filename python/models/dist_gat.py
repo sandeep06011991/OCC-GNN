@@ -37,14 +37,21 @@ class DistGATModel(torch.nn.Module):
         self.fp_end = torch.cuda.Event(enable_timing=True)
         self.bp_end = torch.cuda.Event(enable_timing=True)
     def forward(self, bipartite_graphs, x, testing = False):
-        
+        t = []
         for l,(layer, bipartite_graph) in  \
             enumerate(zip(self.layers,bipartite_graphs.layers)):
+            t1 = time.time()
             if(self.is_pulled):
                 x = pull(bipartite_graph, x, self.gpu_id, l)
+
             x = layer(bipartite_graph, x,l, testing )
+            t2 = time.time()
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
+            #t2 = time.time()
+            t.append(t2-t1)
+        if self.gpu_id == 0:
+            print(t)
         return x
 
 
@@ -52,7 +59,11 @@ class DistGATModel(torch.nn.Module):
         for id,l in enumerate(self.layers):
             l.print_grad(id)
 
-
+    def get_reset_shuffle_time(self):
+        s = 0
+        for l in self.layers:
+            s += l.get_reset_shuffle_time()
+        return s    
 
 def get_gat_distributed(hidden, features, num_classes, gpu_id, deterministic, model, is_pulled):
     dropout = 0

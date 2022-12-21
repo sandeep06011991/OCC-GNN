@@ -114,7 +114,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
 def run_experiment_occ(model):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
     settings = [
-                ("ogbn-arxiv",16, 128, 1024),
+                #("ogbn-arxiv",16, 128, 1024),
                 # ("ogbn-arxiv", 16, 128, 4096), \
                 #("ogbn-arxiv",16, 128, 16384),\
                 #("ogbn-arxiv",3, 32 , -1 , 1024), \
@@ -124,8 +124,9 @@ def run_experiment_occ(model):
                 #("reorder-papers100M", 16, 128, 1024),\
                 #("reorder-papers100M", 16, 128, 4096),\
                 #("reorder-papers100M", 16, 128, 16384),\
+                ("amazon", 16, 200, 1024),\
                 #("amazon", 16, 200, 4096),\
-                #("amazon", 16, 200, 4096),\
+                ("amazon", 16, 200, 16384),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -142,10 +143,11 @@ def run_experiment_occ(model):
     #settings = [("ogbn-products", 16, 128, 4096),]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
-    #cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
-    cache_rates = ["0", ".10", ".25"]
+    cache_rates = ["0",  ".25", ".50", ".75", "1"]
+    #cache_rates = ["0", ".10", ".25"]
     #settings = [("ogbn-arxiv", 16, 128, 1024),]
-    #cache_rates = [".10"]
+    cache_rates = [".25"]
+    cache_rates = [".25"]
     #cache_rates = ["0", ".10", ".25", ".50", ".75", "1"]
     #cache_rates = ["0", ".10", ".25"]
     #settings = [("ogbn-arxiv", 16, 128, 1024),]
@@ -163,6 +165,10 @@ def run_experiment_occ(model):
                 " epoch_time | accuracy | data_moved | edges_computed\n")
     for graphname, hidden_size, fsize, batch_size in settings:
         for cache in cache_rates:
+            if batch_size != 4096:
+                if cache != ".10":
+                    pass
+                    #continue
             if graphname in ["ogbn-papers100M","com-friendster"]:
                 if float(cache) > .3:
                     continue
@@ -198,8 +204,8 @@ def run_sbatch(model, settings, cache_rates):
 
 
 if __name__ == "__main__":
-    #run_experiment_occ("gcn")
-    #run_experiment_occ("gat")
+    run_experiment_occ("gcn")
+    run_experiment_occ("gat")
     #run_experiment_occ("gat-pull")
     print("Success!!!!!!!!!!!!!!!!!!!")
     #run_model("gat")

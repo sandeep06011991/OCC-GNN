@@ -233,7 +233,7 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
           batch_time[FORWARD_ELAPSED_EVENT_TIME] = e1.elapsed_time(e2)/1000
           optimizer.step()
           # Use this for consistency
-          # torch.cuda.synchronize()
+          torch.cuda.synchronize()
           batch_time[END_BACKWARD] = time.time()
           minibatch_metrics.append(batch_time)
 
@@ -260,6 +260,7 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
         # log.info("epoch:{} graph move time:{}".format(epoch, graph_move_time))
 
         collect_c, move_c, coll_t, mov_t = cacher.get_time_and_reset_time()
+        print("time cache gatehr and move", coll_t, mov_t)
         time_cache_gather.append(coll_t)
         time_cache_move.append(mov_t)
         event_cache_gather.append(collect_c)
@@ -377,6 +378,6 @@ if __name__ == '__main__':
   print("sample_time:{}".format(epoch_batch_sample))
   print("data movement:{}".format(epoch_batch_loadtime))
   print("movement graph:{}".format(epoch_batch_graph))
-  print("movement feature:{}".format(epoch_batch_loadtime))
+  print("movement feature:{}".format(epoch_batch_feat_time))
   print("forward time:{}".format(epoch_batch_forward))
   print("backward time:{}".format(epoch_batch_backward))

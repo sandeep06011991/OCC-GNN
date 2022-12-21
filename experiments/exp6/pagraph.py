@@ -77,7 +77,7 @@ def parse_float(string, output):
 def start_client(filename, model, num_hidden, batch_size, cache_per):
     feat_size = Feat[filename]
     print(cache_per)
-    cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset', filename,'--n-epochs','3'\
+    cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset', filename,'--n-epochs','5'\
                     , '--n-hidden', str(num_hidden), '--batch-size', str(batch_size),\
                         '--model', model, "--cache-per",str(cache_per)]
     output = subprocess.run(cmd, capture_output=True)
@@ -107,7 +107,7 @@ def start_client(filename, model, num_hidden, batch_size, cache_per):
     miss_num = s/4
     edges_processed = e/4
     #miss_num = int(float(re.findall("Miss num per epoch: (\d+\.\d+)MB, device \d+",output)[0]))
-    sample, total_movement, forward, backward = normalize(epoch, total_movement, move_feat, forward, backward)
+    sample, total_movement, forward, backward = normalize(epoch, sample, total_movement, forward, backward)
 
     #edges_processed = int(float(re.findall("Edges processed per epoch: (\d+\.\d+)",output)[0]))
     return {"sample":sample, "forward": forward, "backward": backward,\
@@ -132,21 +132,21 @@ def run_model(model):
     #graphs = ['ogbn-arxiv']
     settings = [#('ogbn-arxiv', 16, 1024),
                 #('ogbn-arxiv', 16, 256),
-                 ('ogbn-arxiv', 16, 4096),
-                # ('ogbn-products', 16, 1024),
+                # ('ogbn-arxiv', 16, 4096),
+                ('ogbn-products', 16, 1024),
                 # ('ogbn-products', 16, 256),
                 # ('ogbn-products', 16, 4096),
-                # ('reorder-papers100M',16, 1024),
+                ('reorder-papers100M',16, 1024),
                 # ('reorder-papers100M',16, 256),
                 # ('reorder-papers100M',16, 4096),
-                # ('amazon', 16, 1024), 
+                 ('amazon', 16, 1024), 
                 # ('amazon', 16, 4096), 
                 # ('amazon', 16, 256)
                 
                 ]
 
     cache_per = ["0",".1",".25",".5","1"]
-    cache_per = [ ".1"]
+    #cache_per = [ "0",".25"]
     run_experiment(model, settings, cache_per)
 
     #settings = [('ogbn-arxiv',16,1024)]
@@ -173,7 +173,7 @@ def run_experiment(model, settings, cache_per):
 
 if __name__ == "__main__":
     run_model("gcn")
-    print("Success!!!!!!!!!!!!!!!!!!!")
+    #print("Success!!!!!!!!!!!!!!!!!!!")
     run_model("gat")
     assert(False)
     #return

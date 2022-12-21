@@ -187,7 +187,7 @@ def pagraph_partition(FILENAME):
 
     # save to file
     partition_dataset = os.path.join(
-        PAGRAPH_DIR, '{}naive'.format(4))
+        PAGRAPH_DIR, '{}naive_bck'.format(4))
     if not os.path.exists(partition_dataset):
         os.mkdir(partition_dataset)
     dgl_g = dgl.from_scipy(scipyCSC)
@@ -220,6 +220,7 @@ if __name__=="__main__":
     graph_names = ["ogbn-arxiv","ogbn-products", "reorder-papers100M", "amazon", "com-orkut"]
     print("others are done!")
     graph_names = ["ogbn-products", "reorder-papers100M", "amazon"]
+    graph_names = ["reorder-papers100M"]
     for graph in graph_names:
         pagraph_partition(graph)
         print("done with",graph)

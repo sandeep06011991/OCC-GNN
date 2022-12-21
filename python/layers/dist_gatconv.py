@@ -13,6 +13,7 @@ from torch.nn.parallel import DistributedDataParallel
 # from layers.opt_shuffle import Shuffle
 # from layers.max_shuffle import ShuffleMax
 import dgl
+import time 
 
 class DistGATConv(nn.Module):
 
@@ -34,6 +35,12 @@ class DistGATConv(nn.Module):
         self.leaky_relu = nn.LeakyReLU(negative_slope)
         self.deterministic =  deterministic
         self.reset_parameters()
+        self.shuffle_time = 0
+
+    def get_reset_shuffle_time(self):
+        ret = self.shuffle_time
+        self.shuffle_time = 0
+        return ret
 
     def reset_parameters(self):
         if self.deterministic:
@@ -50,6 +57,10 @@ class DistGATConv(nn.Module):
             nn.init.xavier_uniform_(self.attn_r, gain=gain)
             nn.init.xavier_uniform_(self.fc.weight,gain = gain)
 
+    def get_and_reset_shuffle_time(self):
+        ret = self.shuffle_time
+        self.shuffle_time = 0
+        return ret
 
     def forward(self, bipartite_graph, in_feats, l, testing = False):
         # Refactor this increase readability.
@@ -68,8 +79,11 @@ class DistGATConv(nn.Module):
 
         # Apply Edge here
         if not testing:
+            t1 = time.time()
             er_remote = ShuffleRev.apply(er, self.gpu_id, l, bipartite_graph.from_ids, \
                                 bipartite_graph.to_offsets)
+            t2 = time.time()
+            self.shuffle_time += (t2-t1)
 
         e = bipartite_graph.apply_edge_local(el, er)
         e = self.leaky_relu(e)
@@ -83,8 +97,11 @@ class DistGATConv(nn.Module):
             local_max = bipartite_graph.gather_local_max(e)
             if not testing:
                 remote_max = bipartite_graph.gather_remote_max(e_r)
+                t1 = time.time()
                 merge_maxes = Shuffle.apply(
                     remote_max, self.gpu_id, l,  bipartite_graph.get_from_nds_size(),  bipartite_graph.to_offsets)
+                t2 = time.time()
+                self.shuffle_time += (t2-t1)
                 for i in range(4):
                     if i != self.gpu_id:
                         local_max[bipartite_graph.from_ids[i]] = torch.max(local_max[bipartite_graph.from_ids[i]], merge_maxes[i])
@@ -93,9 +110,11 @@ class DistGATConv(nn.Module):
                 # global_max = local_max
 
             if not testing:
+                t1 = time.time()
                 remote_max  = ShuffleRev.apply(
                     local_max , self.gpu_id, l,   bipartite_graph.from_ids,  bipartite_graph.to_offsets)
-
+                t2 = time.time()
+                self.shuffle_time += (t2-t1)
             local_max = bipartite_graph.copy_from_out_nodes_local(local_max)
             if not testing:
                 remote_max = bipartite_graph.copy_from_out_nodes_remote(remote_max)
@@ -110,16 +129,20 @@ class DistGATConv(nn.Module):
             sum_exponent_remote_r = bipartite_graph.apply_node_remote(exponent_r)
 
         if not testing:
+            t1 = time.time()
             merge_sum = Shuffle.apply(
                 sum_exponent_remote_r,self.gpu_id,  l,  bipartite_graph.get_from_nds_size(), bipartite_graph.to_offsets)
+            t2 = time.time()
+            self.shuffle_time += (t2-t1)
             sum_exponent_local = sum_exponent_local.clone()
             for i in range(4):
                 if i != self.gpu_id:
                     sum_exponent_local[bipartite_graph.from_ids[i]] += merge_sum[i]
-
+            t1 = time.time()
             remote_sum = ShuffleRev.apply(
                 sum_exponent_local,  self.gpu_id, l, bipartite_graph.from_ids,  bipartite_graph.to_offsets)
-
+            t2 = time.time()
+            self.shuffle_time += (t2-t1)
         sum_exponent = bipartite_graph.copy_from_out_nodes_local(sum_exponent_local)
         sum_exponent[torch.where(sum_exponent == 0)[0]] = 1
         attention_l = exponent_l / sum_exponent
@@ -131,9 +154,12 @@ class DistGATConv(nn.Module):
         out_local = bipartite_graph.attention_gather_local(attention_l, in_feats)
         if not testing:
             out_remote = bipartite_graph.attention_gather_remote(attention_r, in_feats)
-
+            t1 = time.time()
             merge_out = Shuffle.apply(
                 out_remote, self.gpu_id, l, bipartite_graph.get_from_nds_size(),bipartite_graph.to_offsets)
+            t2 = time.time()
+            self.shuffle_time += (t2-t1)
+
             out_local = out_local.clone()
             for i in range(4):
                 if i != self.gpu_id:

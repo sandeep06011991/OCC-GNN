@@ -80,9 +80,11 @@ def run(rank, args,  data):
     device = rank
     torch.cuda.set_device(device)
     train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g,test_graph,metrics_queue = data
+    print(rank, PATH_DIR)
     if rank == 0:
-      os.makedirs('{}/quiver/logs_naive'.format(PATH_DIR),exist_ok = True)
-      FILENAME= ('{}/quiver/logs_naive/{}_{}_{}.txt'.format(PATH_DIR, \
+      print(PATH_DIR)
+      os.makedirs('{}/quiver/logs_naive'.format(ROOT_DIR),exist_ok = True)
+      FILENAME= ('{}/quiver/logs_naive/{}_{}_{}.txt'.format(ROOT_DIR, \
                args.graph, args.batch_size, args.model))
 
       fileh = logging.FileHandler(FILENAME, 'w')
@@ -142,7 +144,7 @@ def run(rank, args,  data):
     data_movement_epoch = []
     e3 = torch.cuda.Event(enable_timing = True)
     e4 = torch.cuda.Event(enable_timing = True)
-
+    e5 = torch.cuda.Event(enable_timing = True)
     test_accuracy_list = []
     #with profile(enabled = False, activities = [ProfilerActivity.CUDA, ProfilerActivity.CPU],\
     #            use_cuda = True, \
@@ -173,7 +175,9 @@ def run(rank, args,  data):
                         input_nodes, seeds, blocks = next(dataloader_i)
                     t2 = time.time()
                     batch_time[SAMPLE_START_TIME] = t1
+                    print("Sample time {}|".format(device), t1)
                     batch_time[GRAPH_LOAD_START_TIME] = t2
+                    print("Graph load time {}|".format(device), t2)
                 # copy block to gpu
                     with profiler.record_function("movement"):
                         blocks = [blk.to(device) for blk in blocks]
@@ -185,12 +189,14 @@ def run(rank, args,  data):
                 #print(edges_computed)
                     t3 = time.time()
                     batch_time[DATALOAD_START_TIME] = t3
+                    print("movement start {}|".format(device), t3)
                 # Load the input features as well as output labels
                     with profiler.record_function("movement"):
                         batch_inputs, batch_labels = load_subtensor(
                         nfeat, labels, seeds, input_nodes, device)
                     t4 = time.time()
                     batch_time[DATALOAD_END_TIME] = t4
+                    print("movement end {}|".format(device), t4)
                 # Compute loss and prediction
                 #with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
                 #if True:
@@ -201,11 +207,16 @@ def run(rank, args,  data):
                         e4.record()
                     #e3.record()
                         loss.backward()
+                        e5.record()
+                        e5.synchronize()
                         batch_time[END_BACKWARD] = time.time()
-                        e4.synchronize()
+                        
+
+                        print("Backwarwd end {}| ".format(device), batch_time[END_BACKWARD])
                         optimizer.step()
                 #print("sample time", t2-t1, t3-t2)
                     batch_time[FORWARD_ELAPSED_EVENT_TIME] = e3.elapsed_time(e4)/1000
+                    print("Forward time {}|".format(device), e3.elapsed_time(e4)/1000)
                 #print("Time feature", device, e1.elapsed_time(e2)/1000)
                 #print("Expected bandwidth", missed * nfeat.shape[1] * 4/ ((e1.elapsed_time(e2)/1000) * 1024 * 1024 * 1024), "GB device", rank, "cache rate", hit/(hit + missed))
                     data_movement += (batch_inputs.shape[0] * nfeat.shape[1] * 4/(1024 * 1024))
@@ -313,7 +324,7 @@ if __name__ == '__main__':
         graph = graph.add_self_loop()
     test_graph = None
     if (args.test_graph) != None:
-        test_graph, _, num_classes = get_process_graph(args.test_graph, -1)
+        test_graph, _, num_classes = get_process_graph(args.test_graph, -1, testing = True)
         if args.model == "GAT":
             test_graph = test_graph.add_self_loop()
 
@@ -366,7 +377,7 @@ if __name__ == '__main__':
     
     print("sample_time:{}".format(epoch_batch_sample))
     print("movement graph:{}".format(epoch_batch_graph))
-    print("movement feature:{}".format(epoch_batch_loadtime))
+    print("movement feature:{}".format(epoch_batch_feat_time))
     print("forward time:{}".format(epoch_batch_forward))
     print("data movement time:{}".format(epoch_batch_loadtime))
     print("backward time:{}".format(epoch_batch_backward))

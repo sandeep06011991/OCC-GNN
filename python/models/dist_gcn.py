@@ -31,6 +31,12 @@ class DistSAGEModel(torch.nn.Module):
         self.fp_end = torch.cuda.Event(enable_timing=True)
         self.bp_end = torch.cuda.Event(enable_timing=True)
 
+    def get_reset_shuffle_time(self):
+        s = 0
+        for i in self.layers:
+            s += i.get_reset_shuffle_time()
+        return s
+
     def forward(self, bipartite_graphs, in_features, testing = False):
         x = in_features
         for l,(layer, bipartite_graph) in  \

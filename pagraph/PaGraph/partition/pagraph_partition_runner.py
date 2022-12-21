@@ -219,6 +219,6 @@ def pagraph_partition(FILENAME):
 if __name__=="__main__":
     graph_names = ["ogbn-arxiv","ogbn-products", "reorder-papers100M", "amazon", "com-orkut"]
     print("others are done!")
-    graph_names = ["amazon"]
+    graph_names = ["ogbn-arxiv"]
     for graph in graph_names:
         pagraph_partition(graph)

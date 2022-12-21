@@ -88,7 +88,7 @@ def run_experiment_quiver( model ):
     # graph, hidden_size, fsize, minibatch_size
     settings = [
                 # ("ogbn-arxiv",16, 128, 1024), \
-                ("ogbn-arxiv",16, 128, 4096), \
+                #("ogbn-arxiv",16, 128, 4096), \
                 # ("ogbn-arxiv",16, 128, 256),  \
                 # ("ogbn-products",16, 100, 1024), \
                 # ("ogbn-products",16, 100, 1024), \
@@ -99,7 +99,7 @@ def run_experiment_quiver( model ):
                 #("reorder-papers100M", 16, 128, 1024),\
                 # ("amazon", 16, 200, 256),\
                 # ("amazon", 16, 200,4096),\
-                #("amazon", 16, 200, 1024),\
+                ("amazon", 16, 200, 1024),\
                  ]
     no_epochs = 5
     # settings = [("ogbn-arxiv",16, 128, 1024)]
@@ -133,4 +133,4 @@ def run_experiment_quiver( model ):
 
 if __name__=="__main__":
     run_experiment_quiver("GAT")
-    #run_experiment_quiver("GCN")
+    run_experiment_quiver("GCN")

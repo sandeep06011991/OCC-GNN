@@ -40,7 +40,7 @@ void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy,
         }
     }
     assert(bl.indices.size()== policy.size());
-    if(this->pull_optimization){
+    if(this->pull_optimization && (layer_id ==(no_layers-1))){
       for(int i=0;i<in.size();i ++ ){
         int p_dest = this->workload_map[in[i]];
         for(int j= bl.offsets[i]; j <bl.offsets[i+1]; j++){
@@ -52,10 +52,11 @@ void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy,
             }
           }
           if(policy[j] != PUSH)continue;
-          assert(policy[j]==PUSH);
-          if(in_degree[i].cost[p_src] < out_degree[bl.indices[j]].cost[p_dest] * this->rounds){
-            policy[j] = PULL;
-          }
+	  policy[j] = PULL;
+	  //assert(policy[j]==PUSH);
+          //if(in_degree[i].cost[p_src] < out_degree[bl.indices[j]].cost[p_dest] * this->rounds){
+            //policy[j] = PULL;
+         // }
         }
       }
     }
@@ -174,7 +175,7 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
           p_edges += l.bipartite[j]->indices_R.size();
           if((l.bipartite[j]->indices_R.size()==0) || (l.bipartite[j]->indices_L.size() == 0)){
             check = true;
-            std::cout << "Found empty remote graph" << l.bipartite[j]->indices_R.size() <<" " << l.bipartite[j]->indices_L.size() <<"\n";
+//std::cout << "Found empty remote graph" << l.bipartite[j]->indices_R.size() <<" " << l.bipartite[j]->indices_L.size() <<"\n";
 	  }
 	//if(!this->self_edge){
         //    p_edges += l.bipartite[j]->self_ids_offset;
@@ -206,8 +207,8 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         ps.last_layer_nodes[i].insert(ps.last_layer_nodes[i].end(), last_layer.begin(), last_layer.end());
     }
     edge_policy.clear();
-    if(check){
-      std::cout << "Skipping Cross checking if there are actually 0 remote subgraphs\n";
+	if(check){
+// std::cout << "Skipping Cross checking if there are actually 0 remote subgraphs\n";
 	//s.check_remote(this->workload_map);
 	//test_sample_partition_consistency_gat(s,ps, \
 	//   this->storage, this->gpu_capacity, this->workload_map.size());

@@ -9,7 +9,9 @@ import time
 from utils.log import *
 
 def get_number_buckets(num_workers):
-    return num_workers * 2 * 4
+    print("change to make sampling not a bottleneck")
+    # previously num_workers * 2 * 4 * num_workers
+    return num_workers * 2 * num_workers 
 # Everything outside this class should be agnostic to shared memory details
 # Keep this object in memory and delete after everything returns
 class SharedMemManager():
@@ -54,6 +56,7 @@ class SharedMemClient():
             self.log.log("Shared Memory bucket size is not enouch for {}".format(data.shape[0] * data.dtype.itemsize))
         assert(data.shape[0] * data.dtype.itemsize < SHARED_MEMORY_SIZE)
         self.log.log("Trying to write, avail shared memory buckets {}".format(self.free_memory_filenames.qsize()))
+        #print("shared memory queue", self.free_memory_filenames.qsize())
         name = self.free_memory_filenames.get()
 
         # while(True):

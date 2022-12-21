@@ -78,7 +78,7 @@ def run_metis(graphname):
 def generate_partition_file(DATA_DIR,graphname):
     from os.path import exists
     TARGET_DIR = "{}/{}".format(DATA_DIR,graphname)
-    file_exists = exists(TARGET_DIR + '/partition_map_opt.bin')
+    file_exists = exists(TARGET_DIR + '/partition_map_opt_bck.bin')
     if(file_exists):
         print("Metis file already exists, remove to overwrite")
         return

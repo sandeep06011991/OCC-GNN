@@ -131,7 +131,9 @@ def main(args):
     for i in range(4):
         storage_vector.append(mm.local_to_global_id[i].tolist())
     print("memory manaager done")
-    work_queue = mp.Queue(8)
+    print("Change to make sampling not a bottleneck")
+    #work_queue = mp.Queue(8)
+    work_queue = mp.Queue(args.num_workers * 10)
     train_mask = dg_graph.ndata['train_mask']
     train_nid = train_mask.nonzero().squeeze()
 
@@ -160,9 +162,12 @@ def main(args):
     work_producer_process = mp.Process(target=(work_producer), \
                   args=(work_queue, train_nid, minibatch_size, no_epochs,\
                     no_worker_process, args.deterministic, args.early_stopping))
+    
     work_producer_process.start()
-
-    sample_queues = [mp.Queue(queue_size) for i in range(4)]
+    #print("Change to make sampling not a bottleneck")
+    #sample_queues = [mp.Queue(queue_size) for i in range(4)]
+    leader_queue = mp.Queue(args.num_workers * args.num_workers)
+    sample_queues = [mp.Queue(args.num_workers * args.num_workers) for i in range (4)] 
 
     # sample_queues = [mp.SimpleQueue() for i in range(4)]
     
@@ -172,7 +177,7 @@ def main(args):
     print("Start slicer weorkers")
     for proc in range(no_worker_process):
         slice_producer_process = mp.Process(target=(slice_producer), \
-                      args=(graph_name, work_queue, sample_queues[0], lock,\
+                      args=(graph_name, work_queue, leader_queue, lock,\
                                 storage_vector, args.deterministic,
                                 proc, sm_filename_queue, no_worker_process, fanout_val, file_id, self_edge, pull_optimization, rounds))
         slice_producer_process.start()
@@ -183,21 +188,26 @@ def main(args):
     n_gpus = 4
     labels = dg_graph.ndata["labels"]
     labels.share_memory_()
-
+    print("Sleep to make sampling not a bottleneck")
     print("Trainer processes")
+    leader_proc = mp.Process(target=(run_leader_process), args = (leader_queue, sample_queues, minibatches_per_epoch, args.num_epochs, args.num_workers))
+    leader_proc.start()
+    time.sleep(20)
     for proc_id in range(n_gpus):
         p = mp.Process(target=(run_trainer_process), \
                       args=(proc_id, n_gpus, sample_queues, minibatches_per_epoch \
                        , features, args, \
                        num_classes, mm.batch_in[proc_id], labels,no_worker_process, args.deterministic,\
-                        sm_filename_queue, mm.local_sizes[proc_id],cache_percentage, file_id))
+                        sm_filename_queue, mm.local_sizes[proc_id],cache_percentage, file_id, args.num_epochs))
         p.start()
         procs.append(p)
     for sp in slice_producer_processes:
         sp.join()
     print("Sampler returned")
+    leader_proc.join()
     for p in procs:
         p.join()
+        
     print("Setup Done")
 
 

@@ -43,15 +43,43 @@ def compute_acc(pred, labels):
     false_labels = torch.where(torch.argmax(pred,dim = 1) != labels)[0]
     return (torch.argmax(pred, dim=1) == labels).float().sum(),len(pred )
 
+def run_leader_process(leader_queue, sample_queues, minibatches_per_epoch, req_epochs, num_workers):
+    num_epochs = 0
+    while(True):
+        meta =leader_queue.get()
+        for i in range(4):
+            if i==0:
+                print(leader_queue.qsize(), "leader consumption")
+                print(sample_queues[i].qsize(), "leader production")
+            if type(meta) == tuple:
+                sample_queues[i].put(meta[i])
+            else:
+                sample_queues[i].put(meta)
+        if(meta == "END"):
+            num_workers = num_workers - 1
+            print("Leader end", req_epochs, num_epochs, num_workers)
+            if ((req_epochs  == num_epochs) and (num_workers == 0)):
+                break
+        if(meta == "EPOCH"):
+            num_epochs  = num_epochs + 1
+    
+    for i in range(4):
+        while True:
+            if sample_queues[i].qsize() == 0:
+                break
+            time.sleep(.1)
+            #print("got end of epoch flag"    
 def get_sample(proc_id, sample_queues,  sm_client, log, attention = False):
     sample_id = None
     device = proc_id
     t0 = time.time()
-    if proc_id == 0:
+    if proc_id == 0 and False:
         # print("leader tries to read meta data, qsize {}".format(sample_queues[0].qsize()))
         meta = sample_queues[0].get()
         log.log("leader reads meta data, starts sharing")
         for i in range(1,4):
+            if sample_queues[i].qsize() > 100:
+                time.sleep(.1)
             if type(meta) == tuple:
                 sample_queues[i].put(meta[i])
             else:
@@ -63,8 +91,10 @@ def get_sample(proc_id, sample_queues,  sm_client, log, attention = False):
         log.log("followers tries to read")
         meta = sample_queues[proc_id].get()
         log.log("follower gets meta")
+        
     log.log("Meta data read {}".format(meta))
     t1 = time.time()
+    print("sample track",t1-t0, proc_id, sample_queues[proc_id].qsize())
     sample_get_time = t1-t0
     graph_move_time = 0
     if(type(meta) == type("")):
@@ -98,7 +128,7 @@ import logging
 
 def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, features, args\
                         ,num_classes, batch_in, labels, num_sampler_workers, deterministic\
-                        , sm_filename_queue, cached_feature_size, cache_percentage, file_id):
+                        , sm_filename_queue, cached_feature_size, cache_percentage, file_id, epochs_required):
     t = torch.cuda.get_device_properties(0).total_memory
     r = torch.cuda.memory_reserved(0)
     a = torch.cuda.memory_allocated(0)
@@ -185,6 +215,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     epoch_time = []
     epoch_accuracy = []
     data_moved_per_gpu_epoch =[]
+    data_moved_inter_gpu_epoch = []
     edges_per_gpu_epoch = []
     sample_get_time = 0
     forward_time = 0
@@ -192,7 +223,9 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     movement_graph = 0
     movement_feat = 0
     data_moved_per_gpu = 0
+    data_moved_inter_gpu = 0
     edges_per_gpu = 0
+    movement_partials_epoch = []
     #in_degrees = in_degrees.to(proc_id)
     fp_start = torch.cuda.Event(enable_timing=True)
     fp_end = torch.cuda.Event(enable_timing=True)
@@ -227,6 +260,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             movement_feat_epoch.append(movement_feat)
             edges_per_gpu_epoch.append(edges_per_gpu)
             data_moved_per_gpu_epoch.append(data_moved_per_gpu)
+            data_moved_inter_gpu_epoch.append(data_moved_inter_gpu)
+            movement_partials_epoch.append(model.module.get_reset_shuffle_time())
             epoch_time.append(e_t2-e_t1)
             sample_get_time = 0
             forward_time = 0
@@ -240,7 +275,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             ii = 0
             if proc_id == 0:
                 if test_acc_func != None:
-                    test_accuracy = test_acc_func.get_accuracy(model)
+                    test_accuracy = test_acc_func.get_accuracy(model,flog)
                     test_accuracy_list.append(test_accuracy)
                     print("test_accuracy_log:{}, epoch:{}".format(test_accuracy, num_epochs-1))
                 flog.info("accuracy_log:{}".format(acc))
@@ -252,14 +287,16 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
                 flog.info("backward time_log:{}".format(avg(backward_epoch)))
                 flog.info("data movement_log:{}MB".format(avg(data_moved_per_gpu_epoch)))
                 flog.info("edges per epoch_log:{}".format(avg(edges_per_gpu_epoch)))
-
+            if num_epochs == epochs_required and num_sampler_workers == 0:
+                break
         if(gpu_local_sample == "END"):
             print("GOT END OF FLAG", num_sampler_workers)
             num_sampler_workers -= 1
             #print("got end of epoch flag")
             # Maintain num active sampler workers
             if num_sampler_workers == 0:
-                break
+                if num_epochs == epochs_required:
+                    break
             else:
                 continue
 
@@ -279,7 +316,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         edges_per_gpu += edges
         data_moved_per_gpu += (gpu_local_sample.cache_miss_from.shape[0] * features.shape[1] * 4 /(1024 * 1024)) +\
                             (nodes * args.num_hidden * 4/(1024 * 1024))
-
+        data_moved_inter_gpu  += (nodes * args.num_hidden *4/(1024 * 1024)) 
         movement_feat += (m_t1-m_t0)
         fp_start.record()
         assert(features.device == torch.device('cpu'))
@@ -325,6 +362,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         # print("Forward time",fp_start.elapsed_time(fp_end)/1000 )
         # with nvtx.annotate("backward", color="red"):
         backward_time += fp_end.elapsed_time(bp_end)/1000
+        print("Forward", fp_start.elapsed_time(fp_end)/1000)
         if deterministic:
             model.module.print_grad()
         optimizer.step()
@@ -344,6 +382,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print("forward time:{}".format(avg(forward_epoch)))
         print("backward time:{}".format(avg(backward_epoch)))
         print("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
-
+        print("Shuffle time:{}".format(avg(movement_partials_epoch)))
+        
         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")
