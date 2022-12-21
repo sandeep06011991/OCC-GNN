@@ -17,6 +17,7 @@ import os
 import torch.distributed as dist
 import torch.autograd.profiler as profiler
 
+from torch.profiler import profile, record_function, ProfilerActivity
 from dgl_sage import SAGE
 from dgl_gat import GAT
 from utils.async_timing_analysis import *
@@ -81,15 +82,30 @@ def load_subtensor(nfeat, labels, seeds, input_nodes, device):
     return batch_inputs, batch_labels
 
 # Entry point
+import logging,os
 
 def run(rank, args,  data):
     # Unpack data
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '11112'
     dist.init_process_group('nccl', rank=rank, world_size=4)
+    
+    if rank == 0:
+      os.makedirs('{}/quiver/logs_quiver'.format(ROOT_DIR),exist_ok = True)
+      FILENAME= ('{}/quiver/logs_quiver/{}_{}_{}.txt'.format(ROOT_DIR, \
+               args.graph, args.batch_size, args.model))
 
+      fileh = logging.FileHandler(FILENAME, 'w')
+      formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+      fileh.setFormatter(formatter)
+      log = logging.getLogger()  # root logger
+      log.addHandler(fileh)      # set the new handler
+      log.setLevel(logging.INFO)
+
+    
     device = rank
-    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets, metrics_queue = data
+    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets, metrics_queue, feat_cpu, offsets, local_order = data
+    assert(feat_cpu.device == torch.device('cpu'))
     if args.data == 'gpu':
         nfeat = nfeat.to(rank)
     if args.sample_gpu:
@@ -101,8 +117,12 @@ def run(rank, args,  data):
     # Create PyTorch DataLoader for constructing blocks
     sampler = dgl.dataloading.MultiLayerNeighborSampler(
             [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
+    #sampler = dgl.dataloading.MultiLayerFullNeighborSampler(3)
     world_size = 4
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
+    
+    number_of_minibatches = train_nid.shape[0]/args.batch_size
+
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
@@ -135,7 +155,8 @@ def run(rank, args,  data):
     print("start training")
 
     epoch_time = []
-    data_movement_epoch = []
+    data_movement_cpu_epoch = []
+    data_movement_gpu_epoch = []
     epoch_metrics = []
     accuracy = []
     edges_per_epoch = []
@@ -144,6 +165,7 @@ def run(rank, args,  data):
     e3 = torch.cuda.Event(enable_timing = True)
     e4 = torch.cuda.Event(enable_timing = True)
 
+    
     for epoch in range(args.num_epochs):
         tic = time.time()
 
@@ -156,7 +178,8 @@ def run(rank, args,  data):
         epoch_start = time.time()
         dataloader_i = iter(dataloader)
         edges_computed = 0
-        data_movement = 0
+        data_movement_cpu = 0
+        data_movement_gpu = 0
         global_cache_misses = 0
         step = 0
         minibatch_metrics = []
@@ -176,7 +199,6 @@ def run(rank, args,  data):
 
                 for blk in blocks:
                     blk.create_formats_()
-                    edges_computed += blk.edges()[0].shape[0]
                 #print(edges_computed)
                 t3 = time.time()
                 batch_time[DATALOAD_START_TIME] = t3
@@ -184,46 +206,93 @@ def run(rank, args,  data):
                 #start = offsets[device][0]
                 #end = offsets[device][1]
                 #hit = torch.where((input_nodes > start) & (input_nodes < end))[0].shape[0]
-
-                hit = torch.where(input_nodes < offsets[3])[0].shape[0]
-                missed = input_nodes.shape[0] - hit
+                ########################################################
+                #cpu_pull = torch.where(local_order[input_nodes]>offsets[3]) 
+                cpu_hit = torch.where(local_order[input_nodes] > offsets[4])[0].shape[0]
+                gpu_hit = torch.where(torch.logical_and((local_order[input_nodes] >= offsets[rank]),(local_order[input_nodes] < offsets[rank + 1])))[0].shape[0]
+                gpu_hit = input_nodes.shape[0] - cpu_hit - gpu_hit
+                hits = {}
+                s = 0
+                for i in range(4):
+                    hits[i] = torch.where(torch.logical_and((local_order[input_nodes] >= offsets[i]),(local_order[input_nodes] < offsets[i + 1])))[0].shape[0]
+                    s += hits[i]
+                
+                print("Local hit rate", rank, hits, s, input_nodes.shape[0])
                 # Load the input features as well as output labels
+                torch.distributed.barrier() 
+                torch.cuda.synchronize()
                 batch_inputs, batch_labels = load_subtensor(
-                    nfeat, labels, seeds, input_nodes, device)
+                        nfeat, labels, seeds, input_nodes, device)
+                torch.cuda.synchronize()
+                torch.distributed.barrier() 
+                #t2 = time.time()
+                #torch.cuda.synchronize()
+                #t3 = time.time()   
+                #print("Execpt a >b", t2-t1, t3-t2)
                 e1.record()
                 batch_time[DATALOAD_END_TIME] = time.time()
                 # Compute loss and prediction
-                with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
+                #print("Torch sum", torch.sum(batch_inputs))
+                #torch.distributed.barrier()
+                for i in range(4):
+                    torch.cuda.set_device(i)
+                    torch.cuda.synchronize()
+                torch.cuda.set_device(rank)    
+                #batch_inputs = feat_cpu[input_nodes].to(device)
+                #prevent leakage
+                #with profile( activities=[
+        #ProfilerActivity.CPU, ProfilerActivity.CUDA],  use_cuda=True, profile_memory = True) as prof:
+                if True:
+                #print("quiver",batch_inputs.is_contiguous())
+                    
                     e3.record()
                     batch_pred = model(blocks, batch_inputs)
-                    loss = loss_fcn(batch_pred, batch_labels)
                     e4.record()
-                    loss.backward()
-                    batch_time[END_BACKWARD] = time.time()
+                    #print("quiver time", e3.elapsed_time(e4)/1000, device)
+                    #batch_inputs = feat_cpu[input_nodes].to(device)
+                    #e3.record()
+                    
+                    #batch_pred = model(blocks , batch_inputs)
+                    #e4.record()
+                    #e4.synchronize()
+                    #print("Naive", batch_inputs.is_contiguous())
+                   #print("NAvie time", e3.elapsed_time(e4)/1000, device)
+                #print("forward time", e3.elapsed_time(e4)/1000)
+
+                loss = loss_fcn(batch_pred, batch_labels)
+                loss.backward()
+                batch_time[END_BACKWARD] = time.time()
+                #print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
                 e4.synchronize()
                 optimizer.step()
                 batch_time[FORWARD_ELAPSED_EVENT_TIME] = e3.elapsed_time(e4)/1000
                 batch_time[DATALOAD_ELAPSED_EVENT_TIME] = e0.elapsed_time(e1)/1000
+                #torch.cuda.synchronize()
                 #print("sample time", t2-t1, t3-t2)
                 #print("Time feature", device, e1.elapsed_time(e2)/1000)
                 #print("Expected bandwidth", missed * nfeat.shape[1] * 4/ ((e1.elapsed_time(e2)/1000) * 1024 * 1024 * 1024), "GB device", rank, "cache rate", hit/(hit + missed))
-                data_movement += (missed * nfeat.shape[1] * 4/(1024 * 1024))
+                data_movement_cpu += (cpu_hit * nfeat.shape[1] * 4/(1024 * 1024))
+                data_movement_gpu += (gpu_hit * nfeat.shape[1] * 4/(1024 * 1024))
                 minibatch_metrics.append(batch_time)
-                if args.early_stopping and step ==5:
+                if args.early_stopping and step ==20:
                     break
                 step = step + 1
-                #print("forward time", e2.elapsed_time(e3)/1000)
+                print("forward time", e3.elapsed_time(e4)/1000)
                 #print("backward time", e3.elapsed_time(e4)/1000)
                 total_loss += loss.item()
                 total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
         #        pbar.update(args.batch_size)
+                if rank == 0:
+                    log.info("step {}, epoch {}, number_of_minibatches {}".format(step, epoch, number_of_minibatches))
+
         except StopIteration:
             pass
         print("EPOCH TIME",time.time() - epoch_start)
         epoch_metrics.append(minibatch_metrics)
         epoch_time.append(time.time()-epoch_start)
         edges_per_epoch.append(edges_computed)
-        data_movement_epoch.append(data_movement)
+        data_movement_cpu_epoch.append(data_movement_cpu)
+        data_movement_gpu_epoch.append(data_movement_gpu)
         #pbar.close()
 
         loss = total_loss / len(dataloader)
@@ -246,7 +315,8 @@ def run(rank, args,  data):
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch_time:{}".format(average(epoch_time)))
     print("edges_per_epoch:{}".format(average(edges_per_epoch)))
-    print("data moved :{}MB".format(average(data_movement_epoch)))
+    print("data moved CPU:{}MB".format(average(data_movement_cpu_epoch)))
+    print("data moved GPU:{}MB".format(average(data_movement_gpu_epoch)))
     dist.destroy_process_group()
 
     return final_test_acc
@@ -324,6 +394,9 @@ if __name__ == '__main__':
             #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
             #    end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
             #    offsets[device] = (start,end)
+        #
+        #print("CSR topo is none")
+        #csr_topo = None
         nfeat = quiver.Feature(rank=0, device_list=[0,1,2,3],
                                #device_cache_size="200M",
                                device_cache_size = device_cache_size,
@@ -332,14 +405,30 @@ if __name__ == '__main__':
                                csr_topo=csr_topo)
         nfeat.from_cpu_tensor(feat)
         if float(args.cache_per) <= .25:
+            print(nfeat.clique_tensor_list, "Check")
+            print(nfeat.clique_tensor_list[0].shard_tensor_config,"jksdad")
             if len(nfeat.clique_tensor_list) != 0:
-                last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
+                try:
+                    last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
+                except KeyError:
+                    last_node_stored = 0
             else:
                 last_node_stored = 0
-        print("Using quiver feature")
-        print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
-        offsets = {}
-        offsets[3] = last_node_stored
+        
+        local_orders = nfeat.feature_order.clone()
+        offsets = [0] 
+        shard_tensor = nfeat.clique_tensor_list[0]
+        offset_config = shard_tensor.shard_tensor_config.tensor_offset_device
+        for d in range(4):
+            if d in offset_config.keys():
+                offsets.append(offset_config[d].end_)
+            else:
+                offsets.append(0)
+                #shard_tensor.shard_tensor_config.tensor_offset_device[d]
+            #print("offset", sv.start_, sv.end_)
+
+        #offsets = {}
+        #offsets[3] = last_node_stored
         # Temporary disable
         #for device in range(4):
         #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
@@ -360,7 +449,7 @@ if __name__ == '__main__':
     graph.create_formats_()
     # Pack data
     metrics_queue = mp.Queue(4)
-    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, metrics_queue
+    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, metrics_queue, feat, offsets, local_orders
 
 
     #test_accs = []
@@ -392,5 +481,5 @@ if __name__ == '__main__':
     print("movement data time:{}".format(epoch_batch_loadtime))
     print("movement graph:{}".format(epoch_batch_graph))
     print("movement feature:{}".format(epoch_batch_loadtime))
-    print("forward time:{}".format(epoch_batch_forward))
-    print("backward time:{}".format(epoch_batch_backward))
+    print("forward time:{}".format(abs(epoch_batch_forward)))
+    print("backward time:{}".format(abs(epoch_batch_backward)))

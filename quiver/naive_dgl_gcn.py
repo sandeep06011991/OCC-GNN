@@ -201,10 +201,12 @@ def run(rank, args,  data):
                         e4.record()
                     #e3.record()
                         loss.backward()
+                        torch.cuda.synchronize()
                         batch_time[END_BACKWARD] = time.time()
                         e4.synchronize()
                         optimizer.step()
                 #print("sample time", t2-t1, t3-t2)
+                    
                     batch_time[FORWARD_ELAPSED_EVENT_TIME] = e3.elapsed_time(e4)/1000
                 #print("Time feature", device, e1.elapsed_time(e2)/1000)
                 #print("Expected bandwidth", missed * nfeat.shape[1] * 4/ ((e1.elapsed_time(e2)/1000) * 1024 * 1024 * 1024), "GB device", rank, "cache rate", hit/(hit + missed))
@@ -292,6 +294,7 @@ if __name__ == '__main__':
     argparser.add_argument('--early-stopping', action = 'store_true')
     argparser.add_argument('--test-graph',type = str)
     args = argparser.parse_args()
+    print(args.model, "model")
     assert args.model in ["GCN","GAT"]
     if args.gpu >= 0:
         device = th.device('cuda:%d' % args.gpu)
@@ -367,6 +370,6 @@ if __name__ == '__main__':
     print("sample_time:{}".format(epoch_batch_sample))
     print("movement graph:{}".format(epoch_batch_graph))
     print("movement feature:{}".format(epoch_batch_loadtime))
-    print("forward time:{}".format(epoch_batch_forward))
+    print("forward time:{}".format(abs(epoch_batch_forward)))
     print("data movement time:{}".format(epoch_batch_loadtime))
-    print("backward time:{}".format(epoch_batch_backward))
+    print("backward time:{}".format(abs(epoch_batch_backward)))

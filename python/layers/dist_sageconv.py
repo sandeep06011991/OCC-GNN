@@ -45,6 +45,7 @@ class DistSageConv(nn.Module):
         # self.e3 = torch.cuda.Event(enable_timing = True)
         # self.e4 = torch.cuda.Event(enable_timing = True)
         # self.e5 = torch.cuda.Event(enable_timing = True)
+        self.shuffle_time = 0
 
     def reset_parameters(self):
         gain = nn.init.calculate_gain('relu')
@@ -57,6 +58,10 @@ class DistSageConv(nn.Module):
             nn.init.xavier_uniform_(self.fc2.weight,gain = gain)
             nn.init.xavier_uniform_(self.fc1.weight,gain = gain)
 
+    def get_reset_shuffle_time(self):
+        ret = self.shuffle_time
+        self.shuffle_time = 0
+        return ret
 
     def print_grad(self,l):
         if self.gpu_id != 0:
@@ -87,9 +92,12 @@ class DistSageConv(nn.Module):
         # self.remote_stream.wait_stream(torch.cuda.current_stream())
         # with torch.cuda.stream(self.remote_stream):
         out1 = bipartite_graph.gather_remote(out)
+        t1 = time.time()
         merge_tensors = Shuffle.apply(out1, self.gpu_id, layer_id, bipartite_graph.get_from_nds_size(), \
                             bipartite_graph.to_offsets)
-                    # Work on this signature later.
+        t2 = time.time()
+        self.shuffle_time += (t2-t1)
+        # Work on this signature later.
         # with torch.cuda.stream(self.local_stream):
         out3 = bipartite_graph.gather_local(out).clone()
 

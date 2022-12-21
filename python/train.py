@@ -185,6 +185,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     epoch_time = []
     epoch_accuracy = []
     data_moved_per_gpu_epoch =[]
+    shuffle_time_epoch = []
     edges_per_gpu_epoch = []
     sample_get_time = 0
     forward_time = 0
@@ -227,6 +228,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
             movement_feat_epoch.append(movement_feat)
             edges_per_gpu_epoch.append(edges_per_gpu)
             data_moved_per_gpu_epoch.append(data_moved_per_gpu)
+            if args.model =="gcn":
+                shuffle_time_epoch.append(model.module.get_reset_shuffle_time())
             epoch_time.append(e_t2-e_t1)
             sample_get_time = 0
             forward_time = 0
@@ -344,6 +347,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print("forward time:{}".format(avg(forward_epoch)))
         print("backward time:{}".format(avg(backward_epoch)))
         print("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
-
+        if args.model == "gcn":
+            print("shuffle time: {}".format(avg(shuffle_time_epoch)))
         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")

@@ -10,6 +10,7 @@ naive.run_experiment_quiver("GCN")
 occ.run_experiment_occ("gcn")
 occ.run_experiment_occ("gat")
 occ.run_experiment_occ("gat-pull")
+quiver.run_experiment_quiver("GCN")
 
-import exp8
+#import exp8
 

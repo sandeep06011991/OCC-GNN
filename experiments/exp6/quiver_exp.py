@@ -35,6 +35,8 @@ def parse_float(string, output):
     assert(len(matches) == 1)
     return "{:.2f}".format(float(matches[0]))
 
+from normalize import *
+
 
 # measures cost of memory transfer of dataset
 def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch_size):
@@ -67,10 +69,14 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         assert(len(edges) == 4)
         edges = sum(edges)/4
         
-        data_moved = re.findall("data moved :(\d+\.\d+)MB",out)
+        data_moved = re.findall("data moved CPU:(\d+\.\d+)MB",out)
         data_moved = [float(d) for d in data_moved]
         assert(len(data_moved) == 4)
         data_moved = sum(data_moved)/4
+
+        data_moved_gpu = re.findall("data moved GPU:(\d+\.\d+)MB",out)
+        data_moved_gpu = [float(d) for d in data_moved_gpu]
+        data_moved_gpu = sum(data_moved_gpu)/4
         #print("accuracy",accuracy)
         #print("edges", edges)
         sample_get, movement_data, forward_time, backward_time = normalize\
@@ -88,10 +94,11 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size, fsize, minibatch
         accuracy = "error"
         epoch = "error"
         data_moved = "error"
+     
     return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
             "movement_graph":movement_graph, "movement_data": movement_data, \
                 "movement_feat": movement_feat, "epoch":epoch,
-                "accuracy": accuracy,"data_moved":data_moved, "edges":edges}
+                "accuracy": accuracy,"data_moved":data_moved, "edges":edges,"data_moved_gpu":data_moved_gpu}
 
 
 def run_experiment_quiver( model ):
@@ -103,9 +110,11 @@ def run_experiment_quiver( model ):
                 ("ogbn-products",16, 100, 1024), \
                 #("ogbn-products",16, 100, 4096), \
                 #("ogbn-products",16, 100, 256),  \
-                #("reorder-papers100M", 16, 256),\
-                #("reorder-papers100M", 16, 4096),\
-                #("reorder-papers100M", 16, 1024),\
+                #("reorder-papers100M", 16, 128, 256),\
+                #("reorder-papers100M", 16, 128, 4096),\
+                #("amazon", 16, 200, 256),\
+                #("amazon", 16, 200,  1024),\
+                #("amazon", 16, 200, 4096)
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -114,13 +123,13 @@ def run_experiment_quiver( model ):
                 # ("com-friendster",2), \
                  # ("com-orkut",5, 256, 256, 4096) \
                  ]
-    no_epochs = 6
+    no_epochs = 5
     # settings = [("ogbn-papers100M",2)]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
     print("0 Cache has a problem, go over it")
     cache_rates = ["0", ".10", ".25"]
-    cache_rates = [".10"]
+    cache_rates = [".25"]
     #settings = [settings[0]]
     #check_path()
     print(settings)
@@ -132,6 +141,8 @@ def run_experiment_quiver( model ):
             " batch-size | model  | sample_get | move-data | forward |" +\
               " backward  | epoch_time | accuracy | data_movement | edges \n")
     for graphname, hidden_size, fsize, batch_size in settings:
+        cache = ".25"
+        for hidden_size in ["64","128","64"]:
         for cache in cache_rates:
             if graphname in ["ogbn-papers100M","com-friendster"]:
                 if float(cache) > .3:
@@ -140,10 +151,10 @@ def run_experiment_quiver( model ):
             with open('{}/exp6/exp6_quiver.txt'.format(OUT_DIR),'a') as fp:
                 fp.write(("{} | {} | {} | {} | {} | {} "+\
                        "| {} | {} | {} | {} | {} | {} |"+\
-                       " {} | {}  | {} |  {} \n").format(graphname , "quiver", cache, hidden_size, fsize,\
+                       " {} | {}  | {} | {}  \n").format(graphname , "quiver", cache, hidden_size, fsize,\
                         4 * batch_size, model, out["sample_get"], out["movement_data"], \
-                        out["movement_feat"], out["forward"], out["backward"],  out["epoch"], out["accuracy"],
-                        out["data_moved"], out["edges"]))
+                         out["forward"], out["backward"],  out["epoch"], out["accuracy"],
+                        out["data_moved"], out["edges"], out["data_moved_gpu"]))
 
 
 

@@ -49,6 +49,11 @@ class DistSAGEModel(torch.nn.Module):
                 x = self.dropout(self.activation(x))
         return x
 
+    def get_reset_shuffle_time(self):
+        s = 0
+        for l in self.layers:
+            s += l.get_reset_shuffle_time()
+        return s
 
     def print_grad(self):
         for id,l in enumerate(self.layers):

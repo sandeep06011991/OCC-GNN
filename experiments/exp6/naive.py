@@ -32,7 +32,8 @@ def average_string(ls):
 
 def parse_float(string, output):
     matches = re.findall(string,output)
-    assert(len(matches) == 1)
+    print("All matches", matches)
+    #assert(len(matches) == 1)
     return "{:.2f}".format(float(matches[0]))
 
 
@@ -51,6 +52,7 @@ def run_quiver(graphname, model, epochs, hidden_size, fsize, minibatch_size):
     error = str(output.stderr)
     print(out,error)
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
+    #if True:
     try:
         accuracy  = parse_float("accuracy:(\d+\.\d+)",out)
         epoch = parse_float("epoch_time:(\d+\.\d+)",out)
@@ -88,21 +90,21 @@ def run_experiment_quiver( model ):
     # graph, hidden_size, fsize, minibatch_size
     settings = [
                 # ("ogbn-arxiv",16, 128, 1024), \
-                ("ogbn-arxiv",16, 128, 4096), \
+                # ("ogbn-arxiv",16, 128, 4096), \
                 # ("ogbn-arxiv",16, 128, 256),  \
-                # ("ogbn-products",16, 100, 1024), \
-                # ("ogbn-products",16, 100, 1024), \
+                #("ogbn-products",16, 100, 1024), \
+                 ("ogbn-products",16, 100, 1024), \
                 # ("ogbn-products",16, 100, 4096), \
                 # ("ogbn-products",16, 100, 256),  \
                 # ("reorder-papers100M", 16, 128,  256),\
                 # ("reorder-papers100M", 16, 128, 4096),\
-                #("reorder-papers100M", 16, 128, 1024),\
+                ("reorder-papers100M", 16, 128, 1024),\
                 # ("amazon", 16, 200, 256),\
                 # ("amazon", 16, 200,4096),\
-                #("amazon", 16, 200, 1024),\
+                ("amazon", 16, 200, 1024),\
                  ]
     no_epochs = 5
-    # settings = [("ogbn-arxiv",16, 128, 1024)]
+    #settings = [("ogbn-products",16, 100, 4096)]
     # settings = [("ogbn-papers100M",2)]
     # cache_rates = [".05",".10",".24",".5"]
     # cache_rates = [".05",".24", ".5"]
@@ -132,5 +134,5 @@ def run_experiment_quiver( model ):
 
 
 if __name__=="__main__":
-    run_experiment_quiver("GAT")
-    #run_experiment_quiver("GCN")
+    #run_experiment_quiver("GAT")
+    run_experiment_quiver("GCN")

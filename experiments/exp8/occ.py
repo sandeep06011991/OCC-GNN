@@ -92,11 +92,8 @@ def run_experiment_occ(model):
                 # ("ogbn-arxiv", 16, 128, 4096), \
                 #("ogbn-arxiv",16, 128, 16384),\
                 ("ogbn-arxiv", 32 , -1 , 4096, "ogbn-arxiv"), \
-                #("ogbn-products",16, 100, 4096,"ogbn-products"), \
-                #("ogbn-products", 16, 100, 4096), \
-                #("ogbn-products",16, 100 , 16384), \
-                #("reorder-papers100M", 16, 128, 1024),\
-                #("reorder-papers100M", 16, 128, 4096, "test_reorder_papers100M"),\
+                ("ogbn-products",16, 100, 4096,"ogbn-products"), \
+                ("reorder-papers100M", 16, 128, 4096, "test_reorder_papers100M"),\
                 #("amazon", 16, 200, 4096, "amazon"),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\

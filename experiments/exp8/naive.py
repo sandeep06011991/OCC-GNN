@@ -69,11 +69,11 @@ def run_experiment_naive(model):
     # graph, hidden_size, fsize, minibatch_size, ogbn-arxiv
     settings = [
                 ("ogbn-arxiv", 16, 128, 1024, "ogbn-arxiv"), \
-                # ("ogbn-products",16, 100, 1024, "ogbn-products"), \
-                # ("reorder-papers100M", 16, 128, 1024, "test_reorder_papers100M"),\
+                ("ogbn-products",16, 100, 1024, "ogbn-products"), \
+                ("reorder-papers100M", 16, 128, 1024, "test_reorder_papers100M"),\
                 # ("amazon", 16, 200, 1024, "amazon"),\
                  ]
-    no_epochs = 5
+    no_epochs = 50
     # settings = [("ogbn-arxiv",16, 128, 1024)]
     # settings = [("ogbn-papers100M",2)]
     # cache_rates = [".05",".10",".24",".5"]
