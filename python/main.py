@@ -114,20 +114,22 @@ def main(args):
         assert(i == fanout[0])
         # Onlysupport same fanout currently.
 
+    total_minibatches = int(features.shape[0]/batch_size) * no_epochs
+    print("I need ",total_minibatches)
     fanout_val = fanout[0]
     import random
     file_id = random.randint(0,10000)
 
     sm_filename_queue = mp.Queue(get_number_buckets(args.num_workers))
     sm_manager = SharedMemManager(sm_filename_queue, args.num_workers, file_id)
-
+        
     #Not applicable as some nodes have zero features in ogbn-products
     #assert(not torch.any(torch.sum(features,1)==0))
-
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
                     fanout, batch_size,  partition_map, deterministic = args.deterministic)
     storage_vector = []
+    
     for i in range(4):
         storage_vector.append(mm.local_to_global_id[i].tolist())
     print("memory manaager done")
@@ -166,8 +168,8 @@ def main(args):
     work_producer_process.start()
     #print("Change to make sampling not a bottleneck")
     #sample_queues = [mp.Queue(queue_size) for i in range(4)]
-    leader_queue = mp.Queue(args.num_workers * args.num_workers)
-    sample_queues = [mp.Queue(args.num_workers * args.num_workers) for i in range (4)] 
+    leader_queue = mp.Queue(args.num_workers  * args.num_workers * 8)
+    sample_queues = [mp.Queue(args.num_workers * args.num_workers * 8) for i in range (4)] 
 
     # sample_queues = [mp.SimpleQueue() for i in range(4)]
     
@@ -192,7 +194,7 @@ def main(args):
     print("Trainer processes")
     leader_proc = mp.Process(target=(run_leader_process), args = (leader_queue, sample_queues, minibatches_per_epoch, args.num_epochs, args.num_workers))
     leader_proc.start()
-    time.sleep(20)
+    time.sleep(60)
     for proc_id in range(n_gpus):
         p = mp.Process(target=(run_trainer_process), \
                       args=(proc_id, n_gpus, sample_queues, minibatches_per_epoch \
@@ -203,11 +205,16 @@ def main(args):
         procs.append(p)
     for sp in slice_producer_processes:
         sp.join()
-    print("Sampler returned")
+    print("All Sampler returned")
     leader_proc.join()
+    print("Leader process returns")
+    #for p in procs:
+     #   print("Waiting for trainer process")
+     #   p.join()
+      #  print("Trainer processes returning")
+    time.sleep(30)
     for p in procs:
-        p.join()
-        
+        p.terminate()
     print("Setup Done")
 
 

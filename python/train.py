@@ -49,8 +49,9 @@ def run_leader_process(leader_queue, sample_queues, minibatches_per_epoch, req_e
         meta =leader_queue.get()
         for i in range(4):
             if i==0:
-                print(leader_queue.qsize(), "leader consumption")
-                print(sample_queues[i].qsize(), "leader production")
+                if(sample_queues[i].qsize() ==0):
+                    print(leader_queue.qsize(), "leader queue when sampler is 0 consumption")
+                #print(sample_queues[i].qsize(), "leader production")
             if type(meta) == tuple:
                 sample_queues[i].put(meta[i])
             else:
@@ -66,9 +67,10 @@ def run_leader_process(leader_queue, sample_queues, minibatches_per_epoch, req_e
     for i in range(4):
         while True:
             if sample_queues[i].qsize() == 0:
+                print("breaking from",i)
                 break
-            time.sleep(.1)
-            #print("got end of epoch flag"    
+            time.sleep(1)
+            print("LEADER processing is sleeping got end of epoch flag", sample_queues[i].qsize())
 def get_sample(proc_id, sample_queues,  sm_client, log, attention = False):
     sample_id = None
     device = proc_id
@@ -94,7 +96,8 @@ def get_sample(proc_id, sample_queues,  sm_client, log, attention = False):
         
     log.log("Meta data read {}".format(meta))
     t1 = time.time()
-    print("sample track",t1-t0, proc_id, sample_queues[proc_id].qsize())
+    if proc_id == 0:
+        print("time to consume a sample",t1-t0)
     sample_get_time = t1-t0
     graph_move_time = 0
     if(type(meta) == type("")):
@@ -238,6 +241,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     test_accuracy_list = []
     # print("Features ", features.device)
     num_epochs = 0
+    minibatch_sample_time = []
     if proc_id == 0:
         flog = logging.getLogger()
     while(True):
@@ -246,6 +250,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         sample_id, gpu_local_sample, sample_get_mb, graph_move_mb = get_sample(proc_id, sample_queue,  sm_client, log, attention)
         sample_get_time += sample_get_mb
         movement_graph += graph_move_mb
+        minibatch_sample_time.append(sample_get_mb)
         log.log("sample recieved and processed")
         if(gpu_local_sample == "EPOCH" ):
             continue
@@ -356,13 +361,13 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         if output.shape[0] !=0:
             acc = compute_acc(output,classes)
             acc = (acc[0].item()/acc[1])
-            print("Accuracy ", acc, ii,num_epochs)
+            #print("Accuracy ", acc, ii,num_epochs)
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
         # print("Forward time",fp_start.elapsed_time(fp_end)/1000 )
         # with nvtx.annotate("backward", color="red"):
         backward_time += fp_end.elapsed_time(bp_end)/1000
-        print("Forward", fp_start.elapsed_time(fp_end)/1000)
+        print("Training", fp_start.elapsed_time(bp_end)/1000)
         if deterministic:
             model.module.print_grad()
         optimizer.step()
@@ -383,6 +388,6 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print("backward time:{}".format(avg(backward_epoch)))
         print("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
         print("Shuffle time:{}".format(avg(movement_partials_epoch)))
-        
+    print("Trainer returns")    
         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")

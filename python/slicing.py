@@ -30,7 +30,7 @@ def work_producer(work_queue, training_nodes, batch_size,
     time.sleep(30)
     print("WORK PRODUCER TRIGGERING END")
 
-
+import statistics
 # Work queue to get sample data.
 # lock to write to 4 queues at the same time
 # sample_queue = to put the meta result.
@@ -49,6 +49,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
     sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id, num_workers,file_id)
     # Todo clean up unnecessary iterations
     #log = LogFile("slice-py", worker_id)
+    sample_producing_times = []
     while(True):
         sample_nodes = work_queue.get()
         # while True:
@@ -74,7 +75,9 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         # print("ask cmodule for sample")
         #print("#################################1")
         #print("Start sampling")
+        t1 = time.time()
         csample = sampler.getSample(sample_nodes)
+        t11 = time.time()
         #print("Sampling complete ")
         # print("cmodule returns sample, start tensorize")
         #log.log("cmodule returns sample, start tensorize")
@@ -97,6 +100,9 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         #log.log("Serialization complete, write meta data to leader gpu process")
         # print("finish write and serialization.")
         # assert(False)
+        t2 = time.time()
+        sample_producing_times.append(t2-t1)
+        print("time to produce a sample", t2-t1, "cslice takes", t11-t1)
         #while(sample_queues[0].qsize() >= queue_size - 3):
         #    time.sleep(.01)
         #print("ATTEMPT TO PUT SAMPLE",sample_queues[0].qsize(), "WORKER", worker_id)
@@ -106,7 +112,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         #print("Attemtpting to put to Sample",sample_queue.qsize())
         #if(sample_queue.qsize ()> num_workers * num_workers * .4):
         #    time.sleep(.1)
-        print("Putting into queue", sample_queue.qsize())
+        #print("Putting into queue", sample_queue.qsize())
         sample_queue.put(tuple(gpu_local_samples))
         # for qid,q in enumerate(sample_queues):
         #     while True:
@@ -124,5 +130,8 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         time.sleep(1)
         if(sample_queue.qsize()==0):
             break
+        print("Sampler processes is sleeping",sample_queue.qsize())
+    
+    #print("sample_producing_time",sample_producing_times[10:20], statistics.mean(sample_producing_times), statistics.variance(sample_producing_times))
     time.sleep(30)
     print("SAMPLER PROCESS RETURNS")

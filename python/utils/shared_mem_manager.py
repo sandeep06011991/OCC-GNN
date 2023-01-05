@@ -1,4 +1,4 @@
-SHARED_MEMORY_SIZE = 300 * 1024 * 1024
+SHARED_MEMORY_SIZE = 100 * 1024 * 1024
 # Number of workers * 2 = Quesize = num buckets.
 # NUM_BUCKETS = 4
 from multiprocessing.shared_memory import SharedMemory
@@ -11,7 +11,7 @@ from utils.log import *
 def get_number_buckets(num_workers):
     print("change to make sampling not a bottleneck")
     # previously num_workers * 2 * 4 * num_workers
-    return num_workers * 2 * num_workers 
+    return num_workers * 2 * 4 * num_workers 
 # Everything outside this class should be agnostic to shared memory details
 # Keep this object in memory and delete after everything returns
 class SharedMemManager():
@@ -33,6 +33,7 @@ class SharedMemManager():
         for k in self.buckets.keys():
             self.buckets[k].close()
             self.buckets[k].unlink()
+        print("All done")
         # Clear all shared memory
 
 class SharedMemClient():

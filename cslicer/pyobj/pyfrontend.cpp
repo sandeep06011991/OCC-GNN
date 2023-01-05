@@ -12,6 +12,8 @@
 #include <cstdlib>
 #include <iostream>
 #include <ctime>
+#include <chrono>
+using namespace std::chrono;
 namespace py = pybind11;
 
 int sample_flow_up_sample(Sample &s, int number_of_nodes);
@@ -143,9 +145,19 @@ public:
       sample->clear();
       p_sample->clear();
       // spdlog::info("sample begin");
+          auto start1 = high_resolution_clock::now();
+ 
       this->neighbour_sampler->sample(sample_nodes, *sample);
+     	auto start2 = high_resolution_clock::now();
+ 
       // spdlog::info("slice begin");
       this->slicer->slice_sample(*sample, *p_sample);
+          auto start3 = high_resolution_clock::now();
+ 	auto duration1 = duration_cast<milliseconds>(start2 - start1);
+	auto duration2 = duration_cast<milliseconds>(start3 -start2);
+
+     std::cout << "sample " << (double)duration1.count()/1000 << "slice"<< (double)duration2.count()/1000 <<"\n";
+ 
       // spdlog::info("covert to torch");
       PySample *sample = new PySample(*p_sample);
       return sample;

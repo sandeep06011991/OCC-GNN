@@ -8,23 +8,25 @@ from utils.utils import get_process_graph
 
 def sampler_baseline_latency(graph_name, batch_size):
     # graph_name = "ogbn-arxiv"
+    # Modified to GPU
     dg_graph, partition_map, num_classes  = get_process_graph(graph_name, -1)
+    dg_graph = dg_graph.to('cuda:0')
     train_nid = dg_graph.ndata['train_mask'].nonzero().flatten()
     sampler = dgl.dataloading.MultiLayerNeighborSampler([20,20,20])
     dataloader = dgl.dataloading.NodeDataLoader(
         dg_graph,
         train_nid,
         sampler,
-        device='cpu',
-        batch_size= int(batch_size/4),
+        device='cuda',
+        batch_size= int(batch_size),
         shuffle=True,
         drop_last=True,
         num_workers=0 )
     average_sample = []
     for i in range(2):
         t1 = time.time()
-        for _ in dataloader:
-            
+        for a in dataloader:
+            #print(a)
             pass
         t2 = time.time()
         average_sample.append(t2-t1)
@@ -66,7 +68,9 @@ def test_sampling_overhead():
     # As the sample is read through twice for further processing.
     agraphs = ["ogbn-arxiv"]
     batches = [1024,4096,4096 *4]
-    agraphs = [ "amazon"]
+    agraphs = [ "ogbn-products"]
+    with open('sampler_perf','a') as fp:
+        fp.write("Graph| Batch | Baseline | GRoot\n")
     for graph in agraphs:
         for batch_size in batches:
             t1 = groot_baseline_latency(graph, batch_size)
@@ -77,5 +81,7 @@ def test_sampling_overhead():
 
 if __name__=="__main__":
     test_sampling_overhead()
-    #sampler_baseline_latency()
+    #graph_name = "ogbn-arxiv"
+    #batch_size = 4096
+    #sampler_baseline_latency(graph_name, batch_size)
     #groot_baseline_latency()
