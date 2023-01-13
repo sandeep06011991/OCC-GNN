@@ -10,16 +10,17 @@ enum POLICY {
 };
 
 struct gpu{
-   int cost[4];
+   int cost[8];
 };
 
 class Slice{
 
   std::vector<int> workload_map;
-  std::vector<int> storage_map[4];
-  std::vector<int> storage[4];
+  std::vector<int> storage_map[8];
+  std::vector<int> storage[8];
   // Used for new node ordering
-  int gpu_capacity[4];
+  int gpu_capacity[8];
+  int num_gpus = -1;
   DuplicateRemover *dr;
   // Use this for GAT
   bool self_edge = false;
@@ -32,19 +33,21 @@ class Slice{
 public:
 // Are all these options really needed.
   Slice(std::vector<int> workload_map,
-      std::vector<int> storage[4], bool self_edge, int rounds,
-        bool pull_optimization){
+      std::vector<int> storage[8], bool self_edge, int rounds,
+        bool pull_optimization, int num_gpus){
     this->workload_map = workload_map;
+    this->num_gpus= num_gpus;
+    std::cout << "Setting number of gpus to" << num_gpus <<"\n";
     int num_nodes = this->workload_map.size();
-
+	
     for(int j = 0; j < num_nodes; j++){
       #pragma unroll
-      for(int i=0;i<4;i++){
+      for(int i=0;i<this->num_gpus;i++){
         this->storage_map[i].push_back(-1);
       }
       
     }
-    for(int i=0;i<4;i++){
+    for(int i=0;i<num_gpus;i++){
       int count = 0;
       for(auto j:storage[i]){
           this->storage_map[i][j] = count;
@@ -92,12 +95,12 @@ struct redundant{
 
 struct gpu_meta{
   int set_partitions;
-  int partitions[4];
+  int partitions[8];
 };
 
 
 void populate_meta_dict();
 
 redundant  print_statistics(Sample &s, std::vector<int> ** layer_color, long num_nodes,\
-          std::vector<int> & workload_map,std::vector<int> storage_map[4]);
+          std::vector<int> & workload_map,std::vector<int> storage_map[8]);
 // redundant  print_statistics(Sample &s, vector<int>** layer_color, long num_nodes, vector<int>& workload_map){

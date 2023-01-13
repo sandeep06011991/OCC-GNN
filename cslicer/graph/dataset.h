@@ -27,7 +27,8 @@ public:
   int *labels;
 
   // gpu_partition_map
-  int *partition_map;
+  int *partition_map; 
+  int num_partitions; 
 
   // training splits.
   long * train_idx;
@@ -46,7 +47,7 @@ public:
   long csum_offsets;
   long csum_edges;
   bool testing = true;
-  Dataset(std::string dir, bool testing);
+  Dataset(std::string dir, bool testing, int num_partitions);
 };
 
 #endif

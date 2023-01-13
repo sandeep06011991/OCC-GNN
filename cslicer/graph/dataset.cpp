@@ -6,9 +6,10 @@
 #include <assert.h>
 
 
-Dataset::Dataset(std::string dir, bool testing){
+Dataset::Dataset(std::string dir, bool testing, int num_partitions){
   this->BIN_DIR = dir;
   this->testing = testing;
+  this->num_partitions = num_partitions;
   read_meta_file();
   read_graph();
   read_node_data();
@@ -68,15 +69,22 @@ void Dataset::read_node_data(){
     }
     return;
   }
-  std::fstream file2(this->BIN_DIR + "/partition_map_opt.bin",std::ios::in|std::ios::binary);
   this->partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
-  file2.read((char *)this->partition_map,this->num_nodes *  sizeof(int));
+  if (this->num_partitions != -1){
+  	std::fstream file2(this->BIN_DIR + "/partition_map_opt_" + std::to_string(this->num_partitions) +".bin",std::ios::in|std::ios::binary);
+  	file2.read((char *)this->partition_map,this->num_nodes *  sizeof(int));
+  }else{
+	std::fstream file2(this->BIN_DIR + "/partition_map_opt_random.bin", std::ios::in|std::ios::binary);
+  	file2.read((char *)this->partition_map,this->num_nodes *  sizeof(int));
+  }
   s = 0;
+  std::cout << this->BIN_DIR + "/partition_map_opt_" + std::to_string(this->num_partitions) +".bin" <<"\n";
   for(int i=0;i< (this->num_nodes) ;i++){
      this->partition_map[i] < 4;
      s = s + this->partition_map[i];
   }
   assert(s>10);
+  std::cout << "Partition_map read";
 }
 
 void Dataset::read_meta_file(){

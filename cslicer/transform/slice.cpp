@@ -8,7 +8,7 @@ void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy,
     vector<gpu> in_degree;
     vector<gpu> out_degree;
     gpu zero;
-    for(int i = 0; i <4; i++){
+    for(int i = 0; i < this->num_gpus; i++){
        zero.cost[i] = 0;
     };
     for(int i=0; i < bl.layer_nds.size(); i++){
@@ -29,7 +29,8 @@ void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy,
           }
           if(p_src == p_dest) {
             policy.push_back(LOCAL);
-            continue;
+	    //std::cout << "local" << in[i] << " " << nd2 <<"\n";
+	    continue;
           }else{
             policy.push_back(PUSH);
           }
@@ -69,11 +70,13 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
           vector<POLICY> &policy){
     // Calculate out_degree and in degree for bipartite graph
     // For pulling node.
-    vector<long> partition_edges[4];
-    vector<long> pull_nodes[4];
-    vector<long> local_in_nodes[4];
+    vector<long> partition_edges[this->num_gpus];
+    vector<long> pull_nodes[this->num_gpus];
+    vector<long> local_in_nodes[this->num_gpus];
+    // std::cout << "PArtition count " << this->num_gpus <<"\n";
     for(int i=0;i<in.size(); i++){
-      for(int i=0;i<4;i++){
+	    
+      for(int i=0;i<this->num_gpus;i++){
         partition_edges[i].clear();
         pull_nodes[i].clear();
         local_in_nodes[i].clear();
@@ -103,7 +106,7 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
 
       l.bipartite[p_dest]->add_local_out_node(nd_dest, in_degree);
 
-      for(int src=0;src < 4; src++){
+      for(int src=0;src < this->num_gpus; src++){
           // Its not actually src but destination for remote nodes in this line.
 
           // Contains local and remote nodes if src == p_dest local, else remote
@@ -119,14 +122,14 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
   }
 
   void Slice::reorder(PartitionedLayer &l){
-     for(int i=0;i < 4; i++){
-   	l.bipartite[i]->reorder_local(dr);
+     for(int i=0;i < this->num_gpus; i++){
+   	l.bipartite[i]->reorder_local(dr, this->num_gpus);
      }
      // Handle remote destination nodes
-     for(int to = 0; to < 4; to ++){
+     for(int to = 0; to < this->num_gpus; to ++){
        dr->clear();
        dr->order_and_remove_duplicates(l.bipartite[to]->out_nodes_local);
-       for(int from = 0; from<4; from++){
+       for(int from = 0; from < this->num_gpus; from++){
 	        if(from == to) continue;
          int start = l.bipartite[from]->to_offsets[to];
          int end = l.bipartite[from]->to_offsets[to + 1];
@@ -138,10 +141,10 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
        }
      }
      // Think on paper what I am trying to do here.
-     for(int pull_from = 0;pull_from < 4; pull_from++){
+     for(int pull_from = 0;pull_from < this->num_gpus; pull_from++){
        dr->clear();
        dr->order_and_remove_duplicates(l.bipartite[pull_from]->in_nodes);
-       for(int pull_to = 0; pull_to < 4; pull_to ++ ){
+       for(int pull_to = 0; pull_to < this->num_gpus; pull_to ++ ){
          if(pull_from == pull_to)continue;
          int start = l.bipartite[pull_to]->pull_from_offsets[pull_from];
          int end = l.bipartite[pull_to]->pull_from_offsets[pull_from + 1];
@@ -161,16 +164,20 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
     // s.debug();
     bool check = false;
     for(int i= 1; i< s.num_layers + 1;i++){
-        PartitionedLayer& l = ps.layers[i-1];
+	   // std::cout << "Sliceed sample \n";
+	    PartitionedLayer& l = ps.layers[i-1];
         int layer_id = i-1;
         edge_policy.clear();
         int num_edges = s.block[i]->indices.size();
+	// std::cout << "Get edge policy\n";
         this->get_edge_policy(s.block[i-1]->layer_nds,  *s.block[i], edge_policy, i-1, s.num_layers );
-        this->slice_layer(s.block[i-1]->layer_nds, \
+	// std::cout << "start slicing \n";
+	this->slice_layer(s.block[i-1]->layer_nds, \
           (* s.block[i]), l, layer_id, edge_policy);
-      	this->reorder(l);
+	// std::cout << "Start reordering\n";
+	this->reorder(l);
         int p_edges = 0;
-        for(int j=0;j<4;j++){
+        for(int j=0;j<this->num_gpus;j++){
           p_edges += l.bipartite[j]->indices_L.size();
           p_edges += l.bipartite[j]->indices_R.size();
           if((l.bipartite[j]->indices_R.size()==0) || (l.bipartite[j]->indices_L.size() == 0)){
@@ -182,11 +189,9 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
         //  }
         }
         assert(num_edges == p_edges);
-
         // l.debug();
-
     }
-    for(int i=0;i<4;i++){
+    for(int i=0;i<this->num_gpus;i++){
         ps.cache_miss_from[i].clear();
         ps.cache_hit_from[i].clear();
         ps.cache_miss_to[i].clear();
@@ -220,10 +225,10 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
   void Slice::measure_pull_benefits(Sample &s){
       int num_nodes = this->workload_map.size();
       for(int i= 1; i< s.num_layers + 1;i++){
-         vector<int> p_indegree[4];
-         vector<int> p_outdegree[4];
-         vector<int> p_pulled[4];
-         vector<int> p_new_indegree[4];
+         vector<int> p_indegree[this->num_gpus];
+         vector<int> p_outdegree[this->num_gpus];
+         vector<int> p_pulled[this->num_gpus];
+         vector<int> p_new_indegree[this->num_gpus];
          vector<long>& in_nodes = s.block[i-1]->layer_nds;
          vector<long>& offsets = s.block[i]->offsets;
          vector<long>& indices = s.block[i]->indices;

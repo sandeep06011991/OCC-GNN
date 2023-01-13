@@ -1,0 +1,3 @@
+[submodule "3rdparty/thrust"]
+	path = 3rdparty/thrust
+	url = https://github.com/NVIDIA/thrust.git

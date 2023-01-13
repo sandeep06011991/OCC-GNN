@@ -24,13 +24,14 @@ void  test_pull_benefits(Sample &s, std::vector<int> workload_map, \
     std::vector<int> storage[4], int rounds){
     bool self_edge = false;
     bool pull_optim= true;
-    Slice *s1 =   new Slice(workload_map, storage, self_edge, rounds, pull_optim);
-    PartitionedSample ps1(s.num_layers);
+    int num_gpus = 4;
+    Slice *s1 =   new Slice(workload_map, storage, self_edge, rounds, pull_optim,num_gpus);
+    PartitionedSample ps1(s.num_layers, num_gpus);
     s1->slice_sample(s, ps1);
     pull_optim = false;
     std::cout << pull_optim <<"xxxxxxxxxxxxxxxxxxxxxxxx\n";
-    Slice *s2 =   new Slice(workload_map, storage, self_edge, rounds, pull_optim);
-    PartitionedSample ps2(s.num_layers);
+    Slice *s2 =   new Slice(workload_map, storage, self_edge, rounds, pull_optim, num_gpus);
+    PartitionedSample ps2(s.num_layers, num_gpus);
     ps2.clear();
     s2->slice_sample(s,ps2);
     int pull = measure_communication(rounds,ps1);

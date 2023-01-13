@@ -1,7 +1,7 @@
 #include "bipartite.h"
 
 // Replace everything with one local ordering.
-void BiPartite::reorder_local(DuplicateRemover *dr){
+void BiPartite::reorder_local(DuplicateRemover *dr, int num_gpus){
   // Order destination nodes;
   dr->clear();
   dr->order_and_remove_duplicates(to_ids_[gpu_id]);
@@ -10,7 +10,7 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
   // It is a seperate graph.
   dr->clear();
   to_offsets[0] = 0;
-  for(int i=0;i<4;i++){
+  for(int i=0;i<num_gpus;i++){
    if(i != gpu_id){
       dr->order_and_remove_duplicates(to_ids_[i]);
       to_offsets[i + 1] = to_offsets[i] +  to_ids_[i].size();
@@ -20,7 +20,7 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
     	to_offsets[i+1] = to_offsets[i];
     }
   }
-  num_out_remote = to_offsets[4];
+  num_out_remote = to_offsets[num_gpus];
   dr->clear();
 
   // Order src nodes and associated data structures.
@@ -40,7 +40,7 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
   // Why is this zero
   // point is to index into pull -in nodes
   pull_from_offsets[0] = 0;
-  for(int i=0;i<4; i++){
+  for(int i=0;i<num_gpus; i++){
     if(i!=gpu_id){
       // Minor FIX. remove duplicates from pull_from_ids
       dr->order_and_remove_duplicates(pull_from_ids_[i]);
@@ -58,7 +58,7 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
   indices_L = indices_[gpu_id];
   dr->replace(indices_L);
   // Remote partition nodes
-  for(int i=0;i<4;i++){
+  for(int i=0;i<num_gpus;i++){
       if((i!=gpu_id) && (indptr_[i].size()!=0)){
           if(indptr_R.size() != 0) {
              int back = indptr_R.back();

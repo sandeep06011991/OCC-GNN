@@ -54,16 +54,16 @@ public:
   vector<long> indices_R;
 
   // Build during slicing
-  vector<long> indptr_[4];
-  vector<long> indices_[4];
+  vector<long> indptr_[8];
+  vector<long> indices_[8];
 
 
   // Built during reordering
   // Destination vertices out nodes, that have to be send will be populated locally at to_ids_
   // After reordering destination partition stores to_ids as offsets and from_ids are populated at src.
-  vector<long> from_ids[4];
-  int to_offsets[5];
-  vector<long> to_ids_[4];
+  vector<long> from_ids[8];
+  int to_offsets[9];
+  vector<long> to_ids_[8];
 
   // Built during slicing
   // vector<long> part_in_nodes[4];
@@ -72,9 +72,9 @@ public:
   // These ids will be reordered so that the src partition knows what values to send
   // which are stored in push_to_ids, the dest partition only stores the offsets where
   // to place these recieved values.
-  vector<long> push_to_ids[4];
-  int pull_from_offsets[5];
-  vector<long> pull_from_ids_[4];
+  vector<long> push_to_ids[8];
+  int pull_from_offsets[9];
+  vector<long> pull_from_ids_[8];
 
   // Used for self attention.
   // Built during re-ordering.
@@ -83,7 +83,6 @@ public:
   int self_ids_offset = 0;
 
   int gpu_id = -1;
-
   BiPartite(int gpu_id){
     this->gpu_id = gpu_id;
     refresh();
@@ -118,6 +117,7 @@ public:
 
 
   void refresh(){
+	  int num_gpus = 8;
     in_nodes.clear();
     pulled_in_nodes.clear();
     out_nodes_remote.clear();
@@ -129,7 +129,7 @@ public:
     num_out_remote = 0;
     to_offsets[0] = 0;
     pull_from_offsets[0] = 0;
-    for(int i=0;i<4;i++){
+    for(int i=0;i<num_gpus;i++){
       from_ids[i].clear();
       to_ids_[i].clear();
       indptr_[i].clear();
@@ -147,7 +147,7 @@ public:
     self_in_nodes.clear();
   }
 
-  void reorder_local(DuplicateRemover *dr);
+  void reorder_local(DuplicateRemover *dr, int num_gpus);
 
   void debug_vector(string str, std::vector<long>& data, std::ostream& stream){
     stream << str <<":";
@@ -163,20 +163,21 @@ public:
     std::ostream &out = std::cout ;
     std::cout << "BiPartitie############" << gpu_id <<  "\n";
     debug_vector("in_nodes", in_nodes, out);
-    debug_vector("self in  nodes", self_in_nodes, out);
+    /*debug_vector("self in  nodes", self_in_nodes, out);
     debug_vector("pulled in_nodes", pulled_in_nodes, out);
     debug_vector("out nodes remote", out_nodes_remote, out);
     debug_vector("out nodes local", out_nodes_local, out);
     debug_vector("out degree local", out_degree_local, out);
     std::cout << "To";
-    for(int i=0;i<4;i++){
+    int num_gpus = 8;
+    for(int i=0;i<num_gpus;i++){
       std::cout << to_offsets[i+1] << " ";
     }
     std::cout << "\n From";
-    for(int i=0;i<4;i++){
+    for(int i=0;i<num_gpus;i++){
       std::cout << pull_from_offsets[i+1] << " ";
     }
-    for(int i=0;i<4;i++){
+    for(int i=0;i<num_gpus;i++){
         std::cout <<  i << ":\n";
         debug_vector("from_ids", from_ids[i], out);
         debug_vector("to_ids_", to_ids_[i], out);
@@ -185,10 +186,12 @@ public:
         debug_vector("push_to_ids", push_to_ids[i], out);
         debug_vector("pull_from_ids", pull_from_ids_[i], out);
       }
+      */
     debug_vector("indptr_L", indptr_L, out);
     debug_vector("indices_L", indices_L, out);
     debug_vector("indptr_R", indptr_R, out);
     debug_vector("indices_R", indices_R, out);
     std::cout << "End \n";
-  }
+  
+   }
 };

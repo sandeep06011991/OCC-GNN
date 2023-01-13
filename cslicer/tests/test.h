@@ -8,10 +8,10 @@
 
 void test_sample_partition_consistency(Sample &s,
         PartitionedSample &p,
-      std::vector<int> storage_map[4], int gpu_capacity[4], int num_nodes);
+      std::vector<int> storage_map[8], int gpu_capacity[8], int num_nodes, int num_gpus);
 
 
-      void test_sample_partition_consistency_gat(Sample &s,
+void test_sample_partition_consistency_gat(Sample &s,
               PartitionedSample &p,
             std::vector<int> storage_map[4], int gpu_capacity[4], int num_nodes);
 

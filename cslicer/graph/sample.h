@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
+#include <cassert>
+
 using namespace std;
 // A simple sample structure
 // The zeroth block is constructed from the set of target nodes as follows
@@ -44,7 +46,9 @@ public:
   }
 
   void check_remote(vector<int> &map, vector<long>& dest){
-  	int local_edge[4];
+  	assert(false);
+	//Not migrated.
+	  int local_edge[4];
 	int remote_edge[4];
 	for(int i=0;i<4;i++){
 		local_edge[i] = 0;
