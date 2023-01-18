@@ -201,7 +201,8 @@ int sample_flow_up_ps(PartitionedSample &s,
 
 
 void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
-  std::vector<int> local_storage[8], int gpu_capacity[8], int num_nodes, int num_gpus){
+  std::vector<int> local_storage[8], int gpu_capacity[8],
+    int num_nodes, int num_gpus){
     int correct = naive_flow_up_sample_gcn(s, num_nodes);
     for(int i=0;i<num_gpus; i++){
       assert(local_storage[i].size() == gpu_capacity[i]);
