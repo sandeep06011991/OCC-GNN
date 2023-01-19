@@ -45,11 +45,10 @@ void Dataset::read_graph(){
 void Dataset::read_node_data(){
     std::fstream file2(this->BIN_DIR + "/partition_map_opt.bin",std::ios::in|std::ios::binary);
     int * _partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
-    file2.read((char *)this->partition_map,this->num_nodes *  sizeof(int));
+    file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
     gpuErrchk(cudaMalloc((void**)&this->partition_map, (this->num_nodes *  sizeof(int))));
     gpuErrchk(cudaMemcpy(this->partition_map, _partition_map, (this->num_nodes *  sizeof(int)) , cudaMemcpyHostToDevice));
     free(_partition_map);
-
 }
 
 void Dataset::read_meta_file(){

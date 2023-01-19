@@ -95,9 +95,9 @@ public:
   // Single function for all remote graphs.
   void merge_graph(vector<long> &edges, long nd_dest, int partition_id){
       // Both GCN and GAT need in node
-      vector<long> & indptr_c  = indptr_[partition_id];
-      vector<long> & indices_c  = indices_[partition_id];
-      vector<long> & to_ids_c  = to_ids_[partition_id];
+      thrust::device_vector<long> & indptr_c  = indptr_[partition_id];
+      thrust::device_vector<long> & indices_c  = indices_[partition_id];
+      thrust::device_vector<long> & to_ids_c  = to_ids_[partition_id];
       if(indptr_c.size() == 0)indptr_c.push_back(0);
       indices_c.insert(indices_c.end(), edges.begin(), edges.end());
       indptr_c.push_back(indices_c.size());

@@ -1,23 +1,14 @@
 #pragma once
-#include <vector>
+#include "thrust/device_vector.h"
 #include "graph/sample.h"
 #include "graph/sliced_sample.h"
 
-enum POLICY {
-  PUSH,
-  PULL,
-  LOCAL
-};
-
-struct gpu{
-   int cost[8];
-};
 
 class Slice{
 
-  std::vector<int> workload_map;
-  std::vector<int> storage_map[8];
-  std::vector<int> storage[8];
+  thrust::device_vector<int> workload_map;
+  thrust::device_vector<int> storage_map[8];
+  thrust::device_vector<int> storage[8];
   // Used for new node ordering
   int gpu_capacity[8];
   int num_gpus = -1;
@@ -32,27 +23,27 @@ class Slice{
 
 public:
 // Are all these options really needed.
-  Slice(std::vector<int> workload_map,
-      std::vector<int> storage[8], bool self_edge, int rounds,
+  Slice(thrust::device_vector<int> workload_map,
+      thrust::device_vector<int> storage[8], bool self_edge, int rounds,
         bool pull_optimization, int num_gpus){
     this->workload_map = workload_map;
     this->num_gpus= num_gpus;
     std::cout << "Setting number of gpus to" << num_gpus <<"\n";
     int num_nodes = this->workload_map.size();
-	
+
     for(int j = 0; j < num_nodes; j++){
       #pragma unroll
       for(int i=0;i<this->num_gpus;i++){
         this->storage_map[i].push_back(-1);
       }
-      
+
     }
     for(int i=0;i<num_gpus;i++){
       int count = 0;
       for(auto j:storage[i]){
           this->storage_map[i][j] = count;
           this->storage[i].push_back(j);
-	  count ++ ;
+	         count ++ ;
       }
       gpu_capacity[i] = count;
     }
@@ -65,12 +56,12 @@ public:
 
   void slice_sample(Sample &s, PartitionedSample &ps);
 
-  void slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int layer_id,
-            vector<POLICY> &policy);
+  // void slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int layer_id,
+  //           vector<POLICY> &policy);
 
   void measure_pull_benefits(Sample &s);
 
-  void get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy, int layer_id, int num_layers);
+  // void get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy, int layer_id, int num_layers);
 
   void  reorder(PartitionedLayer &l);
 
@@ -101,6 +92,6 @@ struct gpu_meta{
 
 void populate_meta_dict();
 
-redundant  print_statistics(Sample &s, std::vector<int> ** layer_color, long num_nodes,\
-          std::vector<int> & workload_map,std::vector<int> storage_map[8]);
+redundant  print_statistics(Sample &s, thrust::device_vector<int> ** layer_color, long num_nodes,\
+          thrust::device_vector<int> & workload_map,thrust::device_vector<int> storage_map[8]);
 // redundant  print_statistics(Sample &s, vector<int>** layer_color, long num_nodes, vector<int>& workload_map){
