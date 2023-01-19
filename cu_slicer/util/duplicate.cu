@@ -9,16 +9,25 @@
 #include <thrust/sort.h>
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
+#include <thrust/unique.h>
 using namespace std;
 
 __global__
 void set_zero(int *array, int size){
     int id= blockDim.x * blockIdx.x + threadIdx.x;
     while(id <size){
-    	array[id] = 0;
-	id += gridDim.x * blockDim.x;
+    	 array[id] = 0;
+	     id += gridDim.x * blockDim.x;
     }
+}
 
+__global__
+void clear_mask(int *mask, long *nodes, int size){
+  int id= blockDim.x * blockIdx.x + threadIdx.x;
+  while(id <size){
+    mask[nodes[id]] = 0;
+    id += gridDim.x * blockDim.x;
+  }
 }
 
 __global__
@@ -30,7 +39,7 @@ void set_nodes_not_present(long * nodes, int size, int * mask, long *_tv){
       if(mask[nodes[id]] == 0){
         _tv[id] = 1;
        }else{
-	   _tv[id] = 0;
+	     _tv[id] = 0;
        }
        id += gridDim.x * blockDim.x;
     }
@@ -55,7 +64,7 @@ __global__
 void update_mask_with_unique(int *mask, int current_unique_nodes, long * _tv1, int size){
     int id= blockDim.x * blockIdx.x + threadIdx.x;
     while(id <size){
-	printf("updating %d %ld\n",id, _tv1[id]);
+	     // printf("updating %d %ld\n",id, _tv1[id]);
         mask[_tv1[id]] = current_unique_nodes + id + 1;
         id += gridDim.x * blockDim.x;
     }
@@ -66,7 +75,7 @@ void update_nodes(int *mask,long *_tv1, int size){
    int id= blockDim.x * blockIdx.x + threadIdx.x;
    while(id <size){
        _tv1[id] = mask[_tv1[id]]-1;
-       printf("update node %d %d\n", id, _tv1[id]);
+       // printf("update node %d %d\n", id, _tv1[id]);
        id += gridDim.x * blockDim.x;
 
    }
@@ -114,16 +123,21 @@ void ArrayMap::order(thrust::device_vector<long> &nodes){
   gpuErrchk( cudaDeviceSynchronize() );
 
   thrust::exclusive_scan(thrust::device, _tv.begin() , _tv.end(), _tv.begin(), 0); // in-place scan
-  std::cout << _tv[_tv.size()-1] <<" check";
   _tv1.resize(_tv[_tv.size()-1] + 1);
   // Capture all nodes not present
   // Step 2
   get_unique_nodes<<<num_blocks,64>>>(thrust::raw_pointer_cast(nodes.data()), nodes.size(), mask,\
 		 	thrust::raw_pointer_cast(_tv.data()),thrust::raw_pointer_cast(_tv1.data()));
-  debug_vector(_tv);
+
+  std::cout << "original" << _tv1.size() <<"\n";
   thrust::sort(_tv1.begin(), _tv1.end());
-  thrust::unique(_tv1.begin(), _tv1.end());
-  std::cout << "Cleaned duplicates " << _tv1.size() <<"\n";
+  _tv.clear();
+  _tv.resize(_tv1.size());
+  auto it = thrust::unique_copy(_tv1.begin(), _tv1.end(), _tv.begin());
+  _tv.erase(it, _tv.end());
+  // _tv1.resize(count);
+  // std::cout << v <<"\n";
+  std::cout << "Cleaned duplicates " << _tv.size() <<"\n";
   // sort and get unique nodes
   // Step 3
   int current_unique_nodes = this->used_nodes.size();
@@ -131,7 +145,7 @@ void ArrayMap::order(thrust::device_vector<long> &nodes){
   gpuErrchk(cudaDeviceSynchronize());
 
   update_mask_with_unique<<<num_blocks, 64>>>( mask, current_unique_nodes,
-		  thrust::raw_pointer_cast(_tv1.data()), _tv1.size());
+		  thrust::raw_pointer_cast(_tv.data()), _tv.size());
   // Update Mask
   // Step 4
   // Add to used nodes
@@ -141,16 +155,18 @@ void ArrayMap::order(thrust::device_vector<long> &nodes){
   //gpuErrchk(cudaDeviceSynchronize());
 
   // Step 5
-  this->used_nodes.insert(this->used_nodes.end(), _tv1.begin(), _tv1.end());
+  this->used_nodes.insert(this->used_nodes.end(), _tv.begin(), _tv.end());
   _tv1.clear();
   _tv.clear();
 
 }
 
+
+
 void ArrayMap::clear(){
-  for(long nd1: this->used_nodes){
-    mask[nd1] = 0;
-  }
+  int i = this->used_nodes.size();
+  int num_blocks = (i-1)/64 + 1;
+  clear_mask<<<num_blocks,64>>>(mask, thrust::raw_pointer_cast(this->used_nodes.data()), used_nodes.size());
   this->used_nodes.clear();
 }
 

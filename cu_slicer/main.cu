@@ -31,6 +31,7 @@ int main(){
   int fanout = 3;
   bool self_edge = true;
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, false, self_edge);
+  std::cout << "starting to sample\n";
   ns->sample(training_nodes,(*s1));
 	/*
   // sample_neighbourhood((*s), training_nodes, (*dataset));

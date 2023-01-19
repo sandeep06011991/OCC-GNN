@@ -40,8 +40,6 @@ public:
   long * indptr; // size = num_nodes + 1
   long * indices; // size = num_edges
 
-  thrust::device_vector<long> indptr_d;
-  thrust::device_vector<long> indices_d;
 
   // check sum
   long csum_features;

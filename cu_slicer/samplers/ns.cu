@@ -43,28 +43,28 @@ void NeighbourSampler::layer_sample(thrust::device_vector<long> &in,
       offsets.resize(in.size() + 1);
       offsets[0] =indices.size();
       in_degrees.resize(in.size());
-      offsets.resize(in.size());
       int blocks = (in.size()-1)/32 + 1;
       int threads = 32;
-
       sample_offsets<<<blocks, threads>>>
         (thrust::raw_pointer_cast(in.data()), in.size(), \
     thrust::raw_pointer_cast(offsets.data()),\
       thrust::raw_pointer_cast(in_degrees.data()),
-        thrust::raw_pointer_cast(this->dataset->indptr_d.data()));
+        this->dataset->indptr);
        assert(in.size() < 640000);
        // Further optimizations are possible.
        // For lower number of neighbours
-       thrust::inclusive_scan(thrust::device, offsets.begin(),\
-          offsets.end(), offsets.begin()); // in-place scan
 
+       thrust::inclusive_scan(thrust::device, offsets.begin(),\
+            offsets.end(), offsets.begin()); // in-place scan
+
+        
        indices.resize(offsets[offsets.size()-1]);
        neigh_sample_based_on_offsets<<<blocks, threads>>>
        (thrust::raw_pointer_cast(in.data()), in.size(),
             thrust::raw_pointer_cast(offsets.data()),
              thrust::raw_pointer_cast(indices.data()),
-              thrust::raw_pointer_cast(this->dataset->indptr_d.data()),
-              thrust::raw_pointer_cast(this->dataset->indices_d.data()));
+              this->dataset->indptr,
+              this->dataset->indices);
 
   }
 
@@ -76,11 +76,14 @@ void NeighbourSampler::sample(thrust::device_vector<long> &target_nodes, Sample 
     std::cout << "Sample one layer\n";
     layer_sample(s.block[i-1]->layer_nds,s.block[i]->in_degree,
             s.block[i]->offsets, s.block[i]->indices);
+    std::cout << "layer sampling complete\n";
     // Hack. Nodes for next layer must always be first.
     s.block[i]->layer_nds = s.block[i-1]->layer_nds;
     s.block[i]->layer_nds.insert(s.block[i]->layer_nds.end(), s.block[i]->indices.begin(), \
                 s.block[i]->indices.end());
+
     dr->order_and_remove_duplicates(s.block[i]->layer_nds);
+    std::cout << "Duplicate remover complete\n";
     dr->replace(s.block[i]->indices);
     dr->clear();
   }
