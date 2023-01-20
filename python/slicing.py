@@ -40,12 +40,15 @@ import statistics
 # The first process communicates with other processes.
 def slice_producer(graph_name, work_queue, sample_queue, \
     lock , storage_vector, \
-        deterministic, worker_id, sm_filename_queue, num_workers, fanout,file_id, self_edge, pull_optimization, rounds):
+        deterministic, worker_id, sm_filename_queue, num_workers,\
+         fanout,file_id, self_edge, pull_optimization, rounds, num_gpus, num_layers):
     no_worker_threads = 1
     testing = False
-    num_layers = 3
+
     sampler = cslicer(graph_name,storage_vector,fanout, deterministic, testing , self_edge, rounds, \
-            pull_optimization, num_layers)
+            pull_optimization, num_layers, num_gpus)
+    if num_gpus == -1:
+        num_gpus = 4
     sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id, num_workers,file_id)
     # Todo clean up unnecessary iterations
     #log = LogFile("slice-py", worker_id)
@@ -131,7 +134,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         if(sample_queue.qsize()==0):
             break
         print("Sampler processes is sleeping",sample_queue.qsize())
-    
+
     #print("sample_producing_time",sample_producing_times[10:20], statistics.mean(sample_producing_times), statistics.variance(sample_producing_times))
     time.sleep(30)
     print("SAMPLER PROCESS RETURNS")

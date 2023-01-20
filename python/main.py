@@ -94,8 +94,13 @@ def work_producer(work_queue,training_nodes, batch_size,
 def main(args):
     print("Graph read pk")
     graph_name = args.graph
-    dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize)
+    dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize,args.num_gpus)
     partition_map = partition_map.type(torch.LongTensor)
+    if args.num_gpus == -1:
+        num_gpus = 4
+    else:
+        num_gpus = args.num_gpus
+
     if not args.deterministic:
         features = dg_graph.ndata["features"]
         features = features.pin_memory()
@@ -122,15 +127,15 @@ def main(args):
 
     sm_filename_queue = mp.Queue(get_number_buckets(args.num_workers))
     sm_manager = SharedMemManager(sm_filename_queue, args.num_workers, file_id)
-        
+
     #Not applicable as some nodes have zero features in ogbn-products
     #assert(not torch.any(torch.sum(features,1)==0))
     # Create main objects
     mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
-                    fanout, batch_size,  partition_map, deterministic = args.deterministic)
+                    fanout, batch_size,  partition_map, num_gpus, deterministic = args.deterministic)
     storage_vector = []
-    
-    for i in range(4):
+
+    for i in range(num_gpus):
         storage_vector.append(mm.local_to_global_id[i].tolist())
     print("memory manaager done")
     print("Change to make sampling not a bottleneck")
@@ -163,16 +168,16 @@ def main(args):
 
     work_producer_process = mp.Process(target=(work_producer), \
                   args=(work_queue, train_nid, minibatch_size, no_epochs,\
-                    no_worker_process, args.deterministic, args.early_stopping))
-    
+                    no_worker_process,  args.deterministic, args.early_stopping))
+
     work_producer_process.start()
     #print("Change to make sampling not a bottleneck")
     #sample_queues = [mp.Queue(queue_size) for i in range(4)]
-    leader_queue = mp.Queue(args.num_workers  * args.num_workers * 8)
-    sample_queues = [mp.Queue(args.num_workers * args.num_workers * 8) for i in range (4)] 
+    leader_queue = mp.Queue(args.num_workers   * 8)
+    sample_queues = [mp.Queue(args.num_workers  * 8) for i in range (args.num_gpus)]
 
     # sample_queues = [mp.SimpleQueue() for i in range(4)]
-    
+
     lock = torch.multiprocessing.Lock()
 
     slice_producer_processes = []
@@ -181,13 +186,13 @@ def main(args):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, leader_queue, lock,\
                                 storage_vector, args.deterministic,
-                                proc, sm_filename_queue, no_worker_process, fanout_val, file_id, self_edge, pull_optimization, rounds))
+                                proc, sm_filename_queue, no_worker_process, fanout_val,
+                                 file_id, self_edge, pull_optimization, rounds, args.num_gpus, args.num_layers))
         slice_producer_process.start()
         slice_producer_processes.append(slice_producer_process)
 
 
     procs = []
-    n_gpus = 4
     labels = dg_graph.ndata["labels"]
     labels.share_memory_()
     print("Sleep to make sampling not a bottleneck")
@@ -195,9 +200,9 @@ def main(args):
     leader_proc = mp.Process(target=(run_leader_process), args = (leader_queue, sample_queues, minibatches_per_epoch, args.num_epochs, args.num_workers))
     leader_proc.start()
     time.sleep(60)
-    for proc_id in range(n_gpus):
+    for proc_id in range(num_gpus):
         p = mp.Process(target=(run_trainer_process), \
-                      args=(proc_id, n_gpus, sample_queues, minibatches_per_epoch \
+                      args=(proc_id, num_gpus, sample_queues, minibatches_per_epoch \
                        , features, args, \
                        num_classes, mm.batch_in[proc_id], labels,no_worker_process, args.deterministic,\
                         sm_filename_queue, mm.local_sizes[proc_id],cache_percentage, file_id, args.num_epochs))
@@ -247,6 +252,7 @@ if __name__=="__main__":
     argparser.add_argument('--deterministic', default = False, action="store_true")
     argparser.add_argument('--early-stopping', action = "store_true")
     argparser.add_argument('--test-graph-dir', type = str)
+    argparser.add_argument('--num-gpus', type = int)
     # We perform only transductive training
     # argparser.add_argument('--inductive', action='store_false',
     #                        help="Inductive learning setting")

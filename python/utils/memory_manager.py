@@ -30,7 +30,7 @@ class MemoryManager():
 
     # Partition map created from metis.
     def __init__(self, graph, features, class_map, cache_percentage, \
-            fanout, batch_size, partition_map, deterministic = False):
+            fanout, batch_size, partition_map, num_gpus, deterministic = False):
         self.graph = graph
         self.num_nodes = graph.num_nodes()
         self.features = features
@@ -51,12 +51,13 @@ class MemoryManager():
         self.clean_up = {}
         self.deterministic = deterministic
         self.log = LogFile("Storage", 0)
+        self.num_gpus = num_gpus
         self.initialize()
 
     def initialize(self):
         self.batch_in = []
         self.num_nodes_cached = int(self.cache_percentage * self.graph.num_nodes() + 1)
-        if(self.num_nodes_cached * 4 >= self.graph.num_nodes()):
+        if(self.num_nodes_cached * self.num_gpus >= self.graph.num_nodes()):
             print("Overlapping")
         else:
             print("Non-Overlapping")
@@ -75,9 +76,9 @@ class MemoryManager():
         self.local_to_global_id = []
         self.local_sizes = []
         self.check_missing = torch.zeros((self.num_nodes), dtype = torch.bool)
-        self.node_gpu_mask = torch.zeros((self.num_nodes,4),dtype=torch.bool)
-        self.global_to_local = torch.ones((self.num_nodes,4),dtype = torch.long) * -1
-        for i in range(4):
+        self.node_gpu_mask = torch.zeros((self.num_nodes,self.num_gpus),dtype=torch.bool)
+        self.global_to_local = torch.ones((self.num_nodes,self.num_gpus),dtype = torch.long) * -1
+        for i in range(self.num_gpus):
             self.batch_in.append(None)
             if self.cache_percentage <= .25:
                 if(self.cache_percentage == .25):

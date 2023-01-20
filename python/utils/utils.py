@@ -85,7 +85,7 @@ def read_meta_file(filename):
             results[k] = v
     return results
 
-def get_process_graph(filename, fsize, testing = False):
+def get_process_graph(filename, fsize,  num_gpus, testing = False,):
     # DATA_DIR = "/data/sandeep"
     # graphname = "ogbn-products"
     graphname = filename
@@ -135,6 +135,10 @@ def get_process_graph(filename, fsize, testing = False):
             mask  = torch.rand(num_nodes,) <  .8
         dg_graph.ndata["{}_mask".format(idx)] = mask
     if not testing:
+        if num_gpus == -1:
+            p_map_file = "{}/{}/partition_map_opt_random.bin".format(DATA_DIR,graphname)
+        else:
+            p_map_file = "{}/{}/partition_map_opt_{}.bin".format(DATA_DIR,graphname, num_gpus)
         p_map = np.fromfile("{}/{}/partition_map_opt.bin".format(DATA_DIR,graphname),dtype = np.intc)
         # edges = dg_graph.edges()
         partition_map = torch.from_numpy(p_map)

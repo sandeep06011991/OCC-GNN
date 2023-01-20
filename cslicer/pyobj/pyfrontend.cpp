@@ -102,14 +102,16 @@ public:
       std::vector<std::vector<long>> gpu_map,
       int fanout,
        bool deterministic, bool testing,
-          bool self_edge, int rounds, bool pull_optimization, int num_layers, int num_gpus, int num_partitions){
+          bool self_edge, int rounds, bool pull_optimization, int num_layers, int num_gpus){
 
         this->name = get_dataset_dir() + name;
         // std::cout << this->name << "\n";
         this->deterministic = deterministic;
 
-        this->dataset = std::make_shared<Dataset>(this->name, testing, num_partitions);
-
+        this->dataset = std::make_shared<Dataset>(this->name, testing, num_gpus);
+        if(num_gpus == -1){
+          num_gpus = 4;
+        }
         num_nodes = dataset->num_nodes;
 
         this->self_edge = self_edge;
@@ -126,8 +128,8 @@ public:
           }
           gpu_capacity[i] = gpu_map[i].size();
         }
-	this->sample = new Sample(num_layers);
-	this->p_sample = new PartitionedSample(num_layers, num_gpus);
+      	this->sample = new Sample(num_layers);
+      	this->p_sample = new PartitionedSample(num_layers, num_gpus);
         this->slicer = new Slice((workload_map), storage_map, self_edge, rounds, pull_optimization, num_gpus);
         this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, deterministic, self_edge);
     }
@@ -175,7 +177,7 @@ PYBIND11_MODULE(cslicer, m) {
     m.doc() = "pybind11 example plugin"; // optional module docstring
     py::class_<CSlicer>(m,"cslicer")
          .def(py::init<const std::string &,
-               std::vector<std::vector<long>>, int, bool, bool, bool, int, bool,int,int , int>())
+               std::vector<std::vector<long>>, int, bool, bool, bool, int, bool,int,int>())
          .def("getSample", &CSlicer::getSample, py::return_value_policy::take_ownership)\
          .def("sampleAndVerify",&CSlicer::test_correctness);
          py::class_<PySample>(m,"sample")
