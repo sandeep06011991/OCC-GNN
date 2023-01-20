@@ -28,7 +28,6 @@ void aggregate_gat(std::vector<long>& layer_out_nds, std::vector<long> & layer_i
       }
     }
     int t = (self % 10)* self + nbs * (self % 10);
-    std::cout << "(" << layer_out_nds[i] <<":"<< t << ")";
     out.push_back(t);
   }
 }
@@ -45,7 +44,6 @@ int naive_flow_up_sample_gat(Sample &s, int number_of_nodes){
      // in_f.push_back(nd);
      in_f.push_back(nd);
    }
-   std::cout << "layer" <<"\n";
    for(int i=s.num_layers - 1; i >=0; i--){
      aggregate_gat(s.block[i]->layer_nds, s.block[i+1]->layer_nds, \
           s.block[i+1]->offsets, s.block[i+1]->indices, \
@@ -99,16 +97,16 @@ void pull_own_node_gat(BiPartite *bp,
 
 // Partitioned flow must have same output.
 int sample_flow_up_ps_gat(PartitionedSample &s,
-    std::vector<int> storage_map[4]){
+    std::vector<int> storage_map[8], int num_gpus){
   // refresh storage map with local_ids.
-  std::vector<int> in[4];
-  std::vector<int> out[4];
-  std::vector<int> remote_out[4];
-  std::vector<long> cache_hit_from[4];
-  std::vector<long> cache_hit_to[4];
-  std::vector<long> cache_miss_from[4];
-  std::vector<long> cache_miss_to[4];
-  for(int i=0;i<4; i++ ){
+  std::vector<int> in[8];
+  std::vector<int> out[8];
+  std::vector<int> remote_out[8];
+  std::vector<long> cache_hit_from[8];
+  std::vector<long> cache_hit_to[8];
+  std::vector<long> cache_miss_from[8];
+  std::vector<long> cache_miss_to[8];
+  for(int i=0;i<num_gpus; i++ ){
      in[i].clear();
      int cache_hit = s.cache_hit_to[i].size();
      int cache_miss = s.cache_miss_to[i].size();
@@ -125,12 +123,12 @@ int sample_flow_up_ps_gat(PartitionedSample &s,
 
     PartitionedLayer &layer = s.layers[i];
     // PULL
-    for(int j=0;j < 4;j ++){
+    for(int j=0;j < num_gpus;j ++){
       BiPartite *bp = layer.bipartite[j];
       assert(in[j].size() == bp->in_nodes.size());
       int new_size = bp->num_in_nodes_local + bp->num_in_nodes_pulled;
       in[j].resize(new_size);
-      for(int pull_from = 0; pull_from <4; pull_from ++){
+      for(int pull_from = 0; pull_from <8; pull_from ++){
         if(pull_from == j)continue;
         int start = bp->pull_from_offsets[pull_from];
         int end = bp->pull_from_offsets[pull_from + 1];
@@ -152,7 +150,7 @@ int sample_flow_up_ps_gat(PartitionedSample &s,
     // AGGREGATE
 
     // layer.debug();
-    for(int j=0; j<4; j++ ){
+    for(int j=0; j<num_gpus; j++ ){
       std::cout << "working on " << j <<"\n";
         BiPartite *bp = layer.bipartite[j];
         if(bp->num_out_local>0){
@@ -169,8 +167,8 @@ int sample_flow_up_ps_gat(PartitionedSample &s,
         aggregate(remote_out[j], in[j], bp->indptr_R, bp->indices_R);
     }
     // PUSH
-    for(int from = 0; from < 4; from ++) {
-      for(int to = 0; to < 4 ; to++) {
+    for(int from = 0; from < num_gpus; from ++) {
+      for(int to = 0; to < num_gpus ; to++) {
           if(from != to){
             int start = layer.bipartite[from]->to_offsets[to];
             int end = layer.bipartite[from]->to_offsets[to + 1];
@@ -180,18 +178,18 @@ int sample_flow_up_ps_gat(PartitionedSample &s,
       }
     }
     // Pull locally and add degree
-    for(int j = 0; j < 4; j++){
+    for(int j = 0; j < num_gpus; j++){
       pull_own_node_gat(layer.bipartite[j], out[j], in[j]);
     }
     // Swap
-    for(int j=0;j<4; j++){
+    for(int j=0;j<num_gpus; j++){
       out[j].resize(layer.bipartite[j]->num_out_local);
       out[j].swap(in[j]);
     }
   }
   int sss = 0;
   // Return final sum
-  for(int i=0;i < 4;i++){
+  for(int i=0;i < num_gpus;i++){
     int ss = 0;
     for(int k:in[i]){
       ss += k;
@@ -211,7 +209,7 @@ void test_sample_partition_consistency_gat(Sample &s, PartitionedSample &ps,
       assert(local_storage[i].size() == gpu_capacity[i]);
     }
     std::cout <<"reached here !\n";
-    int out = sample_flow_up_ps_gat(ps, local_storage);
+    int out = sample_flow_up_ps_gat(ps, local_storage, num_gpus);
     std::cout << correct << "==" << out << "\n";
     assert(correct == out);
 }

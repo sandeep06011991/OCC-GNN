@@ -13,6 +13,9 @@ class PartitionedLayer{
 
     void * device_offset_map;
     void * device_indices_map;
+    void * device_local_indptr_map;
+    void * device_local_indices_map;
+    void * device_local_layer_nds_map;
 
     PartitionedLayer(){
       // this->bipartite = (BiPartite **)malloc(sizeof(BiPartite *) * 4);
@@ -21,6 +24,9 @@ class PartitionedLayer{
       }
       gpuErrchk(cudaMalloc(&device_offset_map, sizeof(long *) * 16));
       gpuErrchk(cudaMalloc(&device_indices_map, sizeof(long *) * 16));
+      gpuErrchk(cudaMalloc(&device_local_indptr_map, sizeof(long *)  * 16));
+      gpuErrchk(cudaMalloc(&device_local_indices_map, sizeof(long *)  * 16));
+      gpuErrchk(cudaMalloc(&device_local_layer_nds_map, sizeof(long *)  * 16));
     }
 
     void resize_index_and_offset_map(int indptr_size, int indices_size){
@@ -34,6 +40,26 @@ class PartitionedLayer{
        }
        gpuErrchk(cudaMemcpy(device_offset_map, local_offset, 16 * sizeof (void *), cudaMemcpyHostToDevice));
        gpuErrchk(cudaMemcpy(device_indices_map, local_indices, 16 * sizeof (void *), cudaMemcpyHostToDevice));
+    }
+
+
+  void resize_local_graphs(long * local_graph_nodes,long * local_graph_edges){
+    void * local_offset[16];
+    void * local_indices[16];
+    void * layer_nds[16];
+    for(int i=0;i < 4; i++){
+        for(int j = 0; j <4;j++){
+          bipartite[i]->indptr_[j].resize(local_graph_nodes[i * 4 + j] + 1);
+          bipartite[i]->to_ids_[j].resize(local_graph_nodes[i * 4 + j] + 1);
+          layer_nds[i * 4 + j] = thrust::raw_pointer_cast(bipartite[i]->to_ids_[j].data());
+          local_offset[i * 4 + j] = thrust::raw_pointer_cast(bipartite[i]->indptr_[j].data());
+          bipartite[i]->indices_[j].resize(local_graph_edges[i * 4 + j] + 1);
+          local_indices[i * 4 + j] = thrust::raw_pointer_cast(bipartite[i]->indices_[j].data());
+        }
+      }
+      gpuErrchk(cudaMemcpy(device_local_indptr_map, local_offset, 16 * sizeof (void *), cudaMemcpyHostToDevice));
+      gpuErrchk(cudaMemcpy(device_local_indices_map, local_indices, 16 * sizeof (void *), cudaMemcpyHostToDevice));
+      gpuErrchk(cudaMemcpy(device_local_layer_nds_map, local_indices, 16 * sizeof (void *), cudaMemcpyHostToDevice));
     }
 
     void clear(){

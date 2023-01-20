@@ -11,7 +11,7 @@ class Slice{
   thrust::device_vector<int> storage[8];
   // Used for new node ordering
   int gpu_capacity[8];
-  int num_gpus = -1;
+  int num_gpus = 4;
   DuplicateRemover *dr;
   // Use this for GAT
   bool self_edge = false;

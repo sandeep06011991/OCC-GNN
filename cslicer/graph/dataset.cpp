@@ -78,7 +78,6 @@ void Dataset::read_node_data(){
   	file2.read((char *)this->partition_map,this->num_nodes *  sizeof(int));
   }
   s = 0;
-  std::cout << this->BIN_DIR + "/partition_map_opt_" + std::to_string(this->num_partitions) +".bin" <<"\n";
   for(int i=0;i< (this->num_nodes) ;i++){
      this->partition_map[i] < 4;
      s = s + this->partition_map[i];

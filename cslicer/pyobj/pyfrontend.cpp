@@ -102,13 +102,13 @@ public:
       std::vector<std::vector<long>> gpu_map,
       int fanout,
        bool deterministic, bool testing,
-          bool self_edge, int rounds, bool pull_optimization, int num_layers){
+          bool self_edge, int rounds, bool pull_optimization, int num_layers, int num_gpus, int num_partitions){
 
         this->name = get_dataset_dir() + name;
         // std::cout << this->name << "\n";
         this->deterministic = deterministic;
 
-        this->dataset = std::make_shared<Dataset>(this->name, testing);
+        this->dataset = std::make_shared<Dataset>(this->name, testing, num_partitions);
 
         num_nodes = dataset->num_nodes;
 
@@ -127,8 +127,8 @@ public:
           gpu_capacity[i] = gpu_map[i].size();
         }
 	this->sample = new Sample(num_layers);
-	this->p_sample = new PartitionedSample(num_layers);
-        this->slicer = new Slice((workload_map), storage_map, self_edge, rounds, pull_optimization);
+	this->p_sample = new PartitionedSample(num_layers, num_gpus);
+        this->slicer = new Slice((workload_map), storage_map, self_edge, rounds, pull_optimization, num_gpus);
         this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, deterministic, self_edge);
     }
 
@@ -146,10 +146,10 @@ public:
       p_sample->clear();
       // spdlog::info("sample begin");
           auto start1 = high_resolution_clock::now();
- 
+
       this->neighbour_sampler->sample(sample_nodes, *sample);
      	auto start2 = high_resolution_clock::now();
- 
+
       // spdlog::info("slice begin");
       this->slicer->slice_sample(*sample, *p_sample);
           auto start3 = high_resolution_clock::now();
@@ -157,7 +157,7 @@ public:
 	auto duration2 = duration_cast<milliseconds>(start3 -start2);
 
      std::cout << "sample " << (double)duration1.count()/1000 << "slice"<< (double)duration2.count()/1000 <<"\n";
- 
+
       // spdlog::info("covert to torch");
       PySample *sample = new PySample(*p_sample);
       return sample;
@@ -175,7 +175,7 @@ PYBIND11_MODULE(cslicer, m) {
     m.doc() = "pybind11 example plugin"; // optional module docstring
     py::class_<CSlicer>(m,"cslicer")
          .def(py::init<const std::string &,
-               std::vector<std::vector<long>>, int, bool, bool, bool, int, bool,int >())
+               std::vector<std::vector<long>>, int, bool, bool, bool, int, bool,int,int , int>())
          .def("getSample", &CSlicer::getSample, py::return_value_policy::take_ownership)\
          .def("sampleAndVerify",&CSlicer::test_correctness);
          py::class_<PySample>(m,"sample")

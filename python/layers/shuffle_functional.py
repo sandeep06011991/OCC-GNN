@@ -89,7 +89,7 @@ def using_dist_async(proc_id, n_gpus):
     th.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     GB  = 1024 * 1024 * 1024
-    GB =  1024
+    # GB =  1024
     j = 0
     device_id = proc_id
     send_data = {}
@@ -106,7 +106,7 @@ def using_dist_async(proc_id, n_gpus):
         print("Time ", t2-t1, "Bandwidth", ((n_gpus-1) * n_gpus * 1)/(t2-t1))
         for i in range(n_gpus):
             if i!=proc_id:
-                print(recv_data[i][i] == i * k)
+                print(recv_data[i][(int)(GB/4) - 1] == i * k)
 
 
 

@@ -40,7 +40,13 @@ void NeighbourSampler::layer_sample(thrust::device_vector<long> &in,
       offsets.clear();
       indices.clear();
       in_degrees.clear();
+      std::cout << "Offsets Size" << offsets.capacity() <<" \n";
+      offsets.resize(10000);
       offsets.resize(in.size() + 1);
+      // Arrays Work !!
+      std::cout << "Capcityu Size" << offsets.capacity() <<" \n";
+      std::cout << "Offsets Size" << offsets.size() <<" \n";
+
       offsets[0] =indices.size();
       in_degrees.resize(in.size());
       int blocks = (in.size()-1)/32 + 1;
@@ -57,7 +63,7 @@ void NeighbourSampler::layer_sample(thrust::device_vector<long> &in,
        thrust::inclusive_scan(thrust::device, offsets.begin(),\
             offsets.end(), offsets.begin()); // in-place scan
 
-        
+
        indices.resize(offsets[offsets.size()-1]);
        neigh_sample_based_on_offsets<<<blocks, threads>>>
        (thrust::raw_pointer_cast(in.data()), in.size(),

@@ -1,7 +1,8 @@
 #include "transform/slice.h"
 #include <cstring>
 #include "graph/bipartite.h"
-
+#include <thrust/scan.h>
+#include <thrust/execution_policy.h>
 // Keep this a bit more consistant
 __global__ void partition_edges(int*  partition_map, long * out_nodes,
   long *in_nodes, long * indptr, long *indices,\
@@ -36,42 +37,72 @@ __global__ void partition_edges(int*  partition_map, long * out_nodes,
     }
 }
 
+__global__ void populate_local_graphs(int*  partition_map, long * out_nodes,
+  long *in_nodes, long * indptr, long *indices,\
+        void ** indptr_index_map, void ** indices_index_map,
+         void ** indptr_map, void ** indices_map,
+            void ** to_nds_map, int size){
+
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    while(tid < size){
+      long nd1 = out_nodes[tid];
+      long nbs = indptr[tid+1] - indptr[tid];
+      int p_nd1 = partition_map[nd1];
+      long offset_edge_start = indptr[tid];
+      int p_nbs[4];
+      for(int i = 0; i<4; i++){
+        p_nbs[i] = 0;
+      }
+      for(int n = 0; n<nbs; n ++ ){
+        long nd2 = in_nodes[indices[offset_edge_start + n]];
+        int p_nd2 = partition_map[nd2];
+        for(int i=0; i < 4; i++){
+          if(i == p_nd2){
+            p_nbs[i] ++;
+            // ((long *) indptr_map[p_nd1 * 4 + p_nd2])[tid] = 1;
+            // Denotes node is selected
+            // Denotes edge is selected
+            ((long *)indices_map[p_nd1 * 4 + p_nd2])\
+                [((long *)indices_index_map[p_nd1 * 4 + p_nd2])[offset_edge_start + n]] \
+                = nd2;
+          }
+        }
+      }
+      for(int p_nd2 = 0; p_nd2 < 4; p_nd2++){
+        if(p_nbs[p_nd2] != 0){
+        ((long *)indptr_map[p_nd1 * 4 + p_nd2])\
+          [((long *)indptr_index_map[p_nd1 * 4 + p_nd2])[tid]] = p_nbs[p_nd2];
+        ((long *)to_nds_map[p_nd1 * 4 + p_nd2])\
+            [((long *)indptr_index_map[p_nd1 * 4 + p_nd2])[tid] - 1] = nd1;
+        }
+      }
+
+
+    //   }
+      tid += (blockDim.x * gridDim.x);
+    }
+}
 
 void Slice::reorder(PartitionedLayer &l){
-     // for(int i=0;i < this->num_gpus; i++){
-   	 //   l.bipartite[i]->reorder_local(dr, this->num_gpus);
-     // }
-     // // Handle remote destination nodes
-     // for(int to = 0; to < this->num_gpus; to ++){
-     //   dr->clear();
-     //   dr->order_and_remove_duplicates(l.bipartite[to]->out_nodes_local);
-     //   for(int from = 0; from < this->num_gpus; from++){
-	   //      if(from == to) continue;
-     //     int start = l.bipartite[from]->to_offsets[to];
-     //     int end = l.bipartite[from]->to_offsets[to + 1];
-     //     l.bipartite[to]->from_ids[from].clear();
-     //     vector<long> &t = l.bipartite[to]->from_ids[from];
-     //  	 vector<long> &f = l.bipartite[from]->out_nodes_remote;
-     //  	 t.insert(t.end(), f.begin() + start, f.begin() + end );
-     //  	 dr->replace(t);
-     //   }
-     // }
-     // // Think on paper what I am trying to do here.
-     // for(int pull_from = 0;pull_from < this->num_gpus; pull_from++){
-     //   dr->clear();
-     //   dr->order_and_remove_duplicates(l.bipartite[pull_from]->in_nodes);
-     //   for(int pull_to = 0; pull_to < this->num_gpus; pull_to ++ ){
-     //     if(pull_from == pull_to)continue;
-     //     int start = l.bipartite[pull_to]->pull_from_offsets[pull_from];
-     //     int end = l.bipartite[pull_to]->pull_from_offsets[pull_from + 1];
-     //     vector<long> &f = l.bipartite[pull_from]->push_to_ids[pull_to];
-     //  	 vector<long> &t = l.bipartite[pull_to]->pulled_in_nodes;
-     //     assert((end-start) <= t.size());
-     //     f.clear();
-     //  	 f.insert(f.end(), t.begin() + start, t.begin() + end);
-     //     dr->replace(f);
-     //   }
-     // }
+     for(int i=0;i < this->num_gpus; i++){
+   	   l.bipartite[i]->reorder_local(dr);
+     }
+     // Handle remote destination nodes
+     for(int to = 0; to < this->num_gpus; to ++){
+       dr->clear();
+       dr->order_and_remove_duplicates(l.bipartite[to]->out_nodes_local);
+       for(int from = 0; from < this->num_gpus; from++){
+	        if(from == to) continue;
+         int start = l.bipartite[from]->to_offsets[to];
+         int end = l.bipartite[from]->to_offsets[to + 1];
+         l.bipartite[to]->from_ids[from].clear();
+         thrust::device_vector<long> &t = l.bipartite[to]->from_ids[from];
+      	 thrust::device_vector<long> &f = l.bipartite[from]->out_nodes_remote;
+      	 t.insert(t.end(), f.begin() + start, f.begin() + end );
+      	 dr->replace(t);
+       }
+     }
+     
   }
 
 void Slice::slice_layer(thrust::device_vector<long> &layer_nds,
@@ -94,14 +125,29 @@ void Slice::slice_layer(thrust::device_vector<long> &layer_nds,
     //    std::cout << i << " " << sum <<"\n";
     // }
 
-    // Stage 2 get sizes of Offsets for all graphs.
+    // Stage 2 get sizes of Offsets for all graphs
     // Inclusive Scan
+    long local_graph_nodes[16];
+    long local_graph_edges[16];
     for(int i=0; i<16;i ++){
       thrust::inclusive_scan(ps.index_offset_map[i].end(), ps.index_offset_map[i].begin(), ps.index_offset_map[i].end());
-      thrust::inclusive_scan(ps.indices_offset_map[i].end(), ps.index_offset_map[i].begin(), ps.index_offset_map[i].end());
+      thrust::inclusive_scan(ps.index_indices_map[i].end(), ps.index_indices_map[i].begin(), ps.index_indices_map[i].end());
+      local_graph_nodes[i] = ps.index_offset_map[i][ps.index_offset_map[i].size()-1];
+      local_graph_edges[i] = ps.index_indices_map[i][ps.index_indices_map[i].size() - 1];
     }
-
+    ps.resize_local_graphs(local_graph_nodes, local_graph_edges);
     // Stage 3 Populate local and remote edges.
+    populate_local_graphs<<<blocks, 32>>>(thrust::raw_pointer_cast(this->workload_map.data()),
+        thrust::raw_pointer_cast(layer_nds.data()),
+        thrust::raw_pointer_cast(bs.layer_nds.data()),
+        thrust::raw_pointer_cast(bs.offsets.data()),
+        thrust::raw_pointer_cast(bs.indices.data()),
+        (void **)ps.device_offset_map,
+        (void **)ps.device_indices_map,
+        (void **)ps.device_local_indptr_map,
+        (void **)ps.device_local_indices_map,
+        (void **)ps.device_local_layer_nds_map,
+        layer_nds.size());
 
 }
 
@@ -114,7 +160,7 @@ void Slice::slice_sample(Sample &s, PartitionedSample &ps){
         int layer_id = i-1;
         this->slice_layer(s.block[i-1]->layer_nds, \
           (* s.block[i]), l, layer_id);
-	     // this->reorder(l);
+	     this->reorder(l);
     }
 
     // for(int i=0;i<this->num_gpus;i++){

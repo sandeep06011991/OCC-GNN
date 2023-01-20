@@ -67,7 +67,7 @@ for(int i=0;i<dataset->num_nodes;i++){
     }
   }
 //
-std::cout << "basic population done \n";
+  std::cout << "basic population done \n";
   int rounds = 4;
   bool pull_optim = false;
   int num_gpus = 4;
