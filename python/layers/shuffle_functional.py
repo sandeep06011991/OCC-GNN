@@ -18,7 +18,7 @@ comm_map = {
     1:[0,3,2,5,4,7,6],
     2:[3,0,1,6,7,4,5],
     3:[2,1,0,7,6,5,4],
-    4:[5,6,7,0,1,2,3], 
+    4:[5,6,7,0,1,2,3],
     5:[4,7,6,1,0,3,2],
     6:[7,4,5,2,3,0,1],
     7:[6,5,4,3,2,1,0],
@@ -35,15 +35,12 @@ def shuffle_functional(device_id, send_dict, recv_dict, num_devices):
         peer_id = comm_map[device_id][i]
         if peer_id >= num_devices:
             continue
-        print(peer_id, device_id)
         if(peer_id < device_id):
-            print("send to", peer_id, "recv to", device_id)
             if send_dict[peer_id].shape[0] != 0:
                 send.append(torch.distributed.isend(send_dict[peer_id], peer_id))
             if recv_dict[peer_id].shape[0] != 0:
                 recv.append(torch.distributed.irecv(recv_dict[peer_id], src = peer_id))
         else:
-            print("recv to", device_id, "send to", peer_id)
             if recv_dict[peer_id].shape[0] != 0:
                 recv.append(torch.distributed.irecv(recv_dict[peer_id], src = peer_id))
             if send_dict[peer_id].shape[0] != 0:
@@ -61,10 +58,11 @@ def using_dist_send_sync_co_ordinated(proc_id, n_gpus):
     th.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     GB  = 1024 * 1024 * 1024
-    GB = 1024 
+    GB = 1024
     j = 0
     device_id = proc_id
-    data = [torch.rand(((int)(GB / 4) ,),device = proc_id) for i in range(4)]
+    data_send = [torch.ones(((int)(GB / 4) ,) * proc_id,device = proc_id) for i in range(4)]
+    data_recv = [torch.ones(((int)(GB / 4) ,) * -1,device = proc_id) for i in range(4)]
 
 
     num_tries = 10
@@ -79,6 +77,7 @@ def using_dist_send_sync_co_ordinated(proc_id, n_gpus):
                 torch.distributed.recv(data[peer_id], src = peer_id)
                 torch.distributed.send(data[device_id], peer_id)
         torch.distributed.barrier()
+
         t2 = time.time()
 
         print("Time ", t2-t1, "GBps",  12 * 1/(t2-t1))
@@ -90,26 +89,25 @@ def using_dist_async(proc_id, n_gpus):
     th.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     GB  = 1024 * 1024 * 1024
-    GB =  1024 
+    GB =  1024
     j = 0
     device_id = proc_id
     send_data = {}
     recv_data = {}
-    for i in range(n_gpus):
-        send_data[i] = torch.ones(((int)(GB / 4) ,),device = proc_id)
-        print("Send", torch.sum(send_data[i]))
-        recv_data[i] = torch.rand(((int)(GB / 4) ,),device = proc_id)
 
-    num_tries = 1
-    for _ in range(num_tries):
+    num_tries = 4
+    for k in range(num_tries):
+        for i in range(n_gpus):
+            send_data[i] = torch.ones(((int)(GB / 4) ,) ,device = proc_id) *   proc_id * k
+            recv_data[i] = torch.rand(((int)(GB / 4) ,),device = proc_id)
         t1 = time.time()
         shuffle_functional(device_id, send_data, recv_data, n_gpus)
         t2 = time.time()
         print("Time ", t2-t1, "Bandwidth", ((n_gpus-1) * n_gpus * 1)/(t2-t1))
         for i in range(n_gpus):
             if i!=proc_id:
-                print(torch.sum(recv_data[i]), "correctness",i)
-        
+                print(recv_data[i][i] == i * k)
+
 
 
 '''

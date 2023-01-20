@@ -173,6 +173,11 @@ def run(rank, args,  data):
                     t1 = time.time()
                     with profiler.record_function("sampling"):    
                         input_nodes, seeds, blocks = next(dataloader_i)
+                    for b in blocks:
+                        avg_degree = b.num_edges()/b.num_nodes()
+                        max_degree = b.in_degree()
+                        min_degree = b.in_degree()
+                        print("stats", avg_degree, max_degree, min_degree)
                     t2 = time.time()
                     batch_time[SAMPLE_START_TIME] = t1
                     print("Sample time {}|".format(device), t1)

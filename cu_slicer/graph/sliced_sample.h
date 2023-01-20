@@ -2,15 +2,38 @@
 #include <vector>
 #include <cassert>
 #include "bipartite.h"
+#include <thrust/device_vector.h>
+#include "util/cuda_utils.h"
 
 class PartitionedLayer{
   public:
     BiPartite* bipartite[4];
+    thrust::device_vector<long> index_offset_map[16];
+    thrust::device_vector<long> index_indices_map[16];
+
+    void * device_offset_map;
+    void * device_indices_map;
+
     PartitionedLayer(){
       // this->bipartite = (BiPartite **)malloc(sizeof(BiPartite *) * 4);
       for(int i=0;i<4;i++){
         this->bipartite[i] = new BiPartite(i);
       }
+      gpuErrchk(cudaMalloc(&device_offset_map, sizeof(long *) * 16));
+      gpuErrchk(cudaMalloc(&device_indices_map, sizeof(long *) * 16));
+    }
+
+    void resize_index_and_offset_map(int indptr_size, int indices_size){
+       void * local_offset[16];
+       void * local_indices[16];
+       for(int i = 0; i < 16; i++){
+         index_offset_map[i].resize(indptr_size);
+         local_offset[i] = thrust::raw_pointer_cast(index_offset_map[i].data());
+         index_indices_map[i].resize(indices_size);
+         local_indices[i] = thrust::raw_pointer_cast(index_indices_map[i].data());
+       }
+       gpuErrchk(cudaMemcpy(device_offset_map, local_offset, 16 * sizeof (void *), cudaMemcpyHostToDevice));
+       gpuErrchk(cudaMemcpy(device_indices_map, local_indices, 16 * sizeof (void *), cudaMemcpyHostToDevice));
     }
 
     void clear(){
