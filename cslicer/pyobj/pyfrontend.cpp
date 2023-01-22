@@ -117,11 +117,11 @@ public:
 
         this->self_edge = self_edge;
         for(long j=0;j<dataset->num_nodes;j++){
-            assert(dataset->partition_map[j]<4);
+            assert(dataset->partition_map[j]<num_gpus);
             workload_map.push_back(dataset->partition_map[j]);
         }
 
-        for(int i=0;i<4;i++){
+        for(int i=0;i<num_gpus;i++){
           int order =0;
           for(long nd: gpu_map[i]){
              storage_map[i].push_back(nd);
@@ -133,6 +133,7 @@ public:
       	this->p_sample = new PartitionedSample(num_layers, num_gpus);
         this->slicer = new Slice((workload_map), storage_map, self_edge, rounds, pull_optimization, num_gpus);
         this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, deterministic, self_edge);
+        std::cout << "All DOne !\n";
     }
 
     bool test_correctness(vector<long> sample_nodes){

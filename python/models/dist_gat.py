@@ -14,7 +14,7 @@ class DistGATModel(torch.nn.Module):
                  n_layers,
                  activation,
                  dropout,
-                 gpu_id, is_pulled,
+                 gpu_id, is_pulled, num_gpus,
                  queues = None, deterministic = False):
         super().__init__()
         self.n_layers = n_layers
@@ -23,13 +23,14 @@ class DistGATModel(torch.nn.Module):
         self.layers = nn.ModuleList()
         self.queues = queues
         self.num_heads = 3
+        self.num_gpus = num_gpus
         self.gpu_id = gpu_id
         num_heads = self.num_heads
-        self.layers.append(DistGATConv(in_feats, n_hidden, gpu_id,
+        self.layers.append(DistGATConv(in_feats, n_hidden, gpu_id, num_gpus,
                     deterministic = deterministic, num_heads = num_heads))
         for i in range(1, n_layers - 1):
-            self.layers.append(DistGATConv(n_hidden * num_heads, n_hidden,  gpu_id,  num_heads = 3, deterministic = deterministic))
-        self.layers.append(DistGATConv(n_hidden * num_heads, n_classes, gpu_id, num_heads = 1, deterministic = deterministic))
+            self.layers.append(DistGATConv(n_hidden * num_heads, n_hidden,  gpu_id,  num_gpus, num_heads = 3, deterministic = deterministic))
+        self.layers.append(DistGATConv(n_hidden * num_heads, n_classes, gpu_id,  num_gpus, num_heads = 1, deterministic = deterministic))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
         self.is_pulled = is_pulled
@@ -42,7 +43,7 @@ class DistGATModel(torch.nn.Module):
             enumerate(zip(self.layers,bipartite_graphs.layers)):
             t1 = time.time()
             if(self.is_pulled):
-                x = pull(bipartite_graph, x, self.gpu_id, l)
+                x = pull(bipartite_graph, x, self.gpu_id, self.num_gpus,  l)
 
             x = layer(bipartite_graph, x,l, testing )
             t2 = time.time()
@@ -63,9 +64,9 @@ class DistGATModel(torch.nn.Module):
         s = 0
         for l in self.layers:
             s += l.get_reset_shuffle_time()
-        return s    
+        return s
 
-def get_gat_distributed(hidden, features, num_classes, gpu_id, deterministic, model, is_pulled):
+def get_gat_distributed(hidden, features, num_classes, gpu_id, deterministic, model, is_pulled, num_gpus, n_layers):
     dropout = 0
     in_feats = features.shape[1]
     n_hidden = hidden
@@ -74,8 +75,7 @@ def get_gat_distributed(hidden, features, num_classes, gpu_id, deterministic, mo
         n_hidden = 1
         n_classes = 1
 
-    n_layers = 3
     activation = torch.nn.ReLU()
     assert(model==  "gat" or model == "gat-pull")
     return DistGATModel(in_feats, n_hidden, n_classes, n_layers, activation, \
-            dropout, gpu_id, is_pulled, deterministic = deterministic )
+            dropout, gpu_id, is_pulled,  num_gpus, deterministic = deterministic )

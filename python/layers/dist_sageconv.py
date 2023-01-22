@@ -13,7 +13,7 @@ from torch.nn.parallel import DistributedDataParallel
 class DistSageConv(nn.Module):
 
     # Not exactly matching SageConv as normalization and activation as removed.
-    def __init__(self, in_feats, out_feats, gpu_id, \
+    def __init__(self, in_feats, out_feats, gpu_id,  num_gpus,\
         feat_drop=0.1, bias=True, deterministic = False):
         super( DistSageConv, self).__init__()
         self.device_ids = [0,1,2,3]
@@ -34,6 +34,7 @@ class DistSageConv(nn.Module):
         self.deterministic = deterministic
         self.reset_parameters()
         self.shuffle_time = 0
+        self.num_gpus = num_gpus
         # self.local_stream = torch.cuda.default_stream()
         # self.remote_stream = torch.cuda.default_stream()
         # Not parallelizing in htis variation
@@ -67,7 +68,7 @@ class DistSageConv(nn.Module):
         if self.fc1.weight.grad != None:
             print("layer neigh grad",l,self.fc1.weight.grad[:3,0], torch.sum(self.fc1.weight.grad))
             print("layer self grad",l,self.fc2.weight.grad[:3,0], torch.sum(self.fc2.weight.grad))
-    
+
     def get_reset_shuffle_time(self):
         ret = self.shuffle_time
         self.shuffle_time = 0
@@ -93,7 +94,7 @@ class DistSageConv(nn.Module):
         # with torch.cuda.stream(self.remote_stream):
         out1 = bipartite_graph.gather_remote(out)
         t1 = time.time()
-        merge_tensors = Shuffle.apply(out1, self.gpu_id, layer_id, bipartite_graph.get_from_nds_size(), \
+        merge_tensors = Shuffle.apply(out1, self.gpu_id,self.num_gpus,  layer_id, bipartite_graph.get_from_nds_size(), \
                             bipartite_graph.to_offsets)
                     # Work on this signature later.
         # with torch.cuda.stream(self.local_stream):
@@ -108,7 +109,7 @@ class DistSageConv(nn.Module):
         # out.record_stream(self.local_stream)
         # out.record_stream(self.remote_stream)
         # out3.record_stream(torch.cuda.current_stream())
-        for i in range(4):
+        for i in range(self.num_gpus):
             if i != self.gpu_id:
                 out3[bipartite_graph.from_ids[i]] += merge_tensors[i]
         # out3 = Merge.apply(out3, merge_tensors[0], merge_tensors[1], merge_tensors[2], merge_tensors[3], \

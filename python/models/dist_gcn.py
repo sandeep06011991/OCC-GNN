@@ -13,7 +13,7 @@ class DistSAGEModel(torch.nn.Module):
                  n_layers,
                  activation,
                  dropout,
-                 gpu_id,
+                 gpu_id, num_gpus,
                  queues = None, deterministic = False):
         super().__init__()
         self.n_layers = n_layers
@@ -21,13 +21,14 @@ class DistSAGEModel(torch.nn.Module):
         self.n_classes = n_classes
         self.layers = nn.ModuleList()
         self.queues = queues
-        self.layers.append(DistSageConv(in_feats, n_hidden, gpu_id, deterministic = deterministic))
+        self.layers.append(DistSageConv(in_feats, n_hidden, gpu_id,  num_gpus, deterministic = deterministic))
         for i in range(1, n_layers - 1):
-            self.layers.append(DistSageConv(n_hidden, n_hidden,  gpu_id, deterministic = deterministic))
-        self.layers.append(DistSageConv(n_hidden, n_classes, gpu_id, deterministic = deterministic))
+            self.layers.append(DistSageConv(n_hidden, n_hidden,  gpu_id,  num_gpus, deterministic = deterministic))
+        self.layers.append(DistSageConv(n_hidden, n_classes, gpu_id,  num_gpus, deterministic = deterministic))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
         self.deterministic = deterministic
+        self.num_gpus = num_gpus
         self.fp_end = torch.cuda.Event(enable_timing=True)
         self.bp_end = torch.cuda.Event(enable_timing=True)
 
@@ -62,7 +63,7 @@ class DistSAGEModel(torch.nn.Module):
 
 
 
-def get_sage_distributed(hidden, features, num_classes, gpu_id, deterministic, model):
+def get_sage_distributed(hidden, features, num_classes, gpu_id, deterministic, model, num_gpus, n_layers):
     dropout = 0
     in_feats = features.shape[1]
     n_hidden = hidden
@@ -71,8 +72,7 @@ def get_sage_distributed(hidden, features, num_classes, gpu_id, deterministic, m
         n_hidden = 1
         n_classes = 1
 
-    n_layers = 3
     activation = torch.nn.ReLU()
     assert(model==  "gcn")
     return DistSAGEModel(in_feats, n_hidden, n_classes, n_layers, activation, \
-            dropout, gpu_id,  deterministic = deterministic )
+            dropout, gpu_id, num_gpus, deterministic = deterministic )

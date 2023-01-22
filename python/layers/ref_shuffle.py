@@ -10,7 +10,7 @@ class ShuffleRev(torch.autograd.Function):
     # from_sizes: Shapes exppected from other gpus.
     # To offsets that iwll be shuffled.
     @staticmethod
-    def forward(ctx, local_t, device_id, layer_id ,from_nds,\
+    def forward(ctx, local_t, device_id,  num_gpus, layer_id ,from_nds,\
                 to_tensor_offset):
         recv = []
         recv_g = []
@@ -28,16 +28,17 @@ class ShuffleRev(torch.autograd.Function):
                 recv.append(torch.empty((to_tensor_offset[i+1] - to_tensor_offset[i], *local_t.shape[1:]) \
                     , device = device_id))
                 send_dict.append(local_t[from_nds[i]].detach())
-        shuffle_functional(device_id, send_dict, recv)
+        shuffle_functional(device_id, send_dict, recv, num_gpus)
         ctx.device_id = device_id
         ctx.layer_id = layer_id
         ctx.recv_g = recv_g
         ctx.back = torch.zeros(local_t.shape, device = device_id)
         ctx.from_nds = from_nds
         ctx.to_offsets =  to_tensor_offset
+        ctx.num_gpus = num_gpus
         # torch.cuda.current_stream().synchronize()
         cat = []
-        for i in range(4):
+        for i in range(num_gpus):
             if i != device_id:
                 cat.append( recv[i])
         remote_out = torch.cat(cat,dim = 0)
@@ -51,17 +52,18 @@ class ShuffleRev(torch.autograd.Function):
         send_grads = {}
         offset = ctx.to_offsets
         grad0 = grad0.clone()
-        for i in range(4):
+        num_gpus = ctx.num_gpus
+        for i in range(num_gpus):
             send_grads[i] = grad0[offset[i]: offset[i+1]].detach()
-        shuffle_functional(device_id,send_grads, recv_g)
+        shuffle_functional(device_id,send_grads, recv_g,num_gpus)
         grads = []
         local_g = ctx.back
-        for i in range(4):
+        for i in range(num_gpus):
             if i!= device_id:
                 local_g[ctx.from_nds[i]] += recv_g[i]
         # Cross test if this local_g is getting aggregated.
 
-        return  local_g, None, None, None, None
+        return  local_g, None, None, None, None, None
 
 
 class ToySingle(torch.nn.Module):

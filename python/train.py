@@ -43,11 +43,11 @@ def compute_acc(pred, labels):
     false_labels = torch.where(torch.argmax(pred,dim = 1) != labels)[0]
     return (torch.argmax(pred, dim=1) == labels).float().sum(),len(pred )
 
-def run_leader_process(leader_queue, sample_queues, minibatches_per_epoch, req_epochs, num_workers):
+def run_leader_process(leader_queue, sample_queues, minibatches_per_epoch, req_epochs, num_workers, num_gpus):
     num_epochs = 0
     while(True):
         meta =leader_queue.get()
-        for i in range(4):
+        for i in range(num_gpus):
             if i==0:
                 if(sample_queues[i].qsize() ==0):
                     print(leader_queue.qsize(), "leader queue when sampler is 0 consumption")
@@ -63,15 +63,15 @@ def run_leader_process(leader_queue, sample_queues, minibatches_per_epoch, req_e
                 break
         if(meta == "EPOCH"):
             num_epochs  = num_epochs + 1
-    
-    for i in range(4):
+
+    for i in range(num_gpus):
         while True:
             if sample_queues[i].qsize() == 0:
                 print("breaking from",i)
                 break
             time.sleep(1)
             print("LEADER processing is sleeping got end of epoch flag", sample_queues[i].qsize())
-def get_sample(proc_id, sample_queues,  sm_client, log, attention = False):
+def get_sample(proc_id, sample_queues,  sm_client, log, num_gpus, attention = False):
     sample_id = None
     device = proc_id
     t0 = time.time()
@@ -79,7 +79,7 @@ def get_sample(proc_id, sample_queues,  sm_client, log, attention = False):
         # print("leader tries to read meta data, qsize {}".format(sample_queues[0].qsize()))
         meta = sample_queues[0].get()
         log.log("leader reads meta data, starts sharing")
-        for i in range(1,4):
+        for i in range(1,num_gpus):
             if sample_queues[i].qsize() > 100:
                 time.sleep(.1)
             if type(meta) == tuple:
@@ -93,7 +93,7 @@ def get_sample(proc_id, sample_queues,  sm_client, log, attention = False):
         log.log("followers tries to read")
         meta = sample_queues[proc_id].get()
         log.log("follower gets meta")
-        
+
     log.log("Meta data read {}".format(meta))
     t1 = time.time()
     if proc_id == 0:
@@ -162,6 +162,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
         master_ip='127.0.0.1', master_port='12345')
     world_size = gpus
+    assert(world_size > 0)
     torch.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     print("SEED",torch.seed())
@@ -181,7 +182,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     #     sampler = cslicer(graph_name,storage_vector,fanout, deterministic)
     if args.model == "gcn":
         model = get_sage_distributed(args.num_hidden, features, num_classes,
-            proc_id, args.deterministic, args.model)
+            proc_id, args.deterministic, args.model, gpus,  args.num_layers)
         self_edge = False
         attention = False
     else:
@@ -191,10 +192,10 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         else:
             pull = True
         model = get_gat_distributed(args.num_hidden, features, num_classes,
-                proc_id, args.deterministic, args.model, pull)
+                proc_id, args.deterministic, args.model, pull, gpus,  args.num_layers)
         self_edge = True
         attention = True
-    
+
     if proc_id ==0:
         print(args.test_graph_dir)
         if args.test_graph_dir != None:
@@ -247,7 +248,9 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     while(True):
         nmb += 1
         log.log("blocked at get sample")
-        sample_id, gpu_local_sample, sample_get_mb, graph_move_mb = get_sample(proc_id, sample_queue,  sm_client, log, attention)
+        print("GET SAMPLE")
+        sample_id, gpu_local_sample, sample_get_mb, graph_move_mb = get_sample(proc_id, sample_queue,  sm_client, log,gpus, attention)
+        print("GOT SAMPLE")
         sample_get_time += sample_get_mb
         movement_graph += graph_move_mb
         minibatch_sample_time.append(sample_get_mb)
@@ -314,6 +317,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         optimizer.zero_grad()
         #with torch.autograd.profiler.profile(use_cuda=True, record_shapes=True) as prof:
         m_t0 = time.time()
+        print("Manage Cache")
         input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cache_hit_from, \
                 gpu_local_sample.cache_hit_to, gpu_local_sample.cache_miss_from, gpu_local_sample.cache_miss_to)
         m_t1 = time.time()
@@ -321,11 +325,11 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         edges_per_gpu += edges
         data_moved_per_gpu += (gpu_local_sample.cache_miss_from.shape[0] * features.shape[1] * 4 /(1024 * 1024)) +\
                             (nodes * args.num_hidden * 4/(1024 * 1024))
-        data_moved_inter_gpu  += (nodes * args.num_hidden *4/(1024 * 1024)) 
+        data_moved_inter_gpu  += (nodes * args.num_hidden *4/(1024 * 1024))
         movement_feat += (m_t1-m_t0)
         fp_start.record()
         assert(features.device == torch.device('cpu'))
-        # print("Start forward pass !")
+        print("Start forward pass !")
         output = model.forward(gpu_local_sample, input_features, None)
         # continue
 
@@ -388,6 +392,6 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         print("backward time:{}".format(avg(backward_epoch)))
         print("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
         print("Shuffle time:{}".format(avg(movement_partials_epoch)))
-    print("Trainer returns")    
+    print("Trainer returns")
         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
     # print("Thread running")

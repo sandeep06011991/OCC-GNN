@@ -174,14 +174,14 @@ def main(args):
     #print("Change to make sampling not a bottleneck")
     #sample_queues = [mp.Queue(queue_size) for i in range(4)]
     leader_queue = mp.Queue(args.num_workers   * 8)
-    sample_queues = [mp.Queue(args.num_workers  * 8) for i in range (args.num_gpus)]
+    sample_queues = [mp.Queue(args.num_workers  * 8) for i in range (num_gpus)]
 
     # sample_queues = [mp.SimpleQueue() for i in range(4)]
 
     lock = torch.multiprocessing.Lock()
 
     slice_producer_processes = []
-    print("Start slicer weorkers")
+
     for proc in range(no_worker_process):
         slice_producer_process = mp.Process(target=(slice_producer), \
                       args=(graph_name, work_queue, leader_queue, lock,\
@@ -197,9 +197,10 @@ def main(args):
     labels.share_memory_()
     print("Sleep to make sampling not a bottleneck")
     print("Trainer processes")
-    leader_proc = mp.Process(target=(run_leader_process), args = (leader_queue, sample_queues, minibatches_per_epoch, args.num_epochs, args.num_workers))
+    leader_proc = mp.Process(target=(run_leader_process), args = (leader_queue, sample_queues, minibatches_per_epoch, args.num_epochs, args.num_workers, num_gpus))
     leader_proc.start()
     time.sleep(60)
+
     for proc_id in range(num_gpus):
         p = mp.Process(target=(run_trainer_process), \
                       args=(proc_id, num_gpus, sample_queues, minibatches_per_epoch \
@@ -234,7 +235,7 @@ if __name__=="__main__":
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.003)
     # .007 is best
-    argparser.add_argument('--num-workers', type=int, default=16,
+    argparser.add_argument('--num-workers', type=int, default=1,
        help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
     # model name and details

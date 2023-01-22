@@ -10,7 +10,7 @@ class Shuffle(torch.autograd.Function):
     # from_sizes: Shapes exppected from other gpus.
     # To offsets that iwll be shuffled.
     @staticmethod
-    def forward(ctx, remote_t, device_id, layer_id ,from_nds_size,\
+    def forward(ctx, remote_t, device_id, num_gpus, layer_id ,from_nds_size,\
                 to_tensor_offset):
         recv = []
         recv_g = []
@@ -28,22 +28,24 @@ class Shuffle(torch.autograd.Function):
                 recv_g.append(torch.empty((to_tensor_offset[i+1] - to_tensor_offset[i], *remote_t.shape[1:]) \
                     , device = device_id))
                 send_dict.append(remote_t[to_tensor_offset[i]:to_tensor_offset[i+1]].detach())
-        shuffle_functional(device_id, send_dict, recv)
+        shuffle_functional(device_id, send_dict, recv,num_gpus)
         ctx.device_id = device_id
         ctx.layer_id = layer_id
         ctx.recv_g = recv_g
+        ctx.num_gpus = num_gpus
         # torch.cuda.current_stream().synchronize()
-        return recv[0],recv[1],recv[2], recv[3]
+        return tuple(recv)
 
     @staticmethod
-    def backward(ctx, grad0, grad1, grad2, grad3):
-        send_grads = [grad0.detach(), grad1.detach(),grad2.detach(), grad3.detach()]
+    def backward(ctx, *grads):
+        send_grads = [grad.detach() for grad in grads]
         device_id = ctx.device_id
         recv_g = ctx.recv_g
         layer_id = ctx.layer_id
-        shuffle_functional(device_id,send_grads, recv_g)
+        num_gpus = ctx.num_gpus
+        shuffle_functional(device_id,send_grads, recv_g,num_gpus)
         grads = []
-        for i in range(4):
+        for i in range(num_gpus):
             if i!= device_id:
                 grads.append(recv_g[i])
         remote_g = torch.cat(grads, dim = 0)

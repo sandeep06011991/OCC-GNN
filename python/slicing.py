@@ -44,12 +44,14 @@ def slice_producer(graph_name, work_queue, sample_queue, \
          fanout,file_id, self_edge, pull_optimization, rounds, num_gpus, num_layers):
     no_worker_threads = 1
     testing = False
-
+    print("Check Slice producer")
     sampler = cslicer(graph_name,storage_vector,fanout, deterministic, testing , self_edge, rounds, \
             pull_optimization, num_layers, num_gpus)
+    print("Py created")
     if num_gpus == -1:
         num_gpus = 4
     sm_client = SharedMemClient(sm_filename_queue, "slicer", worker_id, num_workers,file_id)
+    print("mem client created")
     # Todo clean up unnecessary iterations
     #log = LogFile("slice-py", worker_id)
     sample_producing_times = []
@@ -79,7 +81,9 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         #print("#################################1")
         #print("Start sampling")
         t1 = time.time()
+        print("Get Sample")
         csample = sampler.getSample(sample_nodes)
+        print("Got sample")
         t11 = time.time()
         #print("Sampling complete ")
         # print("cmodule returns sample, start tensorize")
@@ -90,7 +94,7 @@ def slice_producer(graph_name, work_queue, sample_queue, \
         sample_id = tensorized_sample.randid
         gpu_local_samples = []
             # print("Attemtong to serailize")
-        for gpu_id in range(4):
+        for gpu_id in range(num_gpus):
             # gpu_local_samples.append(Gpu_Local_Sample(tensorized_sample, gpu_id))
             obj = Gpu_Local_Sample()
             obj.set_from_global_sample(tensorized_sample,gpu_id)
