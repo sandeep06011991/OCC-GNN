@@ -15,7 +15,7 @@ class Shuffle(torch.autograd.Function):
         recv = []
         recv_g = []
         send_dict = []
-        for i in range(4):
+        for i in range(num_gpus):
             # Do I do work allocation here ?
             if i == device_id:
                 recv.append(torch.empty([0,*remote_t.shape[1:]], device = device_id))

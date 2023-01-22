@@ -12,7 +12,7 @@ int main(){
   // Test1: Read graph datastructure.
   std::string graph_name = "ogbn-arxiv";
   std::string file = get_dataset_dir() + graph_name;
-  int num_partitions = -1;
+  int num_partitions = 5;
 
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_partitions);
   if (num_partitions == -1){
@@ -20,7 +20,7 @@ int main(){
   }
   // Test2: Construct simple k-hop neighbourhood sample.
   // Sample datastructure.
-  int num_layers = 4;
+  int num_layers = 3;
   Sample *s1  = new Sample(num_layers);
   s1->debug();
   std::vector<long> training_nodes;
@@ -30,8 +30,12 @@ int main(){
   std::cout << training_nodes.size() <<"\n";
   int fanout = 3;
   // For GAT self_edge = True, GCN No self edge
-  bool self_edge = true;
-  bool pull_optim = false;
+  // bool self_edge = true;
+  // bool pull_optim = false;
+  // For GCN
+  bool self_edge = false;
+  bool pull_optim = true;
+
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, false, self_edge);
   ns->sample(training_nodes,(*s1));
 
@@ -79,8 +83,8 @@ int main(){
   std::cout << "slicing done \n";
   //ps.debug();
 
-  // test_sample_partition_consistency((*s1),ps, storage, gpu_capacity, dataset->num_nodes, num_partitions);
-  test_sample_partition_consistency_gat((*s1),ps, storage, gpu_capacity, dataset->num_nodes, num_partitions);
+  test_sample_partition_consistency((*s1),ps, storage, gpu_capacity, dataset->num_nodes, num_partitions);
+  // test_sample_partition_consistency_gat((*s1),ps, storage, gpu_capacity, dataset->num_nodes, num_partitions);
   // test_pull_benefits(*s1, workload_map, storage, rounds);
 
   // test_reduction_communication_computation(*s1,workload_map,

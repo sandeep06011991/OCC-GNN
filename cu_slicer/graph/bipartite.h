@@ -65,7 +65,7 @@ public:
   thrust::device_vector<long> from_ids[4];
   int to_offsets[5];
   thrust::device_vector<long> to_ids_[4];
-
+  thrust::device_vector<long> in_nodes_[4];
   // Built during slicing
   // vector<long> part_in_nodes[4];
 

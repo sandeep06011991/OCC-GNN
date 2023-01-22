@@ -96,8 +96,19 @@ ArrayMap::ArrayMap(long num_nodes){
 
 
 void ArrayMap::order_and_remove_duplicates(thrust::device_vector<long>& nodes){
+  if(nodes.size() == 0)return;
+  // std::cout << "DEBUG";
+  // for(int i=0;i<nodes.size(); i++){
+  //   std::cout << nodes[i]<< " ";
+  // }
+  std::cout << "tyroing to remove duplicates out of "<< nodes.size() << "\n";
+  if(nodes.size() > 1){
   thrust::sort(nodes.begin(), nodes.end());
+  std::cout << "Sort done \n";
+
   thrust::unique(nodes.begin(), nodes.end());
+  std::cout << "Unique done \n";
+  }
   order(nodes);
  }
 

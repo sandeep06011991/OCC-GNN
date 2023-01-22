@@ -30,7 +30,7 @@ void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy,
           if(p_src == p_dest) {
             policy.push_back(LOCAL);
 	    //std::cout << "local" << in[i] << " " << nd2 <<"\n";
-	    continue;
+	          continue;
           }else{
             policy.push_back(PUSH);
           }
@@ -41,7 +41,8 @@ void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy,
         }
     }
     assert(bl.indices.size()== policy.size());
-    if(this->pull_optimization && (layer_id ==(no_layers-1))){
+    // && (layer_id ==(no_layers-1))
+    if(this->pull_optimization ){
       for(int i=0;i<in.size();i ++ ){
         int p_dest = this->workload_map[in[i]];
         for(int j= bl.offsets[i]; j <bl.offsets[i+1]; j++){
@@ -53,7 +54,7 @@ void Slice::get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy,
             }
           }
           if(policy[j] != PUSH)continue;
-	  policy[j] = PULL;
+	         policy[j] = PULL;
 	  //assert(policy[j]==PUSH);
           //if(in_degree[i].cost[p_src] < out_degree[bl.indices[j]].cost[p_dest] * this->rounds){
             //policy[j] = PULL;
@@ -75,7 +76,7 @@ void Slice::slice_layer(vector<long>& in, Block &bl, PartitionedLayer& l, int la
     vector<long> local_in_nodes[this->num_gpus];
     // std::cout << "PArtition count " << this->num_gpus <<"\n";
     for(int i=0;i<in.size(); i++){
-	    
+
       for(int i=0;i<this->num_gpus;i++){
         partition_edges[i].clear();
         pull_nodes[i].clear();

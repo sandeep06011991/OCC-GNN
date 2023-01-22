@@ -102,7 +102,8 @@ public:
       std::vector<std::vector<long>> gpu_map,
       int fanout,
        bool deterministic, bool testing,
-          bool self_edge, int rounds, bool pull_optimization, int num_layers, int num_gpus){
+          bool self_edge, int rounds, bool pull_optimization,
+           int num_layers, int num_gpus){
 
         this->name = get_dataset_dir() + name;
         // std::cout << this->name << "\n";

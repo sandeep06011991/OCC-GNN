@@ -15,7 +15,7 @@ class ShuffleRev(torch.autograd.Function):
         recv = []
         recv_g = []
         send_dict = []
-        for i in range(4):
+        for i in range(num_gpus):
             # Do I do work allocation here ?
             if i == device_id:
                 recv.append(torch.empty([0,*local_t.shape[1:]], device = device_id))
@@ -59,7 +59,7 @@ class ShuffleRev(torch.autograd.Function):
         for i in range(4):
             if i!= device_id:
                 local_g[ctx.from_nds[i]] += recv_g[i]
-        # Cross test if this local_g is getting aggregated. 
+        # Cross test if this local_g is getting aggregated.
 
         return  local_g, None, None, None, None
 

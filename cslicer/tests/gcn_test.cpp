@@ -81,6 +81,9 @@ void aggregate(vector<int> &out, vector<int> &in,
 void shuffle(vector<long>& from_ids,  vector<int> &to,
          vector<int>& from,  int start, int end){
   assert(from_ids.size() == (end - start));
+  if(from_ids.size() > 0){
+    std::cout << "Shuffling " << from_ids.size()  <<"\n";
+  }
   for(int i=0; i< (int) from_ids.size(); i++){
     to[from_ids[i]] += from[start + i];
     }

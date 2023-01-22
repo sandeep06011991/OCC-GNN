@@ -90,7 +90,7 @@ void pull_own_node_gat(BiPartite *bp,
   assert(bp->self_ids_offset == bp->out_degree_local.size());
   for(int i=0; i < bp->self_ids_offset; i++){
     out[i] = (out[i] * (in[i] % 10 ));
-    std::cout << "(" << i << ":"<< out[i] <<")";
+    // std::cout << "(" << i << ":"<< out[i] <<")";
   }
 }
 
@@ -128,11 +128,12 @@ int sample_flow_up_ps_gat(PartitionedSample &s,
       assert(in[j].size() == bp->in_nodes.size());
       int new_size = bp->num_in_nodes_local + bp->num_in_nodes_pulled;
       in[j].resize(new_size);
-      for(int pull_from = 0; pull_from <8; pull_from ++){
+      for(int pull_from = 0; pull_from < num_gpus; pull_from ++){
         if(pull_from == j)continue;
         int start = bp->pull_from_offsets[pull_from];
         int end = bp->pull_from_offsets[pull_from + 1];
         if(end - start == 0)continue;
+        std::cout << "Pulling " << end - start <<"\n";
         vector<long> &push_to = layer.bipartite[pull_from]->push_to_ids[j];
         for(int k=0;k<push_to.size() ; k++){
             in[j][bp->num_in_nodes_local + start + k] = in[pull_from][push_to[k]];

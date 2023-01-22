@@ -4,15 +4,24 @@
 void BiPartite::reorder_local(DuplicateRemover *dr){
   // Order destination nodes;
   dr->clear();
+
+
   dr->order_and_remove_duplicates(to_ids_[gpu_id]);
+  // Fixes to match with cslicer begin.
+  self_in_nodes = to_ids_[gpu_id];
+  // Fixes end to match with cslicer
   int c1 = to_ids_[gpu_id].size();
   num_out_local = to_ids_[gpu_id].size();
   // It is a seperate graph.
   dr->clear();
   to_offsets[0] = 0;
+  std::cout << "reached here\n";
   for(int i=0;i<4;i++){
-   if(i != gpu_id){
+
+    if(i != gpu_id){
+      std::cout << "working on " << i <<":"<< gpu_id<< ":" << to_ids_[i].size() << "\n";
       dr->order_and_remove_duplicates(to_ids_[i]);
+      cudaDeviceSynchronize();
       to_offsets[i + 1] = to_offsets[i] +  to_ids_[i].size();
       out_nodes_remote.insert(out_nodes_remote.end(), to_ids_[i].begin(), to_ids_[i].end());
       to_ids_[i].clear();
@@ -20,6 +29,7 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
     	to_offsets[i+1] = to_offsets[i];
     }
   }
+  std::cout << "FInished to node ordering \n";
   num_out_remote = to_offsets[4];
   dr->clear();
 
@@ -27,6 +37,12 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
   // self nodes;
   dr->order_and_remove_duplicates(self_in_nodes);
   self_ids_offset = self_in_nodes.size();
+  in_nodes.clear();
+  // Code change to match  begin
+  for(int i=0;i < 4;i ++){
+    in_nodes.insert(in_nodes.end(), indices_[i].begin(), indices_[i].end());
+  }
+  // Code change to match  end
   dr->order_and_remove_duplicates(in_nodes);
 
   thrust::device_vector<long> in_nodes_;
