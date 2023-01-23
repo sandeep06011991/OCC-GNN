@@ -104,10 +104,11 @@ void ArrayMap::order_and_remove_duplicates(thrust::device_vector<long>& nodes){
   std::cout << "tyroing to remove duplicates out of "<< nodes.size() << "\n";
   if(nodes.size() > 1){
   thrust::sort(nodes.begin(), nodes.end());
-  std::cout << "Sort done \n";
+  std::cout << "Sort done  " << nodes.size() << "\n";
 
-  thrust::unique(nodes.begin(), nodes.end());
-  std::cout << "Unique done \n";
+  auto it = thrust::unique(nodes.begin(), nodes.end());
+  nodes.erase(it, nodes.end());
+  std::cout << "Unique done " << nodes.size() <<  "\n";
   }
   order(nodes);
  }
@@ -140,8 +141,7 @@ void ArrayMap::order(thrust::device_vector<long> &nodes){
   get_unique_nodes<<<num_blocks,64>>>(thrust::raw_pointer_cast(nodes.data()), nodes.size(), mask,\
 		 	thrust::raw_pointer_cast(_tv.data()),thrust::raw_pointer_cast(_tv1.data()));
 
-  std::cout << "original" << _tv1.size() <<"\n";
-  thrust::sort(_tv1.begin(), _tv1.end());
+    thrust::sort(_tv1.begin(), _tv1.end());
   _tv.clear();
   _tv.resize(_tv1.size());
   auto it = thrust::unique_copy(_tv1.begin(), _tv1.end(), _tv.begin());

@@ -64,6 +64,17 @@ public:
 
   void  reorder(PartitionedLayer &l);
 
+  void debug_vector(string str, thrust::device_vector<long>& data, std::ostream& stream){
+    stream << str <<":";
+    int c = 0;
+    for(long d: data){
+      stream << d << " ";
+      c ++ ;
+      if (c % 20 == 0 ) stream <<  "\n";
+    }
+    stream <<"\n";
+  }
+
 };
 
 void check_allocation_for_optimality(Sample &s, int *workload_map, long num_nodes);

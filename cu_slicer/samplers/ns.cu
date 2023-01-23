@@ -40,8 +40,6 @@ void NeighbourSampler::layer_sample(thrust::device_vector<long> &in,
       offsets.clear();
       indices.clear();
       in_degrees.clear();
-      std::cout << "Offsets Size" << offsets.capacity() <<" \n";
-      offsets.resize(10000);
       offsets.resize(in.size() + 1);
       // Arrays Work !!
       std::cout << "Capcityu Size" << offsets.capacity() <<" \n";

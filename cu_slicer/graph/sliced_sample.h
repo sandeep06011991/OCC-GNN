@@ -58,8 +58,11 @@ class PartitionedLayer{
     void * out_nodes_degree[4];
     for(int i=0;i < 4; i++){
         for(int j = 0; j <4;j++){
+          std::cout << "Resize " << local_graph_nodes[i*4 + j] << " " << local_graph_edges[i * 4 + j] <<"\n";
           if (i == j){
+
             bipartite[i]->out_degree_local.resize(local_graph_nodes[i * 4 + j]);
+
             out_nodes_degree[i] = thrust::raw_pointer_cast(bipartite[i]->out_degree_local.data());
           }
           bipartite[i]->indptr_[j].resize(local_graph_nodes[i * 4 + j] + 1);
@@ -67,7 +70,7 @@ class PartitionedLayer{
           bipartite[i]->to_ids_[j].resize(local_graph_nodes[i * 4 + j]);
           local_to_nds[i * 4 + j] = thrust::raw_pointer_cast(bipartite[i]->to_ids_[j].data());
           local_offset[i * 4 + j] = thrust::raw_pointer_cast(bipartite[i]->indptr_[j].data());
-          bipartite[i]->indices_[j].resize(local_graph_edges[i * 4 + j] + 1);
+          bipartite[i]->indices_[j].resize(local_graph_edges[i * 4 + j]);
           local_indices[i * 4 + j] = thrust::raw_pointer_cast(bipartite[i]->indices_[j].data());
         }
       }

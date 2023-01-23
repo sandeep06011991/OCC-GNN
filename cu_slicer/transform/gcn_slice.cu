@@ -25,33 +25,27 @@ __global__ void partition_edges(int*  partition_map, long * out_nodes,
       for(int n=0; n<4; n++){
         p_nbs[n] = 0;
       }
-      p_nbs[nd1] = 1;
-      // ((long *) indptr_map[p_nd1 * 4 + p_nd1])[tid] = 1;
+      p_nbs[p_nd1] = 1;
 
       for(int n = 0; n<nbs; n ++ ){
         long nd2 = in_nodes[indices[offset_edge_start + n]];
-
         int p_nd2 = partition_map[nd2];
         // printf("%ld %ld %d %d %d\n", nd1, nd2, tid, p_nd1, p_nd2);
         // Always select out node for its own partition even if it has no outgoing edge
+
         p_nbs[p_nd2] = 1;
         for(int i=0;i < 4; i++){
           if(i == p_nd2){
-            // Denotes node is selected
             // Denotes edge is selected
-            // ((long *)indices_map[p_nd1 * 4 + p_nd2])[offset_edge_start + n] = 1;
+            ((long *)indices_map[p_nd1 * 4 + i])[offset_edge_start + n] = 1;
           }else{
-            // Denotes node is selected
-            // ((long *)indptr_map[p_nd1 * 4 + p_nd2])[tid] = 0;
-            // Denotes edge is selected
-            // ((long *)indices_map[p_nd1 * 4 + p_nd2])[offset_edge_start + n] = 0;
+            // Denotes edge is not selected
+            ((long *)indices_map[p_nd1 * 4 + i])[offset_edge_start + n] = 0;
           }
         }
       }
       for(int p_nd2 = 0; p_nd2<4 ;p_nd2++){
         if(p_nbs[p_nd2]){
-          assert(tid < size);
-          assert(p_nd1 * 4 + p_nd2 < 16);
           ((long *) indptr_map[p_nd1 * 4 + p_nd2])[tid] = 1;
         }
       }
@@ -156,42 +150,45 @@ void Slice::slice_layer(thrust::device_vector<long> &layer_nds,
     std::cout << "local graph sizeing \n";
     long local_graph_nodes[16];
     long local_graph_edges[16];
-    // for(int i=0; i<16;i ++){
-    //   for(int j = 0; j<ps.index_offset_map[i].size(); j++){
-    //     std::cout << ps.index_offset_map[i][j] <<" ";
-    //   };
-    //   std::cout << "Running " <<ps.index_offset_map[i].size() <<":" <<  ps.index_indices_map[i].size() << "\n";
-    //   thrust::inclusive_scan(ps.index_offset_map[i].begin(), ps.index_offset_map[i].end(), ps.index_offset_map[i].begin());
-    //   std::cout << "DOne " <<ps.index_offset_map[i].size() <<":" <<  ps.index_indices_map[i].size() << "\n";
-    //   thrust::inclusive_scan(ps.index_indices_map[i].begin(), ps.index_indices_map[i].end(), ps.index_indices_map[i].begin());
-    //   std::cout << "DOne " <<ps.index_offset_map[i].size() <<":" <<  ps.index_indices_map[i].size() << "\n";
-    //   local_graph_nodes[i] = ps.index_offset_map[i][ps.index_offset_map[i].size()-1];
-    //
-    //   local_graph_edges[i] = ps.index_indices_map[i][ps.index_indices_map[i].size() - 1];
-    // }
-    // ps.resize_local_graphs(local_graph_nodes, local_graph_edges);
+    for(int i=0; i<16;i ++){
+      for(int j = 0; j<ps.index_offset_map[i].size(); j++){
+        std::cout << ps.index_offset_map[i][j] <<" ";
+      };
+      std::cout <<"DEBUG:";
+      for(auto a: ps.index_indices_map[i]){
+        std::cout << a <<" ";
+      }
+      thrust::inclusive_scan(ps.index_offset_map[i].begin(), ps.index_offset_map[i].end(), ps.index_offset_map[i].begin());
+      thrust::inclusive_scan(ps.index_indices_map[i].begin(), ps.index_indices_map[i].end(), ps.index_indices_map[i].begin());
+
+      local_graph_nodes[i] = ps.index_offset_map[i][ps.index_offset_map[i].size()-1];
+
+      local_graph_edges[i] = ps.index_indices_map[i][ps.index_indices_map[i].size() - 1];
+      std::cout << "DOne " << local_graph_nodes[i] <<":"<< local_graph_edges[i] << "\n";
+    }
+    ps.resize_local_graphs(local_graph_nodes, local_graph_edges);
     // Stage 3 Populate local and remote edges.
     std::cout << "local graph partitioning \n";
-    // populate_local_graphs<<<blocks, 32>>>(thrust::raw_pointer_cast(this->workload_map.data()),
-    //     thrust::raw_pointer_cast(layer_nds.data()),
-    //     thrust::raw_pointer_cast(bs.layer_nds.data()),
-    //     thrust::raw_pointer_cast(bs.offsets.data()),
-    //     thrust::raw_pointer_cast(bs.indices.data()),
-    //     (void **)ps.device_offset_map,
-    //     (void **)ps.device_indices_map,
-    //     (void **)ps.device_local_indptr_map,
-    //     (void **)ps.device_local_indices_map,
-    //     (void **)ps.device_local_to_nds_map,
-    //     (void **)ps.device_out_nodes_degree_map,
-    //     layer_nds.size());
+    populate_local_graphs<<<blocks, 32>>>(thrust::raw_pointer_cast(this->workload_map.data()),
+        thrust::raw_pointer_cast(layer_nds.data()),
+        thrust::raw_pointer_cast(bs.layer_nds.data()),
+        thrust::raw_pointer_cast(bs.offsets.data()),
+        thrust::raw_pointer_cast(bs.indices.data()),
+        (void **)ps.device_offset_map,
+        (void **)ps.device_indices_map,
+        (void **)ps.device_local_indptr_map,
+        (void **)ps.device_local_indices_map,
+        (void **)ps.device_local_to_nds_map,
+        (void **)ps.device_out_nodes_degree_map,
+        layer_nds.size());
     cudaDeviceSynchronize();
 }
 
 
 void Slice::slice_sample(Sample &s, PartitionedSample &ps){
-
-    // for(int i= 1; i< s.num_layers + 1;i++){
-    for(int i=2;i<3;i++){
+    s.debug();
+    for(int i= 1; i< s.num_layers + 1;i++){
+    // for(int i=2;i<3;i++){
 	   // std::cout << "Sliceed sample \n";
 	    PartitionedLayer& l = ps.layers[i-1];
         int layer_id = i-1;
@@ -199,7 +196,7 @@ void Slice::slice_sample(Sample &s, PartitionedSample &ps){
         this->slice_layer(s.block[i-1]->layer_nds, \
           (* s.block[i]), l, layer_id);
        //  std::cout << "Slicing ends" <<"\n";
-	     // this->reorder(l);
+	     this->reorder(l);
        // std::cout << "Reordering starts \n";
 
     }

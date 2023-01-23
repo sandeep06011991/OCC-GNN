@@ -28,13 +28,16 @@ for(int i=0;i<3;i++){
 }
 thrust::device_vector<long> training_nodes;
 training_nodes = _training_nodes;
-// std::cout << training_nodes.size() <<"\n";
+thrust::device_vector<long> v1;
+v1.resize(0);
+std::cout << "Verify" << thrust::raw_pointer_cast(v1.data()) <<"\n";
 int fanout = 3;
 bool self_edge = true;
 NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, false, self_edge);
 std::cout << "starting to sample\n";
 ns->sample(training_nodes,(*s1));
-
+// s1->debug();
+// assert(false);
 // sample_neighbourhood((*s), training_nodes, (*dataset));
 // Issues over memory who is responsibe for this.
 // Who creats it, uses it and destroys it.
