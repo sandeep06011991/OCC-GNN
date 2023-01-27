@@ -16,7 +16,6 @@ public:
   // Temporar fix. Make private later
   DuplicateRemover(){}
 
-  virtual void order_and_remove_duplicates(thrust::device_vector<long>& nodes) = 0;
 
   virtual void order(thrust::device_vector<long> &nodes) = 0;
 
@@ -26,6 +25,8 @@ public:
   virtual void clear() = 0;
 
   virtual void replace(thrust::device_vector<long>& v) = 0;
+
+  virtual void remove_nodes_seen(thrust::device_vector<long> &nodes) = 0;
 };
 
 class  ArrayMap: public  DuplicateRemover {
@@ -33,11 +34,16 @@ class  ArrayMap: public  DuplicateRemover {
   thrust::device_vector<long> used_nodes;
   thrust::device_vector<long> _tv;
   thrust::device_vector<long> _tv1;
+  thrust::device_vector<long> _tv2;
+  void * _df;
   int * mask;
+  long mask_size;
+
+  void assert_no_duplicates(thrust::device_vector<long> &nodes);
 public:
   ArrayMap(long num_nodes);
 
-  void order_and_remove_duplicates(thrust::device_vector<long>& nodes);
+  // void order_and_remove_duplicates(thrust::device_vector<long>& nodes);
 
   void order(thrust::device_vector<long> &nodes);
 
@@ -46,24 +52,8 @@ public:
   void clear();
 
   void replace(thrust::device_vector<long>& v);
+
+  void remove_nodes_seen(thrust::device_vector<long> &nodes);
 };
 
-/*
- * class HashMap: public DuplicateRemover{
-
-  std::unordered_map<long,long> map;
-  int count;
-public:
-  HashMap(long num_nodes);
-
-  void order_and_remove_duplicates(std::vector<long>& nodes);
-
- void order(std::vector<long> &nodes);
-
-  ~HashMap(){}
-
- void clear();
-
- void replace(std::vector<long>& v);
-};
-*/
+void test_duplicate();
