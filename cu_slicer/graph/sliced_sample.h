@@ -81,16 +81,14 @@ class PartitionedLayer{
     void * out_nodes_degree[this->num_gpus];
     for(int dest =0;dest < this->num_gpus; dest++){
       for(int src = 0; src < this->num_gpus ;src++){
-          std::cout << "Resize " << local_graph_nodes[i*4 + j] << " " << local_graph_edges[i * 4 + j] <<"\n";
           if (src == dest){
             bipartite[dest]->out_degree_local.resize(local_graph_nodes[src * this->num_gpus + dest]);
             out_nodes_degree[dest] = thrust::raw_pointer_cast(bipartite[dest]->out_degree_local.data());
           }
           bipartite[src]->indptr_[dest].resize(local_graph_nodes[dest * this->num_gpus + src] + 1);
-          std::cout << "Size to ids" << local_graph_nodes[dest * this->num_gpus + src] << " \n";
           bipartite[src]->to_ids_[dest].resize(local_graph_nodes[dest * this->num_gpus + src]);
           local_to_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->to_ids_[dest].data());
-          local_offset[dest * this->num_gpus + j] = thrust::raw_pointer_cast(bipartite[src]->indptr_[dest].data());
+          local_offset[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indptr_[dest].data());
           bipartite[src]->indices_[dest].resize(local_graph_edges[dest * this->num_gpus + src]);
           local_indices[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indices_[dest].data());
           bipartite[dest]->from_ids[src].resize(local_graph_edges[dest * this->num_gpus + src]);

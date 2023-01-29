@@ -71,13 +71,14 @@ std::cout << "Read synthetic dataset\n ";
 // //
 //   std::cout << "basic population done \n";
 //   int rounds = 4;
-
-    Slice * sc = new Slice(workload_map, storage, pull_optim, num_gpus);
+    // PushSlicer *sc;
+    PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
+    PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
 //   std::cout << "Slicer created \n";
 //   s1->debug();
     PartitionedSample ps(num_layers, num_gpus);
 //   std::cout << "partition map created \n";
-   sc->slice_sample((*s1), ps);
+   // sc->slice_sample((*s1), ps);
 // //   std::cout << "slicing done \n";
 //   //ps.debug();
 //

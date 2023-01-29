@@ -9,9 +9,9 @@ DEBUG=-DDEBUG
 # 	      tests/gcn_test.cu  transform/gcn_slice.cu
 
 all: graph/dataset.o main.o util/duplicate.o samplers/ns.o \
-	 	transform/gcn_slice.o graph/bipartite.o
+	 	transform/pull_slice.o transform/push_slice.o transform/slice.o graph/bipartite.o
 	nvcc -G graph/dataset.o main.o  util/duplicate.o \
-	 	samplers/ns.o transform/gcn_slice.o \
+	 	samplers/ns.o transform/pull_slice.o  transform/push_slice.o transform/slice.o\
 		 	graph/bipartite.o -o a.out
 	./a.out
 

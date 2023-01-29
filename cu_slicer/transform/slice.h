@@ -5,7 +5,7 @@
 
 
 class Slice{
-
+protected:
   thrust::device_vector<int> workload_map;
   thrust::device_vector<int> storage_map[8];
   thrust::device_vector<int> storage[8];
@@ -24,7 +24,6 @@ public:
   Slice(thrust::device_vector<int> workload_map,
       thrust::device_vector<int> storage[8],
         bool pull_optimization, int num_gpus){
-          std::cout<<"CREATING SLICER XXXXXXX\n";
     this->workload_map = workload_map;
     this->num_gpus= num_gpus;
     long num_nodes = this->workload_map.size();
@@ -36,7 +35,6 @@ public:
         this->storage_map[i].push_back(-1);
       }
     }
-    std::cout << "NUM GPUS" << this->num_gpus << "\n";
     for(int i=0;i<num_gpus;i++){
       int count  = 0;
       for(auto j:storage[i]){
@@ -61,17 +59,50 @@ public:
 
   void slice_sample(Sample &s, PartitionedSample &ps);
 
-  void slice_layer(thrust::device_vector<long>& in, Block &bl, \
-      PartitionedLayer& l, bool last_layer);
+  virtual void slice_layer(thrust::device_vector<long>& in, Block &bl, \
+      PartitionedLayer& l, bool last_layer) = 0;
 
 
 
   // void get_edge_policy(vector<long> &in, Block &bl, vector<POLICY> &policy, int layer_id, int num_layers);
 
-  void  reorder(PartitionedLayer &l);
+  void  reorder(PartitionedLayer &l) ;
 
   void fill_cache_hits_and_misses(PartitionedSample &ps, int gpu, thrust::device_vector<long> &in_nodes);
 
+
+};
+
+class PushSlicer: public Slice{
+
+public:
+    PushSlicer(thrust::device_vector<int> workload_map,
+        thrust::device_vector<int> storage[8],
+          bool pull_optimization, int num_gpus):Slice(workload_map,
+            storage, pull_optimization, num_gpus){
+              int i = 1;
+    }
+
+
+      void slice_layer(thrust::device_vector<long>& in, Block &bl, \
+          PartitionedLayer& l, bool last_layer) ;
+
+
+};
+
+
+class PullSlicer: public Slice{
+
+public:
+    PullSlicer(thrust::device_vector<int> workload_map,
+        thrust::device_vector<int> storage[8],
+          bool pull_optimization, int num_gpus):Slice(workload_map,
+            storage, pull_optimization, num_gpus){
+
+    }
+
+      void slice_layer(thrust::device_vector<long>& in, Block &bl, \
+          PartitionedLayer& l, bool last_layer) ;
 
 };
 
