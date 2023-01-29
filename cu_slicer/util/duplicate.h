@@ -19,6 +19,7 @@ public:
 
   virtual void order(thrust::device_vector<long> &nodes) = 0;
 
+  virtual thrust::device_vector<long>& get_used_nodes()  = 0;
 
   virtual ~DuplicateRemover() {}
 
@@ -30,19 +31,20 @@ public:
 };
 
 class  ArrayMap: public  DuplicateRemover {
-
-  thrust::device_vector<long> used_nodes;
   thrust::device_vector<long> _tv;
   thrust::device_vector<long> _tv1;
   thrust::device_vector<long> _tv2;
   void * _df;
   int * mask;
   long mask_size;
-
+  thrust::device_vector<long> used_nodes;
   void assert_no_duplicates(thrust::device_vector<long> &nodes);
 public:
+
+
   ArrayMap(long num_nodes);
 
+  thrust::device_vector<long>& get_used_nodes() ;
   // void order_and_remove_duplicates(thrust::device_vector<long>& nodes);
 
   void order(thrust::device_vector<long> &nodes);

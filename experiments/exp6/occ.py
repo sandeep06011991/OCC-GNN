@@ -53,7 +53,7 @@ def check_single(ls):
     assert(len(ls) == 1)
     return ls[0]
 
-def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
+def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, num_layers, num_partition):
 
     output = subprocess.run(["python3.8",\
             "{}/python/main.py".format(ROOT_DIR),\
@@ -61,7 +61,10 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         "--model", model , \
         "--cache-per" , str(cache_per),\
         "--num-hidden",  str(hidden_size), \
-        "--batch-size", str(minibatch_size) , "--num-epochs", "6", "--num-workers", "16"] \
+        "--batch-size", str(minibatch_size) ,\
+        "--num-epochs", "6", "--num-workers", "16",\
+        "--num-layers", str(num_layers), \
+        "--num-gpus", str(num_partition)] \
             , capture_output = True)
     # print(out,error)
     out = str(output.stdout)
@@ -80,9 +83,11 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size):
         data_moved = check_single(re.findall("data movement:(\d+\.\d+)MB",out))
         edges_moved = re.findall("edges per epoch:(\d+\.\d+)",out)
         s = 0
-        for i in range(4):
+        if(num_partition == -1):
+            num_partition = 4
+        for i in range(num_partition):
             s = s + float(edges_moved[i])
-        edges_moved = s / 4
+        edges_moved = s / num_partition
         sample_get = "{:.2f}".format(float(sample_get))
         movement_graph = "{:.2f}".format(float(movement_graph))
         movement_feat = "{:.2f}".format(float(movement_feat))
@@ -115,18 +120,18 @@ def run_experiment_occ(model):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
     settings = [
                 #("ogbn-arxiv",16, 128, 1024),
-                # ("ogbn-arxiv", 16, 128, 4096), \
+                #("ogbn-arxiv", 16, 128, 4096), \
                 #("ogbn-arxiv",16, 128, 16384),\
                 #("ogbn-arxiv",3, 32 , -1 , 1024), \
                 #("ogbn-products",16, 100, 1024), \
-                #("ogbn-products", 16, 100, 4096), \
+                ("ogbn-products", 16, 100, 4096), \
                 #("ogbn-products",16, 100 , 16384), \
                 #("reorder-papers100M", 16, 128, 1024),\
                 #("reorder-papers100M", 16, 128, 4096),\
                 #("reorder-papers100M", 16, 128, 16384),\
-                ("amazon", 16, 200, 1024),\
+                #("amazon", 16, 200, 1024),\
                 #("amazon", 16, 200, 4096),\
-                ("amazon", 16, 200, 16384),\
+                #("amazon", 16, 200, 16384),\
                 #("com-youtube", 3, 32, 256, 4096),\
                 #("com-youtube",3,32,1024, 4096)\
                 # ("com-youtube",2), \
@@ -156,11 +161,19 @@ def run_experiment_occ(model):
     #settings = [settings[0]]
     #check_path()
     print(settings)
+    num_layerss = [2,4]
+    num_partitions = [2,3]
+    #num_partitions = [-1]
+    num_partition= 4
+    hidden_sizes = [16,64,256]
+    #hidden_sizes = [64]
+
     sha,dirty = get_git_info()
     assert(model in ["gcn","gat","gat-pull"])
     with open(OUT_DIR + '/exp6/exp6_occ_{}.txt'.format(SYSTEM),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size |"+\
+                "num_partitions | num-layers |" + \
             " model  | sample_get | move-graph | move-feature | forward | backward  |"+\
                 " epoch_time | accuracy | data_moved | edges_computed\n")
     for graphname, hidden_size, fsize, batch_size in settings:
@@ -172,10 +185,17 @@ def run_experiment_occ(model):
             if graphname in ["ogbn-papers100M","com-friendster"]:
                 if float(cache) > .3:
                     continue
-            out = run_occ(graphname, model,  cache, hidden_size,fsize, batch_size)
-            with open(OUT_DIR + '/exp6/exp6_occ_{}.txt'.format(SYSTEM),'a') as fp:
-                fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |{} | {} \n".\
-                    format(graphname , SYSTEM, cache, hidden_size, fsize, batch_size, model, out["sample_get"], \
+            #for hidden_size in hidden_sizes:
+
+            # for num_partition in num_partitions:
+            for num_layers in num_layerss:
+                print("hiddden", num_layers, num_partition, hidden_size)
+                #assert(False)
+                out = run_occ(graphname, model,  cache, hidden_size,fsize, batch_size, num_layers, num_partition)
+                with open(OUT_DIR + '/exp6/exp6_occ_{}.txt'.format(SYSTEM),'a') as fp:
+                    fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |{} | {} \n".\
+                    format(graphname , SYSTEM, cache, hidden_size, fsize, batch_size,\
+                        num_partition, num_layers, model, out["sample_get"], \
                         out["movement_graph"], out["movement_feat"], out["forward"], out["backward"], \
                          out["epoch"], out["accuracy"], out["data_moved"], out["edges_moved"]))
 
@@ -205,8 +225,8 @@ def run_sbatch(model, settings, cache_rates):
 
 if __name__ == "__main__":
     run_experiment_occ("gcn")
-    run_experiment_occ("gat")
-    #run_experiment_occ("gat-pull")
+    # run_experiment_occ("gat")
+    run_experiment_occ("gat-pull")
     print("Success!!!!!!!!!!!!!!!!!!!")
     #run_model("gat")
     assert(False)

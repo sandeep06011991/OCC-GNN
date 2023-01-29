@@ -12,7 +12,7 @@ int main(){
   // Test1: Read graph datastructure.
   std::string graph_name = "ogbn-arxiv";
   std::string file = get_dataset_dir() + graph_name;
-  int num_partitions = 5;
+  int num_partitions = 4;
 
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_partitions);
   if (num_partitions == -1){
@@ -24,7 +24,7 @@ int main(){
   Sample *s1  = new Sample(num_layers);
   s1->debug();
   std::vector<long> training_nodes;
-  for(int i=0;i<10;i++){
+  for(int i=0;i<1;i++){
     training_nodes.push_back(i);
   }
   std::cout << training_nodes.size() <<"\n";
@@ -36,10 +36,10 @@ int main(){
   bool self_edge = false;
   bool pull_optim = true;
 
-  NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, false, self_edge);
+  bool deterministic = true;
+  NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, true, self_edge);
   ns->sample(training_nodes,(*s1));
-
-  // sample_neighbourhood((*s), training_nodes, (*dataset));
+    // sample_neighbourhood((*s), training_nodes, (*dataset));
   // Issues over memory who is responsibe for this.
   // Who creats it, uses it and destroys it.
   // What is its life size.
@@ -77,7 +77,7 @@ int main(){
   int rounds = 4;
 
   Slice * sc = new Slice(workload_map, storage, self_edge, rounds, pull_optim, num_partitions);
-  //s1->debug();
+  s1->debug();
   PartitionedSample ps(num_layers, num_partitions);
   sc->slice_sample((*s1), ps);
   std::cout << "slicing done \n";

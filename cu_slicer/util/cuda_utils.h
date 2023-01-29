@@ -20,7 +20,7 @@ inline void debugVector(thrust::device_vector<T> t, std::string str){
         std::cout << v <<" ";
         i++;
       }
-      std::cout << "/n";
+      std::cout << "\n";
 }
 
 template<typename T>
@@ -36,12 +36,16 @@ inline void checkVectorSame(thrust::host_vector<T> v1, thrust::device_vector<T> 
 }
 
 const int THREAD_SIZE = 256;
+const int MAX_BLOCKS = 1024;
 
 inline int BLOCK_SIZE(size_t t){
+  if(t > MAX_BLOCKS) return MAX_BLOCKS;
   return (t-1)/THREAD_SIZE + 1;
 
 }
 
+const int MAX_DEVICES = 8;
+const int MAX_LAYERS = 5;
 inline void remove_duplicates(thrust::device_vector<long>& nodes){
   if(nodes.size() == 0)return;
   if(nodes.size() > 1){
@@ -50,6 +54,7 @@ inline void remove_duplicates(thrust::device_vector<long>& nodes){
     nodes.erase(it, nodes.end());
   }
 }
+
 // template<typename T>
 // __device__ __host__
 // inline void safeRead(thrust::device_vector<T> t, int id){

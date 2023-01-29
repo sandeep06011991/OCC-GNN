@@ -48,6 +48,8 @@ public:
   long csum_edges;
   bool testing = true;
   Dataset(std::string dir, bool testing);
+
+
 };
 
 #endif

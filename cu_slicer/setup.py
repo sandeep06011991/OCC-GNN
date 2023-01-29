@@ -26,16 +26,17 @@ ext_modules = [
         sources = [\
             #"transform/slice.cpp", 
                 #"transform/walk.cpp",
-                "samplers/ns.cpp",
-                "pyobj/pybipartite.cpp", 
-                "pyobj/pyfrontend.cpp",
-                "graph/bipartite.cpp", 
-                "util/duplicate.cpp", "graph/dataset.cpp",
-                        "tests/gat_test.cpp", "tests/gcn_test.cpp"],
-        extra_compile_args=["-s"],
+                #samplers/ns.cpp",
+                #"pyobj/pybipartite.cpp", 
+                #"pyobj/pyfrontend.cpp",
+                #"graph/bipartite.cpp", 
+                #"util/duplicate.cpp", "graph/dataset.cpp",
+                        #"tests/gat_test.cpp", "tests/gcn_test.cpp"
+                        "check.cu"
+                        ],
         depends = ["util/environment.h","bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
             ,"util/conqueue.h"]  ,
-        include_dirs=[pybind11.get_include(),".",ROOT,"/home/spolisetty/thirdparty/thrust" ],
+        include_dirs=[pybind11.get_include(),".",ROOT,"/home/spolisetty/thirdparty/thrust", "/home/spolisetty/thirdparty/thrust/dependencies/cub" ],
         language='c++'
         # sorted(glob("pybind_test.cpp"),"object.cpp"),
          # Sort source files for reproducibility

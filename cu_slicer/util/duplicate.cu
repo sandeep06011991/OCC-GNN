@@ -86,9 +86,16 @@ void ArrayMap::remove_nodes_seen(thrust::device_vector<long> &nodes){
           (thrust::raw_pointer_cast(nodes.data()), nodes.size(),\
           mask, mask_size, thrust::raw_pointer_cast(_tv.data()));
 
-
+  int nodes_not_seen = _tv[_tv.size()-1];
   thrust::exclusive_scan(thrust::device, _tv.begin() , _tv.end(), _tv.begin(), 0); // in-place scan
-  _tv1.resize(_tv[_tv.size()-1] + 1);
+  nodes_not_seen += _tv[_tv.size()-1];
+  if(nodes_not_seen == 0){
+    _tv1.clear();
+    nodes.clear();
+    _tv.clear();
+    return;
+  }
+  _tv1.resize(nodes_not_seen);
   // Capture all nodes not present
   // Step 2
   get_unique_nodes<<<BLOCK_SIZE(nodes.size()), THREAD_SIZE>>>\
@@ -142,6 +149,7 @@ void clear_mask(int * mask, long mask_size,\
 }
 
 void ArrayMap::clear(){
+  if(this->used_nodes.size() == 0)return;
   clear_mask<<<BLOCK_SIZE(used_nodes.size()), THREAD_SIZE>>>\
     (mask, mask_size, \
       thrust::raw_pointer_cast(used_nodes.data()), used_nodes.size());
@@ -171,6 +179,10 @@ void ArrayMap::replace(thrust::device_vector<long> &nodes){
 ArrayMap::~ArrayMap(){
     gpuErrchk(cudaFree(mask));
     this->used_nodes.clear();
+}
+
+thrust::device_vector<long>& ArrayMap::get_used_nodes(){
+  return this->used_nodes;
 }
 
 void test_duplicate(){
