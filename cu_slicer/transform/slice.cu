@@ -127,7 +127,6 @@ void Slice::reorder(PartitionedLayer &l){
         this->reorder(l);
       }
 
-      std::cout << "Skip cache handling\n";
        for(int i=0;i<this->num_gpus;i++){
            ps.cache_miss_from[i].clear();
            ps.cache_hit_from[i].clear();
@@ -141,4 +140,5 @@ void Slice::reorder(PartitionedLayer &l){
   	   thrust::device_vector<long> &last_layer = ps.layers[0].bipartite[i]->out_nodes_local;
        ps.last_layer_nodes[i].insert(ps.last_layer_nodes[i].end(), last_layer.begin(), last_layer.end());
       }
+      std::cout << "Cache handling also done\n";
     }
