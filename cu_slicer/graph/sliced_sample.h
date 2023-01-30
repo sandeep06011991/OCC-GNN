@@ -22,9 +22,12 @@ class PartitionedLayer{
     void * device_local_indptr_map;
     void * device_local_indices_map;
     //  Contains to nds
-    void * device_local_to_nds_map;
-    void * device_local_from_nds_map;
+    void * device_local_push_to_nds_map;
+    void * device_local_push_from_nds_map;
+    void * device_local_pull_to_nds_map;
+    void * device_local_pull_from_nds_map;
     void * device_out_nodes_degree_map;
+
     int num_gpus = -1;
     PartitionedLayer(){}
 
@@ -32,15 +35,17 @@ class PartitionedLayer{
       this->num_gpus = num_gpus;
       // this->bipartite = (BiPartite **)malloc(sizeof(BiPartite *) * 4);
       for(int i=0; i<num_gpus; i++){
-        this->bipartite[i] = new BiPartite(i);
+        this->bipartite[i] = new BiPartite(i, num_gpus);
       }
       int map_size = this->num_gpus * this->num_gpus;
       gpuErrchk(cudaMalloc(&device_offset_map, sizeof(long *) * map_size ));
       gpuErrchk(cudaMalloc(&device_indices_map, sizeof(long *) * map_size ));
       gpuErrchk(cudaMalloc(&device_local_indptr_map, sizeof(long *)  * map_size ));
       gpuErrchk(cudaMalloc(&device_local_indices_map, sizeof(long *)  * map_size ));
-      gpuErrchk(cudaMalloc(&device_local_to_nds_map, sizeof(long *)  * map_size ));
-      gpuErrchk(cudaMalloc(&device_local_from_nds_map, sizeof(long *)  * map_size ));
+      gpuErrchk(cudaMalloc(&device_local_push_to_nds_map, sizeof(long *)  * map_size ));
+      gpuErrchk(cudaMalloc(&device_local_push_from_nds_map, sizeof(long *)  * map_size ));
+      gpuErrchk(cudaMalloc(&device_local_pull_to_nds_map, sizeof(long *) * map_size));
+      gpuErrchk(cudaMalloc(&device_local_pull_from_nds_map, sizeof(long *) * map_size));
       gpuErrchk(cudaMalloc(&device_out_nodes_degree_map, sizeof(long *)  * this->num_gpus));
     }
 
@@ -55,7 +60,6 @@ class PartitionedLayer{
          local_offset[i] = thrust::raw_pointer_cast(index_offset_map[i].data());
          index_indices_map[i].resize(indices_size);
          thrust::fill(index_indices_map[i].begin(), index_indices_map[i].end(), 0);
-
          local_indices[i] = thrust::raw_pointer_cast(index_indices_map[i].data());
        }
        gpuErrchk(cudaMemcpy(device_offset_map, local_offset, N * sizeof (void *), cudaMemcpyHostToDevice));
@@ -76,9 +80,12 @@ class PartitionedLayer{
     int N = this->num_gpus * this->num_gpus;
     void * local_offset[N];
     void * local_indices[N];
-    void * local_to_nds[N];
-    void * local_from_nds[N];
+    void * local_push_to_nds[N];
+    void * local_push_from_nds[N];
+    void * local_pull_to_nds[N];
+    void * local_pull_from_nds[N];
     void * out_nodes_degree[this->num_gpus];
+    // Add push or pull distinction
 
     for(int dest =0;dest < this->num_gpus; dest++){
       for(int src = 0; src < this->num_gpus ;src++){
@@ -87,24 +94,47 @@ class PartitionedLayer{
           if (src == dest){
             bipartite[dest]->out_degree_local.resize(local_graph_nodes[src * this->num_gpus + dest]);
             out_nodes_degree[dest] = thrust::raw_pointer_cast(bipartite[dest]->out_degree_local.data());
+          }else{
+            bipartite[src]->push_to_ids_[dest].resize(local_graph_nodes[dest * this->num_gpus + src]);
+            bipartite[dest]->push_from_ids[src].resize(local_graph_nodes[dest * this->num_gpus + src]);
+
+            local_push_to_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->push_to_ids_[dest].data());
+            local_push_from_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[dest]->push_from_ids[src].data());
+
+            bipartite[dest]->pull_from_ids_[src].resize(local_graph_edges[dest*this->num_gpus + src]);
+            bipartite[src]->pull_to_ids[dest].resize(local_graph_edges[dest*this->num_gpus + src]);
+
+            local_pull_from_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[dest]->pull_from_ids_[src].data());
+            local_pull_to_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->pull_to_ids[dest].data());
           }
           bipartite[src]->indptr_[dest].resize(local_graph_nodes[dest * this->num_gpus + src] + 1);
-          bipartite[src]->to_ids_[dest].resize(local_graph_nodes[dest * this->num_gpus + src]);
-          local_to_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->to_ids_[dest].data());
-          local_offset[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indptr_[dest].data());
           bipartite[src]->indices_[dest].resize(local_graph_edges[dest * this->num_gpus + src]);
+          local_offset[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indptr_[dest].data());
           local_indices[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indices_[dest].data());
-          bipartite[dest]->from_ids[src].resize(local_graph_edges[dest * this->num_gpus + src]);
-          local_from_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[dest]->from_ids[src].data());
+
         }
       }
       gpuErrchk(cudaMemcpy(device_local_indptr_map, local_offset, N * sizeof (void *), cudaMemcpyHostToDevice));
       gpuErrchk(cudaMemcpy(device_local_indices_map, local_indices, N * sizeof (void *), cudaMemcpyHostToDevice));
-      gpuErrchk(cudaMemcpy(device_local_to_nds_map, local_to_nds, N * sizeof (void *), cudaMemcpyHostToDevice));
-      gpuErrchk(cudaMemcpy(device_local_from_nds_map, local_from_nds, N * sizeof(void *), cudaMemcpyHostToDevice));
+      gpuErrchk(cudaMemcpy(device_local_push_to_nds_map, local_push_to_nds, N * sizeof (void *), cudaMemcpyHostToDevice));
+      gpuErrchk(cudaMemcpy(device_local_push_from_nds_map, local_push_from_nds, N * sizeof(void *), cudaMemcpyHostToDevice));
+      gpuErrchk(cudaMemcpy(device_local_pull_to_nds_map, local_pull_to_nds, N * sizeof (void *), cudaMemcpyHostToDevice));
+      gpuErrchk(cudaMemcpy(device_local_pull_from_nds_map, local_pull_from_nds, N * sizeof(void *), cudaMemcpyHostToDevice));
       gpuErrchk(cudaMemcpy(device_out_nodes_degree_map, out_nodes_degree, this->num_gpus * sizeof(void *), cudaMemcpyHostToDevice))
     }
 
+    void inclusive_scan_indptr(long * local_nodes){
+      for(int dest=0;dest<this->num_gpus;dest++){
+        for(int src=0;src<this->num_gpus;src++){
+          long N = local_nodes[this->num_gpus * dest + src];
+          if(N != 0){
+            thrust::device_vector<long> & indptr = bipartite[dest]->indptr_[src];
+            thrust::inclusive_scan(indptr.begin(), indptr.end(), indptr.begin());
+
+          }
+        }
+      }
+    }
     void clear(){
       for(int i=0;i<this->num_gpus;i++){
         this->bipartite[i]->refresh();

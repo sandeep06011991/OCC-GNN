@@ -25,7 +25,7 @@ std::cout << "Read synthetic dataset\n ";
 
   bool pull_optim = false;
   int num_gpus = 2;
-  vector<int> fanout({-1,-1});
+  vector<int> fanout({-1, -1});
   bool self_edge = true;
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, self_edge);
   thrust::host_vector<long> _training_nodes;
@@ -82,8 +82,8 @@ std::cout << "Read synthetic dataset\n ";
 //   std::cout << "partition map created \n";
    sc1->slice_sample((*s1), ps1);
    std::cout << "Push done \n";
-   sc2->slice_sample((*s1),ps2);
-   std::cout << "Pull done \n";
+   // sc2->slice_sample((*s1),ps2);
+   // std::cout << "Pull done \n";
 // //   std::cout << "slicing done \n";
 //   //ps.debug();
 //

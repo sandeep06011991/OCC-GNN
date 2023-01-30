@@ -2,6 +2,7 @@
 #include <vector>
 #include <iostream>
 #include <thrust/device_vector.h>
+#include <util/cuda_utils.h>
 using namespace std;
 #pragma once
 
@@ -55,27 +56,27 @@ public:
   thrust::device_vector<long> indices_R;
 
   // Build during slicing
-  thrust::device_vector<long> indptr_[4];
-  thrust::device_vector<long> indices_[4];
+  thrust::device_vector<long> indptr_[MAX_DEVICES];
+  thrust::device_vector<long> indices_[MAX_DEVICES];
 
 
   // Built during reordering
   // Destination vertices out nodes, that have to be send will be populated locally at to_ids_
   // After reordering destination partition stores to_ids as offsets and from_ids are populated at src.
-  thrust::device_vector<long> from_ids[4];
-  int to_offsets[5];
-  thrust::device_vector<long> to_ids_[4];
-  thrust::device_vector<long> in_nodes_[4];
+  thrust::device_vector<long> push_from_ids[MAX_DEVICES];
+  int to_offsets[MAX_DEVICES + 1];
+  thrust::device_vector<long> push_to_ids_[MAX_DEVICES];
+  thrust::device_vector<long> in_nodes_[MAX_DEVICES];
   // Built during slicing
-  // vector<long> part_in_nodes[4];
+  // vector<long> part_in_nodes[MAX_DEVICES];
 
   // In nodes that have be pulled from neighbour partition
   // These ids will be reordered so that the src partition knows what values to send
   // which are stored in push_to_ids, the dest partition only stores the offsets where
   // to place these recieved values.
-  thrust::device_vector<long> push_to_ids[4];
-  int pull_from_offsets[5];
-  thrust::device_vector<long> pull_from_ids_[4];
+  thrust::device_vector<long> pull_to_ids[MAX_DEVICES];
+  int pull_from_offsets[MAX_DEVICES + 1];
+  thrust::device_vector<long> pull_from_ids_[MAX_DEVICES];
 
   // Used for self attention.
   // Built during re-ordering.
@@ -84,34 +85,36 @@ public:
   int self_ids_offset = 0;
 
   int gpu_id = -1;
-
-  BiPartite(int gpu_id){
+  int num_gpus = num_gpus;
+  BiPartite(int gpu_id, int num_gpus){
     this->gpu_id = gpu_id;
+    this->num_gpus = num_gpus;
     refresh();
   }
 
 
 
   // Single function for all remote graphs.
-  void merge_graph(vector<long> &edges, long nd_dest, int partition_id){
-      // Both GCN and GAT need in node
-      thrust::device_vector<long> & indptr_c  = indptr_[partition_id];
-      thrust::device_vector<long> & indices_c  = indices_[partition_id];
-      thrust::device_vector<long> & to_ids_c  = to_ids_[partition_id];
-      if(indptr_c.size() == 0)indptr_c.push_back(0);
-      indices_c.insert(indices_c.end(), edges.begin(), edges.end());
-      indptr_c.push_back(indices_c.size());
-      to_ids_c.push_back(nd_dest);
-  }
+  // Deprecated not used in cuda version
+  // void merge_graph(vector<long> &edges, long nd_dest, int partition_id){
+  //     // Both GCN and GAT need in node
+  //     thrust::device_vector<long> & indptr_c  = indptr_[partition_id];
+  //     thrust::device_vector<long> & indices_c  = indices_[partition_id];
+  //     thrust::device_vector<long> & to_ids_c  = to_ids_[partition_id];
+  //     if(indptr_c.size() == 0)indptr_c.push_back(0);
+  //     indices_c.insert(indices_c.end(), edges.begin(), edges.end());
+  //     indptr_c.push_back(indices_c.size());
+  //     to_ids_c.push_back(nd_dest);
+  // }
 
-
-  void merge_pull_nodes(vector<long> pull_nodes, long p_id){
-      pull_from_ids_[p_id].insert(pull_from_ids_[p_id].end(), pull_nodes.begin(), pull_nodes.end());
-  }
-
-  void merge_local_in_nodes(vector<long> in_nodes){
-      this->in_nodes.insert(this->in_nodes.end(), in_nodes.begin(), in_nodes.end());
-  }
+  //
+  // void merge_pull_nodes(vector<long> pull_nodes, long p_id){
+  //     pull_from_ids_[p_id].insert(pull_from_ids_[p_id].end(), pull_nodes.begin(), pull_nodes.end());
+  // }
+  //
+  // void merge_local_in_nodes(vector<long> in_nodes){
+  //     this->in_nodes.insert(this->in_nodes.end(), in_nodes.begin(), in_nodes.end());
+  // }
 
 
   void refresh(){
@@ -126,14 +129,14 @@ public:
     num_out_remote = 0;
     to_offsets[0] = 0;
     pull_from_offsets[0] = 0;
-    for(int i=0;i<4;i++){
-      from_ids[i].clear();
-      to_ids_[i].clear();
+    for(int i=0;i<this->num_gpus;i++){
+      push_from_ids[i].clear();
+      push_to_ids_[i].clear();
       indptr_[i].clear();
       indices_[i].clear();
       to_offsets[i + 1] = 0;
       pull_from_offsets[i + 1] = 0;
-      push_to_ids[i].clear();
+      pull_to_ids[i].clear();
       pull_from_ids_[i].clear();
     }
     indptr_L.clear();
@@ -166,20 +169,20 @@ public:
     debug_vector("out nodes local", out_nodes_local, out);
     debug_vector("out degree local", out_degree_local, out);
     std::cout << "To";
-    for(int i=0;i<4;i++){
+    for(int i=0;i<this->num_gpus;i++){
       std::cout << to_offsets[i+1] << " ";
     }
     std::cout << "\n From";
-    for(int i=0;i<4;i++){
+    for(int i=0;i<this->num_gpus;i++){
       std::cout << pull_from_offsets[i+1] << " ";
     }
-    for(int i=0;i<4;i++){
+    for(int i=0;i<this->num_gpus;i++){
         std::cout <<  i << ":\n";
-        debug_vector("from_ids", from_ids[i], out);
-        debug_vector("to_ids_", to_ids_[i], out);
+        debug_vector("push_from_ids", push_from_ids[i], out);
+        debug_vector("push_to_ids_", push_to_ids_[i], out);
         debug_vector("indptr_",indptr_[i], out);
         debug_vector("indices_", indices_[i], out);
-        debug_vector("push_to_ids", push_to_ids[i], out);
+        debug_vector("pull_to_ids", pull_to_ids[i], out);
         debug_vector("pull_from_ids", pull_from_ids_[i], out);
       }
     debug_vector("indptr_L", indptr_L, out);

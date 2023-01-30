@@ -48,19 +48,20 @@ void Slice::reorder(PartitionedLayer &l){
      for(int to = 0; to < this->num_gpus; to ++){
        dr->clear();
        // l.bipartite[to]->debug();
-       remove_duplicates(l.bipartite[to]->out_nodes_local);
-       dr->order(l.bipartite[to]->out_nodes_local);
-       for(int from = 0; from < this->num_gpus; from++){
-	        if(from == to) continue;
-         int start = l.bipartite[from]->to_offsets[to];
-         int end = l.bipartite[from]->to_offsets[to + 1];
-         l.bipartite[to]->from_ids[from].clear();
-
-         thrust::device_vector<long> &t = l.bipartite[to]->from_ids[from];
-      	 thrust::device_vector<long> &f = l.bipartite[from]->out_nodes_remote;
-         t.insert(t.end(), f.begin() + start, f.begin() + end );
-      	 dr->replace(t);
-       }
+       // Refactor not Done
+       // remove_duplicates(l.bipartite[to]->out_nodes_local);
+       // dr->order(l.bipartite[to]->out_nodes_local);
+       // for(int from = 0; from < this->num_gpus; from++){
+	     //    if(from == to) continue;
+       //   int start = l.bipartite[from]->to_offsets[to];
+       //   int end = l.bipartite[from]->to_offsets[to + 1];
+       //   l.bipartite[to]->from_ids[from].clear();
+       //
+       //   thrust::device_vector<long> &t = l.bipartite[to]->from_ids[from];
+      	//  thrust::device_vector<long> &f = l.bipartite[from]->out_nodes_remote;
+       //   t.insert(t.end(), f.begin() + start, f.begin() + end );
+      	//  dr->replace(t);
+       // }
      }
 
 
@@ -110,9 +111,12 @@ void Slice::reorder(PartitionedLayer &l){
     	  PartitionedLayer& l = ps.layers[i-1];
         this->slice_layer(s.block[i-1]->layer_nds, \
             (* s.block[i]), l, last_layer);
+        std::cout << "Start DEBUG !\n";
+        l.debug();
+        std::cout << "End Debug \n";
         this->reorder(l);
       }
-    
+
       std::cout << "Skip cache handling\n";
        // for(int i=0;i<this->num_gpus;i++){
        //     ps.cache_miss_from[i].clear();
