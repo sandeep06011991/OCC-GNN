@@ -82,8 +82,9 @@ std::cout << "Read synthetic dataset\n ";
 //   std::cout << "partition map created \n";
    sc1->slice_sample((*s1), ps1);
    std::cout << "Push done \n";
-   // sc2->slice_sample((*s1),ps2);
-   // std::cout << "Pull done \n";
+   sc2->slice_sample((*s1),ps2);
+   std::cout << "Pull done \n";
+   std::cout << "everything but cache managemnet done !\n";
 // //   std::cout << "slicing done \n";
 //   //ps.debug();
 //
