@@ -26,6 +26,7 @@ public:
   // Built during REORDERING
   // All locally present in nodes
   thrust::device_vector<long> in_nodes;
+  thrust::device_vector<long> in_nodes_;
   // Self nodes that are reordered first
   thrust::device_vector<long> self_in_nodes;
   thrust::device_vector<long> pulled_in_nodes;
@@ -66,7 +67,7 @@ public:
   thrust::device_vector<long> push_from_ids[MAX_DEVICES];
   int to_offsets[MAX_DEVICES + 1];
   thrust::device_vector<long> push_to_ids_[MAX_DEVICES];
-  thrust::device_vector<long> in_nodes_[MAX_DEVICES];
+  // thrust::device_vector<long> in_nodes_[MAX_DEVICES];
   // Built during slicing
   // vector<long> part_in_nodes[MAX_DEVICES];
 
@@ -85,7 +86,7 @@ public:
   int self_ids_offset = 0;
 
   int gpu_id = -1;
-  int num_gpus = num_gpus;
+  int num_gpus = -1;
   BiPartite(int gpu_id, int num_gpus){
     this->gpu_id = gpu_id;
     this->num_gpus = num_gpus;
@@ -119,6 +120,7 @@ public:
 
   void refresh(){
     in_nodes.clear();
+    in_nodes_.clear();
     pulled_in_nodes.clear();
     out_nodes_remote.clear();
     out_nodes_local.clear();

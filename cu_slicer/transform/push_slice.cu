@@ -101,13 +101,12 @@ __global__ void populate_local_graphs_push(int*  partition_map, long * out_nodes
           if(p_nd2 == p_nd1){
             ((long *)out_degree_map[p_nd1])\
                 [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd2])[tid] - 1] = nbs;
-          }else{
-
+              }
           ((long *)to_nds_map[p_nd1 * NUM_GPUS + p_nd2])\
             [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd2])[tid] - 1] = nd1;
           ((long *)from_nds_map[p_nd1 * NUM_GPUS + p_nd2])\
               [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd2])[tid] - 1] = nd1;
-          }
+
         }
       }
       tid += (blockDim.x * gridDim.x);

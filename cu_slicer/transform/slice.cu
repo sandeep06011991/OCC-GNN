@@ -40,7 +40,7 @@ void Slice::reorder(PartitionedLayer &l){
     // Not checked
     return;
     for(int i=0;i < this->num_gpus; i++){
-      std::cout << "local reordering " << i <<"\n";
+      // std::cout << "local reordering " << i <<"\n";
        l.bipartite[i]->reorder_local(dr);
      }
      // return;
@@ -49,20 +49,34 @@ void Slice::reorder(PartitionedLayer &l){
        dr->clear();
        // l.bipartite[to]->debug();
        // Refactor not Done
-       // remove_duplicates(l.bipartite[to]->out_nodes_local);
-       // dr->order(l.bipartite[to]->out_nodes_local);
-       // for(int from = 0; from < this->num_gpus; from++){
-	     //    if(from == to) continue;
-       //   int start = l.bipartite[from]->to_offsets[to];
-       //   int end = l.bipartite[from]->to_offsets[to + 1];
-       //   l.bipartite[to]->from_ids[from].clear();
-       //
-       //   thrust::device_vector<long> &t = l.bipartite[to]->from_ids[from];
-      	//  thrust::device_vector<long> &f = l.bipartite[from]->out_nodes_remote;
-       //   t.insert(t.end(), f.begin() + start, f.begin() + end );
-      	//  dr->replace(t);
-       // }
-     }
+       dr->order(l.bipartite[to]->out_nodes_local);
+       for(int from = 0; from < this->num_gpus; from++){
+	       if(from == to) continue;
+         int start = l.bipartite[from]->to_offsets[to];
+         int end = l.bipartite[from]->to_offsets[to + 1];
+         l.bipartite[to]->push_from_ids[from].clear();
+
+         thrust::device_vector<long> &t = l.bipartite[to]->push_from_ids[from];
+      	 thrust::device_vector<long> &f = l.bipartite[from]->out_nodes_remote;
+         t.insert(t.end(), f.begin() + start, f.begin() + end );
+      	 dr->replace(t);
+       }
+    }
+    for(int pull_from = 0;pull_from < this->num_gpus; pull_from++){
+      dr->clear();
+      dr->order(l.bipartite[pull_from]->in_nodes);
+      for(int pull_to = 0; pull_to < this->num_gpus; pull_to ++ ){
+        if(pull_from == pull_to)continue;
+        int start = l.bipartite[pull_to]->pull_from_offsets[pull_from];
+        int end = l.bipartite[pull_to]->pull_from_offsets[pull_from + 1];
+        thrust::device_vector<long> &f = l.bipartite[pull_from]->pull_to_ids[pull_to];
+        thrust::device_vector<long> &t = l.bipartite[pull_to]->pulled_in_nodes;
+        assert((end-start) <= t.size());
+        f.clear();
+        f.insert(f.end(), t.begin() + start, t.begin() + end);
+        dr->replace(f);
+      }
+    }
 
 
   }
@@ -111,9 +125,6 @@ void Slice::reorder(PartitionedLayer &l){
     	  PartitionedLayer& l = ps.layers[i-1];
         this->slice_layer(s.block[i-1]->layer_nds, \
             (* s.block[i]), l, last_layer);
-        std::cout << "Start DEBUG !\n";
-        l.debug();
-        std::cout << "End Debug \n";
         this->reorder(l);
       }
 

@@ -13,7 +13,7 @@ all: graph/dataset.o main.o util/duplicate.o samplers/ns.o \
 	nvcc -G graph/dataset.o main.o  util/duplicate.o \
 	 	samplers/ns.o transform/pull_slice.o  transform/push_slice.o transform/slice.o\
 		 	graph/bipartite.o -o a.out
-	./a.out
+	# ./a.out
 
 main.o: main.cu
 	nvcc $(DEBUG) $(INCLUDE) main.cu -c -o main.o

@@ -118,7 +118,6 @@ void PullSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
       thrust::exclusive_scan(ps.index_indices_map[i].begin(), ps.index_indices_map[i].end(), ps.index_indices_map[i].begin());
       local_graph_nodes[i] = ps.index_offset_map[i][ps.index_offset_map[i].size()-1];
       local_graph_edges[i] = ps.index_indices_map[i][ps.index_indices_map[i].size() - 1] + last_indices;
-      std::cout << "G" <<  local_graph_nodes[i] <<":" <<local_graph_edges[i] <<"\n";
       }
     ps.resize_local_graphs(local_graph_nodes, local_graph_edges);
     // Stage 3 Populate local and remote edges.
@@ -140,4 +139,6 @@ void PullSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());
     #endif
+
+      ps.inclusive_scan_indptr(local_graph_nodes);
 }
