@@ -48,11 +48,6 @@ void Slice::reorder(PartitionedLayer &l){
      for(int to = 0; to < this->num_gpus; to ++){
        dr->clear();
        // l.bipartite[to]->debug();
-       std::cout << "OUT nodes local \n";
-       for(auto o: l.bipartite[to]->out_nodes_local ){
-         std::cout << o <<" ";
-       }
-       std::cout << "\n";
        remove_duplicates(l.bipartite[to]->out_nodes_local);
        dr->order(l.bipartite[to]->out_nodes_local);
        for(int from = 0; from < this->num_gpus; from++){
@@ -64,7 +59,6 @@ void Slice::reorder(PartitionedLayer &l){
          thrust::device_vector<long> &t = l.bipartite[to]->from_ids[from];
       	 thrust::device_vector<long> &f = l.bipartite[from]->out_nodes_remote;
          t.insert(t.end(), f.begin() + start, f.begin() + end );
-         std::cout << "to" << start << ":" << end <<":"<< f.size() <<"\n";
       	 dr->replace(t);
        }
      }
@@ -114,34 +108,23 @@ void Slice::reorder(PartitionedLayer &l){
         bool last_layer = false;
         if (i == s.num_layers) last_layer = true;
     	  PartitionedLayer& l = ps.layers[i-1];
-        std::cout << "Slicing starts" <<"\n";
         this->slice_layer(s.block[i-1]->layer_nds, \
             (* s.block[i]), l, last_layer);
-          this->reorder(l);
+        this->reorder(l);
       }
-      std::cout << "Cache handlig \n";
-       for(int i=0;i<this->num_gpus;i++){
-           ps.cache_miss_from[i].clear();
-           ps.cache_hit_from[i].clear();
-           ps.cache_miss_to[i].clear();
-           ps.cache_hit_to[i].clear();
-           ps.last_layer_nodes[i].clear();
-           thrust::device_vector<long> &in_nodes = ps.layers[s.num_layers- 1].bipartite[i]->in_nodes;
-           if(in_nodes.size() > 0){
-           fill_cache_hits_and_misses(ps, i, in_nodes);
-          }
-  	 //       // ps.layers[s.num_layers-1].bipartite[i]->debug();
-          // for(int j = 0; j <ps.layers[s.num_layers- 1].bipartite[i]->in_nodes.size(); j++){
-            // auto nd = ps.layers[s.num_layers-1].bipartite[i]->in_nodes[j];
-      //       if (this->storage_map[i][nd] != -1){
-      //           ps.cache_hit_from[i].push_back(this->storage_map[i][nd]);
-      //           ps.cache_hit_to[i].push_back(j);
-      //       }else{
-      //         ps.cache_miss_from[i].push_back(nd);
-      //         ps.cache_miss_to[i].push_back(j);
-      //       }
-      //     }
-  	thrust::device_vector<long> &last_layer = ps.layers[0].bipartite[i]->out_nodes_local;
-          ps.last_layer_nodes[i].insert(ps.last_layer_nodes[i].end(), last_layer.begin(), last_layer.end());
-      }
+    
+      std::cout << "Skip cache handling\n";
+       // for(int i=0;i<this->num_gpus;i++){
+       //     ps.cache_miss_from[i].clear();
+       //     ps.cache_hit_from[i].clear();
+       //     ps.cache_miss_to[i].clear();
+       //     ps.cache_hit_to[i].clear();
+       //     ps.last_layer_nodes[i].clear();
+       //     thrust::device_vector<long> &in_nodes = ps.layers[s.num_layers- 1].bipartite[i]->in_nodes;
+       //     if(in_nodes.size() > 0){
+       //     fill_cache_hits_and_misses(ps, i, in_nodes);
+       //    }
+  	   // thrust::device_vector<long> &last_layer = ps.layers[0].bipartite[i]->out_nodes_local;
+       // ps.last_layer_nodes[i].insert(ps.last_layer_nodes[i].end(), last_layer.begin(), last_layer.end());
+      // }
     }

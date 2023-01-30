@@ -65,24 +65,24 @@ __global__ void populate_local_graphs_pull(int*  partition_map, long * out_nodes
       for(int n = 0; n<nbs; n ++ ){
           long nd2 = in_nodes[indices[offset_edge_start + n]];
           int p_nd2 = partition_map[nd2];
-          ((long *)indices_map[p_nd1 * 4 + p_nd1])[offset_edge_start + n] = nd2;
+          ((long *)indices_map[p_nd1 * NUM_GPUS + p_nd1])[offset_edge_start + n] = nd2;
            if(p_nd1 != p_nd2){
            if(last_layer){
                   if(((int *)storage_map[p_nd1])[nd2]!= -1){
                         continue;
                   }
           }
-          ((long *)from_nds_map[p_nd1 * 4 + p_nd2])\
-                  [((long *)indices_index_map[p_nd1 * 4 + p_nd2])[offset_edge_start + n]] \
+          ((long *)from_nds_map[p_nd1 * NUM_GPUS + p_nd2])\
+                  [((long *)indices_index_map[p_nd1 * NUM_GPUS + p_nd2])[offset_edge_start + n]] \
                   = nd2;
           }
         }
-     ((long *)indptr_map[p_nd1 * 4 + p_nd1])\
-        [((long *)indptr_index_map[p_nd1 * 4 + p_nd1])[tid]] = nbs;
+     ((long *)indptr_map[p_nd1 * NUM_GPUS + p_nd1])\
+        [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd1])[tid]] = nbs;
 
         if(nbs == 0) nbs = 1;
         ((long *)out_degree_map[p_nd1])\
-            [((long *)indptr_index_map[p_nd1 * 4 + p_nd1])[tid] - 1] = nbs;
+            [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd1])[tid] - 1] = nbs;
       tid += (blockDim.x * gridDim.x);
     }
 }
@@ -107,7 +107,6 @@ void PullSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());
     #endif
-
     // Stage 2 get sizes of Offsets for all graphs
     // Inclusive Scan
     int N = this->num_gpus * this->num_gpus;
@@ -136,5 +135,7 @@ void PullSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
         (void **)ps.device_out_nodes_degree_map,
         layer_nds.size(),\
         last_layer, this->storage_map_flattened, this->num_gpus);
-    cudaDeviceSynchronize();
+    #ifdef DEBUG
+      gpuErrchk(cudaDeviceSynchronize());
+    #endif
 }

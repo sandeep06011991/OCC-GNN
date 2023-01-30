@@ -5,7 +5,6 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
   // Order destination nodes;
   // dr->clear();
   //
-  //
   // dr->order_and_remove_duplicates(to_ids_[gpu_id]);
   // // Fixes to match with cslicer begin.
   // self_in_nodes = to_ids_[gpu_id];

@@ -76,37 +76,33 @@ __global__ void populate_local_graphs_push(int*  partition_map, long * out_nodes
       for(int n = 0; n<nbs; n ++ ){
         long nd2 = in_nodes[indices[offset_edge_start + n]];
         int p_nd2 = partition_map[nd2];
-         if(last_layer){
-                if(((int *)storage_map[p_nd1])[nd2]!= -1){
+        if(last_layer){
+              if(((int *)storage_map[p_nd1])[nd2]!= -1){
                         p_nbs[p_nd1] ++;
-                        ((long *)indices_map[p_nd1 * 4 + p_nd1])[offset_edge_start + n] = nd2;
+                        ((long *)indices_map[p_nd1 * NUM_GPUS + p_nd1])[offset_edge_start + n] = nd2;
                          continue;
-                }
+              }
         }
-
-	     for(int i=0; i < 4; i++){
-          if(i == p_nd2){
-            p_nbs[i] ++;
-              // ((long *) indptr_map[p_nd1 * 4 + p_nd2])[tid] = 1;
-            // Denotes node is selected
-            // Denotes edge is selected
-            ((long *)indices_map[p_nd1 * 4 + p_nd2])\
-                [((long *)indices_index_map[p_nd1 * 4 + p_nd2])[offset_edge_start + n]] \
-                = nd2;
-            }
-        }
+        p_nbs[p_nd2] ++;
+        // ((long *) indptr_map[p_nd1 * 4 + p_nd2])[tid] = 1;
+      // Denotes node is selected
+      // Denotes edge is selected
+        ((long *)indices_map[p_nd1 * NUM_GPUS + p_nd2])\
+            [((long *)indices_index_map[p_nd1 * NUM_GPUS + p_nd2])[offset_edge_start + n]] \
+              = nd2;
       }
       if(nbs == 0) nbs = 1;
-      for(int p_nd2 = 0; p_nd2 < 4; p_nd2++){
+
+      for(int p_nd2 = 0; p_nd2 < NUM_GPUS; p_nd2++){
         if(p_nbs[p_nd2] != 0){
           if(p_nd2 == p_nd1){
             ((long *)out_degree_map[p_nd1])\
-                [((long *)indptr_index_map[p_nd1 * 4 + p_nd2])[tid] - 1] = nbs;
+                [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd2])[tid] - 1] = nbs;
           }
-        ((long *)indptr_map[p_nd1 * 4 + p_nd2])\
-          [((long *)indptr_index_map[p_nd1 * 4 + p_nd2])[tid]] = p_nbs[p_nd2];
-        ((long *)to_nds_map[p_nd1 * 4 + p_nd2])\
-            [((long *)indptr_index_map[p_nd1 * 4 + p_nd2])[tid] - 1] = nd1;
+        ((long *)indptr_map[p_nd1 * NUM_GPUS + p_nd2])\
+          [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd2])[tid]] = p_nbs[p_nd2];
+        ((long *)to_nds_map[p_nd1 * NUM_GPUS + p_nd2])\
+            [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd2])[tid] - 1] = nd1;
         }
       }
       tid += (blockDim.x * gridDim.x);
@@ -134,13 +130,12 @@ void PushSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());
     #endif
-
     // Stage 2 get sizes of Offsets for all graphs
     // Inclusive Scan
     int N = this->num_gpus * this->num_gpus;
     long local_graph_nodes[N];
     long local_graph_edges[N];
-    for(int i=0; i< this->num_gpus; i++){
+    for(int i=0; i< N; i++){
       thrust::inclusive_scan(ps.index_offset_map[i].begin(), ps.index_offset_map[i].end(), ps.index_offset_map[i].begin());
       thrust::inclusive_scan(ps.index_indices_map[i].begin(), ps.index_indices_map[i].end(), ps.index_indices_map[i].begin());
       local_graph_nodes[i] = ps.index_offset_map[i][ps.index_offset_map[i].size()-1];
@@ -148,8 +143,9 @@ void PushSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
     }
     ps.resize_local_graphs(local_graph_nodes, local_graph_edges);
     // Stage 3 Populate local and remote edges.
+
     std::cout << "local graph partitioning \n";
-    return;
+
     populate_local_graphs_push<<<BLOCK_SIZE(layer_nds.size()), THREAD_SIZE>>>(thrust::raw_pointer_cast(this->workload_map.data()),
         thrust::raw_pointer_cast(layer_nds.data()),
         thrust::raw_pointer_cast(bs.layer_nds.data()),
@@ -163,5 +159,7 @@ void PushSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
         (void **)ps.device_out_nodes_degree_map,
         layer_nds.size(),\
         last_layer, this->storage_map_flattened, this->num_gpus);
-    cudaDeviceSynchronize();
+    #ifdef DEBUG
+      gpuErrchk(cudaDeviceSynchronize());
+    #endif
 }

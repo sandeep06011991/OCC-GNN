@@ -79,8 +79,11 @@ class PartitionedLayer{
     void * local_to_nds[N];
     void * local_from_nds[N];
     void * out_nodes_degree[this->num_gpus];
+
     for(int dest =0;dest < this->num_gpus; dest++){
       for(int src = 0; src < this->num_gpus ;src++){
+          long num_nodes = local_graph_nodes[dest * this->num_gpus + src];
+          long num_edges = local_graph_edges[dest * this->num_gpus + src];
           if (src == dest){
             bipartite[dest]->out_degree_local.resize(local_graph_nodes[src * this->num_gpus + dest]);
             out_nodes_degree[dest] = thrust::raw_pointer_cast(bipartite[dest]->out_degree_local.data());

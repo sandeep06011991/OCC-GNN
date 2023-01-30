@@ -76,9 +76,14 @@ std::cout << "Read synthetic dataset\n ";
     PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
 //   std::cout << "Slicer created \n";
 //   s1->debug();
-    PartitionedSample ps(num_layers, num_gpus);
+    PartitionedSample ps1(num_layers, num_gpus);
+    PartitionedSample ps2(num_layers, num_gpus);
+
 //   std::cout << "partition map created \n";
-   // sc->slice_sample((*s1), ps);
+   sc1->slice_sample((*s1), ps1);
+   std::cout << "Push done \n";
+   sc2->slice_sample((*s1),ps2);
+   std::cout << "Pull done \n";
 // //   std::cout << "slicing done \n";
 //   //ps.debug();
 //
