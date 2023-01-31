@@ -25,10 +25,10 @@ ext_modules = [
         "cuslicer",
         sources = [\
             "transform/slice.cu", "transform/pull_slice.cu", "transform/push_slice.cu",\
-             "graph/bipartite.cu", "graph/dataset.h",\
+             "graph/bipartite.cu", "graph/dataset.cu",\
               "samplers/ns.cu", \
               "util/duplicate.cu",\
-              "pybipartite.cpp", "pyfrontend.cpp",\
+              "pyobj/pybipartite.cu", "pyobj/pyfrontend.cu",\
                 #"transform/walk.cpp",
                 #samplers/ns.cpp",
                 #"pyobj/pybipartite.cpp",
@@ -40,7 +40,8 @@ ext_modules = [
                         ],
         depends = ["util/environment.h","bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
             ,"util/conqueue.h"]  ,
-        include_dirs=[pybind11.get_include(),".",ROOT,"/home/spolisetty/thirdparty/thrust", "/home/spolisetty/thirdparty/thrust/dependencies/cub" ],
+        include_dirs=[pybind11.get_include(),".",ROOT,"/home/spolisetty/thirdparty/thrust",\
+            "/home/spolisetty/thirdparty/thrust/dependencies/cub","/home/spolisetty/3rdparty/thrust/dependencies/libcubxx" ],
         language='c++'
         # sorted(glob("pybind_test.cpp"),"object.cpp"),
          # Sort source files for reproducibility

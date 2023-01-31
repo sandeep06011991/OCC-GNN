@@ -3,7 +3,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <iostream>
-#include "util/conqueue.h"
+
 #include <torch/extension.h>
 using namespace std;
 namespace py = pybind11;
@@ -36,7 +36,7 @@ public:
 
   int gpu_id;
 
-  PyBipartite(BiPartite *bp);
+  PyBipartite(BiPartite *bp, int local_gpu_id);
 
   ~PyBipartite();
 };
@@ -57,7 +57,7 @@ public:
 
 
 
-  PySample(PartitionedSample &s);
+  PySample(PartitionedSample &s, int current_gpu, int num_gpus);
 
   ~PySample();
 };

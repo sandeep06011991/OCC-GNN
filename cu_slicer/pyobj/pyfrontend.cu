@@ -13,6 +13,7 @@
 #include <iostream>
 #include <ctime>
 #include <chrono>
+#include <util/cuda_utils.h>
 using namespace std::chrono;
 namespace py = pybind11;
 
@@ -28,66 +29,14 @@ struct pyredundant{
   int redundant_communication = 0;
 };
 
-// FixME.
-// Current stats methodology is wrong fix it later.
-// class Stats{
-//   std::string name;
-//   std::string partition;
-//   std::shared_ptr<Dataset> dataset;
-//   NeighbourSampler *neighbour_sampler;
-//   Sample sample = Sample(3);
-//   vector<int> **layer_color;
-//   vector<int> workload_map;
-// public:
-//   Stats(const std::string& name, const std::string& partition, int fanout){
-//     populate_meta_dict();
-//     this->name = get_dataset_dir() + name;
-//
-//     this->dataset = std::make_shared<Dataset>(this->name,false);
-//     if(partition == "occ"){
-//       for(long j=0;j<dataset->num_nodes;j++){
-//         workload_map.push_back(dataset->partition_map[j]);
-//       }
-//     }
-//     layer_color = (vector<int> **)malloc(4 * sizeof(vector<int> *));
-//     for(int i=0;i<4;i++){
-//       layer_color[i] = new vector<int>();
-//       for(long j=0;j<dataset->num_nodes;j++){
-//             layer_color[i]->push_back(0);
-//       }
-//     }
-//     this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, false);
-//   }
-//
-//  pyredundant  get_stats(vector<long> sample_nodes){
-//     sample.clear();
-//     this->neighbour_sampler->sample(sample_nodes, sample);
-//     redundant r = print_statistics(sample, layer_color, dataset->num_nodes, workload_map);
-//     pyredundant pr;
-//     pr.total_computation = r.total_computation;
-//     pr.redundant_compution = r.redundant_computation;
-//     pr.total_communication = r.total_communication;
-//     pr.redundant_communication = r.redundant_communication;
-//     std::cout << "total compuitation" << pr.total_computation <<"\n";
-//     return pr;
-//   }
-//
-//   ~Stats(){
-//     for(int i=0;i<4;i++){
-//       delete layer_color[i];
-//     }
-//     free(layer_color);
-//   }
-// };
-
 class CSlicer{
     std::string name;
     int samples_generated = 0;
     long num_nodes;
 
-    std::vector<int> storage_map[4];
-    std::vector<int> workload_map;
-    int gpu_capacity[4];
+    thrust::device_vector<int> storage_map[MAX_DEVICES];
+    thrust::device_vector<int> workload_map;
+    int gpu_capacity[MAX_DEVICES];
     NeighbourSampler *neighbour_sampler;
     Slice *slicer;
     std::shared_ptr<Dataset> dataset;
@@ -95,30 +44,35 @@ class CSlicer{
     Sample *sample;
     bool deterministic;
     bool self_edge;
+    int num_gpus = -1;
+    int current_gpu = -1;
 public:
     // py::list v;
 
     CSlicer(const std::string &name,
       std::vector<std::vector<long>> gpu_map,
-      int fanout,
+      vector<int> fanout,
        bool deterministic, bool testing,
-          bool self_edge, int rounds, bool pull_optimization, int num_layers){
-
+          bool self_edge, int rounds, bool pull_optimization,
+            int num_layers, int num_gpus, int current_gpu){
+        this->num_gpus = num_gpus;
+        this->current_gpu = current_gpu;
+        cudaSetDevice(current_gpu);
         this->name = get_dataset_dir() + name;
         // std::cout << this->name << "\n";
         this->deterministic = deterministic;
-
         this->dataset = std::make_shared<Dataset>(this->name, testing);
 
         num_nodes = dataset->num_nodes;
 
         this->self_edge = self_edge;
         for(long j=0;j<dataset->num_nodes;j++){
-            assert(dataset->partition_map[j]<4);
+           // Inefficient data transfer
+            assert(dataset->partition_map[j]<num_gpus);
             workload_map.push_back(dataset->partition_map[j]);
         }
 
-        for(int i=0;i<4;i++){
+        for(int i=0;i<num_gpus;i++){
           int order =0;
           for(long nd: gpu_map[i]){
              storage_map[i].push_back(nd);
@@ -126,28 +80,30 @@ public:
           }
           gpu_capacity[i] = gpu_map[i].size();
         }
-	this->sample = new Sample(num_layers);
-	this->p_sample = new PartitionedSample(num_layers);
-        this->slicer = new Slice((workload_map), storage_map, self_edge, rounds, pull_optimization);
-        this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, deterministic, self_edge);
+
+      	this->sample = new Sample(num_layers);
+      	this->p_sample = new PartitionedSample(num_layers, num_gpus);
+
+        this->slicer = new PushSlicer((workload_map), storage_map,  pull_optimization, num_gpus);
+        this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout,  self_edge);
     }
 
-    bool test_correctness(vector<long> sample_nodes){
-      sample->clear();
-      p_sample->clear();
-      this->neighbour_sampler->sample(sample_nodes, *sample);
-      this->slicer->slice_sample(*sample, *p_sample);
-      // spdlog::info("covert to torch");
-      PySample *sample = new PySample(*p_sample);
-    }
+    // bool test_correctness(vector<long> sample_nodes){
+    //   sample->clear();
+    //   p_sample->clear();
+    //   this->neighbour_sampler->sample(sample_nodes, *sample);
+    //   this->slicer->slice_sample(*sample, *p_sample);
+    //   // spdlog::info("covert to torch");
+    //   PySample *sample = new PySample(*p_sample);
+    // }
 
     PySample * getSample(vector<long> sample_nodes){
       sample->clear();
       p_sample->clear();
-      // spdlog::info("sample begin");
-          auto start1 = high_resolution_clock::now();
+      auto start1 = high_resolution_clock::now();
 
-      this->neighbour_sampler->sample(sample_nodes, *sample);
+      thrust::device_vector<long> sample_nodes_d = thrust::host_vector<long>(sample_nodes.begin(), sample_nodes.end());
+      this->neighbour_sampler->sample(sample_nodes_d, *sample);
      	auto start2 = high_resolution_clock::now();
 
       // spdlog::info("slice begin");
@@ -159,7 +115,8 @@ public:
      std::cout << "sample " << (double)duration1.count()/1000 << "slice"<< (double)duration2.count()/1000 <<"\n";
 
       // spdlog::info("covert to torch");
-      PySample *sample = new PySample(*p_sample);
+      int local_gpu = 0;
+      PySample *sample = new PySample(*p_sample, local_gpu, num_gpus);
       return sample;
     }
 
@@ -175,9 +132,11 @@ PYBIND11_MODULE(cslicer, m) {
     m.doc() = "pybind11 example plugin"; // optional module docstring
     py::class_<CSlicer>(m,"cslicer")
          .def(py::init<const std::string &,
-               std::vector<std::vector<long>>, int, bool, bool, bool, int, bool,int >())
-         .def("getSample", &CSlicer::getSample, py::return_value_policy::take_ownership)\
-         .def("sampleAndVerify",&CSlicer::test_correctness);
+               std::vector<std::vector<long>>, vector<int>,\
+                bool, bool, bool, int, bool,int,\
+                  int, int>())
+         .def("getSample", &CSlicer::getSample, py::return_value_policy::take_ownership);
+         // .def("sampleAndVerify",&CSlicer::test_correctness);
          py::class_<PySample>(m,"sample")
              .def_readwrite("layers",&PySample::layers)
              .def_readwrite("cache_hit_from", &PySample::cache_hit_from)
