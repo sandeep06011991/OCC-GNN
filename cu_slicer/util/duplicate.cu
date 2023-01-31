@@ -77,6 +77,7 @@ ArrayMap::ArrayMap(long num_nodes){
 
 // Function changes the elements of nodes
 void ArrayMap::remove_nodes_seen(thrust::device_vector<long> &nodes){
+  if(nodes.size() == 0)return;
   assert_no_duplicates(nodes);
   _tv.resize(nodes.size());
   _tv1.resize(nodes.size());
@@ -119,6 +120,7 @@ void ArrayMap::assert_no_duplicates(thrust::device_vector<long> &nodes){
 }
 // nodes has no duplicates
 void ArrayMap::order(thrust::device_vector<long> &nodes){
+  if(nodes.size() == 0)return;
   _tv2 = nodes;
   remove_nodes_seen(_tv2);
   if(_tv2.size()== 0)return;
@@ -163,6 +165,7 @@ void update_nodes(int * mask,long  mask_size, long * nodes, size_t node_size){
   while(id <  node_size){
     #ifdef DEBUG
         assert(nodes[id] < mask_size);
+
         assert(mask[nodes[id]] != 0);
     #endif
      nodes[id] = mask[nodes[id]] - 1;

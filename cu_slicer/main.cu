@@ -1,5 +1,5 @@
 #include<iostream>
-#include "graph/dataset.h"
+#include "graph/dataset.cuh"
 #include "util/environment.h"
 #include "graph/sample.h"
 #include "samplers/samplers.h"
@@ -19,13 +19,13 @@ std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false);
 std::cout << "Read synthetic dataset\n ";
 // Test2: Construct simple k-hop neighbourhood sample.
 // Sample datastructure.
-  int num_layers = 2;
+  int num_layers = 1;
   Sample *s1  = new Sample(num_layers);
 //
 
   bool pull_optim = false;
   int num_gpus = 2;
-  vector<int> fanout({-1, -1});
+  vector<int> fanout({-1});
   bool self_edge = true;
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, self_edge);
   thrust::host_vector<long> _training_nodes;
@@ -47,7 +47,7 @@ std::cout << "Read synthetic dataset\n ";
   thrust::device_vector<int> workload_map(dataset->num_nodes);;
   thrust::device_vector<int> storage_map[4];
   thrust::device_vector<int> storage[4];
-  int is_present =0;
+  int is_present =1;
 // Test 3b. is_present = 1;
   int gpu_capacity[num_gpus];
   for(int i=0;i < num_gpus; i++)gpu_capacity[i] = 0;
@@ -76,14 +76,16 @@ std::cout << "Read synthetic dataset\n ";
     PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
 //   std::cout << "Slicer created \n";
 //   s1->debug();
-    PartitionedSample ps1(num_layers, num_gpus);
+    // PartitionedSample ps1(num_layers, num_gpus);
     PartitionedSample ps2(num_layers, num_gpus);
 
 //   std::cout << "partition map created \n";
-   sc1->slice_sample((*s1), ps1);
-   std::cout << "Push done \n";
+   // sc1->slice_sample((*s1), ps1);
+   // std::cout << "Push done \n";
+   // ps1.debug();
    sc2->slice_sample((*s1),ps2);
-   std::cout << "Pull done \n";
+   // ps2.debug();
+   // std::cout << "Pull done \n";
    std::cout << "everything but cache managemnet done !\n";
 // //   std::cout << "slicing done \n";
 //   //ps.debug();

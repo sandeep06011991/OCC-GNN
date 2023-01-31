@@ -76,7 +76,7 @@ class PartitionedLayer{
       }
 
   }
-  void resize_local_graphs(long * local_graph_nodes,long * local_graph_edges){
+  void resize_local_graphs(long * local_graph_nodes,long * local_graph_edges, bool is_push){
     int N = this->num_gpus * this->num_gpus;
     void * local_offset[N];
     void * local_indices[N];
@@ -100,13 +100,14 @@ class PartitionedLayer{
 
             local_push_to_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->push_to_ids_[dest].data());
             local_push_from_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[dest]->push_from_ids[src].data());
+          if((! is_push) && (src != dest)){
 
             bipartite[dest]->pull_from_ids_[src].resize(local_graph_edges[dest*this->num_gpus + src]);
             bipartite[src]->pull_to_ids[dest].resize(local_graph_edges[dest*this->num_gpus + src]);
 
             local_pull_from_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[dest]->pull_from_ids_[src].data());
             local_pull_to_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->pull_to_ids[dest].data());
-          
+          }
           bipartite[src]->indptr_[dest].resize(local_graph_nodes[dest * this->num_gpus + src] + 1);
           bipartite[src]->indices_[dest].resize(local_graph_edges[dest * this->num_gpus + src]);
           local_offset[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indptr_[dest].data());
@@ -129,8 +130,10 @@ class PartitionedLayer{
           long N = local_nodes[this->num_gpus * dest + src];
           if(N != 0){
             thrust::device_vector<long> & indptr = bipartite[dest]->indptr_[src];
+            std::cout << "Runnning " <<  dest <<" " <<src <<" "<< indptr.size() << "\n";
+            debugVector(indptr, "indptr");
             thrust::inclusive_scan(indptr.begin(), indptr.end(), indptr.begin());
-
+            std::cout <<"done \n";
           }
         }
       }

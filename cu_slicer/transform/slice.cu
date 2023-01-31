@@ -38,12 +38,9 @@ void  fill_cache_nodes(long * in_nodes, int * storage_map, int size, int * cache
 
 void Slice::reorder(PartitionedLayer &l){
     // Not checked
-    return;
     for(int i=0;i < this->num_gpus; i++){
-      // std::cout << "local reordering " << i <<"\n";
        l.bipartite[i]->reorder_local(dr);
-     }
-     // return;
+      }
      // Handle remote destination nodes
      for(int to = 0; to < this->num_gpus; to ++){
        dr->clear();
@@ -88,7 +85,6 @@ void Slice::reorder(PartitionedLayer &l){
   	cache_miss_mask.clear();
   	cache_hit_mask.resize(in_nodes.size());
   	cache_miss_mask.resize(in_nodes.size());
-  	assert(in_nodes.size() < 40000);
 
   	 calculate_cache_hit_mask<<<BLOCK_SIZE(in_nodes.size()), THREAD_SIZE>>>(thrust::raw_pointer_cast(in_nodes.data()),\
   		       	thrust::raw_pointer_cast(storage_map[gpuid].data()),\
@@ -126,7 +122,6 @@ void Slice::reorder(PartitionedLayer &l){
             (* s.block[i]), l, last_layer);
         this->reorder(l);
       }
-
        for(int i=0;i<this->num_gpus;i++){
            ps.cache_miss_from[i].clear();
            ps.cache_hit_from[i].clear();
@@ -140,5 +135,4 @@ void Slice::reorder(PartitionedLayer &l){
   	   thrust::device_vector<long> &last_layer = ps.layers[0].bipartite[i]->out_nodes_local;
        ps.last_layer_nodes[i].insert(ps.last_layer_nodes[i].end(), last_layer.begin(), last_layer.end());
       }
-      std::cout << "Cache handling also done\n";
     }

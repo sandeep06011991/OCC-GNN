@@ -24,12 +24,16 @@ ext_modules = [
     CUDAExtension(
         "cuslicer",
         sources = [\
-            #"transform/slice.cpp", 
+            "transform/slice.cu", "transform/pull_slice.cu", "transform/push_slice.cu",\
+             "graph/bipartite.cu", "graph/dataset.h",\
+              "samplers/ns.cu", \
+              "util/duplicate.cu",\
+              "pybipartite.cpp", "pyfrontend.cpp",\
                 #"transform/walk.cpp",
                 #samplers/ns.cpp",
-                #"pyobj/pybipartite.cpp", 
+                #"pyobj/pybipartite.cpp",
                 #"pyobj/pyfrontend.cpp",
-                #"graph/bipartite.cpp", 
+                #"graph/bipartite.cpp",
                 #"util/duplicate.cpp", "graph/dataset.cpp",
                         #"tests/gat_test.cpp", "tests/gcn_test.cpp"
                         "check.cu"

@@ -53,7 +53,7 @@ __global__ void populate_local_graphs_pull(int*  partition_map, long * out_nodes
       long *in_nodes, long * indptr, long *indices,\
         void ** indptr_index_map, void ** indices_index_map,
          void ** indptr_map, void ** indices_map,
-            void ** from_nds_map, void ** out_degree_map,  int size,\
+            void ** from_nds_map, void ** to_nds_map,  void ** out_degree_map,  int size,\
 	    	bool last_layer, void ** storage_map, int NUM_GPUS){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     while(tid < size){
@@ -72,14 +72,17 @@ __global__ void populate_local_graphs_pull(int*  partition_map, long * out_nodes
                         continue;
                   }
           }
-          ((long *)from_nds_map[p_nd1 * NUM_GPUS + p_nd2])\
+            ((long *)from_nds_map[p_nd1 * NUM_GPUS + p_nd2])\
                   [((long *)indices_index_map[p_nd1 * NUM_GPUS + p_nd2])[offset_edge_start + n]] \
                   = nd2;
+            ((long *)to_nds_map[p_nd1 * NUM_GPUS + p_nd2])\
+                  [((long *)indices_index_map[p_nd1 * NUM_GPUS + p_nd2])[offset_edge_start + n]] \
+                  = nd2;
+            printf("pull node %ld %ld\n", nd1, nd2);
           }
         }
      ((long *)indptr_map[p_nd1 * NUM_GPUS + p_nd1])\
         [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd1])[tid]] = nbs;
-
         if(nbs == 0) nbs = 1;
         ((long *)out_degree_map[p_nd1])\
             [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd1])[tid] - 1] = nbs;
@@ -119,7 +122,8 @@ void PullSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
       local_graph_nodes[i] = ps.index_offset_map[i][ps.index_offset_map[i].size()-1];
       local_graph_edges[i] = ps.index_indices_map[i][ps.index_indices_map[i].size() - 1] + last_indices;
       }
-    ps.resize_local_graphs(local_graph_nodes, local_graph_edges);
+      bool is_push = false;
+    ps.resize_local_graphs(local_graph_nodes, local_graph_edges, is_push);
     // Stage 3 Populate local and remote edges.
 
     populate_local_graphs_pull<<<BLOCK_SIZE(layer_nds.size()), THREAD_SIZE>>>\
@@ -133,6 +137,7 @@ void PullSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
         (void **)ps.device_local_indptr_map,
         (void **)ps.device_local_indices_map,
         (void **)ps.device_local_pull_from_nds_map,
+        (void **)ps.device_local_pull_to_nds_map,
         (void **)ps.device_out_nodes_degree_map,
         layer_nds.size(),\
         last_layer, this->storage_map_flattened, this->num_gpus);

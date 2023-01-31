@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include "pybipartite.h"
-#include "graph/dataset.h"
+#include "graph/dataset.cuh"
 #include "transform/slice.h"
 #include "util/environment.h"
 #include "samplers/samplers.h"
@@ -146,10 +146,10 @@ public:
       p_sample->clear();
       // spdlog::info("sample begin");
           auto start1 = high_resolution_clock::now();
- 
+
       this->neighbour_sampler->sample(sample_nodes, *sample);
      	auto start2 = high_resolution_clock::now();
- 
+
       // spdlog::info("slice begin");
       this->slicer->slice_sample(*sample, *p_sample);
           auto start3 = high_resolution_clock::now();
@@ -157,7 +157,7 @@ public:
 	auto duration2 = duration_cast<milliseconds>(start3 -start2);
 
      std::cout << "sample " << (double)duration1.count()/1000 << "slice"<< (double)duration2.count()/1000 <<"\n";
- 
+
       // spdlog::info("covert to torch");
       PySample *sample = new PySample(*p_sample);
       return sample;

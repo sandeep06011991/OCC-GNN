@@ -2,7 +2,7 @@
 
 #include <vector>
 #include "graph/sample.h"
-#include "graph/dataset.h"
+#include "graph/dataset.cuh"
 #include "util/duplicate.h"
 #include <memory>
 #include <random>

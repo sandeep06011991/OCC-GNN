@@ -38,7 +38,7 @@ void partition_edges_push(int*  partition_map,\
       	if(last_layer){
       		if(((int *)storage_map[p_nd1])[nd2]!= -1){
       			      ((long *)indices_map[p_nd1 * NUM_GPUS + p_nd1])\
-                      [offset_edge_start + nd2_idx] = 1;
+                      [offset_edge_start + nb_idx] = 1;
       			 continue;
       		}
       	}
@@ -77,9 +77,10 @@ __global__ void populate_local_graphs_push(int*  partition_map, long * out_nodes
         long nd2 = in_nodes[indices[offset_edge_start + n]];
         int p_nd2 = partition_map[nd2];
         if(last_layer){
-              if(((int *)storage_map[p_nd1])[nd2]!= -1){
-                        p_nbs[p_nd1] ++;
-                        ((long *)indices_map[p_nd1 * NUM_GPUS + p_nd1])[offset_edge_start + n] = nd2;
+          if(((int *)storage_map[p_nd1])[nd2]!= -1){
+                      p_nbs[p_nd1] ++;
+                        ((long *)indices_map[p_nd1 * NUM_GPUS + p_nd1])\
+                          [((long *)indices_index_map[p_nd1 * NUM_GPUS + p_nd1])[offset_edge_start + n]] = nd2;
                          continue;
               }
         }
@@ -145,13 +146,10 @@ void PushSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
       thrust::exclusive_scan(ps.index_indices_map[i].begin(), ps.index_indices_map[i].end(), ps.index_indices_map[i].begin());
       local_graph_nodes[i] = ps.index_offset_map[i][ps.index_offset_map[i].size()-1];
       local_graph_edges[i] = ps.index_indices_map[i][ps.index_indices_map[i].size() - 1] + last_indices;
-      std::cout << "G" <<  local_graph_nodes[i] <<":" <<local_graph_edges[i] <<"\n";
-
     }
-    ps.resize_local_graphs(local_graph_nodes, local_graph_edges);
+    bool is_push = true;
+    ps.resize_local_graphs(local_graph_nodes, local_graph_edges,is_push);
     // Stage 3 Populate local and remote edges.
-
-    std::cout << "local graph partitioning \n";
 
     populate_local_graphs_push<<<BLOCK_SIZE(layer_nds.size()), THREAD_SIZE>>>(thrust::raw_pointer_cast(this->workload_map.data()),
         thrust::raw_pointer_cast(layer_nds.data()),
@@ -170,6 +168,5 @@ void PushSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());
     #endif
-
     ps.inclusive_scan_indptr(local_graph_nodes);
 }

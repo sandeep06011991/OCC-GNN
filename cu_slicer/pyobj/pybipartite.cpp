@@ -3,10 +3,10 @@
 namespace py = pybind11;
 
 
-PyBipartite::PyBipartite(BiPartite *bp){
+PyBipartite::PyBipartite(BiPartite *bp, int local_gpu_id){
     // std::cout << bp->gpu_id <<"\n";
     // std::cout << bp->in_nodes.size() <<"\n";
-    auto opts = torch::TensorOptions().dtype(torch::kInt64);
+    auto opts = torch::TensorOptions().dtype(torch::kInt64).device(torch::kCUDA, local_gpu_id);
     this->gpu_id = bp->gpu_id;
     num_in_nodes_local = bp->num_in_nodes_local;
     num_in_nodes_pulled = bp->num_in_nodes_pulled;

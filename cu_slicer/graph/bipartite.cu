@@ -18,7 +18,6 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
   if(i != gpu_id){
       remove_duplicates(push_to_ids_[gpu_id]);
       dr->order(push_to_ids_[gpu_id]);
-      cudaDeviceSynchronize();
       to_offsets[i + 1] = to_offsets[i] +  push_to_ids_[i].size();
       out_nodes_remote.insert(out_nodes_remote.end(), push_to_ids_[i].begin(), push_to_ids_[i].end());
       push_to_ids_[i].clear();
@@ -26,33 +25,12 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
     	to_offsets[i+1] = to_offsets[i];
     }
   }
-
   num_out_remote = to_offsets[num_gpus];
   dr->clear();
 
   // Order src nodes and associated data structures.
   // self nodes;
-  dr->order(self_in_nodes);
-  self_ids_offset = self_in_nodes.size();
-  in_nodes.clear();
-  // Code change to match  begin
-  for(int i=0;i < num_gpus;i ++){
-    in_nodes.insert(in_nodes.end(), indices_[i].begin(), indices_[i].end());
-  }
-  // Code change to match  end
-  remove_duplicates(in_nodes);
-  dr->remove_nodes_seen(in_nodes);
-  dr->order(in_nodes);
-
-  in_nodes_.insert(in_nodes_.end(), self_in_nodes.begin(), self_in_nodes.end());
-  in_nodes_.insert(in_nodes_.end(), in_nodes.begin(), in_nodes.end());
-  in_nodes.clear();
-  in_nodes = in_nodes_;
-  assert(c1 == self_ids_offset);
-  // local_id
-  num_in_nodes_local = in_nodes.size();
-  // Why is this zero
-  // point is to index into pull -in nodes
+  // Remove pull nodes
   pull_from_offsets[0] = 0;
   for(int i=0;i<num_gpus; i++){
     if(i!=gpu_id){
@@ -66,6 +44,32 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
       pull_from_offsets[i + 1] = pull_from_offsets[i];
     }
   }
+  // Calculate in_nodes not found
+  in_nodes.clear();
+  for(int i=0;i < num_gpus;i ++){
+    in_nodes.insert(in_nodes.end(), indices_[i].begin(), indices_[i].end());
+    remove_duplicates(pull_to_ids[i]);
+    in_nodes.insert(in_nodes.end(), pull_to_ids[i].begin(), pull_to_ids[i].end());
+  }
+  dr->order(self_in_nodes);
+  remove_duplicates(in_nodes);
+  dr->remove_nodes_seen(in_nodes);
+  dr->clear();
+  dr->order(self_in_nodes);
+  in_nodes_.clear();
+  in_nodes_.insert(in_nodes_.end(), self_in_nodes.begin(), self_in_nodes.end());
+  dr->order(in_nodes);
+  in_nodes_.insert(in_nodes_.end(), in_nodes.begin(), in_nodes.end());
+  dr->order(pulled_in_nodes);
+  in_nodes_.insert(in_nodes_.end(), pulled_in_nodes.begin(), pulled_in_nodes.end());
+  self_ids_offset = self_in_nodes.size();
+  in_nodes = in_nodes_;
+  assert(c1 == self_ids_offset);
+  // local_id
+  num_in_nodes_local = in_nodes.size();
+  // Why is this zero
+  // point is to index into pull -in nodes
+
   num_in_nodes_pulled = pulled_in_nodes.size();
   // Create all local graphs.
   indptr_L = indptr_[gpu_id];

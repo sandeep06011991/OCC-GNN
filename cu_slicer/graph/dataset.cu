@@ -1,4 +1,4 @@
-#include "graph/dataset.h"
+#include "graph/dataset.cuh"
 #include <iostream>
 #include <vector>
 #include <string>
