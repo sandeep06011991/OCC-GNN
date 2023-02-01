@@ -16,27 +16,21 @@ void aggregate_gcn(thrust::device_vector<long>& layer_out_nds, \
         			thrust::device_vector<int> &in, \
 			       	thrust::device_vector<int> &out){
   out.clear();
-  std::cout << "Edges:" << indices.size() <<"\n ";
   for(int i=0;i < (int)offsets.size()-1; i++){
     int start = offsets[i];
     int end = offsets[i+1];
     int nbs = 0;
     int self = 0;
-
     long dest_nd = layer_out_nds[i];
-    std::cout << "Node ID" << dest_nd << ":" << "Degree:" << degree[i] <<":";
     for(int j = start; j < end; j++){
       int src_nd = layer_in_nds[indices[j]];
       if ((src_nd == dest_nd)){
 	//std::cout << "Found self node which is never the case\n";
         self = in[indices[j]];
       }else{
-	      std::cout << in[indices[j]]  << " ";
-        nbs += in[indices[j]];
+	      nbs += in[indices[j]];
       }
     }
-    std::cout << ":" << nbs <<":" << in[i] << "\n";
-
     out.push_back((nbs/degree[i]) + in[i]);
     //std::cout << "in value is " << in[i] <<"\n";
     //out.push_back((nbs/degree[i]) + self);
@@ -57,24 +51,21 @@ int naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
      in_f.push_back(nd%10);
    }
    for(int i=s.num_layers - 1; i >=0; i--){
-     	std::cout << "One layer aggr\n";
-	   aggregate_gcn(s.block[i]->layer_nds, s.block[i+1]->layer_nds, \
+     aggregate_gcn(s.block[i]->layer_nds, s.block[i+1]->layer_nds, \
           s.block[i+1]->offsets, s.block[i+1]->indices, \
           s.block[i+1]->in_degree, in_f, out_f);
-	   std::cout << " One laye rdon1 \n";
-     in_f.swap(out_f);
+	   in_f.swap(out_f);
    }
    int sd = 0;
-   std::cout << "Final Adding";
    for(int nd: in_f){
-	   std::cout << (nd) << " ";
-     sd += ((nd%10) );
+	   sd += ((nd%10) );
    }
    return sd;
 }
 
 void aggregate(thrust::device_vector<int> &out, thrust::device_vector<int> &in,
         thrust::device_vector<long> &indptr, thrust::device_vector<long> &indices){
+    
     if(indptr.size()>0)assert(out.size() == indptr.size()-1);
     for(int i=0;i< (int) indptr.size()-1;i ++){
       int off_start = indptr[i];
@@ -152,8 +143,12 @@ int sample_flow_up_ps(PartitionedSample &s,
     // PULL
     for(int j=0;j < num_gpus;j ++){
       BiPartite *bp = layer.bipartite[j];
+      std::cout << "Assert Fail "<< in[j].size() <<" " <<  bp->num_in_nodes_local \
+            <<" " <<  bp->num_in_nodes_pulled <<"\n";
+      debugVector(bp->in_nodes, "in");
       assert(in[j].size() == bp->in_nodes.size());
       int new_size = bp->num_in_nodes_local + bp->num_in_nodes_pulled;
+
       in[j].resize(new_size);
       for(int pull_from = 0; pull_from <num_gpus; pull_from ++){
         if(pull_from == j)continue;

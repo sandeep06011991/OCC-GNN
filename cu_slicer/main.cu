@@ -20,11 +20,11 @@ std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false);
 std::cout << "Read synthetic dataset\n ";
 // Test2: Construct simple k-hop neighbourhood sample.
 // Sample datastructure.
-  int num_layers = 1;
+  int num_layers = 2  ;
   Sample *s1  = new Sample(num_layers);
   bool pull_optim = false;
   int num_gpus = 2;
-  vector<int> fanout({-1});
+  vector<int> fanout({-1,-1});
   bool self_edge = false;
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, self_edge);
   thrust::host_vector<long> _training_nodes;
@@ -43,15 +43,14 @@ std::cout << "Read synthetic dataset\n ";
 // // Test3 Create a work allocation
 //
   thrust::device_vector<int> workload_map(dataset->num_nodes);
-  thrust::device_vector<int> storage_map[4];
-  thrust::device_vector<int> storage[4];
-  int is_present =1;
+  thrust::device_vector<int> storage_map[8];
+  thrust::device_vector<int> storage[8];
+  int is_present =0;
 // Test 3b. is_present = 1;
   int gpu_capacity[num_gpus];
   for(int i=0;i < num_gpus; i++)gpu_capacity[i] = 0;
 // Write a better version of this.
   for(int i=0;i<dataset->num_nodes;i++){
-  std::cout << dataset->partition_map[i] <<"\n";
    workload_map[i] = (dataset->partition_map[i]);
     #pragma unroll
     for(int j=0;j<num_gpus;j++){
@@ -78,14 +77,14 @@ std::cout << "Read synthetic dataset\n ";
     PartitionedSample ps2(num_layers, num_gpus);
 
 //   std::cout << "partition map created \n";
-   sc1->slice_sample((*s1), ps1);
+   sc1->slice_sample((*s1), ps2);
    // std::cout << "Push done \n";
    // ps1.debug();
    // sc1->slice_sample((*s1),ps2);
 
-   ps2.debug();
+   // ps2.debug();
    // std::cout << "Pull done \n";
-   std::cout << "everything but cache managemnet done !\n";
+   // std::cout << "everything but cache managemnet done !\n";
 // //   std::cout << "slicing done \n";
 //   //ps.debug();
 //

@@ -13,7 +13,7 @@ PyBipartite::PyBipartite(BiPartite *bp){
     num_out_local = bp->num_out_local;
     num_out_remote = bp->num_out_remote;
 
-    indptr_L = torch::from_blob((long *)thrust::raw_pointer_cast(bp->indptr_L.data()), {bp->indptr_L.size()}, opts);
+    indptr_L = torch::from_blob((p->indptr_L.data(), {bp->indptr_L.size()}, opts);
     indices_L = torch::from_blob((long *)thrust::raw_pointer_cast(bp->indices_L.data()), {bp->indices_L.size()}, opts);
 
     indptr_R = torch::from_blob((long *)thrust::raw_pointer_cast(bp->indptr_R.data()), {bp->indptr_R.size()}, opts);

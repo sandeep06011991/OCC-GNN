@@ -54,26 +54,28 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
   dr->order(self_in_nodes);
   remove_duplicates(in_nodes);
   dr->remove_nodes_seen(in_nodes);
+
   dr->clear();
   dr->order(self_in_nodes);
   in_nodes_.clear();
   in_nodes_.insert(in_nodes_.end(), self_in_nodes.begin(), self_in_nodes.end());
   dr->order(in_nodes);
   in_nodes_.insert(in_nodes_.end(), in_nodes.begin(), in_nodes.end());
-  dr->order(pulled_in_nodes);
-  in_nodes_.insert(in_nodes_.end(), pulled_in_nodes.begin(), pulled_in_nodes.end());
-  self_ids_offset = self_in_nodes.size();
+  num_in_nodes_local = in_nodes_.size();
   in_nodes = in_nodes_;
+  dr->order(pulled_in_nodes);
+  // in_nodes_.insert(in_nodes_.end(), pulled_in_nodes.begin(), pulled_in_nodes.end());
+  self_ids_offset = self_in_nodes.size();
+
   assert(c1 == self_ids_offset);
-  // local_id
-  num_in_nodes_local = in_nodes.size();
-  // Why is this zero
-  // point is to index into pull -in nodes
 
   num_in_nodes_pulled = pulled_in_nodes.size();
+
+
   // Create all local graphs.
   indptr_L = indptr_[gpu_id];
   indices_L = indices_[gpu_id];
+  
   dr->replace(indices_L);
   // Remote partition nodes
   for(int i=0;  i<num_gpus;   i++){
@@ -86,6 +88,7 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
              indptr_R.resize(indptr_R.size()-1);
           }
           dr->replace(indices_[i]);
+          gpuErrchk(cudaDeviceSynchronize());
           indptr_R.insert(indptr_R.end(),indptr_[i].begin(), indptr_[i].end());
           indices_R.insert(indices_R.end(), indices_[i].begin(), indices_[i].end());
       }

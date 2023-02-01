@@ -36,10 +36,10 @@ void  fill_cache_nodes(long * in_nodes, int * storage_map, int size, int * cache
 
 }
 
-void Slice::reorder(PartitionedLayer &l){
-    // Not checked
+void Slice::reorder(PartitionedLayer &l){\
     for(int i=0;i < this->num_gpus; i++){
        l.bipartite[i]->reorder_local(dr);
+
       }
      // Handle remote destination nodes
      for(int to = 0; to < this->num_gpus; to ++){
@@ -115,15 +115,16 @@ void Slice::reorder(PartitionedLayer &l){
 
   void Slice::slice_sample(Sample &s, PartitionedSample &ps){
       for(int i= 1; i< s.num_layers + 1;i++){
-        std::cout << "slice\n";
         bool last_layer = false;
         if (i == s.num_layers) last_layer = true;
     	  PartitionedLayer& l = ps.layers[i-1];
         this->slice_layer(s.block[i-1]->layer_nds, \
             (* s.block[i]), l, last_layer);
         this->reorder(l);
-        std::cout << "order\n";
       }
+      #ifdef DEBUG
+        gpuErrchk(cudaDeviceSynchronize());
+      #endif
        for(int i=0;i<this->num_gpus;i++){
            ps.cache_miss_from[i].clear();
            ps.cache_hit_from[i].clear();

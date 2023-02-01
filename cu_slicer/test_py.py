@@ -3,7 +3,10 @@
 import torch
 from cuslicer import cuslicer
 import numpy as np
-
+from data.serialize import *
+from utils.shared_mem_manager import *
+from data.bipartite import *
+from data.part_sample import *
 
 # graphname = "reordered-papers100M"
 # number_of_epochs = 1
@@ -22,7 +25,7 @@ num_layers = 3
 p_map = np.fromfile("{}/{}/partition_map_opt_4.bin".format(DATA_DIR,graphname),dtype = np.intc)
 p_map = torch.from_numpy(p_map)
 
-in_nodes = [i for i in range(10000)]
+in_nodes = [i for i in range(100)]
 # s1 = csl1.getSample(in_nodes)
 # storage_map_full = [[i for i in range(169343)] for i in range(4)]
 # csl2 = cslicer(graphname, storage_map_full, 10, True, False)
@@ -40,7 +43,8 @@ csl3 = cuslicer(graphname, storage_map_part,
         [10,10,10], True, False, True, 4, False, num_layers, num_gpus,0)
 print("Ask for Sample")
 s3= csl3.getSample(in_nodes)
-
+tensorized_sample = Sample(s3)
+print("haha check !")
 # a = get_total_comm(s1)
 # b = get_total_comm(s2)
 # c = get_total_comm(s3)

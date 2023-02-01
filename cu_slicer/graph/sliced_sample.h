@@ -89,6 +89,7 @@ class PartitionedLayer{
 
     for(int dest =0;dest < this->num_gpus; dest++){
       for(int src = 0; src < this->num_gpus ;src++){
+
           long num_nodes = local_graph_nodes[dest * this->num_gpus + src];
           long num_edges = local_graph_edges[dest * this->num_gpus + src];
           if (src == dest){
@@ -108,11 +109,12 @@ class PartitionedLayer{
             local_pull_from_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[dest]->pull_from_ids_[src].data());
             local_pull_to_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->pull_to_ids[dest].data());
           }
-          bipartite[src]->indptr_[dest].resize(local_graph_nodes[dest * this->num_gpus + src] + 1);
-          bipartite[src]->indices_[dest].resize(local_graph_edges[dest * this->num_gpus + src]);
-          local_offset[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indptr_[dest].data());
-          local_indices[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indices_[dest].data());
-
+          if((is_push ) || (src == dest)){
+            bipartite[src]->indptr_[dest].resize(local_graph_nodes[dest * this->num_gpus + src] + 1);
+            bipartite[src]->indices_[dest].resize(local_graph_edges[dest * this->num_gpus + src]);
+            local_offset[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indptr_[dest].data());
+            local_indices[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indices_[dest].data());
+          }
         }
       }
       gpuErrchk(cudaMemcpy(device_local_indptr_map, local_offset, N * sizeof (void *), cudaMemcpyHostToDevice));
@@ -130,10 +132,7 @@ class PartitionedLayer{
           long N = local_nodes[this->num_gpus * dest + src];
           if(N != 0){
             thrust::device_vector<long> & indptr = bipartite[dest]->indptr_[src];
-            std::cout << "Runnning " <<  dest <<" " <<src <<" "<< indptr.size() << "\n";
-            debugVector(indptr, "indptr");
             thrust::inclusive_scan(indptr.begin(), indptr.end(), indptr.begin());
-            std::cout <<"done \n";
           }
         }
       }
