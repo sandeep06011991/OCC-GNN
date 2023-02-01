@@ -59,28 +59,31 @@ public:
         this->current_gpu = current_gpu;
         cudaSetDevice(current_gpu);
         this->name = get_dataset_dir() + name;
-        // std::cout << this->name << "\n";
+        std::cout << "Got dataset" << this->name << "\n";
+
         this->deterministic = deterministic;
         this->dataset = std::make_shared<Dataset>(this->name, testing);
 
         num_nodes = dataset->num_nodes;
 
         this->self_edge = self_edge;
-        for(long j=0;j<dataset->num_nodes;j++){
-           // Inefficient data transfer
-            assert(dataset->partition_map[j]<num_gpus);
-            workload_map.push_back(dataset->partition_map[j]);
-        }
+        std::cout << "Start popilation\n";
 
+        workload_map = dataset->partition_map;
+
+        thrust::host_vector<long> _t;
+        std::cout << "begin data populatiopn\n";
         for(int i=0;i<num_gpus;i++){
           int order =0;
+          _t.clear();
           for(long nd: gpu_map[i]){
-             storage_map[i].push_back(nd);
+             _t.push_back(nd);
              order ++;
           }
+          storage_map[i] = _t;
           gpu_capacity[i] = gpu_map[i].size();
         }
-
+        std::cout << "data opulated\n";
       	this->sample = new Sample(num_layers);
       	this->p_sample = new PartitionedSample(num_layers, num_gpus);
 
@@ -98,8 +101,10 @@ public:
     // }
 
     PySample * getSample(vector<long> sample_nodes){
+      std::cout << "try to get a sample \n";
       sample->clear();
       p_sample->clear();
+      cudaSetDevice(current_gpu);
       auto start1 = high_resolution_clock::now();
 
       thrust::device_vector<long> sample_nodes_d = thrust::host_vector<long>(sample_nodes.begin(), sample_nodes.end());
@@ -107,16 +112,16 @@ public:
      	auto start2 = high_resolution_clock::now();
 
       // spdlog::info("slice begin");
+      std::cout << "attempting slicing \n";
       this->slicer->slice_sample(*sample, *p_sample);
           auto start3 = high_resolution_clock::now();
- 	auto duration1 = duration_cast<milliseconds>(start2 - start1);
-	auto duration2 = duration_cast<milliseconds>(start3 -start2);
+      auto duration1 = duration_cast<milliseconds>(start2 - start1);
+      auto duration2 = duration_cast<milliseconds>(start3 -start2);
 
      std::cout << "sample " << (double)duration1.count()/1000 << "slice"<< (double)duration2.count()/1000 <<"\n";
 
       // spdlog::info("covert to torch");
-      int local_gpu = 0;
-      PySample *sample = new PySample(*p_sample, local_gpu, num_gpus);
+      PySample *sample = new PySample(*p_sample, current_gpu, num_gpus);
       return sample;
     }
 
@@ -128,9 +133,9 @@ public:
 
 };
 
-PYBIND11_MODULE(cslicer, m) {
+PYBIND11_MODULE(cuslicer, m) {
     m.doc() = "pybind11 example plugin"; // optional module docstring
-    py::class_<CSlicer>(m,"cslicer")
+    py::class_<CSlicer>(m,"cuslicer")
          .def(py::init<const std::string &,
                std::vector<std::vector<long>>, vector<int>,\
                 bool, bool, bool, int, bool,int,\

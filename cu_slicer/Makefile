@@ -9,10 +9,11 @@ DEBUG=-DDEBUG
 # 	      tests/gcn_test.cu  transform/gcn_slice.cu
 
 all: graph/dataset.o main.o util/duplicate.o samplers/ns.o \
-	 	transform/pull_slice.o transform/push_slice.o transform/slice.o graph/bipartite.o
+	 	transform/pull_slice.o transform/push_slice.o\
+		 transform/slice.o graph/bipartite.o tests/gcn_test.o
 	nvcc -G graph/dataset.o main.o  util/duplicate.o \
 	 	samplers/ns.o transform/pull_slice.o  transform/push_slice.o transform/slice.o\
-		 	graph/bipartite.o -o a.out
+		 	graph/bipartite.o  tests/gcn_test.o -o a.out
 	./a.out
 
 main.o: main.cu
@@ -28,6 +29,9 @@ samplers/%.o: samplers/%.cu
 	nvcc  $(DEBUG) -c $(INCLUDE) $< -o $@
 
 transform/%.o: transform/%.cu
+	nvcc $(DEBUG) -c $(INCLUDE) $< -o $@
+
+tests/%.o: tests/%.cu
 	nvcc $(DEBUG) -c $(INCLUDE) $< -o $@
 
 clean:

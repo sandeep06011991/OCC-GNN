@@ -36,7 +36,7 @@ ext_modules = [
                 #"graph/bipartite.cpp",
                 #"util/duplicate.cpp", "graph/dataset.cpp",
                         #"tests/gat_test.cpp", "tests/gcn_test.cpp"
-                        "check.cu"
+                        # "check.cu"
                         ],
         depends = ["util/environment.h","bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
             ,"util/conqueue.h"]  ,

@@ -27,7 +27,7 @@ public:
   int *labels;
 
   // gpu_partition_map
-  int *partition_map;
+  thrust::device_vector<int> partition_map;
 
   // training splits.
   long * train_idx;

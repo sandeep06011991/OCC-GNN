@@ -25,11 +25,11 @@ void  fill_cache_nodes(long * in_nodes, int * storage_map, int size, int * cache
    if(tid < size){
         long nd = in_nodes[tid];
         if(storage_map[nd] == -1){
-                miss_from[cache_miss_mask[tid]] = nd;
-		miss_to[cache_miss_mask[tid]] = tid;
+                miss_from[cache_miss_mask[tid]-1] = nd;
+		            miss_to[cache_miss_mask[tid]-1] = tid;
         }else{
-                hit_from[cache_hit_mask[tid]] = storage_map[nd];
-                hit_to[cache_hit_mask[tid]] = tid;
+                hit_from[cache_hit_mask[tid]-1] = storage_map[nd];
+                hit_to[cache_hit_mask[tid]-1] = tid;
         }
         tid = tid + (blockDim.x * gridDim.x);
    }
@@ -115,12 +115,14 @@ void Slice::reorder(PartitionedLayer &l){
 
   void Slice::slice_sample(Sample &s, PartitionedSample &ps){
       for(int i= 1; i< s.num_layers + 1;i++){
+        std::cout << "slice\n";
         bool last_layer = false;
         if (i == s.num_layers) last_layer = true;
     	  PartitionedLayer& l = ps.layers[i-1];
         this->slice_layer(s.block[i-1]->layer_nds, \
             (* s.block[i]), l, last_layer);
         this->reorder(l);
+        std::cout << "order\n";
       }
        for(int i=0;i<this->num_gpus;i++){
            ps.cache_miss_from[i].clear();

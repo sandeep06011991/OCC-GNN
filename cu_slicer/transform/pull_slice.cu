@@ -65,23 +65,23 @@ __global__ void populate_local_graphs_pull(int*  partition_map, long * out_nodes
       for(int n = 0; n<nbs; n ++ ){
           long nd2 = in_nodes[indices[offset_edge_start + n]];
           int p_nd2 = partition_map[nd2];
-          ((long *)indices_map[p_nd1 * NUM_GPUS + p_nd1])[offset_edge_start + n] = nd2;
+          ((long *)indices_map[p_nd1 * NUM_GPUS + p_nd1])\
+            [((long *)indices_index_map[p_nd1 * NUM_GPUS + p_nd2])[offset_edge_start + n]] = nd2;
            if(p_nd1 != p_nd2){
            if(last_layer){
                   if(((int *)storage_map[p_nd1])[nd2]!= -1){
                         continue;
                   }
-          }
+                }
             ((long *)from_nds_map[p_nd1 * NUM_GPUS + p_nd2])\
                   [((long *)indices_index_map[p_nd1 * NUM_GPUS + p_nd2])[offset_edge_start + n]] \
                   = nd2;
             ((long *)to_nds_map[p_nd1 * NUM_GPUS + p_nd2])\
                   [((long *)indices_index_map[p_nd1 * NUM_GPUS + p_nd2])[offset_edge_start + n]] \
                   = nd2;
-            printf("pull node %ld %ld\n", nd1, nd2);
           }
         }
-     ((long *)indptr_map[p_nd1 * NUM_GPUS + p_nd1])\
+        ((long *)indptr_map[p_nd1 * NUM_GPUS + p_nd1])\
         [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd1])[tid]] = nbs;
         if(nbs == 0) nbs = 1;
         ((long *)out_degree_map[p_nd1])\

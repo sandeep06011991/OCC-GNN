@@ -75,19 +75,21 @@ int naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
 
 void aggregate(thrust::device_vector<int> &out, thrust::device_vector<int> &in,
         thrust::device_vector<long> &indptr, thrust::device_vector<long> &indices){
-          std::cout << "check" << out.size() << "  "<< indptr.size() <<"\n";
     if(indptr.size()>0)assert(out.size() == indptr.size()-1);
     for(int i=0;i< (int) indptr.size()-1;i ++){
       int off_start = indptr[i];
       int off_end = indptr[i+1];
       int t = 0;
+      std::cout << "Add :";
       for(int off = off_start; off < off_end; off ++ ){
           t += in[indices[off]];
           if(in[indices[off]] < 0){
             std::cout <<"Incorrect read "<<  indices[off] << " " << in[indices[off]] <<"\n";
           }
+          std::cout << "(" << in[indices[off]]<<":"<<indices[off]<<")";
           assert(in[indices[off]] >= 0);
       }
+      std::cout <<"\n";
       out[i] = t;
     }
 }
@@ -109,7 +111,10 @@ void pull_own_node(BiPartite *bp,
       thrust::device_vector<int> &out, thrust::device_vector<int> &in){
   assert(bp->self_ids_offset == bp->out_degree_local.size());
   for(int i=0; i < bp->self_ids_offset; i++){
+      std::cout <<"Final Add" << out[i] <<" "<< bp->out_degree_local[i]\
+               << " " << in[i] <<"\n";
       out[i] = (out[i] /bp->out_degree_local[i]) + in[i];
+
   }
 }
 
@@ -130,9 +135,12 @@ int sample_flow_up_ps(PartitionedSample &s,
      int cache_hit = s.cache_hit_to[i].size();
      int cache_miss = s.cache_miss_to[i].size();
      in[i].resize(cache_hit + cache_miss);
+     debugVector(s.cache_hit_from[i],"cache hit from ");
+     debugVector(s.cache_miss_from[i],"cache miss from ");
+
      for(int j=0; j < cache_hit; j++) {
           in[i][s.cache_hit_to[i][j]] = storage_map[i][s.cache_hit_from[i][j]];
-     }
+    }
      for(int j=0; j < cache_miss; j++) {
            in[i][s.cache_miss_to[i][j]] = s.cache_miss_from[i][j]%10;
      }
@@ -152,7 +160,7 @@ int sample_flow_up_ps(PartitionedSample &s,
         int start = bp->pull_from_offsets[pull_from];
         int end = bp->pull_from_offsets[pull_from + 1];
         if(end - start == 0)continue;
-        thrust::device_vector<long> &push_to = layer.bipartite[pull_from]->push_to_ids[j];
+        thrust::device_vector<long> &push_to = layer.bipartite[pull_from]->pull_to_ids[j];
         for(int k=0;k<push_to.size() ; k++){
             in[j][bp->num_in_nodes_local + start + k] = in[pull_from][push_to[k]];
         }
@@ -192,7 +200,7 @@ int sample_flow_up_ps(PartitionedSample &s,
           if(from != to){
             int start = layer.bipartite[from]->to_offsets[to];
             int end = layer.bipartite[from]->to_offsets[to + 1];
-            shuffle(layer.bipartite[to]->from_ids[from], out[to], remote_out[from], \
+            shuffle(layer.bipartite[to]->push_from_ids[from], out[to], remote_out[from], \
                     start , end);
           }
       }
