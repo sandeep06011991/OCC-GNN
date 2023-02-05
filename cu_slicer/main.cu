@@ -13,8 +13,8 @@ int main(){
 
 // Test1: Read graph datastructure.
 cudaSetDevice(0);
-std::string graph_name = "synth_8_2";
-// std::string graph_name = "ogbn-arxiv";
+// std::string graph_name = "synth_8_2";
+std::string graph_name = "ogbn-arxiv";
 std::string file = get_dataset_dir() + graph_name;
 std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false);
 std::cout << "Read synthetic dataset\n ";
@@ -23,12 +23,12 @@ std::cout << "Read synthetic dataset\n ";
   int num_layers = 2  ;
   Sample *s1  = new Sample(num_layers);
   bool pull_optim = false;
-  int num_gpus = 2;
-  vector<int> fanout({-1,-1});
+  int num_gpus = 4;
+  vector<int> fanout({10,10});
   bool self_edge = false;
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, self_edge);
   thrust::host_vector<long> _training_nodes;
-  for(int i=0;i<1;i++){
+  for(int i=0;i<10;i++){
     _training_nodes.push_back(i);
   }
   thrust::device_vector<long> training_nodes;
@@ -71,13 +71,15 @@ std::cout << "Read synthetic dataset\n ";
 // PushSlicer *sc;
     PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
     PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
-//   std::cout << "Slicer created \n";
+   std::cout << "Slicer created \n";
 //   s1->debug();
     PartitionedSample ps1(num_layers, num_gpus);
     PartitionedSample ps2(num_layers, num_gpus);
+    // s1->debug();
 
 //   std::cout << "partition map created \n";
    sc1->slice_sample((*s1), ps2);
+     // ps2.debug();
    // std::cout << "Push done \n";
    // ps1.debug();
    // sc1->slice_sample((*s1),ps2);

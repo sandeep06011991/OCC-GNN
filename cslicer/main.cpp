@@ -6,11 +6,15 @@
 // #include "memory"
 #include "transform/slice.h"
 #include "tests/test.h"
+#include <algorithm>
+#include <ctime>
+#include <chrono>
+using namespace std::chrono;
 
 int main(){
 
   // Test1: Read graph datastructure.
-  std::string graph_name = "ogbn-arxiv";
+  std::string graph_name = "ogbn-products";
   std::string file = get_dataset_dir() + graph_name;
   int num_partitions = 4;
 
@@ -24,11 +28,13 @@ int main(){
   Sample *s1  = new Sample(num_layers);
   s1->debug();
   std::vector<long> training_nodes;
-  for(int i=0;i<1;i++){
+
+  for(int i=0;i<dataset->num_nodes;i++){
     training_nodes.push_back(i);
   }
+  
   std::cout << training_nodes.size() <<"\n";
-  int fanout = 3;
+  int fanout = 10;
   // For GAT self_edge = True, GCN No self edge
   // bool self_edge = true;
   // bool pull_optim = false;
@@ -36,9 +42,25 @@ int main(){
   bool self_edge = false;
   bool pull_optim = true;
 
-  bool deterministic = true;
-  NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, true, self_edge);
-  ns->sample(training_nodes,(*s1));
+  bool deterministic = false;
+  NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, deterministic, self_edge);
+  std::vector<long> sample;
+  for(int k=0;k<4;k++){
+  random_shuffle(training_nodes.begin(), training_nodes.end());
+  auto start2 = high_resolution_clock::now();
+
+  for(long i=0;i<dataset->num_nodes;i=i+1032){
+  	long j = std::min(i + 1032, dataset->num_nodes - 1);
+	copy(training_nodes.begin()+i, training_nodes.begin() + j, back_inserter(sample));
+  	ns->sample(sample,(*s1));
+	sample.clear();
+	std::cout << i <<":"<<dataset->num_nodes <<"\n";
+  }
+   auto start3 = high_resolution_clock::now();
+   auto duration1 = duration_cast<milliseconds>(start3- start2);
+  std::cout << "Sample time" << duration1.count() <<"\n";
+  }
+  return 0;
     // sample_neighbourhood((*s), training_nodes, (*dataset));
   // Issues over memory who is responsibe for this.
   // Who creats it, uses it and destroys it.

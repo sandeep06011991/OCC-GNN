@@ -18,30 +18,54 @@ protected:
   bool pull_optimization = false;
   thrust::device_vector<int> cache_hit_mask;
   thrust::device_vector<int> cache_miss_mask;
-  long num_nodes  = 0;
+  long num_nodes  = 0; 
+    cudaEvent_t event1;
+    cudaEvent_t event2;
+    cudaEvent_t event3;
+    cudaEvent_t event4;
+    cudaEvent_t event5;
+       cudaEvent_t event6;
+    cudaEvent_t event7;
+
+     
+     
+
 public:
 // Are all these options really needed.
   Slice(thrust::device_vector<int> workload_map,
       thrust::device_vector<int> storage[8],
         bool pull_optimization, int num_gpus){
+    gpuErrchk(cudaEventCreate(&event1));
+    gpuErrchk(cudaEventCreate(&event2));
+    gpuErrchk(cudaEventCreate(&event3));
+    gpuErrchk(cudaEventCreate(&event4));
+    gpuErrchk(cudaEventCreate(&event5));
+    gpuErrchk(cudaEventCreate(&event6));
+    gpuErrchk(cudaEventCreate(&event7));
+	  
+	  
     this->workload_map = workload_map;
     this->num_gpus= num_gpus;
     long num_nodes = this->workload_map.size();
     this->num_nodes = num_nodes;
     assert(num_gpus <= 8);
-    for(int j = 0; j < num_nodes; j++){
-      #pragma unroll
-      for(int i=0;i<this->num_gpus;i++){
-        this->storage_map[i].push_back(-1);
-      }
-    }
+    thrust::host_vector<int> _t1;
+    thrust::host_vector<int> _t2;
+
     for(int i=0;i<num_gpus;i++){
-      int count  = 0;
-      for(auto j:storage[i]){
-          this->storage_map[i][j] = count;
-          this->storage[i].push_back(j);
-	         count ++ ;
+      _t1.clear();
+      _t2.clear();
+      for(int j = 0; j < num_nodes; j++){
+          _t1.push_back(-1);
       }
+      _t2 = storage[i];
+      int count  = 0;
+      for(auto j:_t2){
+          _t1[j] = count;
+           count ++ ;
+      }
+      this->storage_map[i] = _t1;
+      this->storage[i] = storage[i];
       gpu_capacity[i] = count;
     }
     void *t[8];

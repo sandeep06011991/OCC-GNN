@@ -95,7 +95,7 @@ __global__ void populate_local_graphs_push(int*  partition_map, long * out_nodes
       if(nbs == 0) nbs = 1;
 
       for(int p_nd2 = 0; p_nd2 < NUM_GPUS; p_nd2++){
-        if(p_nbs[p_nd2] != 0){
+        if((p_nbs[p_nd2] != 0) || (p_nd2 == p_nd1)){
           ((long *)indptr_map[p_nd1 * NUM_GPUS + p_nd2])\
             [((long *)indptr_index_map[p_nd1 * NUM_GPUS + p_nd2])[tid]] = p_nbs[p_nd2];
 

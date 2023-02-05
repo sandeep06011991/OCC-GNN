@@ -16,7 +16,7 @@ from data.part_sample import *
 # // Get this from data
 storage_map_empty = [[],[],[],[]]
 graphnames = ["ogbn-arxiv","ogbn-products"]
-graphname = "ogbn-arxiv"
+graphname = graphnames[0]
 # csl1 = cslicer(graphname, storage_map_empty, 10, True, False)
 # import numpy as np
 DATA_DIR = "/data/sandeep"
@@ -24,8 +24,8 @@ num_gpus = 4
 num_layers = 3
 p_map = np.fromfile("{}/{}/partition_map_opt_4.bin".format(DATA_DIR,graphname),dtype = np.intc)
 p_map = torch.from_numpy(p_map)
-
-in_nodes = [i for i in range(100)]
+training_nodes = p_map.shape[0]
+training_nodes = [i for i in range(training_nodes)]
 # s1 = csl1.getSample(in_nodes)
 # storage_map_full = [[i for i in range(169343)] for i in range(4)]
 # csl2 = cslicer(graphname, storage_map_full, 10, True, False)
@@ -40,10 +40,15 @@ storage_map_part = [torch.where(p_map == i)[0].tolist() for i in range(4)]
 #     int num_layers, int num_gpus, int current_gpu
 print("check 1")
 csl3 = cuslicer(graphname, storage_map_part,
-        [10,10,10], True, False, True, 4, False, num_layers, num_gpus,0)
+        [20,20,20], True, False, True, 4, False, num_layers, num_gpus,0)
 print("Ask for Sample")
-s3= csl3.getSample(in_nodes)
-tensorized_sample = Sample(s3)
+batch_size = 4096
+i = 0
+while(i < len(training_nodes)):
+    in_nodes = training_nodes[i:i+batch_size]
+    s3= csl3.getSample(in_nodes)
+    i = i + batch_size
+# tensorized_sample = Sample(s3)
 print("haha check !")
 # a = get_total_comm(s1)
 # b = get_total_comm(s2)

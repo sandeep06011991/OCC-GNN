@@ -88,8 +88,9 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
              indptr_R.resize(indptr_R.size()-1);
           }
           dr->replace(indices_[i]);
-          gpuErrchk(cudaDeviceSynchronize());
-          indptr_R.insert(indptr_R.end(),indptr_[i].begin(), indptr_[i].end());
+	  gpuErrchk(cudaDeviceSynchronize());
+
+	  indptr_R.insert(indptr_R.end(),indptr_[i].begin(), indptr_[i].end());
           indices_R.insert(indices_R.end(), indices_[i].begin(), indices_[i].end());
       }
   }

@@ -49,9 +49,20 @@ const int MAX_LAYERS = 5;
 inline void remove_duplicates(thrust::device_vector<long>& nodes){
   if(nodes.size() == 0)return;
   if(nodes.size() > 1){
+    /* cudaEvent_t event1;
+     cudaEvent_t event2;
+    cudaEventCreate(&event1);
+    cudaEventCreate(&event2);
+    cudaEventRecord(event1,0);
+    */
     thrust::sort(nodes.begin(), nodes.end());
     auto it = thrust::unique(nodes.begin(), nodes.end());
     nodes.erase(it, nodes.end());
+    /*cudaEventRecord(event2,0);
+    cudaEventSynchronize(event2);
+    float time;
+    cudaEventElapsedTime(&time, event1,event2);
+    std::cout << "Floating Time" << time <<"\n";*/    
   }
 }
 

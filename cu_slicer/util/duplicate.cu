@@ -165,7 +165,9 @@ void update_nodes(int * mask,long  mask_size, long * nodes, size_t node_size){
   while(id <  node_size){
     #ifdef DEBUG
         assert(nodes[id] < mask_size);
-
+        if(mask[nodes[id]] == 0){
+          printf("Not found %ld \n", nodes[id]);
+        }
         assert(mask[nodes[id]] != 0);
     #endif
      nodes[id] = mask[nodes[id]] - 1;

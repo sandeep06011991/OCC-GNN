@@ -65,13 +65,11 @@ int naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
 
 void aggregate(thrust::device_vector<int> &out, thrust::device_vector<int> &in,
         thrust::device_vector<long> &indptr, thrust::device_vector<long> &indices){
-    
     if(indptr.size()>0)assert(out.size() == indptr.size()-1);
     for(int i=0;i< (int) indptr.size()-1;i ++){
       int off_start = indptr[i];
       int off_end = indptr[i+1];
       int t = 0;
-      std::cout << "Add :";
       for(int off = off_start; off < off_end; off ++ ){
           t += in[indices[off]];
           if(in[indices[off]] < 0){
@@ -93,7 +91,6 @@ void shuffle(thrust::device_vector<long>& from_ids,  thrust::device_vector<int> 
     std::cout << "Shuffling " << from_ids.size() << ":" << start <<":"<< end  <<"\n";
   }
   for(int i=0; i< (int) from_ids.size(); i++){
-    std::cout << to.size() <<":" << from_ids[i] <<"\n";
     to[from_ids[i]] += from[start + i];
     }
 }
@@ -102,11 +99,8 @@ void pull_own_node(BiPartite *bp,
       thrust::device_vector<int> &out, thrust::device_vector<int> &in){
   assert(bp->self_ids_offset == bp->out_degree_local.size());
   for(int i=0; i < bp->self_ids_offset; i++){
-      std::cout <<"Final Add" << out[i] <<" "<< bp->out_degree_local[i]\
-               << " " << in[i] <<"\n";
       out[i] = (out[i] /bp->out_degree_local[i]) + in[i];
-
-  }
+    }
 }
 
 
@@ -143,9 +137,6 @@ int sample_flow_up_ps(PartitionedSample &s,
     // PULL
     for(int j=0;j < num_gpus;j ++){
       BiPartite *bp = layer.bipartite[j];
-      std::cout << "Assert Fail "<< in[j].size() <<" " <<  bp->num_in_nodes_local \
-            <<" " <<  bp->num_in_nodes_pulled <<"\n";
-      debugVector(bp->in_nodes, "in");
       assert(in[j].size() == bp->in_nodes.size());
       int new_size = bp->num_in_nodes_local + bp->num_in_nodes_pulled;
 

@@ -37,10 +37,14 @@ void  fill_cache_nodes(long * in_nodes, int * storage_map, int size, int * cache
 }
 
 void Slice::reorder(PartitionedLayer &l){\
-    for(int i=0;i < this->num_gpus; i++){
+       float t1;
+      cudaEventRecord(event4,0);
+      std::cout << "Attempt reorder\n";
+      for(int i=0;i < this->num_gpus; i++){
        l.bipartite[i]->reorder_local(dr);
 
       }
+      cudaEventRecord(event5,0);
      // Handle remote destination nodes
      for(int to = 0; to < this->num_gpus; to ++){
        dr->clear();
@@ -59,6 +63,7 @@ void Slice::reorder(PartitionedLayer &l){\
       	 dr->replace(t);
        }
     }
+     cudaEventRecord(event6,0);
     for(int pull_from = 0;pull_from < this->num_gpus; pull_from++){
       dr->clear();
       dr->order(l.bipartite[pull_from]->in_nodes);
@@ -74,7 +79,14 @@ void Slice::reorder(PartitionedLayer &l){\
         dr->replace(f);
       }
     }
-
+	cudaEventRecord(event7,0);
+	cudaEventSynchronize(event7);
+	cudaEventElapsedTime(&t1, event4, event5);
+	std::cout <<"local reordering"<< t1/1000 <<"\n";
+	 cudaEventElapsedTime(&t1, event5, event6);
+        std::cout <<"pull"<< t1/1000 <<"\n";
+ cudaEventElapsedTime(&t1, event6, event7);
+ std::cout <<"push"<< t1/1000 <<"\n";
 
   }
 
@@ -114,17 +126,31 @@ void Slice::reorder(PartitionedLayer &l){\
   }
 
   void Slice::slice_sample(Sample &s, PartitionedSample &ps){
-      for(int i= 1; i< s.num_layers + 1;i++){
+    float _t1,_t2,slice_time, reorder, cache;
+    slice_time = 0;
+    reorder = 0;
+    cache = 0;
+
+     for(int i= 1; i< s.num_layers + 1;i++){
         bool last_layer = false;
         if (i == s.num_layers) last_layer = true;
     	  PartitionedLayer& l = ps.layers[i-1];
+	cudaEventRecord(event1,0);
         this->slice_layer(s.block[i-1]->layer_nds, \
             (* s.block[i]), l, last_layer);
-        this->reorder(l);
+        cudaEventRecord(event2,0);
+	this->reorder(l);
+	cudaEventRecord(event3,0);
+	gpuErrchk(cudaEventSynchronize(event3));
+	cudaEventElapsedTime(&_t1, event1, event2);
+	cudaEventElapsedTime(&_t2, event2, event3);
+	slice_time += (_t1/1000);
+	reorder += (_t2/1000);
       }
       #ifdef DEBUG
         gpuErrchk(cudaDeviceSynchronize());
       #endif
+	cudaEventRecord(event1,0);
        for(int i=0;i<this->num_gpus;i++){
            ps.cache_miss_from[i].clear();
            ps.cache_hit_from[i].clear();
@@ -138,4 +164,9 @@ void Slice::reorder(PartitionedLayer &l){\
   	   thrust::device_vector<long> &last_layer = ps.layers[0].bipartite[i]->out_nodes_local;
        ps.last_layer_nodes[i].insert(ps.last_layer_nodes[i].end(), last_layer.begin(), last_layer.end());
       }
+       cudaEventRecord(event2,0);
+       cudaEventSynchronize(event2);
+       cudaEventElapsedTime(&_t1, event1, event2);
+       cache += (_t1/1000);
+       std::cout << "slice:" << slice_time << "reorder:" << reorder <<"cache:" << cache <<"\n";
     }

@@ -46,6 +46,7 @@ class CSlicer{
     bool self_edge;
     int num_gpus = -1;
     int current_gpu = -1;
+
 public:
     // py::list v;
 
@@ -109,15 +110,18 @@ public:
 
       thrust::device_vector<long> sample_nodes_d = thrust::host_vector<long>(sample_nodes.begin(), sample_nodes.end());
       this->neighbour_sampler->sample(sample_nodes_d, *sample);
-     	auto start2 = high_resolution_clock::now();
+      cudaDeviceSynchronize();	
+      auto start2 = high_resolution_clock::now();
 
+	
       // spdlog::info("slice begin");
       std::cout << "attempting slicing \n";
       this->slicer->slice_sample(*sample, *p_sample);
-          auto start3 = high_resolution_clock::now();
+  	cudaDeviceSynchronize();    
+      auto start3 = high_resolution_clock::now();
       auto duration1 = duration_cast<milliseconds>(start2 - start1);
       auto duration2 = duration_cast<milliseconds>(start3 -start2);
-
+	
      std::cout << "sample " << (double)duration1.count()/1000 << "slice"<< (double)duration2.count()/1000 <<"\n";
 
       // spdlog::info("covert to torch");
