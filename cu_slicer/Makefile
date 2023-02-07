@@ -1,7 +1,7 @@
 .PHONY: all
 INCLUDE=-I. -I/home/spolisetty/3rdparty/thrust -I/home/spolisetty/3rdparty/thrust/dependencies/cub \
 	-I/home/spolisetty/3rdparty/thrust/dependencies/libcubxx
-DEBUG=-DDEBUG
+DEBUG=-DDEBUG  --extended-lambda
 # everything:
 # 	nvcc -c -I. -I/home/spolisetty/3rdparty/thrust -I/home/spolisetty/3rdparty/thrust/dependencies/cub \
 # 	      -I/home/spolisetty/3rdparty/thrust/dependencies/libcubxx	main.cu\

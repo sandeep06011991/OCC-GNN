@@ -17,3 +17,5 @@ slurm-log/
 slurm-log-occ/
 *.pkl
 *.o
+*.qdrep
+*.sqlite

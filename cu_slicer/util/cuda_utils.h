@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <cassert>
+#include "nvtx3/nvToolsExt.h"
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
@@ -49,6 +50,7 @@ const int MAX_LAYERS = 5;
 inline void remove_duplicates(thrust::device_vector<long>& nodes){
   if(nodes.size() == 0)return;
   if(nodes.size() > 1){
+    nvtxRangePush("remove duplicates");
     /* cudaEvent_t event1;
      cudaEvent_t event2;
     cudaEventCreate(&event1);
@@ -58,11 +60,12 @@ inline void remove_duplicates(thrust::device_vector<long>& nodes){
     thrust::sort(nodes.begin(), nodes.end());
     auto it = thrust::unique(nodes.begin(), nodes.end());
     nodes.erase(it, nodes.end());
+    nvtxRangePop();
     /*cudaEventRecord(event2,0);
     cudaEventSynchronize(event2);
     float time;
     cudaEventElapsedTime(&time, event1,event2);
-    std::cout << "Floating Time" << time <<"\n";*/    
+    std::cout << "Floating Time" << time <<"\n";*/
   }
 }
 

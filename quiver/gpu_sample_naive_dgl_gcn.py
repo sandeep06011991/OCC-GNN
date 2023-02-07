@@ -157,7 +157,7 @@ def run(rank, args,  data):
     #with profile(enabled = False, activities = [ProfilerActivity.CUDA, ProfilerActivity.CPU],\
     #            use_cuda = True, \
     #            schedule = torch.profiler.schedule(wait = 2, warmup = 1, active = 1000)) as prof:
-    if True:    
+    if True:
         for epoch in range(args.num_epochs):
             tic = time.time()
 
@@ -184,10 +184,11 @@ def run(rank, args,  data):
                     batch_time = {}
                     optimizer.zero_grad()
                     t1 = time.time()
-                    with profiler.record_function("sampling"):    
+                    with profiler.record_function("sampling"):
                         input_nodes, seeds, blocks = next(dataloader_i)
                     t2 = time.time()
                     sampling_time += (t2-t1)
+                    print("Sampling time", t2-t1)
                     blocks = [blk.to(device) for blk in blocks]
                 #t2 = time.time()
                 # blocks = [blk.formats(['coo','csr','csc']) for blk in blocks]
@@ -214,11 +215,12 @@ def run(rank, args,  data):
                         loss.backward()
                         e3.record()
                         e3.synchronize()
-                        
+
                     optimizer.step()
                 #print("sample time", t2-t1, t3-t2)
                     forward_time += e1.elapsed_time(e2)/1000
                     backward_time += e2.elapsed_time(e3)/1000
+                    print("training time",e1.elapsed_time(e3)/1000)
                 #print("Time feature", device, e1.elapsed_time(e2)/1000)
                 #print("Expected bandwidth", missed * nfeat.shape[1] * 4/ ((e1.elapsed_time(e2)/1000) * 1024 * 1024 * 1024), "GB device", rank, "cache rate", hit/(hit + missed))
                     data_movement += (batch_inputs.shape[0] * nfeat.shape[1] * 4/(1024 * 1024))
@@ -318,7 +320,8 @@ if __name__ == '__main__':
 
     # load ogbn-products data
     #root = "/mnt/bigdata/sandeep/"
-    dg_graph, partition_map, num_classes = get_process_graph(args.graph, -1)
+    num_gpus = 4
+    dg_graph, partition_map, num_classes = get_process_graph(args.graph, -1, 4)
     data = dg_graph
     train_idx = torch.where(data.ndata.pop('train_mask'))[0]
     val_idx = torch.where(data.ndata.pop('val_mask'))[0]
@@ -380,7 +383,7 @@ if __name__ == '__main__':
             epoch_batch_forward, epoch_batch_backward, \
             epoch_batch_loadtime, epoch_batch_totaltime = \
                 compute_metrics(collected_metrics)
-    
+
     print("sample_time:{}".format(epoch_batch_sample))
     print("movement graph:{}".format(epoch_batch_graph))
     print("movement feature:{}".format(epoch_batch_feat_time))

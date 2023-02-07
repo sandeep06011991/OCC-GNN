@@ -16,7 +16,7 @@ from data.part_sample import *
 # // Get this from data
 storage_map_empty = [[],[],[],[]]
 graphnames = ["ogbn-arxiv","ogbn-products"]
-graphname = graphnames[0]
+graphname = graphnames[1]
 # csl1 = cslicer(graphname, storage_map_empty, 10, True, False)
 # import numpy as np
 DATA_DIR = "/data/sandeep"
@@ -44,10 +44,19 @@ csl3 = cuslicer(graphname, storage_map_part,
 print("Ask for Sample")
 batch_size = 4096
 i = 0
-while(i < len(training_nodes)):
-    in_nodes = training_nodes[i:i+batch_size]
-    s3= csl3.getSample(in_nodes)
-    i = i + batch_size
+j = 0
+for _ in range(2):
+    t1 = time.time()
+    while(i < len(training_nodes)):
+        in_nodes = training_nodes[i:i+batch_size]
+        s3= csl3.getSample(in_nodes)
+        i = i + batch_size
+        #if (j >5):
+        #    break
+        j = j + 1
+    t2 = time.time()
+    i = 0
+    print("Epoch time",t2-t1)
 # tensorized_sample = Sample(s3)
 print("haha check !")
 # a = get_total_comm(s1)

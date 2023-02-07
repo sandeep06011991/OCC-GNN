@@ -1,7 +1,14 @@
 #include "bipartite.h"
 #include "util/cuda_utils.h"
+#include "nvtx3/nvToolsExt.h"
+#include <thrust/transform.h>
+#include <thrust/functional.h>
+#include <thrust/execution_policy.h>
+
 // Replace everything with one local ordering.
 void BiPartite::reorder_local(DuplicateRemover *dr){
+  nvtxRangePush("reorder");
+
   dr->clear();
   remove_duplicates(push_to_ids_[gpu_id]);
   dr->order(push_to_ids_[gpu_id]);
@@ -75,24 +82,30 @@ void BiPartite::reorder_local(DuplicateRemover *dr){
   // Create all local graphs.
   indptr_L = indptr_[gpu_id];
   indices_L = indices_[gpu_id];
-  
+
   dr->replace(indices_L);
   // Remote partition nodes
+  nvtxRangePush("increment");
   for(int i=0;  i<num_gpus;   i++){
       if((i!=gpu_id) && (indptr_[i].size()!=0)){
           if(indptr_R.size() != 0) {
-             int back = indptr_R.back();
-             for(int j=0;j<indptr_[i].size();j++){
-                indptr_[i][j] += back;
-             }
+             long back = indptr_R.back();
+             thrust::transform(thrust::device, indptr_[i].begin(), indptr_[i].end(),\
+                indptr_[i].begin(),[=] __device__ (long n){return n + back;});
+             // for(int j=0;j<indptr_[i].size();j++){
+             //    indptr_[i][j] += back;
+             // }
              indptr_R.resize(indptr_R.size()-1);
           }
           dr->replace(indices_[i]);
-	  gpuErrchk(cudaDeviceSynchronize());
+	  // gpuErrchk(cudaDeviceSynchronize());
 
 	  indptr_R.insert(indptr_R.end(),indptr_[i].begin(), indptr_[i].end());
           indices_R.insert(indices_R.end(), indices_[i].begin(), indices_[i].end());
       }
   }
+  nvtxRangePop();
   dr->clear();
+  nvtxRangePop();
+
 }

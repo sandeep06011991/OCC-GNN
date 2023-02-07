@@ -3,6 +3,7 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
+#include "nvtx3/nvToolsExt.h"
 
 __global__ void init_random_states(curandState *states, size_t num,
                                    unsigned long seed) {
@@ -138,6 +139,7 @@ void NeighbourSampler::layer_sample(thrust::device_vector<long> &in,
   }
 
 void NeighbourSampler::sample(thrust::device_vector<long> &target_nodes, Sample &s){
+  nvtxRangePush("sample");
   s.block[0]->clear();
   dr->clear();
   dr->order(target_nodes);
@@ -157,4 +159,5 @@ void NeighbourSampler::sample(thrust::device_vector<long> &target_nodes, Sample 
     dr->replace(s.block[i]->indices);
   }
   dr->clear();
+  nvtxRangePop();
 }

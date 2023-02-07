@@ -115,7 +115,7 @@ def run(rank, args,  data):
         drop_last=True,
         prefetch_factor = 2,
         num_workers = 0 if args.sample_gpu else args.num_workers,
-        persistent_workers=not args.sample_gpu)
+        persistent_workers=((not args.sample_gpu) and (args.num_workers != 0)) )
 
     # Define model and optimizer
     if args.model == "GCN":
@@ -146,10 +146,10 @@ def run(rank, args,  data):
     e4 = torch.cuda.Event(enable_timing = True)
     e5 = torch.cuda.Event(enable_timing = True)
     test_accuracy_list = []
-    #with profile(enabled = False, activities = [ProfilerActivity.CUDA, ProfilerActivity.CPU],\
+    # with profile(enabled = False, activities = [ProfilerActivity.CUDA, ProfilerActivity.CPU],\
     #            use_cuda = True, \
     #            schedule = torch.profiler.schedule(wait = 2, warmup = 1, active = 1000)) as prof:
-    if True:    
+    if True:
         for epoch in range(args.num_epochs):
             tic = time.time()
 
@@ -171,13 +171,13 @@ def run(rank, args,  data):
                     batch_time = {}
                     optimizer.zero_grad()
                     t1 = time.time()
-                    with profiler.record_function("sampling"):    
+                    with profiler.record_function("sampling"):
                         input_nodes, seeds, blocks = next(dataloader_i)
-                    for b in blocks:
-                        avg_degree = b.num_edges()/b.num_nodes()
-                        max_degree = b.in_degree()
-                        min_degree = b.in_degree()
-                        print("stats", avg_degree, max_degree, min_degree)
+                    # for b in blocks:
+                    #     avg_degree = b.num_edges()/b.num_nodes()
+                    #     max_degree = b.in_degrees()
+                    #     min_degree = b.in_degrese()
+                    #     print("stats", avg_degree, max_degree, min_degree)
                     t2 = time.time()
                     batch_time[SAMPLE_START_TIME] = t1
                     print("Sample time {}|".format(device), t1)
@@ -194,7 +194,7 @@ def run(rank, args,  data):
                 #print(edges_computed)
                     t3 = time.time()
                     batch_time[DATALOAD_START_TIME] = t3
-                    print("movement start {}|".format(device), t3)
+                    # print("movement start {}|".format(device), t3)
                 # Load the input features as well as output labels
                     with profiler.record_function("movement"):
                         batch_inputs, batch_labels = load_subtensor(
@@ -215,8 +215,6 @@ def run(rank, args,  data):
                         e5.record()
                         e5.synchronize()
                         batch_time[END_BACKWARD] = time.time()
-                        
-
                         print("Backwarwd end {}| ".format(device), batch_time[END_BACKWARD])
                         optimizer.step()
                 #print("sample time", t2-t1, t3-t2)
@@ -317,7 +315,7 @@ if __name__ == '__main__':
 
     # load ogbn-products data
     #root = "/mnt/bigdata/sandeep/"
-    dg_graph, partition_map, num_classes = get_process_graph(args.graph, -1)
+    dg_graph, partition_map, num_classes = get_process_graph(args.graph, -1, 4)
     data = dg_graph
     train_idx = torch.where(data.ndata.pop('train_mask'))[0]
     val_idx = torch.where(data.ndata.pop('val_mask'))[0]
@@ -379,7 +377,7 @@ if __name__ == '__main__':
             epoch_batch_forward, epoch_batch_backward, \
             epoch_batch_loadtime, epoch_batch_totaltime = \
                 compute_metrics(collected_metrics)
-    
+
     print("sample_time:{}".format(epoch_batch_sample))
     print("movement graph:{}".format(epoch_batch_graph))
     print("movement feature:{}".format(epoch_batch_feat_time))

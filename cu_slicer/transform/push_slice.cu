@@ -4,6 +4,7 @@
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
 
+#include "nvtx3/nvToolsExt.h"
 
 __global__
 void partition_edges_push(int*  partition_map,\
@@ -119,8 +120,9 @@ void PushSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
       Block &bs, PartitionedLayer &ps, bool last_layer){
 
     // Stage 1 Edge Partitioning
+    nvtxRangePush("index-edge");
     ps.resize_index_and_offset_map(layer_nds.size(), bs.indices.size());
-
+    nvtxRangePop();
       partition_edges_push<<<BLOCK_SIZE(layer_nds.size()),THREAD_SIZE>>>\
         (thrust::raw_pointer_cast(this->workload_map.data()),\
           thrust::raw_pointer_cast(layer_nds.data()), layer_nds.size(),\
@@ -140,6 +142,7 @@ void PushSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
     int N = this->num_gpus * this->num_gpus;
     long local_graph_nodes[N];
     long local_graph_edges[N];
+      nvtxRangePush("aggregate-edges");
     for(int i=0; i< N; i++){
       long last_indices = ps.index_indices_map[i][ps.index_indices_map[i].size() - 1];
       thrust::inclusive_scan(ps.index_offset_map[i].begin(), ps.index_offset_map[i].end(), ps.index_offset_map[i].begin());
@@ -147,8 +150,11 @@ void PushSlicer::slice_layer(thrust::device_vector<long> &layer_nds,
       local_graph_nodes[i] = ps.index_offset_map[i][ps.index_offset_map[i].size()-1];
       local_graph_edges[i] = ps.index_indices_map[i][ps.index_indices_map[i].size() - 1] + last_indices;
     }
+    nvtxRangePop();
     bool is_push = true;
+      nvtxRangePush("resize-local-edge");
     ps.resize_local_graphs(local_graph_nodes, local_graph_edges,is_push);
+    nvtxRangePop();
     // Stage 3 Populate local and remote edges.
 
     populate_local_graphs_push<<<BLOCK_SIZE(layer_nds.size()), THREAD_SIZE>>>(thrust::raw_pointer_cast(this->workload_map.data()),

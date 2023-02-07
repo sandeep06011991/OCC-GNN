@@ -42,7 +42,8 @@ ext_modules = [
             ,"util/conqueue.h"]  ,
         include_dirs=[pybind11.get_include(),".",ROOT,"/home/spolisetty/thirdparty/thrust",\
             "/home/spolisetty/thirdparty/thrust/dependencies/cub","/home/spolisetty/3rdparty/thrust/dependencies/libcubxx" ],
-        language='c++'
+        language='c++',
+        extra_compile_args=['--extended-lambda']
         # sorted(glob("pybind_test.cpp"),"object.cpp"),
          # Sort source files for reproducibility
     ),

@@ -92,7 +92,7 @@ class PartitionedLayer{
 
           long num_nodes = local_graph_nodes[dest * this->num_gpus + src];
           long num_edges = local_graph_edges[dest * this->num_gpus + src];
-          // std::cout << "Partitioned edges" << dest << ":" << src <<":" << num_nodes <<" "<< num_edges <<"\n"; 
+          // std::cout << "Partitioned edges" << dest << ":" << src <<":" << num_nodes <<" "<< num_edges <<"\n";
           if (src == dest){
             bipartite[dest]->out_degree_local.resize(local_graph_nodes[src * this->num_gpus + dest]);
             out_nodes_degree[dest] = thrust::raw_pointer_cast(bipartite[dest]->out_degree_local.data());
@@ -117,7 +117,7 @@ class PartitionedLayer{
             local_indices[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indices_[dest].data());
           }
         }
-      }
+      } 
       gpuErrchk(cudaMemcpy(device_local_indptr_map, local_offset, N * sizeof (void *), cudaMemcpyHostToDevice));
       gpuErrchk(cudaMemcpy(device_local_indices_map, local_indices, N * sizeof (void *), cudaMemcpyHostToDevice));
       gpuErrchk(cudaMemcpy(device_local_push_to_nds_map, local_push_to_nds, N * sizeof (void *), cudaMemcpyHostToDevice));
