@@ -12,6 +12,7 @@ class Sample:
         self.cache_miss_from = []
         self.cache_miss_to = []
         self.out_nodes = []
+        print("Sample: Not modified for different kidns")
         for i in range(4):
             self.cache_hit_to.append(csample.cache_hit_to[i])
             self.cache_hit_from.append(csample.cache_hit_from[i])
@@ -28,6 +29,10 @@ class Sample:
                 bp.construct_from_cobject(cbipartite)
                 l.append(bp)
             self.layers.append(l)
+
+    def debug(self):
+        for bp in layer:
+            bp.debug()
 
     def get_number_of_edges(self):
         s = 0
@@ -59,6 +64,10 @@ class Gpu_Local_Sample:
         for i in self.layers:
             i.reconstruct_graph(attention)
         self.layers.reverse()
+
+    def debug(self):
+        for i in self.layers:
+            i.debug()
 
     def set_from_global_sample(self, global_sample, device_id):
         self.randid = global_sample.randid

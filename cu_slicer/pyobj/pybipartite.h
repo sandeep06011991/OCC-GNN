@@ -65,7 +65,7 @@ public:
 
 inline torch::Tensor getTensor(thrust::device_vector<long> &v, c10::TensorOptions opts){
     if(v.size() == 0){
-      return torch::empty(v.size());
+      return torch::empty(v.size(),opts);
     }else{
       return torch::from_blob((long *)thrust::raw_pointer_cast(v.data()), {(long)v.size()}, opts).clone();
 

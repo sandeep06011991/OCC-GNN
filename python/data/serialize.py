@@ -126,7 +126,7 @@ def construct_from_tensor_on_gpu(tensor, device, object):
         assert(False)
     return object
 
-def serialize_to_tensor(object):
+def serialize_to_tensor(object, device = torch.device('cpu')):
     serialization_order, offset_size =  global_order_dict[type(object)]
     data = []
     offsets = [0]
@@ -137,11 +137,11 @@ def serialize_to_tensor(object):
             offsets.append(offsets[-1])
             continue
         if(type(attr_value) == torch.device):
-            data.append(torch.tensor([attr_value.index]))
+            data.append(torch.tensor([attr_value.index], device = device))
             offsets.append(offsets[-1] + 1)
             continue
         if(type(attr_value) == (int)):
-            data.append(torch.tensor([attr_value]))
+            data.append(torch.tensor([attr_value], device = device))
             offsets.append(offsets[-1] + 1)
             continue
         if type(attr_value) == (torch.Tensor):
@@ -151,11 +151,11 @@ def serialize_to_tensor(object):
             continue
         if type(attr_value) == list:
             local_tensors = []
-            length = torch.tensor([len(attr_value)])
+            length = torch.tensor([len(attr_value)], device = device)
             object_type = type(attr_value[0])
             if object_type  == int:
                 local_tensors.append(length)
-                local_tensors.append(torch.tensor(attr_value))
+                local_tensors.append(torch.tensor(attr_value, device = device))
                 # print(local_tensors)
                 local_tensors = torch.cat(local_tensors, dim = 0)
             else:
@@ -164,10 +164,10 @@ def serialize_to_tensor(object):
                 for i in range(len(attr_value)):
                     item = attr_value[i]
                     assert(type(item) in OBJECT_LIST)
-                    tensor = serialize_to_tensor(item)
+                    tensor = serialize_to_tensor(item,device)
                     objects_serialized.append(tensor)
                     local_offsets.append(local_offsets[-1] + tensor.shape[0])
-                local_tensors = torch.cat([length, torch.tensor(local_offsets)] + objects_serialized, dim = 0)
+                local_tensors = torch.cat([length, torch.tensor(local_offsets, device = device)] + objects_serialized, dim = 0)
             data.append(local_tensors)
             offsets.append(offsets[-1] + local_tensors.shape[0])
             continue
@@ -183,7 +183,7 @@ def serialize_to_tensor(object):
             print("Heterograph neednt be serialized")
             continue
         if type(attr_value) in OBJECT_LIST:
-            tensor_value = serialize_to_tensor(attr_value)
+            tensor_value = serialize_to_tensor(attr_value, device)
             data.append(tensor_value)
             offsets.append(offsets[-1] + tensor_value.shape[0])
             continue
@@ -191,11 +191,10 @@ def serialize_to_tensor(object):
         # Unknown data data type
         raise Exception("Unknown object found")
     assert(len(offsets) == offset_size)
-    meta = torch.tensor(offsets)
+    meta = torch.tensor(offsets, device = device)
     final_data = []
     final_data.append(meta)
     final_data.extend(data)
-    # print(final_data)
     res = torch.cat(final_data, dim = 0)
     assert(res.dtype == torch.long)
     return res
