@@ -31,7 +31,7 @@ from PaGraph.parallel import SampleDeliver
 def main(args):
   print("Start server")
 
-  dataset = "{}/{}/".format(ROOT_DIR, args.dataset)
+  dataset = "{}/{}".format(ROOT_DIR, args.dataset)
   coo_adj, feat = data.get_graph_data(dataset)
 
   graph = DGLGraph(coo_adj, readonly=True)

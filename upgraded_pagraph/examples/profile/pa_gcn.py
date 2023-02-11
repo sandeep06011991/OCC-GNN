@@ -148,7 +148,20 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
   #train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
   number_of_minibatches = train_nid.shape[0]/args.batch_size
   g = g.add_self_loop()
-  dataloader = dgl.dataloading.NodeDataLoader(
+  if args.sample_gpu:
+    g = g.to(ctx)
+    train_nid = train_nid.to(ctx)
+    dataloader = dgl.dataloading.NodeDataLoader(\
+        g,\
+        train_nid,\
+        sampler,\
+        device='cuda',\
+        batch_size=args.batch_size,\
+        shuffle=True,\
+        drop_last=True)
+    print("Running GPU Sampler")
+  else:
+    dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
         sampler,
@@ -184,8 +197,8 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
       epoch_start_time = time.time()
       epoch_edges_processed = 0
       step = 0
-      #print("start epoch",rank)
       #for nf in sampler:
+      # iter allows us to measure the cost of sampling easily
       it = iter(dataloader)
       minibatch_metrics = []
       while True:
@@ -218,7 +231,7 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
           # print("move time", e4.elapsed_time(e5)/1000)
           #print("Cache time",s2-s1)
         #with torch.autograd.profiler.record_function('gpu-compute'):
-        with nvtx.annotate('compute', color = 'red'):
+        with nvtx.annotate('forward', color = 'red'):
         #if True:
           e1.record()
           pred = model(blocks, input_data['features'])
@@ -228,12 +241,13 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
           loss = loss_fcn(pred, label)
           acc = compute_acc(pred,label)
           e2.synchronize()
+        with nvtx.annotate('backward', color = 'green'):
           optimizer.zero_grad()
           loss.backward()
           batch_time[FORWARD_ELAPSED_EVENT_TIME] = e1.elapsed_time(e2)/1000
           optimizer.step()
           # Use this for consistency
-          torch.cuda.synchronize()
+          # torch.cuda.synchronize()
           batch_time[END_BACKWARD] = time.time()
           minibatch_metrics.append(batch_time)
 
@@ -357,7 +371,7 @@ if __name__ == '__main__':
   parser.add_argument("--end-early", help="increase output verbosity",
                     action="store_true")
   parser.set_defaults(remote_sample=False)
-
+  parser.add_argument("--sample-gpu", action = "store_true")
   args = parser.parse_args()
   metrics_queue = mp.Queue(4)
   # os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
