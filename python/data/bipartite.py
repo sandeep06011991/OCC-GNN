@@ -20,9 +20,9 @@ class Bipartite:
         print("local in", self.gpu_id, self.num_in_nodes_local)
         print("local out", self.num_out_local)
         print("remote out", self.num_out_local)
-        print("to offsets", self.gpu_id, to_offsets)
-        for i in from_ids.keys():
-            print("from", i, self.gpu_id, from_ids[i].shape)
+        print("to offsets", self.gpu_id, self.to_offsets)
+        for i in self.from_ids.keys():
+            print("from", i, self.gpu_id, self.from_ids[i].shape)
  # dgl.heterograph({('a','b','c'):('csc',(torch.tensor([0,2]),torch.tensor([0,1]),torch.tensor([])))},{'a':2,'c':1})
     def __init__(self):
         self.num_in_nodes_local = 0

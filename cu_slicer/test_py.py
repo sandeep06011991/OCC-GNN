@@ -7,7 +7,7 @@ from data.serialize import *
 from utils.shared_mem_manager import *
 from data.bipartite import *
 from data.part_sample import *
-
+from utils.utils import get_process_graph
 # graphname = "reordered-papers100M"
 # number_of_epochs = 1
 # minibatch_size =4096
@@ -45,11 +45,15 @@ print("Ask for Sample")
 batch_size = 4096
 i = 0
 j = 0
+
+dg_graph, partition_map, num_classes =\
+    get_process_graph(graphname, -1 ,  num_gpus)
+training_nodes = dg_graph.ndata['train_mask'].nonzero().flatten()
 for _ in range(2):
     t1 = time.time()
     while(i < len(training_nodes)):
         in_nodes = training_nodes[i:i+batch_size]
-        s3= csl3.getSample(in_nodes)
+        s3= csl3.getSample(in_nodes.tolist())
         i = i + batch_size
         #if (j >5):
         #    break

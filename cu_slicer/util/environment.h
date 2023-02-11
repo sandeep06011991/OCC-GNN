@@ -20,6 +20,7 @@ std::string get_dataset_dir(){
   if (user == "spolisetty_umass_edu") return unity;
 	if (user == "spolisetty") return jupiter;
   if (user == "q91") return ornl;
+  if (user =="root") return jupiter;
 	std::cout << "Datadir not found !!\n";
   if (user == "ubuntu") return aws;
 	return ERROR;

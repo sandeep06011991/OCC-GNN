@@ -4,7 +4,7 @@ import multiprocessing as mp
 import numpy as np
 import torch
 import time
-from utils.log import *
+
 #
 def get_number_buckets(num_gpus):
     return num_gpus * num_gpus

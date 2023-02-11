@@ -20,9 +20,9 @@ from utils import utils
 from utils.utils import *
 from cu_shared import *
 from data.serialize import *
-
+import logging
 # from test_accuracy import *
-from cslicer import cslicer
+
 
 
 def avg(ls):
@@ -95,10 +95,18 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     rounds = 3
     deterministic = False
     testing = False
-    print("Using CPU Slicer")
-    sampler = cslicer(graph_name, storage_vector, fanout[0],\
-                deterministic, testing , self_edge, rounds, \
-                pull_optimization, num_layers, num_gpus)
+    use_cpu_sampler = False
+    if use_cpu_sampler:
+        print("Using CPU Slicer")
+        from cslicer import cslicer
+        sampler = cslicer(graph_name, storage_vector, fanout[0],\
+                    deterministic, testing , self_edge, rounds, \
+                    pull_optimization, num_layers, num_gpus)
+    else:
+        print("using GPU Sampler")
+        from cuslicer import cuslicer
+        sampler = cuslicer(graph_name, storage_vector,
+                fanout ,deterministic, testing, self_edge, rounds, pull_optimization, num_layers, num_gpus, proc_id)
     device = proc_id
     if proc_id ==0:
         print(args.test_graph_dir)
@@ -162,7 +170,10 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                 obj = Gpu_Local_Sample()
                 obj.set_from_global_sample(tensorized_sample,gpu_id)
                 print("Temporary fix serializing on cpu")
-                data = serialize_to_tensor(obj, torch.device('cpu'))
+                if use_cpu_sampler:
+                    data = serialize_to_tensor(obj, torch.device('cpu'))
+                else:
+                    data = serialize_to_tensor(obj, torch.device(proc_id))
                 data = data.to('cpu').numpy()
                 #print("Warning shared memory queue may be  emtpy ", sm_filename_queue.qsize())
                 sample_id = proc_id
@@ -242,6 +253,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             torch.cuda.set_device(proc_id)
             optimizer.zero_grad()
             m_t1 = time.time()
+            gpu_local_sample.debug()
             input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cache_hit_from, \
                     gpu_local_sample.cache_hit_to, gpu_local_sample.cache_miss_from, gpu_local_sample.cache_miss_to)
             movement_feat = time.time() - m_t1

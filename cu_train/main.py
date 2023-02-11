@@ -213,12 +213,12 @@ if __name__=="__main__":
     argparser.add_argument("--num-heads", type=int, default=3,
                         help="number of hidden attention heads if gat")
     argparser.add_argument('--fan-out', type=str, default='20,20,20')
-    argparser.add_argument('--batch-size', type=int, default=(4096))
+    argparser.add_argument('--batch-size', type=int, default=(4096), required = True)
     argparser.add_argument('--dropout', type=float, default=0)
     argparser.add_argument('--deterministic', default = False, action="store_true")
     argparser.add_argument('--early-stopping', action = "store_true")
     argparser.add_argument('--test-graph-dir', type = str)
-    argparser.add_argument('--num-gpus', type = int)
+    argparser.add_argument('--num-gpus', type = int, required = True)
     argparser.add_argument('--random-partition', action = "store_true", default = False)
     # We perform only transductive training
     # argparser.add_argument('--inductive', action='store_false',

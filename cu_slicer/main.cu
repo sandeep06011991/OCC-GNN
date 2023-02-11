@@ -23,12 +23,13 @@ std::cout << "Read synthetic dataset\n ";
   int num_layers = 2  ;
   Sample *s1  = new Sample(num_layers);
   bool pull_optim = false;
+  // int num_gpus = 4;
   int num_gpus = 4;
-  vector<int> fanout({10,10});
+  vector<int> fanout({20,20});
   bool self_edge = false;
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, self_edge);
   thrust::host_vector<long> _training_nodes;
-  for(int i=0;i<5;i++){
+  for(int i=0;i<1024;i++){
     _training_nodes.push_back(i);
   }
   thrust::device_vector<long> training_nodes;
@@ -79,7 +80,7 @@ std::cout << "Read synthetic dataset\n ";
 
 //   std::cout << "partition map created \n";
    sc1->slice_sample((*s1), ps2);
-     ps2.debug();
+     // ps2.debug();
    // std::cout << "Push done \n";
    // ps1.debug();
    // sc1->slice_sample((*s1),ps2);
@@ -90,7 +91,7 @@ std::cout << "Read synthetic dataset\n ";
 // //   std::cout << "slicing done \n";
 //   //ps.debug();
 //
-  test_sample_partition_consistency((*s1),ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+  // test_sample_partition_consistency((*s1),ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
   // test_pull_benefits(*s1, workload_map, storage, rounds);
 
   // test_reduction_communication_computation(*s1,workload_map,

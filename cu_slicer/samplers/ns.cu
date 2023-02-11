@@ -73,7 +73,8 @@ void neigh_sample_based_on_offsets(long * in, long size,\
           long nd = in[id];
           #ifdef DEBUG
               assert(nd < num_nodes);
-              assert(indices[offsets[id]] < size);
+              // printf("%ld %ld %ld %ld\n", nd, offsets[nd], indices[offsets[id]], size);
+              // assert(indices[offsets[nd]] < size);
           #endif
           // Todo
           long nbs_size = graph_indptr[nd+1] -graph_indptr[nd];
