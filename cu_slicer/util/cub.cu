@@ -38,19 +38,18 @@ void transform::unique(cuslicer::device_vector<long>& sorted_in, cuslicer::devic
     // Declare, allocate, and initialize device-accessible pointers for input and output
     int  num_items = sorted_in.size();              // e.g., 8
     long  *d_in = sorted_in.ptr();                  // e.g., [0, 2, 2, 9, 5, 5, 5, 8]
-    out.resize(sorted_in.size());
+    out.resize(num_items);
     long  *d_out = out.ptr();                 // e.g., [ ,  ,  ,  ,  ,  ,  ,  ]
     d_temp_out.resize(1);
     long  *d_num_selected_out = d_temp_out.ptr();    // e.g., [ ]
 
     // Determine temporary device storage requirements
     size_t   temp_storage_bytes = 0;
-    cub::DeviceSelect::Unique(NULL, temp_storage_bytes, d_in, d_out, d_num_selected_out, num_items);
-
-    d_temp_storage.resize(temp_storage_bytes/(sizeof(long) + 1));
+    gpuErrchk(cub::DeviceSelect::Unique(NULL, temp_storage_bytes, d_in, d_out, d_num_selected_out, num_items));
+    d_temp_storage.resize(temp_storage_bytes/(sizeof(long)) + 1);
     // Run selection
-    cub::DeviceSelect::Unique(d_temp_storage.ptr(), temp_storage_bytes, d_in, d_out, d_num_selected_out, num_items);
-    out.resize(d_num_selected_out[0]);
+    gpuErrchk(cub::DeviceSelect::Unique(d_temp_storage.ptr(), temp_storage_bytes, d_in, d_out, d_num_selected_out, num_items));
+    out.resize(d_temp_out[0]);
     // d_out                 <-- [0, 2, 9, 5, 8]
     // d_num_selected_out    <-- [5]
   }
@@ -68,10 +67,9 @@ void transform::exclusive_scan(cuslicer::device_vector<long> &in, cuslicer::devi
     // Determine temporary device storage requirements
     size_t   temp_storage_bytes = 0;
     cub::DeviceScan::ExclusiveSum(NULL, temp_storage_bytes, d_in, d_out, num_items);
-    d_temp_storage.resize(temp_storage_bytes/(sizeof(long) + 1));
+    d_temp_storage.resize(temp_storage_bytes/(sizeof(long)) + 1);
     // Allocate temporary storage
     // Run exclusive prefix sum
     cub::DeviceScan::ExclusiveSum(d_temp_storage.ptr(), temp_storage_bytes, d_in, d_out, num_items);
-
   }
 }

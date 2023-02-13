@@ -63,7 +63,6 @@ namespace cuslicer{
     current_size = 0;
     allocated = 0;
     free_size = 0;
-    std::cout <<"XXXX Destroy\n";
     if(d != nullptr)cudaFree(d);
     d = nullptr;
   }

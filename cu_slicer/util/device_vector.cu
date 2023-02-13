@@ -28,12 +28,10 @@ device_vector<DATATYPE>::device_vector(std::vector<DATATYPE> &host){
 
 template<typename DATATYPE>
  void device_vector<DATATYPE>::resize(size_t new_size){
-   std::cout << "resize " <<new_size << "\n";
    if(new_size == 0)return clear();
    if(d ==nullptr){
      // First allocation
      gpuErrchk(cudaMalloc((void**)&d, (sizeof(DATATYPE) * new_size)));
-     std::cout << "allocated "<< d <<"\n";
      current_size = new_size;
      allocated = new_size;
      free_size = 0;
@@ -58,6 +56,7 @@ template<typename DATATYPE>
  void device_vector<DATATYPE>::debug(std::string str){
    if(d == nullptr){
      std::cout << str <<":empty" <<"\n";
+     return;
    }
    DATATYPE * host = (DATATYPE *)malloc(sizeof(DATATYPE) * current_size);
    gpuErrchk(cudaMemcpy(host, d, sizeof(DATATYPE) * current_size, cudaMemcpyDeviceToHost));
@@ -72,8 +71,6 @@ template<typename DATATYPE>
 
 template<typename DATATYPE>
 device_vector<DATATYPE>::~device_vector(){
-  std::cout <<"calling destrtor" << current_size <<"\n";
-  std::cout << d <<"\n";
    if(d != nullptr){
      gpuErrchk(cudaFree(d));
    }
@@ -104,7 +101,6 @@ bool device_vector<DATATYPE>::is_same(std::vector<DATATYPE> &expected){
   gpuErrchk(cudaMemcpy(host, d, sizeof(DATATYPE) * current_size, cudaMemcpyDeviceToHost));
   bool is_correct = true;
   for(int i = 0; i < current_size; i ++){
-    std::cout << host[i] << " !!";
     if(host[i] != expected[i]){
       is_correct = false;
       break;
