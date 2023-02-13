@@ -3,59 +3,74 @@
 #include <cassert>
 #include <unordered_map>
 #include <iostream>
-#include <thrust/device_vector.h>
-using namespace std;
+#include "vector.h"
+#include <cub/cub.cuh>
+
+void test_duplicate();
+
+namespace cuslicer{
+  // Used for all set operations in sampling
+  // such as reordering vertex ids
+  // removing seen vertives
+  // TODO: Can make this static as only function runs at a time and there are no local properties to take advantage off.
+  // This will minimize memory usage.
+  
+  class DuplicateRemover{
+
+  public:
+    // Temporar fix. Make private later
+    DuplicateRemover(){}
+
+    virtual void order(cuslicer::vector<long> &nodes) = 0;
+
+    virtual cuslicer::vector<long>& get_used_nodes()  = 0;
+
+    virtual ~DuplicateRemover() {}
+
+    virtual void clear() = 0;
+
+    virtual void replace(cuslicer::vector<long>& v) = 0;
+
+    virtual void remove_nodes_seen(cuslicer::vector<long> &nodes) = 0;
+  };
+
+  //  DGL uses a hashmap.
+  //  Better for scalability.
+  //  Come back to this if its a problem
+  class  ArrayMap: public  DuplicateRemover {
+    cuslicer::vector<long> _tv;
+    cuslicer::vector<long> _tv1;
+    cuslicer::vector<long> _tv2;
+    void * _df;
+    int * mask;
+    long mask_size;
+    cuslicer::vector<long> used_nodes;
+    void assert_no_duplicates(cuslicer::vector<long>  &nodes);
+
+  public:
 
 
-// A Simple way to remove duplicates without using sorting or hashmaps.
-// Only works as the max node size is already known and is finite
-// Trading space for efficiency.
-class DuplicateRemover{
+    ArrayMap(long num_nodes);
 
-public:
-  // Temporar fix. Make private later
-  DuplicateRemover(){}
+    cuslicer::vector<long>& get_used_nodes() ;
+    // void order_and_remove_duplicates(thrust::device_vector<long>& nodes);
 
+    void order(cuslicer::vector<long>& nodes);
 
-  virtual void order(thrust::device_vector<long> &nodes) = 0;
+    ~ArrayMap();
 
-  virtual thrust::device_vector<long>& get_used_nodes()  = 0;
+    void clear();
 
-  virtual ~DuplicateRemover() {}
+    void replace(cuslicer::vector<long>& v);
 
-  virtual void clear() = 0;
+    void remove_nodes_seen(cuslicer::vector<long> &nodes);
+  };
 
-  virtual void replace(thrust::device_vector<long>& v) = 0;
+  class HashMap: public DuplicateRemover{
+      // Plan for when stressed with memory.
+      // Either use a simple hashing scheme or use HashTable of CUDA
+  };
 
-  virtual void remove_nodes_seen(thrust::device_vector<long> &nodes) = 0;
-};
-
-class  ArrayMap: public  DuplicateRemover {
-  thrust::device_vector<long> _tv;
-  thrust::device_vector<long> _tv1;
-  thrust::device_vector<long> _tv2;
-  void * _df;
-  int * mask;
-  long mask_size;
-  thrust::device_vector<long> used_nodes;
-  void assert_no_duplicates(thrust::device_vector<long> &nodes);
-public:
-
-
-  ArrayMap(long num_nodes);
-
-  thrust::device_vector<long>& get_used_nodes() ;
-  // void order_and_remove_duplicates(thrust::device_vector<long>& nodes);
-
-  void order(thrust::device_vector<long> &nodes);
-
-  ~ArrayMap();
-
-  void clear();
-
-  void replace(thrust::device_vector<long>& v);
-
-  void remove_nodes_seen(thrust::device_vector<long> &nodes);
-};
+}
 
 void test_duplicate();
