@@ -47,7 +47,6 @@ constexpr static const int MAX_BLOCKS = 65535;
 // constexpr static const size_t TILE_SIZE = 1024;
 inline int GRID_SIZE(size_t t){
   size_t b =  (t-1)/TILE_SIZE + 1;
-  std::cout << "Grid size" << b <<"\n";
   assert(b < MAX_BLOCKS);
   return b;
 }

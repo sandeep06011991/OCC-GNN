@@ -170,8 +170,6 @@ void ArrayMap::order(device_vector<long> &nodes){
   if(nodes.size() == 0)return;
   _tv2 = nodes;
   remove_nodes_seen(_tv2);
-  std::cout << "New nodes seen" <<_tv2.size() <<"\n";
-  _tv2.debug("Not seen");
   if(_tv2.size()== 0)return;
   // sort and get unique nodes
   // Step 3
@@ -198,7 +196,6 @@ void ArrayMap::clear(){
 
 
 void ArrayMap::replace(device_vector<long> &nodes){
-  std::cout << "Replace \n";
   update_nodes<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(nodes.size()), BLOCK_SIZE>>>\
       (mask, mask_size, (nodes.ptr()), nodes.size());
 

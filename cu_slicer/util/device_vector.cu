@@ -45,7 +45,7 @@ template<typename DATATYPE>
     d = temp;
     allocated = new_size;
   }else{
-    std::cout <<"skipping allocation\n";
+    // std::cout <<"skipping allocation\n";
   }
   current_size = new_size;
   free_size = allocated-current_size;
