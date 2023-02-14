@@ -3,8 +3,8 @@
 // As placement decisions are taken here.
 // Therefore contains some redundant data creation
 #pragma once
-#include <thrust/device_vector.h>
 #include <string>
+#include "../util/cuda_utils.h"
 #ifndef DATASET_H
 #define DATASET_H
 class Dataset{
@@ -23,22 +23,16 @@ public:
   int fsize;
 
   // data
-  float *features;
-  int *labels;
+  // const float *features;
+  // const int *labels;
 
   // gpu_partition_map
-  thrust::device_vector<int> partition_map;
-
-  // training splits.
-  long * train_idx;
-  long * test_idx;
-  long train_idx_sizes;
-  long test_idx_sizes;
+  int * partition_map_d;
 
   // graph data.
   // Assume in node range same as out node range.
-  long * indptr; // size = num_nodes + 1
-  long * indices; // size = num_edges
+  long * indptr_d; // size = num_nodes + 1
+  long * indices_d; // size = num_edges
 
 
   // check sum
@@ -49,7 +43,10 @@ public:
   bool testing = true;
   Dataset(std::string dir, bool testing);
 
-
+  ~Dataset(){
+    gpuErrchk(cudaFree(indptr_d));
+    gpuErrchk(cudaFree(indices_d));
+  }
 };
 
 #endif

@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
-#include <thrust/device_vector.h>
+#include "../util/vector.h"
 #include <util/cuda_utils.h>
 using namespace std;
 // A simple sample structure
@@ -10,10 +10,10 @@ using namespace std;
 // [null, null, batch_ids]
 // Each block is constructed by sampling the neighbours of the previous blocks layer_nids.
 struct Block{
-  thrust::device_vector<long> offsets;
-  thrust::device_vector<long> indices;
-  thrust::device_vector<long> layer_nds;
-  thrust::device_vector<long> in_degree;
+  cuslicer::vector<long> offsets;
+  cuslicer::vector<long> indices;
+  cuslicer::vector<long> layer_nds;
+  cuslicer::vector<long> in_degree;
 
 public:
   void clear(){

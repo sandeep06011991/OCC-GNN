@@ -14,12 +14,15 @@ namespace cuslicer{
   template <typename DATATYPE>
   class device_vector{
 
-    DATATYPE *d = nullptr;
     size_t allocated = 0;
-    size_t current_size= 0;
+
     size_t free_size= 0;
 
   public:
+    size_t current_size= 0;
+    DATATYPE *d = nullptr;
+
+
     device_vector();
 
    device_vector(std::vector<DATATYPE> &host);

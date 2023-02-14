@@ -1,14 +1,16 @@
-#include "graph/dataset.cuh"
 #include <iostream>
 #include <vector>
 #include <string>
 #include <fstream>
 #include <assert.h>
-#include <util/cuda_utils.h>
-#include <thrust/device_vector.h>
-#include <thrust/reduce.h>
-#include <thrust/execution_policy.h>
-#include <thrust/functional.h>
+
+#include <cub/cub.cuh>
+#include "../util/cub.h"
+#include "../util/cuda_utils.h"
+#include "../graph/dataset.cuh"
+#include "../util/device_vector.h"
+
+using namespace cuslicer;
 
 Dataset::Dataset(std::string dir, bool testing){
   this->BIN_DIR = dir;
@@ -16,25 +18,26 @@ Dataset::Dataset(std::string dir, bool testing){
   read_meta_file();
   read_graph();
   read_node_data();
-  // assert(noClasses != 0);
-  // read_training_splits();
 }
 
 void Dataset::read_graph(){
   // Different file format as sampling needs csc format or indegree graph
   std::fstream file1(this->BIN_DIR + "/cindptr.bin",std::ios::in|std::ios::binary);
   long  * _indptr = (long *)malloc ((this->num_nodes + 1) * sizeof(long));
-  gpuErrchk(cudaMalloc((void**)&this->indptr, ((this->num_nodes + 1) * sizeof(long))));
+  gpuErrchk(cudaMalloc((void**)&this->indptr_d, ((this->num_nodes + 1) * sizeof(long))));
   file1.read((char *)_indptr,(this->num_nodes + 1) * sizeof(long));
-  gpuErrchk(cudaMemcpy(this->indptr, _indptr, (this->num_nodes + 1) * sizeof(long) , cudaMemcpyHostToDevice));
-  thrust::device_vector<long> temp(this->indptr,this->indptr +  this->num_nodes + 1);
-  long sum = thrust::reduce(temp.begin(), temp.end(), 0, thrust::plus<long>());
+  gpuErrchk(cudaMemcpy(this->indptr_d, _indptr, (this->num_nodes + 1) * sizeof(long) , cudaMemcpyHostToDevice));
+  device_vector<long> t;
+  t.current_size = this->num_nodes + 1;
+  t.d = this->indptr_d;
+  long sum = cuslicer::transform::reduce(t);
+  t.d = nullptr;
 
   std::fstream file2(this->BIN_DIR + "/cindices.bin",std::ios::in|std::ios::binary);
   long * _indices = (long *)malloc ((this->num_edges) * sizeof(long));
   file2.read((char *)_indices,(this->num_edges) * sizeof(long));
-  gpuErrchk(cudaMalloc((void**)&this->indices, ((this->num_edges) * sizeof(long))));
-  gpuErrchk(cudaMemcpy(this->indices, _indices, (this->num_edges) * sizeof(long) , cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc((void**)&this->indices_d, ((this->num_edges) * sizeof(long))));
+  gpuErrchk(cudaMemcpy(this->indices_d, _indices, (this->num_edges) * sizeof(long) , cudaMemcpyHostToDevice));
 
   free(_indptr);
   free(_indices);
@@ -48,7 +51,6 @@ void Dataset::read_node_data(){
     std::fstream file2(this->BIN_DIR + "/partition_map_opt.bin",std::ios::in|std::ios::binary);
     int * _partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
     file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
-    partition_map = thrust::host_vector<int>(_partition_map, _partition_map + this->num_nodes );
     // gpuErrchk(cudaMalloc((void**)&this->partition_map, (this->num_nodes *  sizeof(int))));
     // gpuErrchk(cudaMemcpy(this->partition_map, _partition_map, (this->num_nodes *  sizeof(int)) , cudaMemcpyHostToDevice));
     free(_partition_map);
