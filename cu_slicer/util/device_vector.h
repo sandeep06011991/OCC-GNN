@@ -49,14 +49,16 @@ namespace cuslicer{
    inline DATATYPE operator[](size_t id){
       assert(id < current_size);
       DATATYPE t;
-      cudaMemcpy(&t,d + (sizeof(DATATYPE) * id), sizeof(DATATYPE), cudaMemcpyDeviceToHost);
+      std::cout << "Crosschecl"<< &d[id] <<" " << sizeof(DATATYPE) + d <<"\n";
+      cudaMemcpy(&t,&d[id], sizeof(DATATYPE), cudaMemcpyDeviceToHost);
+      std::cout << "Reading " << t<< ":" << sizeof(DATATYPE) <<"\n";
       return t;
    }
 
   inline void set_value(size_t id, DATATYPE val){
      assert(id < current_size);
      DATATYPE t = val;
-     cudaMemcpy(d + (sizeof(DATATYPE) * id), &t, sizeof(DATATYPE), cudaMemcpyHostToDevice);
+     cudaMemcpy(&d[id], &t, sizeof(DATATYPE), cudaMemcpyHostToDevice);
   }
 
   inline void destroy(){

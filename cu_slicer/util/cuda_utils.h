@@ -37,17 +37,20 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 //   }
 // }
 
-const int THREAD_SIZE = 256;
-const int MAX_BLOCKS = 1024;
+// Values from DGL
+constexpr static const int BLOCK_SIZE = 256;
+constexpr static const size_t TILE_SIZE = 1024;
+constexpr static const int MAX_BLOCKS = 65535;
 
 
 // constexpr static const int BLOCK_SIZE = 256;
 // constexpr static const size_t TILE_SIZE = 1024;
-// inline int BLOCK_SIZE(size_t t){
-//   if(t > MAX_BLOCKS) return MAX_BLOCKS;
-//   return (t-1)/THREAD_SIZE + 1;
-//
-// }
+inline int GRID_SIZE(size_t t){
+  size_t b =  (t-1)/TILE_SIZE + 1;
+  std::cout << "Grid size" << b <<"\n";
+  assert(b < MAX_BLOCKS);
+  return b;
+}
 
 const int MAX_DEVICES = 8;
 const int MAX_LAYERS = 5;

@@ -54,8 +54,9 @@ template<typename DATATYPE>
 
 template<typename DATATYPE>
  void device_vector<DATATYPE>::debug(std::string str){
+    std::cout << str;
    if(d == nullptr){
-     std::cout << str <<":empty" <<"\n";
+    std::cout <<":empty" <<"\n";
      return;
    }
    DATATYPE * host = (DATATYPE *)malloc(sizeof(DATATYPE) * current_size);
@@ -91,7 +92,7 @@ template<typename DATATYPE>
 void device_vector<DATATYPE>::append(device_vector<DATATYPE> &in){
     size_t start = this->size();
     this->resize(this->size() + in.size());
-    cudaMemcpy(d + start * sizeof(DATATYPE), in.ptr(), sizeof(DATATYPE) * in.size(), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(&d[start], in.ptr(), sizeof(DATATYPE) * in.size(), cudaMemcpyDeviceToDevice);
 }
 
 template<typename DATATYPE>
