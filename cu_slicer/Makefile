@@ -33,10 +33,12 @@ all: build/main.o build/util/cub.o build/util/duplicate.o build/util/device_vect
 	build/util/duplicate.o -o cuslicer
 
 tests: build/tests/test1_fact.o  build/tests/cub_tests.o  build/tests/device_vector.o \
-			build/util/cub.o build/util/device_vector.o build/tests/array_map.o build/util/duplicate.o
-	nvcc -G  build/tests/test1_fact.o build/tests/cub_tests.o \
+			build/util/cub.o build/util/device_vector.o build/tests/array_map.o build/util/duplicate.o \
+				build/tests/sampling.o build/samplers/ns.o build/graph/dataset.o
+	nvcc -G  build/tests/test1_fact.o build/tests/cub_tests.o build/samplers/ns.o  \
 		build/util/cub.o  build/tests/array_map.o build/util/duplicate.o build/tests/device_vector.o  \
-		build/util/device_vector.o -lgtest -o gtests $(FLAGS)
+		build/util/device_vector.o build/tests/sampling.o build/graph/dataset.o\
+		-lgtest -o gtests
 	# ./gtests --gtest_filter=CUB.exclusive_sum
 	./gtests --gtest_filter=ARRAYMAP.memory
 
@@ -64,7 +66,7 @@ build/tests/%.o: tests/%.cu
 
 build/util/%.o: util/%.cu
 	mkdir -p build/util
-	nvcc $(DEBUG) -c $(INCLUDE) $< $(FLAGS) -o $@  
+	nvcc $(DEBUG) -c $(INCLUDE) $< $(FLAGS) -o $@
 
 
 clean:
