@@ -14,28 +14,6 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 }
 
 
-// template<typename T>
-// inline void debugVector(thrust::device_vector<T> t, std::string str){
-//       int i = 0;
-//       std::cout << str <<":";
-//       for(auto v: t){
-//         std::cout << v <<" ";
-//         i++;
-//       }
-//       std::cout << "\n";
-// }
-//
-// template<typename T>
-// inline void checkVectorSame(thrust::host_vector<T> v1, thrust::device_vector<T> v2){
-//   thrust::device_vector<T> v3 = v2;
-//   assert(v1.size() == v2.size());
-//   for(int i=0;i< v1.size(); i++){
-//     if(v3[i] != v1[i]){
-//       std::cout << "Expected: "<<v1[i] <<" but got:" <<v2[i] <<"\n";
-//     }
-//     assert(v3[i] == v1[i]);
-//   }
-// }
 
 // Values from DGL
 constexpr static const int BLOCK_SIZE = 256;
@@ -58,25 +36,3 @@ typedef long NodeID;
 typedef long EdgeID;
 typedef NodeID * EdgePos;
 typedef EdgeID * NodePos;
-
-// inline void remove_duplicates(thrust::device_vector<long>& nodes){
-//   if(nodes.size() == 0)return;
-//   if(nodes.size() > 1){
-//     nvtxRangePush("remove duplicates");
-//     /* cudaEvent_t event1;
-//      cudaEvent_t event2;
-//     cudaEventCreate(&event1);
-//     cudaEventCreate(&event2);
-//     cudaEventRecord(event1,0);
-//     */
-//     thrust::sort(nodes.begin(), nodes.end());
-//     auto it = thrust::unique(nodes.begin(), nodes.end());
-//     nodes.erase(it, nodes.end());
-//     nvtxRangePop();
-//     /*cudaEventRecord(event2,0);
-//     cudaEventSynchronize(event2);
-//     float time;
-//     cudaEventElapsedTime(&time, event1,event2);
-//     std::cout << "Floating Time" << time <<"\n";*/
-//   }
-// }

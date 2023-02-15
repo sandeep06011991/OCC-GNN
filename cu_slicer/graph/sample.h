@@ -2,18 +2,19 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
-#include "../util/vector.h"
-#include <util/cuda_utils.h>
+#include "../util/device_vector.h"
+#include "../util/cuda_utils.h"
+
 using namespace std;
 // A simple sample structure
 // The zeroth block is constructed from the set of target nodes as follows
 // [null, null, batch_ids]
 // Each block is constructed by sampling the neighbours of the previous blocks layer_nids.
 struct Block{
-  cuslicer::vector<long> offsets;
-  cuslicer::vector<long> indices;
-  cuslicer::vector<long> layer_nds;
-  cuslicer::vector<long> in_degree;
+  cuslicer::device_vector<long> offsets;
+  cuslicer::device_vector<long> indices;
+  cuslicer::device_vector<long> layer_nds;
+  cuslicer::device_vector<long> in_degree;
 
 public:
   void clear(){
@@ -24,10 +25,10 @@ public:
   }
 
   void debug(){
-    debugVector<long>(offsets,"offsets");
-    debugVector<long>(indices,"indices");
-    debugVector<long>(layer_nds,"layer_nds");
-    debugVector<long>(in_degree,"in_degree");
+    offsets.debug("offsets");
+    indices.debug("indices");
+    layer_nds.debug("layer_nds");
+    in_degree.debug("in_degree");
   }
 
 };

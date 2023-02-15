@@ -25,6 +25,8 @@ namespace cuslicer{
 
     static void exclusive_scan(cuslicer::device_vector<long> &in, cuslicer::device_vector<long>& out);
 
+    static void inclusive_scan(cuslicer::device_vector<long> &in, cuslicer::device_vector<long>& out);
+
     static void cleanup(){
         d_temp_storage.destroy();
         d_temp_out.destroy();

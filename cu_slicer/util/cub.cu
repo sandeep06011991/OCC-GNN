@@ -8,6 +8,7 @@ namespace cuslicer{
   device_vector<long> transform::temporary;
 
 long transform::reduce(cuslicer::device_vector<long> & data_d){
+    assert(data_d.size() != 0);
     d_temp_out.resize(1);
 
     int num_elements = data_d.size();
@@ -21,6 +22,7 @@ long transform::reduce(cuslicer::device_vector<long> & data_d){
 
 
 void transform::sort(cuslicer::device_vector<long> &in, cuslicer::device_vector<long> &out){
+        assert(in.size() != 0  );
         int  num_items = in.size();          // e.g., 7
         long  *d_keys_in = in.ptr();         // e.g., [8, 6, 7, 5, 3, 0, 9]
         out.resize(num_items);
@@ -35,6 +37,7 @@ void transform::sort(cuslicer::device_vector<long> &in, cuslicer::device_vector<
   }
 
 void transform::unique(cuslicer::device_vector<long>& sorted_in, cuslicer::device_vector<long> & out){
+    assert(sorted_in.size() != 0);
     // Declare, allocate, and initialize device-accessible pointers for input and output
     int  num_items = sorted_in.size();              // e.g., 8
     long  *d_in = sorted_in.ptr();                  // e.g., [0, 2, 2, 9, 5, 5, 5, 8]
@@ -60,6 +63,7 @@ void transform::remove_duplicates(cuslicer::device_vector<long> &in, cuslicer::d
   }
 
 void transform::exclusive_scan(cuslicer::device_vector<long> &in, cuslicer::device_vector<long>& out){
+    assert(in.size() != 0);
     int  num_items = in.size();      // e.g., 7
     long  *d_in = in.ptr();          // e.g., [8, 6, 7, 5, 3, 0, 9]
     out.resize(num_items);
@@ -72,4 +76,19 @@ void transform::exclusive_scan(cuslicer::device_vector<long> &in, cuslicer::devi
     // Run exclusive prefix sum
     cub::DeviceScan::ExclusiveSum(d_temp_storage.ptr(), temp_storage_bytes, d_in, d_out, num_items);
   }
+
+  void transform::inclusive_scan(cuslicer::device_vector<long> &in, cuslicer::device_vector<long>& out){
+      assert(in.size() != 0);
+      int  num_items = in.size();      // e.g., 7
+      long  *d_in = in.ptr();          // e.g., [8, 6, 7, 5, 3, 0, 9]
+      out.resize(num_items);
+      long  *d_out = out.ptr();         // e.g., [ ,  ,  ,  ,  ,  ,  ]
+      // Determine temporary device storage requirements
+      size_t   temp_storage_bytes = 0;
+      cub::DeviceScan::InclusiveSum(NULL, temp_storage_bytes, d_in, d_out, num_items);
+      d_temp_storage.resize(temp_storage_bytes/(sizeof(long)) + 1);
+      // Allocate temporary storage
+      // Run exclusive prefix sum
+      cub::DeviceScan::InclusiveSum(d_temp_storage.ptr(), temp_storage_bytes, d_in, d_out, num_items);
+    }
 }

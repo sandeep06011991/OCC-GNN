@@ -27,7 +27,7 @@ void set_nodes_not_present(long * nodes, size_t nodes_size,
            }else{
            _tv[id] = 0;
        }
-       start += TILE_SIZE;
+       start += BLOCK_SIZE;
     }
 }
 
@@ -50,7 +50,7 @@ void get_unique_nodes(long *nodes, size_t nodes_size,
       #endif
       _tv1[_tv[id]] = nodes[id];
       }
-       start += TILE_SIZE;
+       start += BLOCK_SIZE;
    }
 }
 
@@ -69,7 +69,7 @@ void update_mask_with_unique(int *mask, long mask_size,
           assert(_tv1[id] < mask_size);
       #endif
       mask[_tv1[id]] = current_unique_nodes + id + 1;
-      start += TILE_SIZE;
+      start += BLOCK_SIZE;
     }
 }
 
@@ -86,7 +86,7 @@ void clear_mask(int * mask, long mask_size,\
       assert(used_nodes[id] < mask_size);
   #endif
     mask[used_nodes[id]] = 0;
-    start += TILE_SIZE;
+    start += BLOCK_SIZE;
   }
 }
 
@@ -106,7 +106,7 @@ void update_nodes(int * mask,long  mask_size, long * nodes, size_t node_size){
         assert(mask[nodes[id]] != 0);
     #endif
      nodes[id] = mask[nodes[id]] - 1;
-     start += TILE_SIZE;
+    start += BLOCK_SIZE;
   }
 }
 
@@ -174,12 +174,14 @@ void ArrayMap::order(device_vector<long> &nodes){
   // sort and get unique nodes
   // Step 3
   int current_unique_nodes = this->used_nodes.size();
+
   update_mask_with_unique<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(_tv2.size()), BLOCK_SIZE>>>\
       (mask, mask_size , current_unique_nodes,\
       (_tv2.ptr()),\
           _tv2.size());
   // Step 5
   this->used_nodes.append(_tv2);
+
   _tv2.clear();
 
 }
@@ -208,49 +210,4 @@ ArrayMap::~ArrayMap(){
 
 device_vector<long>& ArrayMap::get_used_nodes(){
   return this->used_nodes;
-}
-
-void test_duplicate(){
-    // std::vector<long> correct_answer = "Something\n";
-    std::vector<long> a = { 14, 12, 9, 9 };
-     cudaSetDevice(0);
-     device_vector<long> d_vec(a);
-    ArrayMap * map = new ArrayMap(2000);
-    device_vector<long> c;
-    transform::remove_duplicates(d_vec,c);
-    map->order(c);
-    map->replace(c);
-
-    c.debug("C");
-    // long src1[] = {9, 15};
-    // thrust::host_vector<long> h_vec1(std::begin(src1), std::end(src1));
-    // thrust::device_vector<long> d_vec1 = h_vec1;
-    // map->order(d_vec1);
-    // map->replace(d_vec1);
-    // map->clear();
-    // d_vec1 = h_vec1;
-    // map->order(d_vec1);
-    // map->replace(d_vec1);
-    // h_vec = d_vec1;
-    // // for(auto i :h_vec){
-	  // //   std::cout << i <<" ";
-    // // }
-    // // std::cout <<"\n";
-    // map->clear();
-    // h_vec.clear();
-    // for(int i = 0; i <1024; i += 2){
-    //   h_vec.push_back(i);
-    // }
-    //
-    // d_vec = h_vec;
-    // map->order(d_vec);
-    // map->replace(d_vec);
-    // h_vec.clear();
-    // for(int i=0;i < 512; i++){
-    //   h_vec.push_back(i);
-    // }
-    // // std::cout <<"miss" << h_vec.size() << " " <<  d_vec1.size() << "\n";
-    // checkVectorSame<long>(h_vec, d_vec);
-    // std::cout << "test 1 done move on\n";
-
 }

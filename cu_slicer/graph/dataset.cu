@@ -27,11 +27,12 @@ void Dataset::read_graph(){
   gpuErrchk(cudaMalloc((void**)&this->indptr_d, ((this->num_nodes + 1) * sizeof(long))));
   file1.read((char *)_indptr,(this->num_nodes + 1) * sizeof(long));
   gpuErrchk(cudaMemcpy(this->indptr_d, _indptr, (this->num_nodes + 1) * sizeof(long) , cudaMemcpyHostToDevice));
-  device_vector<long> t;
-  t.current_size = this->num_nodes + 1;
-  t.d = this->indptr_d;
-  long sum = cuslicer::transform::reduce(t);
-  t.d = nullptr;
+  // TODO Use CUB to get checksum
+  // device_vector<long> t;
+  // t.current_size = this->num_nodes + 1;
+  // t.d = this->indptr_d;
+  // long sum = cuslicer::transform::reduce(t);
+  // t.d = nullptr;
 
   std::fstream file2(this->BIN_DIR + "/cindices.bin",std::ios::in|std::ios::binary);
   long * _indices = (long *)malloc ((this->num_edges) * sizeof(long));
