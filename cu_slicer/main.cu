@@ -23,11 +23,11 @@ int main(){
 // test_duplicate();
   cudaSetDevice(0);
 // std::cout << "hello world\n";
-  std::string graph_name = "synth_8_2";
-  // std::string graph_name = "ogbn-products";
+  // std::string graph_name = "synth_8_2";
+  std::string graph_name = "ogbn-arxiv";
   std::string file = get_dataset_dir() + graph_name;
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false);
-// std::cout << "Read synthetic dataset\n ";
+// std::cout << "Read synthetic dataset\n "; 
 // // // Test2: Construct simple k-hop neighbourhood sample.
 // // // Sample datastructure.
   int num_layers = 1 ;
@@ -45,7 +45,7 @@ int main(){
   ns->sample(target,(*s1));
 
   bool pull_optim = false;
-  int num_gpus = 2;
+  int num_gpus = 4;
 // //
 
   cuslicer::device_vector<int> workload_map;
@@ -76,6 +76,7 @@ int main(){
 
     PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
     PartitionedSample ps1(num_layers, num_gpus);
+    s1->debug();
     sc1->slice_sample((*s1),ps1);
     cuslicer::transform::cleanup();
     std::cout <<"Done !\n";

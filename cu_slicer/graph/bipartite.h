@@ -171,9 +171,26 @@ public:
     // debug_vector("self in  nodes", self_in_nodes, out);
     // debug_vector("pulled in_nodes", pulled_in_nodes, out);
     // debug_vector("out nodes remote", out_nodes_remote, out);
+    in_nodes.debug("In nodes");
     out_nodes_local.debug("Out nodes");
     out_degree_local.debug("Degree");
     indptr_L.debug("indptr_L");
+    indices_L.debug("indices_L");
+    indptr_R.debug("indptr_R");
+    indices_R.debug("indices_R");
+    std::cout << "push offsets\n";
+    for(int i=0; i <num_gpus ;i++){
+        std::cout << to_offsets[i + 1] <<" : ";
+    }
+    std::cout <<"\n";
+    std::cout << "push from\n";
+    for(int i=0; i <num_gpus ;i++){
+        std::cout <<i <<":";
+        push_from_ids[i].debug("push_from");
+    }
+    std::cout <<"\n";
+
+
     // debug_vector("out degree local", out_degree_local, out);
     // std::cout << "To";
     // for(int i=0;i<this->num_gpus;i++){

@@ -18,8 +18,8 @@ namespace cuslicer{
 
       __device__
       inline void  add_value_offset(long val, long pos){
-          assert(pos - 1 -offset >= 0);
-          data[pos] = val - offset;
+        assert(pos >= 0);
+        data[pos] = val - offset;
       }
   };
 
