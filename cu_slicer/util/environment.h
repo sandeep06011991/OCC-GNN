@@ -12,9 +12,7 @@ const std::string aws  = "/home/ubuntu/data/";
 
 const std::string ERROR = "dir_error";
 std::string get_dataset_dir(){
-
 	char * u = getenv("USER");
-
 	std::string user = std::string(u);
   std::cout << "Found user" << user <<"\n";
   if (user == "spolisetty_umass_edu") return unity;

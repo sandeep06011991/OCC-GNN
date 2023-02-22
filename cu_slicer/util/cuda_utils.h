@@ -19,7 +19,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 constexpr static const int BLOCK_SIZE = 256;
 constexpr static const size_t TILE_SIZE = 1024;
 constexpr static const int MAX_BLOCKS = 65535;
-
+constexpr static const int MAX_GPUS = 8;
 
 // constexpr static const int BLOCK_SIZE = 256;
 // constexpr static const size_t TILE_SIZE = 1024;

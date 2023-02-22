@@ -26,7 +26,7 @@ namespace cuslicer{
 
       public:
 
-        DATATYPE *data;
+        DATATYPE *data = nullptr;
 
         cuda_memory(DATATYPE *d){
             this->data = d;
@@ -54,10 +54,11 @@ namespace cuslicer{
    std::shared_ptr<cuda_memory> d;
    // DATATYPE *d = nullptr;
 
+   void fill(DATATYPE d);
 
-    device_vector();
+   device_vector();
 
-   device_vector(std::vector<DATATYPE> &host);
+   device_vector(std::vector<DATATYPE>   &host);
 
    void resize(unsigned long  new_size);
 
@@ -76,6 +77,7 @@ namespace cuslicer{
    void debug(std::string str);
 
    inline DATATYPE * ptr(){
+     if(current_size ==0) return nullptr;
      return d->ptr();
    }
 
@@ -101,11 +103,20 @@ namespace cuslicer{
     d = nullptr;
   }
 
-  device_vector<DATATYPE>& operator=(device_vector<DATATYPE> &in);
+  device_vector<DATATYPE>& operator=(device_vector<DATATYPE>  &in);
+
+  // device_vector<DATATYPE> operator=(device_vector<DATATYPE> in);
+
 
   void append(device_vector<DATATYPE> &in);
 
   bool is_same(std::vector<DATATYPE> &expected);
+
+  void resize_and_zero(int new_size){
+    this->resize(new_size);
+    this->fill(0);
+  }
+
  };
 
 }

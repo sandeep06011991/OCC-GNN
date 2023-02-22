@@ -27,10 +27,16 @@ SRC := $(wildcard util/*.cu graph/*.cu)
 OBJ := $(SRC:%.cu=build/%.o)
 
 all: build/main.o build/util/cub.o build/util/duplicate.o build/util/device_vector.o \
-			build/graph/dataset.o build/samplers/ns.o
+			build/graph/dataset.o build/samplers/ns.o build/transform/push_slice.o build/transform/slice.o
 	nvcc -G build/main.o build/util/cub.o build/util/device_vector.o   build/samplers/ns.o \
-			build/graph/dataset.o \
+			build/graph/dataset.o  build/transform/slice.o build/transform/push_slice.o \
 	build/util/duplicate.o -o cuslicer
+
+traverse: build/traverse_main.o build/util/cub.o build/util/duplicate.o build/util/device_vector.o \
+				build/graph/dataset.o build/samplers/ns.o
+	nvcc -G build/traverse_main.o build/util/cub.o build/util/device_vector.o   build/samplers/ns.o \
+				build/graph/dataset.o  \
+				build/util/duplicate.o -o traverse
 
 tests: build/tests/test1_fact.o  build/tests/cub_tests.o  build/tests/device_vector.o \
 			build/util/cub.o build/util/device_vector.o build/tests/array_map.o build/util/duplicate.o \
@@ -46,6 +52,12 @@ build/main.o : main.cu
 	mkdir -p build/
 	nvcc $(DEBUG) $(INCLUDE) main.cu -c -o build/main.o
 
+
+build/traverse_main.o : traverse_main.cu
+	mkdir -p build/
+	nvcc $(DEBUG) $(INCLUDE) traverse_main.cu -c -o build/traverse_main.o
+
+
 build/graph/%.o: graph/%.cu
 	mkdir -p build/graph
 	nvcc  $(DEBUG) -c $(INCLUDE) $< -o $@
@@ -57,7 +69,8 @@ build/samplers/%.o: samplers/%.cu
 	mkdir -p build/samplers
 	nvcc  $(DEBUG) -c $(INCLUDE) $< -o $@
 
-transform/%.o: transform/%.cu
+build/transform/%.o: transform/%.cu
+	mkdir -p build/transform
 	nvcc $(DEBUG) -c $(INCLUDE) $< -o $@
 
 build/tests/%.o: tests/%.cu

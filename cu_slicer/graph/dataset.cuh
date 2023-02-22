@@ -5,8 +5,10 @@
 #pragma once
 #include <string>
 #include "../util/cuda_utils.h"
+#include "../util/device_vector.h"
 #ifndef DATASET_H
 #define DATASET_H
+
 class Dataset{
 
 private:
@@ -27,12 +29,12 @@ public:
   // const int *labels;
 
   // gpu_partition_map
-  int * partition_map_d;
+  cuslicer::device_vector<int> partition_map_d;
 
   // graph data.
   // Assume in node range same as out node range.
-  long * indptr_d; // size = num_nodes + 1
-  long * indices_d; // size = num_edges
+  cuslicer::device_vector<long> indptr_d; // size = num_nodes + 1
+  cuslicer::device_vector<long> indices_d; // size = num_edges
 
 
   // check sum
@@ -44,8 +46,8 @@ public:
   Dataset(std::string dir, bool testing);
 
   ~Dataset(){
-    gpuErrchk(cudaFree(indptr_d));
-    gpuErrchk(cudaFree(indices_d));
+    // gpuErrchk(cudaFree(indptr_d));
+    // gpuErrchk(cudaFree(indices_d));
   }
 };
 

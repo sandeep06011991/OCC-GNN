@@ -9,13 +9,28 @@
 #include <string>
 #include "../util/device_vector.h"
 // #include <device_vector>
+
+
+
 namespace cuslicer{
+
+template<int BLOCKSIZE, int TILESIZE, typename DATATYPE>
+__global__
+void sample_fill_kernel(DATATYPE *d, size_t sz, DATATYPE fill_value){
+  int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
+  int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE),sz);
+  while(start < end){
+    d[start] = fill_value;
+    start += TILE_SIZE;
+  }
+}
 
 template<typename DATATYPE>
 device_vector<DATATYPE>::device_vector(){
     allocated = 0;
     current_size = 0;
     free_size = 0;
+    d = nullptr;
 }
 
 
@@ -23,6 +38,7 @@ template<typename DATATYPE>
 device_vector<DATATYPE>::device_vector(std::vector<DATATYPE> &host){
     device_vector();
     resize(host.size());
+    if(host.size() == 0)return;
     gpuErrchk(cudaMemcpy(d->ptr(), host.data(), sizeof(DATATYPE) * current_size, cudaMemcpyHostToDevice));
 }
 
@@ -50,8 +66,9 @@ template<typename DATATYPE>
 
 template<typename DATATYPE>
  void device_vector<DATATYPE>::debug(std::string str){
-    std::cout << str;
+  std::cout << str <<":";
    if(d == nullptr){
+     std::cout <<"\n";
      return;
    }
    cudaSetDevice(0);
@@ -110,6 +127,15 @@ bool device_vector<DATATYPE>::is_same(std::vector<DATATYPE> &expected){
   return is_correct;
 }
 
-template class device_vector <long>;
+template<typename DATATYPE>
+void device_vector<DATATYPE>::fill(DATATYPE data){
+  if (this->size() == 0) return;
 
+  sample_fill_kernel<BLOCK_SIZE, TILE_SIZE, DATATYPE><<<GRID_SIZE(this->size()), BLOCK_SIZE>>>(\
+        this->ptr(), this->size(), data);
+}
+
+
+template class device_vector <long>;
+template class device_vector <int>;
 }

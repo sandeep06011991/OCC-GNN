@@ -91,4 +91,19 @@ void transform::exclusive_scan(cuslicer::device_vector<long> &in, cuslicer::devi
       // Run exclusive prefix sum
       cub::DeviceScan::InclusiveSum(d_temp_storage.ptr(), temp_storage_bytes, d_in, d_out, num_items);
     }
+
+    void transform::self_inclusive_scan(cuslicer::device_vector<long> &in){
+        assert(in.size() != 0);
+        int  num_items = in.size();      // e.g., 7
+        long  *d_in = in.ptr();          // e.g., [8, 6, 7, 5, 3, 0, 9]
+        long  *d_out = in.ptr();         // e.g., [ ,  ,  ,  ,  ,  ,  ]
+        // Determine temporary device storage requirements
+        size_t   temp_storage_bytes = 0;
+        cub::DeviceScan::InclusiveSum(NULL, temp_storage_bytes, d_in, d_out, num_items);
+        d_temp_storage.resize(temp_storage_bytes/(sizeof(long)) + 1);
+        // Allocate temporary storage
+        // Run exclusive prefix sum
+        cub::DeviceScan::InclusiveSum(d_temp_storage.ptr(), temp_storage_bytes, d_in, d_out, num_items);
+      }
+
 }

@@ -1,9 +1,10 @@
-#include "util/duplicate.h"
 #include <vector>
 #include <iostream>
-#include <thrust/device_vector.h>
-#include <util/cuda_utils.h>
-using namespace std;
+#include "../util/device_vector.h"
+#include "../util/cuda_utils.h"
+#include "../util/duplicate.h"
+
+
 #pragma once
 
 // ================BiPartite Dest Nodes Order========================
@@ -16,6 +17,9 @@ using namespace std;
 // |   Local_Out | Local In    |  Pulled[1]  | Pulled[2]   | pulled[3]
 // |             |             |             |             |
 // ==================================================================
+namespace cuslicer{
+
+
 class BiPartite{
 
 public:
@@ -25,18 +29,17 @@ public:
   // Follows global order.
   // Built during REORDERING
   // All locally present in nodes
-  thrust::device_vector<long> in_nodes;
-  thrust::device_vector<long> in_nodes_;
+  device_vector<long> in_nodes;
   // Self nodes that are reordered first
-  thrust::device_vector<long> self_in_nodes;
-  thrust::device_vector<long> pulled_in_nodes;
-  thrust::device_vector<long> out_nodes_remote;
-  // out nodes_remote[gpu_i] = out_nodes_remote[remote_offsets[i]:[i+1]]
+  device_vector<long> self_in_nodes;
+  device_vector<long> pulled_in_nodes;
   // Stick to this throughout.
+  // out nodes_remote[gpu_i] = out_nodes_remote[remote_offsets[i]:[i+1]]
 
   // Built during slicing.
-  thrust::device_vector<long> out_nodes_local;
-  thrust::device_vector<long> out_degree_local;
+  device_vector<long> out_nodes_remote;
+  device_vector<long> out_nodes_local;
+  device_vector<long> out_degree_local;
 
   // Built during REORDERING
   // Num in nodes can be much larger then in the actual graph, if we use
@@ -51,22 +54,22 @@ public:
 
   // Built during REORDERING
   // built locally
-  thrust::device_vector<long> indptr_L;
-  thrust::device_vector<long> indices_L;
-  thrust::device_vector<long> indptr_R;
-  thrust::device_vector<long> indices_R;
+  device_vector<long> indptr_L;
+  device_vector<long> indices_L;
+  device_vector<long> indptr_R;
+  device_vector<long> indices_R;
 
   // Build during slicing
-  thrust::device_vector<long> indptr_[MAX_DEVICES];
-  thrust::device_vector<long> indices_[MAX_DEVICES];
+  // device_vector<long> indptr_[MAX_DEVICES];
+  // device_vector<long> indices_[MAX_DEVICES];
 
 
   // Built during reordering
   // Destination vertices out nodes, that have to be send will be populated locally at to_ids_
   // After reordering destination partition stores to_ids as offsets and from_ids are populated at src.
-  thrust::device_vector<long> push_from_ids[MAX_DEVICES];
+  device_vector<long> push_from_ids[MAX_DEVICES];
   int to_offsets[MAX_DEVICES + 1];
-  thrust::device_vector<long> push_to_ids_[MAX_DEVICES];
+  device_vector<long> push_to_ids_[MAX_DEVICES];
   // thrust::device_vector<long> in_nodes_[MAX_DEVICES];
   // Built during slicing
   // vector<long> part_in_nodes[MAX_DEVICES];
@@ -75,9 +78,9 @@ public:
   // These ids will be reordered so that the src partition knows what values to send
   // which are stored in push_to_ids, the dest partition only stores the offsets where
   // to place these recieved values.
-  thrust::device_vector<long> pull_to_ids[MAX_DEVICES];
+  device_vector<long> pull_to_ids[MAX_DEVICES];
   int pull_from_offsets[MAX_DEVICES + 1];
-  thrust::device_vector<long> pull_from_ids_[MAX_DEVICES];
+  device_vector<long> pull_from_ids_[MAX_DEVICES];
 
   // Used for self attention.
   // Built during re-ordering.
@@ -120,7 +123,6 @@ public:
 
   void refresh(){
     in_nodes.clear();
-    in_nodes_.clear();
     pulled_in_nodes.clear();
     out_nodes_remote.clear();
     out_nodes_local.clear();
@@ -134,8 +136,8 @@ public:
     for(int i=0;i<this->num_gpus;i++){
       push_from_ids[i].clear();
       push_to_ids_[i].clear();
-      indptr_[i].clear();
-      indices_[i].clear();
+      // indptr_[i].clear();
+      // indices_[i].clear();
       to_offsets[i + 1] = 0;
       pull_from_offsets[i + 1] = 0;
       pull_to_ids[i].clear();
@@ -151,46 +153,51 @@ public:
 
   void reorder_local(DuplicateRemover *dr);
 
-  void debug_vector(string str, thrust::device_vector<long>& data, std::ostream& stream){
-    stream << str <<":";
-    int c = 0;
-    for(long d: data){
-      stream << d << " ";
-      c ++ ;
-      if (c % 20 == 0 ) stream <<  "\n";
-    }
-    stream <<"\n";
+  void debug_vector(string str, device_vector<long>& data, std::ostream& stream){
+    // stream << str <<":";
+    // int c = 0;
+    // for(long d: data){
+    //   stream << d << " ";
+    //   c ++ ;
+    //   if (c % 20 == 0 ) stream <<  "\n";
+    // }
+    // stream <<"\n";
   }
   void debug(){
-    std::ostream &out = std::cout ;
-    std::cout << "BiPartitie############" << gpu_id <<  "\n";
-    debug_vector("in_nodes", in_nodes, out);
-    debug_vector("self in  nodes", self_in_nodes, out);
-    debug_vector("pulled in_nodes", pulled_in_nodes, out);
-    debug_vector("out nodes remote", out_nodes_remote, out);
-    debug_vector("out nodes local", out_nodes_local, out);
-    debug_vector("out degree local", out_degree_local, out);
-    std::cout << "To";
-    for(int i=0;i<this->num_gpus;i++){
-      std::cout << to_offsets[i+1] << " ";
-    }
-    std::cout << "\n From";
-    for(int i=0;i<this->num_gpus;i++){
-      std::cout << pull_from_offsets[i+1] << " ";
-    }
-    for(int i=0;i<this->num_gpus;i++){
-        std::cout <<  i << ":\n";
-        debug_vector("push_from_ids", push_from_ids[i], out);
-        debug_vector("push_to_ids_", push_to_ids_[i], out);
-        debug_vector("indptr_",indptr_[i], out);
-        debug_vector("indices_", indices_[i], out);
-        debug_vector("pull_to_ids", pull_to_ids[i], out);
-        debug_vector("pull_from_ids", pull_from_ids_[i], out);
-      }
-    debug_vector("indptr_L", indptr_L, out);
-    debug_vector("indices_L", indices_L, out);
-    debug_vector("indptr_R", indptr_R, out);
-    debug_vector("indices_R", indices_R, out);
-    std::cout << "End \n";
+    // std::cout << "Not implemented\n";
+    // std::ostream &out = std::cout ;
+    // std::cout << "BiPartitie############" << gpu_id <<  "\n";
+    // debug_vector("in_nodes", in_nodes, out);
+    // debug_vector("self in  nodes", self_in_nodes, out);
+    // debug_vector("pulled in_nodes", pulled_in_nodes, out);
+    // debug_vector("out nodes remote", out_nodes_remote, out);
+    out_nodes_local.debug("Out nodes");
+    out_degree_local.debug("Degree");
+    indptr_L.debug("indptr_L");
+    // debug_vector("out degree local", out_degree_local, out);
+    // std::cout << "To";
+    // for(int i=0;i<this->num_gpus;i++){
+    //   std::cout << to_offsets[i+1] << " ";
+    // }
+    // std::cout << "\n From";
+    // for(int i=0;i<this->num_gpus;i++){
+    //   std::cout << pull_from_offsets[i+1] << " ";
+    // }
+    // for(int i=0;i<this->num_gpus;i++){
+    //     std::cout <<  i << ":\n";
+    //     debug_vector("push_from_ids", push_from_ids[i], out);
+    //     debug_vector("push_to_ids_", push_to_ids_[i], out);
+    //     debug_vector("indptr_",indptr_[i], out);
+    //     debug_vector("indices_", indices_[i], out);
+    //     debug_vector("pull_to_ids", pull_to_ids[i], out);
+    //     debug_vector("pull_from_ids", pull_from_ids_[i], out);
+    //   }
+    // debug_vector("indptr_L", indptr_L, out);
+    // debug_vector("indices_L", indices_L, out);
+    // debug_vector("indptr_R", indptr_R, out);
+    // debug_vector("indices_R", indices_R, out);
+    // std::cout << "End \n";
   }
 };
+
+}

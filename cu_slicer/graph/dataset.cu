@@ -24,21 +24,17 @@ void Dataset::read_graph(){
   // Different file format as sampling needs csc format or indegree graph
   std::fstream file1(this->BIN_DIR + "/cindptr.bin",std::ios::in|std::ios::binary);
   long  * _indptr = (long *)malloc ((this->num_nodes + 1) * sizeof(long));
-  gpuErrchk(cudaMalloc((void**)&this->indptr_d, ((this->num_nodes + 1) * sizeof(long))));
   file1.read((char *)_indptr,(this->num_nodes + 1) * sizeof(long));
-  gpuErrchk(cudaMemcpy(this->indptr_d, _indptr, (this->num_nodes + 1) * sizeof(long) , cudaMemcpyHostToDevice));
-  // TODO Use CUB to get checksum
-  // device_vector<long> t;
-  // t.current_size = this->num_nodes + 1;
-  // t.d = this->indptr_d;
-  // long sum = cuslicer::transform::reduce(t);
-  // t.d = nullptr;
+  std::vector<long> _t_indptr(_indptr, _indptr + this->num_nodes+ 1);
+  indptr_d = (* new device_vector<long>(_t_indptr));
+
+  long sum = cuslicer::transform::reduce(indptr_d);
 
   std::fstream file2(this->BIN_DIR + "/cindices.bin",std::ios::in|std::ios::binary);
   long * _indices = (long *)malloc ((this->num_edges) * sizeof(long));
   file2.read((char *)_indices,(this->num_edges) * sizeof(long));
-  gpuErrchk(cudaMalloc((void**)&this->indices_d, ((this->num_edges) * sizeof(long))));
-  gpuErrchk(cudaMemcpy(this->indices_d, _indices, (this->num_edges) * sizeof(long) , cudaMemcpyHostToDevice));
+  std::vector<long> _t_indices(_indices, _indices + this->num_edges);
+  indices_d = ( * new device_vector<long>(_t_indices));
 
   free(_indptr);
   free(_indices);
@@ -48,10 +44,12 @@ void Dataset::read_graph(){
 
 void Dataset::read_node_data(){
     // Add feature for flexible partition
-    // Make shared pointer
+    // Make shared pointernaj
     std::fstream file2(this->BIN_DIR + "/partition_map_opt.bin",std::ios::in|std::ios::binary);
     int * _partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
     file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
+    std::vector<int> _t_partition_map(_partition_map, _partition_map + this->num_nodes);
+    partition_map_d = (* new device_vector<int>(_t_partition_map));
     // gpuErrchk(cudaMalloc((void**)&this->partition_map, (this->num_nodes *  sizeof(int))));
     // gpuErrchk(cudaMemcpy(this->partition_map, _partition_map, (this->num_nodes *  sizeof(int)) , cudaMemcpyHostToDevice));
     free(_partition_map);

@@ -2,31 +2,26 @@
 #include <vector>
 #include <cassert>
 #include "bipartite.h"
-#include <thrust/device_vector.h>
-#include "util/cuda_utils.h"
+#include "../util/device_vector.h"
+#include "../util/cuda_utils.h"
+
+namespace cuslicer{
 
 class PartitionedLayer{
   public:
     BiPartite* bipartite[8];
-    // Contains expected size of local graphs
-    // map[nd1, nd2] -> refers to nd1 from nd2
-    // dest node is nd1 and src node is nd2
-    thrust::device_vector<long> index_offset_map[8 * 8];
-    thrust::device_vector<long> index_indices_map[8 * 8];
-    // Used to capture expected number of nodes and edges in all graphs
-    void * device_offset_map;
-    void * device_indices_map;
 
-    // There are 16 local graphs in total
-    // num_gpus * num_gpus to represent for and to nodes.
-    void * device_local_indptr_map;
-    void * device_local_indices_map;
-    //  Contains to nds
-    void * device_local_push_to_nds_map;
-    void * device_local_push_from_nds_map;
-    void * device_local_pull_to_nds_map;
-    void * device_local_pull_from_nds_map;
-    void * device_out_nodes_degree_map;
+    // From each layers graph we select edges per each gpu.
+    // The index_* i th element is set to one to indicate that it is selected
+    // We need one index_* per element to be partitioned per gpu
+    // To minimize overhead we squash all index_* per gpu into the same vector for all gpus.
+    device_vector<long> index_in_nodes;
+    device_vector<long> index_out_nodes_local;
+    device_vector<long> index_out_nodes_remote;
+    device_vector<long> index_indptr_local;
+    device_vector<long> index_indptr_remote;
+    device_vector<long> index_edge_local;
+    device_vector<long> index_edge_remote;
 
     int num_gpus = -1;
     PartitionedLayer(){}
@@ -37,107 +32,49 @@ class PartitionedLayer{
       for(int i=0; i<num_gpus; i++){
         this->bipartite[i] = new BiPartite(i, num_gpus);
       }
-      int map_size = this->num_gpus * this->num_gpus;
-      gpuErrchk(cudaMalloc(&device_offset_map, sizeof(long *) * map_size ));
-      gpuErrchk(cudaMalloc(&device_indices_map, sizeof(long *) * map_size ));
-      gpuErrchk(cudaMalloc(&device_local_indptr_map, sizeof(long *)  * map_size ));
-      gpuErrchk(cudaMalloc(&device_local_indices_map, sizeof(long *)  * map_size ));
-      gpuErrchk(cudaMalloc(&device_local_push_to_nds_map, sizeof(long *)  * map_size ));
-      gpuErrchk(cudaMalloc(&device_local_push_from_nds_map, sizeof(long *)  * map_size ));
-      gpuErrchk(cudaMalloc(&device_local_pull_to_nds_map, sizeof(long *) * map_size));
-      gpuErrchk(cudaMalloc(&device_local_pull_from_nds_map, sizeof(long *) * map_size));
-      gpuErrchk(cudaMalloc(&device_out_nodes_degree_map, sizeof(long *)  * this->num_gpus));
     }
 
-    void resize_index_and_offset_map(int indptr_size, int indices_size){
-       int N = this->num_gpus * this->num_gpus;
+    // Correct sizes are calculated based on partitioning strategy
+    // Push requires num_out_nodes = sample_out_nodes * num_gpus * num_gpus
+    // Pull resuires num_in_nodes = sample_in_nodes * num_gpus * num_gpus
+    void resize_selected_push(int num_out_nodes_local, int num_out_nodes_remote,\
+             int num_edge_local, int num_edge_remote,  int num_in_nodes){
        // n refers to number of graph partitions
-       void * local_offset[N];
-       void * local_indices[N];
-       for(int i = 0; i < N; i++){
-         index_offset_map[i].resize(indptr_size);
-         thrust::fill(index_offset_map[i].begin(), index_offset_map[i].end(), 0);
-         local_offset[i] = thrust::raw_pointer_cast(index_offset_map[i].data());
-         index_indices_map[i].resize(indices_size);
-         thrust::fill(index_indices_map[i].begin(), index_indices_map[i].end(), 0);
-         local_indices[i] = thrust::raw_pointer_cast(index_indices_map[i].data());
-       }
-       gpuErrchk(cudaMemcpy(device_offset_map, local_offset, N * sizeof (void *), cudaMemcpyHostToDevice));
-       gpuErrchk(cudaMemcpy(device_indices_map, local_indices, N * sizeof (void *), cudaMemcpyHostToDevice));
-    }
+       // Sizes per partition are given from slicer.
+       // eg. num_out_nodes_local = nodes in sample out * N_GPUS
+       index_in_nodes.resize_and_zero(num_in_nodes);
+       index_out_nodes_local.resize_and_zero(num_out_nodes_local);
+       index_out_nodes_remote.resize_and_zero(num_out_nodes_remote);
+       index_indptr_local.resize_and_zero(num_out_nodes_local);
+       index_indptr_remote.resize_and_zero(num_out_nodes_remote);
+       index_edge_local.resize_and_zero(num_edge_local);
+       index_edge_remote.resize_and_zero(num_edge_remote);
+   }
 
-  void debug_partition_edges(){
-      for(int i=0;i <this->num_gpus; i++){
-        for(int j=0; j < this->num_gpus; j++){
-          std::cout << "Dest" << i << ":src" << j <<"\n";
-          debugVector(index_offset_map[i * this->num_gpus + j], "Indptr");
-          debugVector(index_indices_map[i * this->num_gpus + j], "Indices");
-        }
-      }
-
+  void debug_index(){
+    std::cout << "Partitioned Sample:\n";
+    index_in_nodes.debug("index_in_nodes");
+    index_out_nodes_local.debug("index out nodes local");
+    index_out_nodes_remote.debug("index_out_nodes remote");
+    index_indptr_local.debug("index_indptr_local");
+    index_indptr_remote.debug("index indptr remote");
+    index_edge_local.debug("index edge local");
+    index_edge_remote.debug("index edge remote");
   }
-  void resize_local_graphs(long * local_graph_nodes,long * local_graph_edges, bool is_push){
-    int N = this->num_gpus * this->num_gpus;
-    void * local_offset[N];
-    void * local_indices[N];
-    void * local_push_to_nds[N];
-    void * local_push_from_nds[N];
-    void * local_pull_to_nds[N];
-    void * local_pull_from_nds[N];
-    void * out_nodes_degree[this->num_gpus];
-    // Add push or pull distinction
 
-    for(int dest =0;dest < this->num_gpus; dest++){
-      for(int src = 0; src < this->num_gpus ;src++){
+  //
+  //   void inclusive_scan_indptr(long * local_nodes){
+  //     for(int dest=0;dest<this->num_gpus;dest++){
+  //       for(int src=0;src<this->num_gpus;src++){
+  //         long N = local_nodes[this->num_gpus * dest + src];
+  //         if(N != 0){
+  //           thrust::device_vector<long> & indptr = bipartite[dest]->indptr_[src];
+  //           thrust::inclusive_scan(indptr.begin(), indptr.end(), indptr.begin());
+  //         }
+  //       }
+  //     }
+  //   }
 
-          long num_nodes = local_graph_nodes[dest * this->num_gpus + src];
-          long num_edges = local_graph_edges[dest * this->num_gpus + src];
-          // std::cout << "Partitioned edges" << dest << ":" << src <<":" << num_nodes <<" "<< num_edges <<"\n";
-          if (src == dest){
-            bipartite[dest]->out_degree_local.resize(local_graph_nodes[src * this->num_gpus + dest]);
-            out_nodes_degree[dest] = thrust::raw_pointer_cast(bipartite[dest]->out_degree_local.data());
-          }
-            bipartite[src]->push_to_ids_[dest].resize(local_graph_nodes[dest * this->num_gpus + src]);
-            bipartite[dest]->push_from_ids[src].resize(local_graph_nodes[dest * this->num_gpus + src]);
-
-            local_push_to_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->push_to_ids_[dest].data());
-            local_push_from_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[dest]->push_from_ids[src].data());
-          if((! is_push) && (src != dest)){
-
-            bipartite[dest]->pull_from_ids_[src].resize(local_graph_edges[dest*this->num_gpus + src]);
-            bipartite[src]->pull_to_ids[dest].resize(local_graph_edges[dest*this->num_gpus + src]);
-
-            local_pull_from_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[dest]->pull_from_ids_[src].data());
-            local_pull_to_nds[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->pull_to_ids[dest].data());
-          }
-          if((is_push ) || (src == dest)){
-            bipartite[src]->indptr_[dest].resize(local_graph_nodes[dest * this->num_gpus + src] + 1);
-            bipartite[src]->indices_[dest].resize(local_graph_edges[dest * this->num_gpus + src]);
-            local_offset[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indptr_[dest].data());
-            local_indices[dest * this->num_gpus + src] = thrust::raw_pointer_cast(bipartite[src]->indices_[dest].data());
-          }
-        }
-      } 
-      gpuErrchk(cudaMemcpy(device_local_indptr_map, local_offset, N * sizeof (void *), cudaMemcpyHostToDevice));
-      gpuErrchk(cudaMemcpy(device_local_indices_map, local_indices, N * sizeof (void *), cudaMemcpyHostToDevice));
-      gpuErrchk(cudaMemcpy(device_local_push_to_nds_map, local_push_to_nds, N * sizeof (void *), cudaMemcpyHostToDevice));
-      gpuErrchk(cudaMemcpy(device_local_push_from_nds_map, local_push_from_nds, N * sizeof(void *), cudaMemcpyHostToDevice));
-      gpuErrchk(cudaMemcpy(device_local_pull_to_nds_map, local_pull_to_nds, N * sizeof (void *), cudaMemcpyHostToDevice));
-      gpuErrchk(cudaMemcpy(device_local_pull_from_nds_map, local_pull_from_nds, N * sizeof(void *), cudaMemcpyHostToDevice));
-      gpuErrchk(cudaMemcpy(device_out_nodes_degree_map, out_nodes_degree, this->num_gpus * sizeof(void *), cudaMemcpyHostToDevice))
-    }
-
-    void inclusive_scan_indptr(long * local_nodes){
-      for(int dest=0;dest<this->num_gpus;dest++){
-        for(int src=0;src<this->num_gpus;src++){
-          long N = local_nodes[this->num_gpus * dest + src];
-          if(N != 0){
-            thrust::device_vector<long> & indptr = bipartite[dest]->indptr_[src];
-            thrust::inclusive_scan(indptr.begin(), indptr.end(), indptr.begin());
-          }
-        }
-      }
-    }
     void clear(){
       for(int i=0;i<this->num_gpus;i++){
         this->bipartite[i]->refresh();
@@ -167,12 +104,12 @@ public:
 
   // From ids are storage order ids in the local cache or local feature
   // To ids are the position they are moved to in the input tensor
-  thrust::device_vector<long> cache_hit_from[MAX_DEVICES];
-  thrust::device_vector<long> cache_hit_to[MAX_DEVICES];
-  thrust::device_vector<long> cache_miss_from[MAX_DEVICES];
-  thrust::device_vector<long> cache_miss_to[MAX_DEVICES];
+  device_vector<long> cache_hit_from[MAX_DEVICES];
+  device_vector<long> cache_hit_to[MAX_DEVICES];
+  device_vector<long> cache_miss_from[MAX_DEVICES];
+  device_vector<long> cache_miss_to[MAX_DEVICES];
   // Nodes of the final raining values.
-  thrust::device_vector<long> last_layer_nodes[MAX_DEVICES];
+  device_vector<long> last_layer_nodes[MAX_DEVICES];
   int num_gpus = -1;
 
   PartitionedSample(int num_layers, int num_gpus){
@@ -204,3 +141,5 @@ public:
     }
   }
 };
+
+}
