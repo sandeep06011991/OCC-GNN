@@ -28,7 +28,7 @@ void aggregate_gcn(std::vector<long> layer_out_nds, \
 	       std::cout << "Found self node which is never the case\n";
         self = in[indices[j]];
       }else{
-        std::cout << "(" << indices[j] <<":"<< in[indices[j]]<<")";
+        // std::cout << "(" << indices[j] <<":"<< in[indices[j]]<<")";
 	      nbs += in[indices[j]];
       }
     }

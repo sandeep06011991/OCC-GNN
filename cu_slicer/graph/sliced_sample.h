@@ -44,7 +44,6 @@ class PartitionedLayer{
        // eg. num_out_nodes_local = nodes in sample out * N_GPUS
        index_in_nodes.resize_and_zero(num_in_nodes);
        index_out_nodes_local.resize_and_zero(num_out_nodes_local);
-       index_out_nodes_local.debug("CHECK1################");
        index_out_nodes_remote.resize_and_zero(num_out_nodes_remote);
        index_indptr_local.resize_and_zero(num_out_nodes_local);
        index_indptr_remote.resize_and_zero(num_out_nodes_remote);

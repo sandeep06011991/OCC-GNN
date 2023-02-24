@@ -245,7 +245,6 @@ void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, 
         offset_indptr = ps.index_indptr_local[num_out_nodes * i - 1];
         offset = ps.index_out_nodes_local[num_out_nodes * i - 1];
       }
-      ps.index_out_nodes_local.debug("INDEX OUT");
       size = size - offset;
       bp.out_nodes_local.resize(size);
       bp.num_out_local = size;
@@ -291,7 +290,6 @@ void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, 
         }
         auto end = ps.index_out_nodes_remote[global_offset + ((j + 1)  * num_out_nodes) - 1];
         bp.to_offsets[to + 1] = end - start + bp.to_offsets[to];
-        std::cout << to << ":" << i << ":" << end <<":"<< start <<"\n";
         ps.bipartite[to]->push_from_ids[i].resize(end - start);
         this->host_graph_info[to].push_from_ids[i].data = ps.bipartite[to]->push_from_ids[i].ptr();
         this->host_graph_info[to].push_from_ids[i].offset = start;
@@ -349,7 +347,6 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
 
     #endif
     gpuErrchk(cudaDeviceSynchronize());
-    ps.index_out_nodes_local.debug("CHECK");
     // Stage 2 get sizes of Offsets for all graphs
     // Inclusive Scan Everything
     resize_bipartite_graphs(ps, num_in_nodes, num_out_nodes, num_edges);
@@ -374,7 +371,6 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
       gpuErrchk(cudaDeviceSynchronize());
     #endif
 
-    std::cout << "out node \n";
     // Fill Local Node Info
     fill_out_nodes_local<BLOCK_SIZE, TILE_SIZE>\
     <<<GRID_SIZE( ps.index_out_nodes_local.size()),BLOCK_SIZE>>>\
@@ -401,14 +397,11 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
   fill_in_nodes<BLOCK_SIZE, TILE_SIZE>\
         <<<GRID_SIZE( ps.index_in_nodes.size()),BLOCK_SIZE>>>(ps.index_in_nodes.ptr(), \
        this->device_graph_info, num_gpus, bs.layer_nds.ptr(), num_in_nodes);
-    std::cout << "fill in  nodes\n";
 
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());
     #endif
 
-    // ps.debug();
-    std::cout << "Actually worked !\n";
     // Fill Remote Node Info
 
 }

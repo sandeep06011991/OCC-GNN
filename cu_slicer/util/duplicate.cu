@@ -184,9 +184,7 @@ void ArrayMap::order(device_vector<long> &nodes){
       (_tv2.ptr()),\
           _tv2.size());
   // Step 5
-  this->used_nodes.debug("CHECK");
   this->used_nodes.append(_tv2);
-    this->used_nodes.debug("CHECK");
 
   _tv2.clear();
 

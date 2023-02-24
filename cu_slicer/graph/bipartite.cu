@@ -11,9 +11,9 @@
 
 using namespace cuslicer;
 
-void BiPartite::reorder_local(DuplicateRemover *dr){
-  // dr->clear();
-  // dr->order(in_nodes);
-  // dr->replace(indices_L);
-  // dr->replace(indices_R);
-}
+// void BiPartite::reorder_local(DuplicateRemover *dr){
+//   // dr->clear();
+//   // dr->order(in_nodes);
+//   // dr->replace(indices_L);
+//   // dr->replace(indices_R);
+// }

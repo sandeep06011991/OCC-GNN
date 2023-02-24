@@ -97,27 +97,7 @@ public:
 
 
 
-  // Single function for all remote graphs.
-  // Deprecated not used in cuda version
-  // void merge_graph(vector<long> &edges, long nd_dest, int partition_id){
-  //     // Both GCN and GAT need in node
-  //     thrust::device_vector<long> & indptr_c  = indptr_[partition_id];
-  //     thrust::device_vector<long> & indices_c  = indices_[partition_id];
-  //     thrust::device_vector<long> & to_ids_c  = to_ids_[partition_id];
-  //     if(indptr_c.size() == 0)indptr_c.push_back(0);
-  //     indices_c.insert(indices_c.end(), edges.begin(), edges.end());
-  //     indptr_c.push_back(indices_c.size());
-  //     to_ids_c.push_back(nd_dest);
-  // }
 
-  //
-  // void merge_pull_nodes(vector<long> pull_nodes, long p_id){
-  //     pull_from_ids_[p_id].insert(pull_from_ids_[p_id].end(), pull_nodes.begin(), pull_nodes.end());
-  // }
-  //
-  // void merge_local_in_nodes(vector<long> in_nodes){
-  //     this->in_nodes.insert(this->in_nodes.end(), in_nodes.begin(), in_nodes.end());
-  // }
 
 
   void refresh(){
@@ -152,16 +132,6 @@ public:
 
   void reorder_local(DuplicateRemover *dr);
 
-  void debug_vector(std::string str, device_vector<long>& data, std::ostream& stream){
-    // stream << str <<":";
-    // int c = 0;
-    // for(long d: data){
-    //   stream << d << " ";
-    //   c ++ ;
-    //   if (c % 20 == 0 ) stream <<  "\n";
-    // }
-    // stream <<"\n";
-  }
   void debug(){
     // std::cout << "Not implemented\n";
     // std::ostream &out = std::cout ;
@@ -191,29 +161,7 @@ public:
     std::cout <<"\n";
 
 
-    // debug_vector("out degree local", out_degree_local, out);
-    // std::cout << "To";
-    // for(int i=0;i<this->num_gpus;i++){
-    //   std::cout << to_offsets[i+1] << " ";
-    // }
-    // std::cout << "\n From";
-    // for(int i=0;i<this->num_gpus;i++){
-    //   std::cout << pull_from_offsets[i+1] << " ";
-    // }
-    // for(int i=0;i<this->num_gpus;i++){
-    //     std::cout <<  i << ":\n";
-    //     debug_vector("push_from_ids", push_from_ids[i], out);
-    //     debug_vector("push_to_ids_", push_to_ids_[i], out);
-    //     debug_vector("indptr_",indptr_[i], out);
-    //     debug_vector("indices_", indices_[i], out);
-    //     debug_vector("pull_to_ids", pull_to_ids[i], out);
-    //     debug_vector("pull_from_ids", pull_from_ids_[i], out);
-    //   }
-    // debug_vector("indptr_L", indptr_L, out);
-    // debug_vector("indices_L", indices_L, out);
-    // debug_vector("indptr_R", indptr_R, out);
-    // debug_vector("indices_R", indices_R, out);
-    // std::cout << "End \n";
+  
   }
 };
 

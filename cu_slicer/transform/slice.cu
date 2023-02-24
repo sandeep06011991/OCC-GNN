@@ -54,15 +54,12 @@ void Slice::reorder(PartitionedLayer &l){\
      for(int to = 0; to < this->num_gpus; to ++){
        // l.bipartite[to]->reorder_local(dr);
        dr->clear();
-       std::cout << "Total size " << l.bipartite[to]->out_nodes_local.size();
-        l.bipartite[to]->out_nodes_local.debug("OUT");
        dr->order(l.bipartite[to]->out_nodes_local);
 
 
        for(int from = 0; from < this->num_gpus; from++){
 	       if(from == to) continue;
-         l.bipartite[to]->push_from_ids[from].debug("REM");
-    	   dr->replace(l.bipartite[to]->push_from_ids[from]);
+         dr->replace(l.bipartite[to]->push_from_ids[from]);
        }
      }
     // for(int pull_from = 0;pull_from < this->num_gpus; pull_from++){
@@ -98,10 +95,8 @@ void Slice::reorder(PartitionedLayer &l){\
     gpuErrchk(cudaDeviceSynchronize());
 
     cuslicer::transform::self_inclusive_scan_int(cache_hit_mask);
-    cache_miss_mask.debug("Pre \n");
 
     cuslicer::transform::self_inclusive_scan_int(cache_miss_mask);
-    cache_miss_mask.debug("check\n");
 
     //  thrust::inclusive_scan(cache_hit_mask.begin(), cache_hit_mask.end(), cache_hit_mask.begin());
   	//  thrust::inclusive_scan(cache_miss_mask.begin(), cache_miss_mask.end(), cache_miss_mask.begin());
@@ -112,7 +107,6 @@ void Slice::reorder(PartitionedLayer &l){\
      ps.cache_hit_from[gpuid].resize(hits);
      ps.cache_miss_to[gpuid].resize(misses);
      ps.cache_hit_to[gpuid].resize(hits);
-     std::cout << hits <<":" << misses <<":" << hits + misses << ":" << in_nodes.size() <<"\n";
      assert(hits + misses == in_nodes.size());
   	 fill_cache_nodes<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(in_nodes.size()), BLOCK_SIZE>>>(in_nodes.ptr(),\
    		       storage_map[gpuid].ptr(),\
@@ -132,7 +126,6 @@ void Slice::reorder(PartitionedLayer &l){\
     	  PartitionedLayer& l = ps.layers[i-1];
         this->slice_layer(s.block[i-1]->layer_nds, \
             (* s.block[i]), l, last_layer);
-            std::cout << "Try reorder\n";
         this->reorder(l);
       }
       #ifdef DEBUG
@@ -151,5 +144,4 @@ void Slice::reorder(PartitionedLayer &l){\
           }
           ps.last_layer_nodes[i] = ps.layers[0].bipartite[i]->out_nodes_local;
       }
-      std::cout << "Reordering successful \n";
 }

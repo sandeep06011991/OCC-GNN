@@ -76,7 +76,7 @@ int main(){
 
     PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
     PartitionedSample ps1(num_layers, num_gpus);
-    s1->debug();
+    // s1->debug();
     sc1->slice_sample((*s1),ps1);
 
 //     // PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
@@ -98,9 +98,9 @@ int main(){
 //    // std::cout << "Pull done \n";
 //    // std::cout << "everything but cache managemnet done !\n";
 // // //   std::cout << "slicing done \n";
-  ps1.debug();
+  // ps1.debug();
 // //
-  test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+  // test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
 
   cuslicer::transform::cleanup();
   std::cout <<"Done !\n";
