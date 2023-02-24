@@ -1,8 +1,9 @@
 #pragma once
-#include "graph/sliced_sample.h"
+#include "../graph/sliced_sample.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <iostream>
+
 
 #include <torch/extension.h>
 using namespace std;
@@ -36,7 +37,7 @@ public:
 
   int gpu_id;
 
-  PyBipartite(BiPartite *bp, int local_gpu_id, int num_gpus);
+  PyBipartite(cuslicer::BiPartite *bp, int local_gpu_id, int num_gpus);
 
   ~PyBipartite();
 };
@@ -55,19 +56,17 @@ public:
 
   std::vector<int> debug_vals;
 
-
-
-  PySample(PartitionedSample &s, int current_gpu, int num_gpus);
+  PySample(cuslicer::PartitionedSample &s, int current_gpu, int num_gpus);
 
   ~PySample();
 };
 
 
-inline torch::Tensor getTensor(thrust::device_vector<long> &v, c10::TensorOptions opts){
+inline torch::Tensor getTensor(cuslicer::device_vector<long> &v, c10::TensorOptions opts){
     if(v.size() == 0){
       return torch::empty(v.size(),opts);
     }else{
-      return torch::from_blob((long *)thrust::raw_pointer_cast(v.data()), {(long)v.size()}, opts).clone();
+      return torch::from_blob(v.ptr(), {(long)v.size()}, opts).clone();
 
     }
 

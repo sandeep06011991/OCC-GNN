@@ -3,8 +3,7 @@
 #include "../util/device_vector.h"
 #include "../util/cuda_utils.h"
 #include "../util/duplicate.h"
-
-
+#include <string>
 #pragma once
 
 // ================BiPartite Dest Nodes Order========================
@@ -153,7 +152,7 @@ public:
 
   void reorder_local(DuplicateRemover *dr);
 
-  void debug_vector(string str, device_vector<long>& data, std::ostream& stream){
+  void debug_vector(std::string str, device_vector<long>& data, std::ostream& stream){
     // stream << str <<":";
     // int c = 0;
     // for(long d: data){
@@ -172,7 +171,8 @@ public:
     // debug_vector("pulled in_nodes", pulled_in_nodes, out);
     // debug_vector("out nodes remote", out_nodes_remote, out);
     in_nodes.debug("In nodes");
-    out_nodes_local.debug("Out nodes");
+    out_nodes_local.debug("Out nodes local");
+    out_nodes_remote.debug("Out nodes remote");
     out_degree_local.debug("Degree");
     indptr_L.debug("indptr_L");
     indices_L.debug("indices_L");

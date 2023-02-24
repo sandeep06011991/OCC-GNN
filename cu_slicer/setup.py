@@ -24,7 +24,9 @@ ext_modules = [
     CUDAExtension(
         "cuslicer",
         sources = [\
-            "transform/slice.cu", "transform/pull_slice.cu", "transform/push_slice.cu",\
+            "transform/slice.cu", \
+                # "transform/pull_slice.cu",
+                "transform/push_slice.cu",\
              "graph/bipartite.cu", "graph/dataset.cu",\
               "samplers/ns.cu", \
               "util/duplicate.cu",\
@@ -40,7 +42,7 @@ ext_modules = [
                         ],
         depends = ["util/environment.h","bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
             ,"util/conqueue.h"]  ,
-        include_dirs=[pybind11.get_include(),".",ROOT,"/home/spolisetty/thirdparty/thrust",\
+        include_dirs=[pybind11.get_include(),".",ROOT,\
             "/home/spolisetty/thirdparty/thrust/dependencies/cub","/home/spolisetty/3rdparty/thrust/dependencies/libcubxx" ],
         language='c++',
         extra_compile_args=['--extended-lambda']

@@ -8,7 +8,7 @@
 #include <vector>
 #include "transform/slice.h"
 #include "graph/sliced_sample.h"
-// #include "tests/test.h"
+#include "tests/test.h"
 #include "util/device_vector.h"
 #include "util/cub.h"
 #include "util/duplicate.h"
@@ -27,15 +27,15 @@ int main(){
   std::string graph_name = "ogbn-arxiv";
   std::string file = get_dataset_dir() + graph_name;
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false);
-// std::cout << "Read synthetic dataset\n "; 
+// std::cout << "Read synthetic dataset\n ";
 // // // Test2: Construct simple k-hop neighbourhood sample.
 // // // Sample datastructure.
   int num_layers = 1 ;
   Sample *s1  = new Sample(num_layers);
-  vector<int> fanout({-1});
+  vector<int> fanout({20});
   bool self_edge = false;
   std::vector<long> training_nodes;
-  for(int i=0;i<1;i++){
+  for(int i=0;i<300;i++){
       training_nodes.push_back(i);
   }
 
@@ -44,7 +44,7 @@ int main(){
   cuslicer::device_vector<long> target(training_nodes);
   ns->sample(target,(*s1));
 
-  bool pull_optim = false;
+    bool pull_optim = false;
   int num_gpus = 4;
 // //
 
@@ -78,10 +78,7 @@ int main(){
     PartitionedSample ps1(num_layers, num_gpus);
     s1->debug();
     sc1->slice_sample((*s1),ps1);
-    cuslicer::transform::cleanup();
-    std::cout <<"Done !\n";
 
-    return 0;
 //     // PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
 //    std::cout << "Slicer created \n";
 // //   s1->debug();
@@ -93,16 +90,22 @@ int main(){
 //    sc1->slice_sample((*s1), ps2);
 //      // ps2.debug();
 //    // std::cout << "Push done \n";
-//    // ps1.debug();
+   // ps1.debug();
+   // return 0;
 //    //
 //
 //    // ps2.debug();
 //    // std::cout << "Pull done \n";
 //    // std::cout << "everything but cache managemnet done !\n";
 // // //   std::cout << "slicing done \n";
-// //   //ps.debug();
+  ps1.debug();
 // //
-//   // test_sample_partition_consistency((*s1),ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+  test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+
+  cuslicer::transform::cleanup();
+  std::cout <<"Done !\n";
+
+  return 0;
 //   // test_pull_benefits(*s1, workload_map, storage, rounds);
 //
 //   // test_reduction_communication_computation(*s1,workload_map,

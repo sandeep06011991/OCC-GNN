@@ -43,3 +43,14 @@ TEST(CUB, exclusive_scan){
   EXPECT_TRUE(c.is_same(ref));
   cuslicer::transform::cleanup();
 }
+
+TEST(CUB, inclusive_scan_int ){
+  cudaSetDevice(0);
+  std::vector<int> a = {1,2,3,5,5};
+  std::vector<int> ref = {1,3,6,11,16};
+  cuslicer::device_vector<int> b(a);
+  cuslicer::device_vector<int> c;
+  cuslicer::transform:: self_inclusive_scan_int(b);
+  EXPECT_TRUE(b.is_same(ref));
+  cuslicer::transform::cleanup();
+}

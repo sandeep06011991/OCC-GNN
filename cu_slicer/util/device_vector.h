@@ -107,6 +107,13 @@ namespace cuslicer{
 
   // device_vector<DATATYPE> operator=(device_vector<DATATYPE> in);
 
+  std::vector<DATATYPE> to_std_vector(){
+      std::vector<DATATYPE> local;
+      if (this->current_size == 0) return std::move(local);
+      local.resize(this->current_size);
+      cudaMemcpy(local.data(), this->d->ptr(), sizeof(DATATYPE) * this->current_size, cudaMemcpyDeviceToHost);
+      return std::move(local);
+  }
 
   void append(device_vector<DATATYPE> &in);
 

@@ -162,6 +162,10 @@ void ArrayMap::assert_no_duplicates(device_vector<long> &nodes){
   #ifdef DEBUG
       // check no duplicates;
       transform::unique(nodes, _tv);
+      if(_tv.size()!= nodes.size()){
+        _tv.debug("Unique");
+        nodes.debug("Not Unique");
+      }
       assert(_tv.size()  == nodes.size());
   #endif
 }
@@ -180,7 +184,9 @@ void ArrayMap::order(device_vector<long> &nodes){
       (_tv2.ptr()),\
           _tv2.size());
   // Step 5
+  this->used_nodes.debug("CHECK");
   this->used_nodes.append(_tv2);
+    this->used_nodes.debug("CHECK");
 
   _tv2.clear();
 
@@ -198,6 +204,7 @@ void ArrayMap::clear(){
 
 
 void ArrayMap::replace(device_vector<long> &nodes){
+  if(nodes.size() == 0)return;
   update_nodes<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(nodes.size()), BLOCK_SIZE>>>\
       (mask, mask_size, (nodes.ptr()), nodes.size());
 

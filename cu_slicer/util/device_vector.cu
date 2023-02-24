@@ -62,11 +62,11 @@ template<typename DATATYPE>
   current_size = new_size;
   free_size = allocated-current_size;
 }
-
+   
 
 template<typename DATATYPE>
  void device_vector<DATATYPE>::debug(std::string str){
-  std::cout << str <<":";
+  std::cout << str <<":" ;
    if(d == nullptr){
      std::cout <<"\n";
      return;
@@ -77,6 +77,7 @@ template<typename DATATYPE>
    gpuErrchk(cudaMemcpy(host, d->ptr(), sizeof(DATATYPE) * current_size, cudaMemcpyDeviceToHost));
    for(int i = 0; i < current_size; i ++){
      std::cout << host[i] << " ";
+     if((i + 1) % 10 == 0) std::cout <<"\n";
    }
    std::cout << "\n";
 
@@ -104,11 +105,15 @@ device_vector<DATATYPE>& device_vector<DATATYPE>::operator=(device_vector<DATATY
    return *this;
 }
 
-template<typename DATATYPE>
+template<typename  DATATYPE>
 void device_vector<DATATYPE>::append(device_vector<DATATYPE> &in){
     size_t start = this->size();
+    auto old =  d;
     this->resize(this->size() + in.size());
     cudaMemcpy(&(d->ptr()[start]), in.ptr(), sizeof(DATATYPE) * in.size(), cudaMemcpyDeviceToDevice);
+    if(start != 0){
+      cudaMemcpy(d->ptr(), old->ptr(), sizeof(DATATYPE) * start, cudaMemcpyDeviceToDevice);
+    }
 }
 
 template<typename DATATYPE>

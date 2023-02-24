@@ -1,9 +1,10 @@
 #include "pyobj/pybipartite.h"
 #include <pybind11/stl.h>
-#include "graph/bipartite.h"
+#include "../graph/bipartite.h"
 #include <thrust/device_vector.h>
 namespace py = pybind11;
 
+using namespace cuslicer;
 
 PyBipartite::PyBipartite(BiPartite *bp, int local_gpu_id, int num_gpus){
     // std::cout << bp->gpu_id <<"\n";

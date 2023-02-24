@@ -4,16 +4,16 @@
 #include <vector>
 #include <string>
 #include "pybipartite.h"
-#include "graph/dataset.cuh"
-#include "transform/slice.h"
-#include "util/environment.h"
-#include "samplers/samplers.h"
-#include "graph/sample.h"
+#include "../graph/dataset.cuh"
+#include "../transform/slice.h"
+#include "../util/environment.h"
+#include "../samplers/samplers.h"
+#include "../graph/sample.h"
 #include <cstdlib>
 #include <iostream>
 #include <ctime>
 #include <chrono>
-#include <util/cuda_utils.h>
+#include "../util/cuda_utils.h"
 using namespace std::chrono;
 namespace py = pybind11;
 
@@ -34,8 +34,8 @@ class CSlicer{
     int samples_generated = 0;
     long num_nodes;
 
-    thrust::device_vector<int> storage_map[MAX_DEVICES];
-    thrust::device_vector<int> workload_map;
+    std::vector<int> storage_map[MAX_DEVICES];
+    std::vector<int> workload_map;
     int gpu_capacity[MAX_DEVICES];
     NeighbourSampler *neighbour_sampler;
     Slice *slicer;
@@ -49,7 +49,6 @@ class CSlicer{
 
 public:
     // py::list v;
-
     CSlicer(const std::string &name,
       std::vector<std::vector<long>> gpu_map,
       vector<int> fanout,
@@ -70,9 +69,9 @@ public:
         this->self_edge = self_edge;
         std::cout << "Start popilation\n";
 
-        workload_map = dataset->partition_map;
+        workload_map = dataset->partition_map_d.to_std_vector();
 
-        thrust::host_vector<long> _t;
+        std::vector<int> _t;
         std::cout << "begin data populatiopn\n";
         for(int i=0;i<num_gpus;i++){
           int order =0;
@@ -108,20 +107,20 @@ public:
       cudaSetDevice(current_gpu);
       auto start1 = high_resolution_clock::now();
 
-      thrust::device_vector<long> sample_nodes_d = thrust::host_vector<long>(sample_nodes.begin(), sample_nodes.end());
+      cuslicer::device_vector<long> sample_nodes_d(sample_nodes);
       this->neighbour_sampler->sample(sample_nodes_d, *sample);
-      cudaDeviceSynchronize();	
+      cudaDeviceSynchronize();
       auto start2 = high_resolution_clock::now();
 
-	
+
       // spdlog::info("slice begin");
       std::cout << "attempting slicing \n";
       this->slicer->slice_sample(*sample, *p_sample);
-  	cudaDeviceSynchronize();    
+  	  cudaDeviceSynchronize();
       auto start3 = high_resolution_clock::now();
       auto duration1 = duration_cast<milliseconds>(start2 - start1);
       auto duration2 = duration_cast<milliseconds>(start3 -start2);
-	
+
      std::cout << "sample " << (double)duration1.count()/1000 << "slice"<< (double)duration2.count()/1000 <<"\n";
 
       // spdlog::info("covert to torch");
