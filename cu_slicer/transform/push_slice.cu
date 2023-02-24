@@ -245,6 +245,7 @@ void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, 
         offset_indptr = ps.index_indptr_local[num_out_nodes * i - 1];
         offset = ps.index_out_nodes_local[num_out_nodes * i - 1];
       }
+      ps.index_out_nodes_local.debug("INDEX OUT");
       size = size - offset;
       bp.out_nodes_local.resize(size);
       bp.num_out_local = size;
@@ -345,9 +346,10 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
           ps.index_edge_local.ptr(), ps.index_edge_remote.ptr(),\
           last_layer, this->storage_map_flattened,this->num_gpus);
     #ifdef DEBUG
-      gpuErrchk(cudaDeviceSynchronize());
-    #endif
 
+    #endif
+    gpuErrchk(cudaDeviceSynchronize());
+    ps.index_out_nodes_local.debug("CHECK");
     // Stage 2 get sizes of Offsets for all graphs
     // Inclusive Scan Everything
     resize_bipartite_graphs(ps, num_in_nodes, num_out_nodes, num_edges);
@@ -400,7 +402,7 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
         <<<GRID_SIZE( ps.index_in_nodes.size()),BLOCK_SIZE>>>(ps.index_in_nodes.ptr(), \
        this->device_graph_info, num_gpus, bs.layer_nds.ptr(), num_in_nodes);
     std::cout << "fill in  nodes\n";
-    
+
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());
     #endif

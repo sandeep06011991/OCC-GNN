@@ -54,9 +54,11 @@ void Slice::reorder(PartitionedLayer &l){\
      for(int to = 0; to < this->num_gpus; to ++){
        // l.bipartite[to]->reorder_local(dr);
        dr->clear();
+       std::cout << "Total size " << l.bipartite[to]->out_nodes_local.size();
+        l.bipartite[to]->out_nodes_local.debug("OUT");
        dr->order(l.bipartite[to]->out_nodes_local);
 
-       l.bipartite[to]->out_nodes_local.debug("OUT");
+
        for(int from = 0; from < this->num_gpus; from++){
 	       if(from == to) continue;
          l.bipartite[to]->push_from_ids[from].debug("REM");
@@ -130,6 +132,7 @@ void Slice::reorder(PartitionedLayer &l){\
     	  PartitionedLayer& l = ps.layers[i-1];
         this->slice_layer(s.block[i-1]->layer_nds, \
             (* s.block[i]), l, last_layer);
+            std::cout << "Try reorder\n";
         this->reorder(l);
       }
       #ifdef DEBUG

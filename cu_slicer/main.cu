@@ -30,12 +30,12 @@ int main(){
 // std::cout << "Read synthetic dataset\n ";
 // // // Test2: Construct simple k-hop neighbourhood sample.
 // // // Sample datastructure.
-  int num_layers = 1 ;
+  int num_layers = 3 ;
   Sample *s1  = new Sample(num_layers);
-  vector<int> fanout({20});
+  vector<int> fanout({20,20,20});
   bool self_edge = false;
   std::vector<long> training_nodes;
-  for(int i=0;i<300;i++){
+  for(int i=0;i<4096;i++){
       training_nodes.push_back(i);
   }
 

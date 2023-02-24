@@ -21,7 +21,7 @@ void sample_fill_kernel(DATATYPE *d, size_t sz, DATATYPE fill_value){
   int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE),sz);
   while(start < end){
     d[start] = fill_value;
-    start += TILE_SIZE;
+    start += BLOCK_SIZE;
   }
 }
 
@@ -62,7 +62,7 @@ template<typename DATATYPE>
   current_size = new_size;
   free_size = allocated-current_size;
 }
-   
+
 
 template<typename DATATYPE>
  void device_vector<DATATYPE>::debug(std::string str){
