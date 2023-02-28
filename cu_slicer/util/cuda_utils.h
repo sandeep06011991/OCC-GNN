@@ -18,14 +18,17 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 // Values from DGL
 constexpr static const int BLOCK_SIZE = 256;
 constexpr static const size_t TILE_SIZE = 1024;
-constexpr static const int MAX_BLOCKS = 65535;
+constexpr static const int MAX_BLOCKS = 10000;
 constexpr static const int MAX_GPUS = 8;
 
 // constexpr static const int BLOCK_SIZE = 256;
 // constexpr static const size_t TILE_SIZE = 1024;
 inline int GRID_SIZE(size_t t){
   size_t b =  (t-1)/TILE_SIZE + 1;
-  assert(b < MAX_BLOCKS);
+  if(b >= MAX_BLOCKS){
+    std::cout << "Calculated Blocks " << b <<" which is above MAX BLOCKS\n";
+    return MAX_BLOCKS;
+  }
   return b;
 }
 

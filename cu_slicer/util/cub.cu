@@ -20,7 +20,6 @@ long transform::reduce(cuslicer::device_vector<long> & data_d){
     return d_temp_out[0];
 }
 
-
 void transform::sort(cuslicer::device_vector<long> &in, cuslicer::device_vector<long> &out){
         assert(in.size() != 0  );
         int  num_items = in.size();          // e.g., 7

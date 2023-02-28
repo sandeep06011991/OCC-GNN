@@ -32,7 +32,6 @@ void aggregate_gcn(std::vector<long> layer_out_nds, \
 	      nbs += in[indices[j]];
       }
     }
-    std::cout << "Adding " << nbs <<":" << degree[i] <<":" << in[i] <<"\n";
     out.push_back((nbs/degree[i]) + in[i]);
     // std::cout << "in value is " << in[i] <<"\n";
     //out.push_back((nbs/degree[i]) + self);
@@ -54,7 +53,6 @@ int naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
    }
 
    for(int i=s.num_layers - 1; i >=0; i--){
-     std::cout << "Working on first layer \n";
      aggregate_gcn(s.block[i]->layer_nds.to_std_vector(), s.block[i+1]->layer_nds.to_std_vector(), \
           s.block[i+1]->offsets.to_std_vector(), s.block[i+1]->indices.to_std_vector(), \
           s.block[i+1]->in_degree.to_std_vector(), in_f, out_f);
@@ -69,10 +67,8 @@ int naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
 
 void aggregate(std::vector<int> &out, std::vector<int> &in,
         std::vector<long> indptr, std::vector<long> indices){
-          std::cout << "Checl \n";
     if(indptr.size()<2)return;
     if(indptr.size()>1){
-        std::cout << out.size() <<" " << indptr.size() <<"\n";
         assert(out.size() == indptr.size()-1);
     }
 
@@ -85,10 +81,9 @@ void aggregate(std::vector<int> &out, std::vector<int> &in,
           if(in[indices[off]] < 0){
             std::cout <<"Incorrect read "<<  indices[off] << " " << in[indices[off]] <<"\n";
           }
-          std::cout << "(" << in[indices[off]]<<":"<<indices[off]<<")";
+          // std::cout << "(" << in[indices[off]]<<":"<<indices[off]<<")";
           assert(in[indices[off]] >= 0);
       }
-      std::cout <<"\n";
       out[i] = t;
     }
 }
@@ -101,9 +96,7 @@ void shuffle(std::vector<long> from_ids,  std::vector<int> &to,
     std::cout << "Shuffling " << from_ids.size() << ":" << start <<":"<< end  <<"\n";
   }
   for(int i=0; i< (int) from_ids.size(); i++){
-    std::cout << "Before shuffle" << to[from_ids[i]] <<"\n";
     to[from_ids[i]] += from[start + i];
-    std::cout << "Shuffle add "<< from[start + i] << "\n";
     }
 }
 
@@ -111,8 +104,6 @@ void pull_own_node(BiPartite *bp,
       std::vector<int> &out, std::vector<int> &in){
   assert(bp->self_ids_offset == bp->out_degree_local.size());
   for(int i=0; i < bp->self_ids_offset; i++){
-
-       std::cout << "CROSS MARK" << out[i] <<":" <<  bp->out_degree_local[i] << ":" << in[i] << "\n";
       out[i] = (out[i] /bp->out_degree_local[i]) + in[i];
     }
 }
@@ -134,9 +125,6 @@ int sample_flow_up_ps(PartitionedSample &s,
      int cache_hit = s.cache_hit_to[i].size();
      int cache_miss = s.cache_miss_to[i].size();
      in[i].resize(cache_hit + cache_miss);
-     s.cache_miss_to[i].debug("cache miss to ");
-     s.cache_miss_from[i].debug("cache miss from ");
-
      for(int j=0; j < cache_hit; j++) {
           in[i][s.cache_hit_to[i][j]] = storage_map[i][s.cache_hit_from[i][j]];
     }
@@ -151,8 +139,6 @@ int sample_flow_up_ps(PartitionedSample &s,
     // PULL
     for(int j=0;j < num_gpus;j ++){
       BiPartite *bp = layer.bipartite[j];
-      bp->in_nodes.debug("IN NOdes\n");
-      std::cout << bp->in_nodes.size() <<" " << in[j].size() <<"\n";
       assert(in[j].size() == bp->in_nodes.size());
       int new_size = bp->num_in_nodes_local + bp->num_in_nodes_pulled;
 
@@ -191,16 +177,10 @@ int sample_flow_up_ps(PartitionedSample &s,
         }else{
           remote_out[j].clear();
         }
-        std::cout << "runniing local aggregation" << i << j <<"\n";
         aggregate(out[j], in[j], bp->indptr_L.to_std_vector(), bp->indices_L.to_std_vector());
-        std::cout << "Remote out \n" ;
-        bp->indptr_R.debug("indptr R");
-        bp->indices_R.debug("indices R");
-
         aggregate(remote_out[j], in[j], bp->indptr_R.to_std_vector(), bp->indices_R.to_std_vector());
     }
     // PUSH
-    std::cout << "Start pusing \n";
     for(int from = 0; from < num_gpus; from ++) {
       for(int to = 0; to < num_gpus ; to++) {
           if(from != to){

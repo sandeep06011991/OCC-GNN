@@ -132,7 +132,7 @@ def serialize_to_tensor(object, device = torch.device('cpu')):
     offsets = [0]
     for attr in serialization_order:
         attr_value = getattr(object, attr)
-        # print(attr, offsets)
+        # print("serialize",attr, offsets, attr_value)
         if attr_value == None:
             offsets.append(offsets[-1])
             continue

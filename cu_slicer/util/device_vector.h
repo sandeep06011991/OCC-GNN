@@ -27,19 +27,22 @@ namespace cuslicer{
       public:
 
         DATATYPE *data = nullptr;
-
-        cuda_memory(DATATYPE *d){
+        size_t sz = 0;
+        cuda_memory(DATATYPE *d, size_t sz){
             this->data = d;
+            this->sz = sz;
           }
 
           ~cuda_memory(){
+            std::cout << "Freeing " << sz <<"\n";
             gpuErrchk(cudaFree(data));
           }
 
           static std::shared_ptr<cuda_memory> alloc(int size_t){
               DATATYPE *d;
+              std::cout << "Allocating " << size_t<<"\n";
               gpuErrchk(cudaMalloc((void**)&d, (sizeof(DATATYPE) * size_t)));
-              return std::make_shared<cuda_memory>(d);
+              return std::make_shared<cuda_memory>(d, size_t);
           }
 
           inline DATATYPE * ptr(){return data;}

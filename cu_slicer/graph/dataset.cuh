@@ -9,6 +9,8 @@
 #ifndef DATASET_H
 #define DATASET_H
 
+namespace cuslicer{
+
 class Dataset{
 
 private:
@@ -43,7 +45,8 @@ public:
   long csum_offsets;
   long csum_edges;
   bool testing = true;
-  Dataset(std::string dir, bool testing);
+  int num_partitions;
+  Dataset(std::string dir, bool testing,  int num_partitions);
 
   ~Dataset(){
     // gpuErrchk(cudaFree(indptr_d));
@@ -51,4 +54,5 @@ public:
   }
 };
 
+}
 #endif

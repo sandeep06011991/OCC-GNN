@@ -335,7 +335,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
 
         if args.deterministic:
             if args.test_graph_dir != None and proc_id == 0 :
-                    actual_out = test_acc_func.test_accuracy( model , gpu_local_sample.last_layer_nodes)
+                    actual_out = test_acc_func.get_accuracy( model )
                     print("expected ", output,  "actual", actual_out, "check sums", output.sum(), actual_out.sum())
                     test_accuracy_list.append(test_accuracy)
             print("Expected value", output.sum(), gpu_local_sample.debug_val)

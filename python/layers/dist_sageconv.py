@@ -12,6 +12,10 @@ from torch.nn.parallel import DistributedDataParallel
 
 class DistSageConv(nn.Module):
 
+    def _backward_hook(self, module, grad_input, other):
+        print("Internal Hook !!!!!!!!!!!!!")
+        for i in grad_input:
+            print("grad input", i.shape)
     # Not exactly matching SageConv as normalization and activation as removed.
     def __init__(self, in_feats, out_feats, gpu_id,  num_gpus,\
         feat_drop=0.1, bias=True, deterministic = False):
@@ -31,6 +35,7 @@ class DistSageConv(nn.Module):
         self.fc1 = nn.Linear(self._in_src_feats, out_feats, bias = False)
         self.fc2 = nn.Linear(self._in_src_feats, out_feats, bias = False)
         # self.deterministic = deterministic
+        
         self.deterministic = deterministic
         self.reset_parameters()
         self.shuffle_time = 0
@@ -112,8 +117,6 @@ class DistSageConv(nn.Module):
         for i in range(self.num_gpus):
             if i != self.gpu_id:
                 out3[bipartite_graph.from_ids[i]] += merge_tensors[i]
-        # out3 = Merge.apply(out3, merge_tensors[0], merge_tensors[1], merge_tensors[2], merge_tensors[3], \
-        #             self.gpu_id, bipartite_graph.from_ids, self.local_stream, self.remote_stream)
 
 
         assert(not torch.any(torch.isnan(out3)))

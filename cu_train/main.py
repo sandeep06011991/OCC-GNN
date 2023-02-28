@@ -61,6 +61,7 @@ from cu_train import *
 # deterministic flag disables shuffle for e2e testing to with naive dgl version
 def work_producer(trainer_queues,training_nodes, batch_size,
     no_epochs, num_workers, deterministic = False):
+    # TODO: num_workers is redundant
     assert(len(trainer_queues) == num_workers)
     # Problem one worker could probably not see it.
     training_nodes = training_nodes.tolist()
@@ -72,20 +73,28 @@ def work_producer(trainer_queues,training_nodes, batch_size,
         if not deterministic:
             random.shuffle(training_nodes)
         # batches across epochs are not distinguised as multiple queues are not synchronized and do not gurantee FIFO
-        while(current_offset < num_nodes):
+        while(current_offset +  batch_size < num_nodes):
             for j in range(num_workers):
-                trainer_queues[j].put(training_nodes[current_offset:current_offset + batch_size])
-                current_offset = current_offset + batch_size
+                if current_offset + batch_size < num_nodes:
+                    trainer_queues[j].put(training_nodes[current_offset:current_offset + batch_size])
+                    current_offset = current_offset + batch_size
+                else:
+                    trainer_queues[j].put("DUMMY")
+
     print("All samples generated")
-    for j in range(num_workers):
-        trainer_queues[j].put("END")
+    # for j in range(num_workers):
+    #     trainer_queues[j].put("END")
     print("Waiting for clean up")
     while(True):
+        all_empty = True
         for j in range(num_workers):
-            if(trainer_queues[j].qsize()==0):
-                break
+            if(trainer_queues[j].qsize()!=0):
+                all_empty = False
             time.sleep(1)
+        if all_empty:
+            break
     time.sleep(1)
+
     print("WORK PRODUCER TRIGGERING END")
 
 

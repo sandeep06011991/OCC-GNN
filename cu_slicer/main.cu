@@ -21,12 +21,13 @@ int main(){
 // Test1: Read graph datastructure.
 
 // test_duplicate();
-  cudaSetDevice(0);
+  cudaSetDevice(1);
 // std::cout << "hello world\n";
   // std::string graph_name = "synth_8_2";
-  std::string graph_name = "ogbn-arxiv";
+  std::string graph_name = "ogbn-products";
   std::string file = get_dataset_dir() + graph_name;
-  std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false);
+  int num_gpus = 4;
+  std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_gpus);
 // std::cout << "Read synthetic dataset\n ";
 // // // Test2: Construct simple k-hop neighbourhood sample.
 // // // Sample datastructure.
@@ -45,7 +46,7 @@ int main(){
   ns->sample(target,(*s1));
 
     bool pull_optim = false;
-  int num_gpus = 4;
+
 // //
 
   cuslicer::device_vector<int> workload_map;
@@ -77,8 +78,11 @@ int main(){
     PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
     PartitionedSample ps1(num_layers, num_gpus);
     // s1->debug();
+    std::cout <<"Reached erere\n";
     sc1->slice_sample((*s1),ps1);
-
+    std::cout <<"Reached erere\n";
+    ps1.clear();
+    sc1->slice_sample((*s1),ps1);
 //     // PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
 //    std::cout << "Slicer created \n";
 // //   s1->debug();
@@ -100,7 +104,7 @@ int main(){
 // // //   std::cout << "slicing done \n";
   // ps1.debug();
 // //
-  // test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+  test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
 
   cuslicer::transform::cleanup();
   std::cout <<"Done !\n";

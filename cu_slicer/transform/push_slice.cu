@@ -72,6 +72,7 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
         ((long *)&index_in_nodes[in_nodes_size * p_nd2])[nd2_idx] = 1;
         p_nbs[p_nd2] ++;
       }
+
       for(int p_nd = 0; p_nd< NUM_GPUS ;p_nd++){
         // p_nd denotes partition with atleast one remote outgoing edge
           if(p_nd == p_nd1){
@@ -146,14 +147,17 @@ void fill_out_nodes_local(long * index_out_nodes_local,\
             int gpu_id = tid/num_out_nodes;
             long out_node_idx = tid % num_out_nodes;
             if(out_node_idx == 0){
-                 info[gpu_id].indptr_L.data[0] = 0;
+                // info[gpu_id].indptr_L.data[0] = 0;
             }
             if(is_selected(index_out_nodes_local, tid)){
                int write_index =  index_out_nodes_local[tid];
                assert(write_index > 0);
                // Fill indptr
                auto remote_pos = write_index - info[gpu_id].out_nodes_local.offset;
-               info[gpu_id].indptr_L.add_value_offset(index_indptr_local[tid],remote_pos);
+	       if(remote_pos == 1){
+	       	 info[gpu_id].indptr_L.data[0] = 0;
+	       }
+	       info[gpu_id].indptr_L.add_value_offset(index_indptr_local[tid],remote_pos);
                info[gpu_id].out_nodes_local.add_position_offset( out_nodes[out_node_idx],write_index);
                info[gpu_id].out_degree_local.add_position_offset(out_node_degree[out_node_idx],write_index);
              }
@@ -179,14 +183,17 @@ __global__ void fill_out_nodes_remote(long * index_out_nodes_remote, \
             int global_remote_node_idx = tid % (num_out_nodes * (num_gpus - 1));
             int remote_node = out_nodes[tid % num_out_nodes];
             if(global_remote_node_idx == 0){
-                info[from_gpu_id].indptr_R.data[0] = 0;
+		//info[from_gpu_id].indptr_R.data[0] = 0;
             }
             if(is_selected(index_out_nodes_remote, tid)){
                 auto write_index = index_out_nodes_remote[tid];
                 info[from_gpu_id].out_nodes_remote.add_position_offset(remote_node, write_index );
                 auto remote_pos = write_index - info[from_gpu_id].out_nodes_remote.offset;
                 info[from_gpu_id].indptr_R.add_value_offset(index_indptr_remote[tid], remote_pos);
-                info[to_gpu_id].push_from_ids[from_gpu_id].add_position_offset(remote_node, write_index);
+                if(remote_pos == 1){
+			info[from_gpu_id].indptr_R.data[0] = 0;
+		}
+		info[to_gpu_id].push_from_ids[from_gpu_id].add_position_offset(remote_node, write_index);
             }
             start += BLOCK_SIZE;
       }
@@ -196,7 +203,9 @@ template<int BLOCKSIZE, int TILESIZE>
 __global__ void fill_in_nodes(long * index_in_nodes, \
     PushSlicer::LocalGraphInfo *info, int num_gpus,\
       long * in_nodes, size_t num_in_nodes){
-
+        int tileId = blockIdx.x;
+        int lastTile = (num_in_nodes - 1)/TILE_SIZE + 1;
+        while(tileId < lastTile){
         int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
         int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), num_in_nodes * num_gpus);
         while(start < end){
@@ -208,7 +217,9 @@ __global__ void fill_in_nodes(long * index_in_nodes, \
           info[gpu_id].in_nodes.add_position_offset(in_node, write_index);
         }
         start += BLOCK_SIZE;
-    }
+        }
+        tileId += gridDim.x;
+        }
 
 }
 
@@ -248,7 +259,8 @@ void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, 
       size = size - offset;
       bp.out_nodes_local.resize(size);
       bp.num_out_local = size;
-      bp.indptr_L.resize(size + 1);
+      bp.indptr_L.resize(0);
+      if(size != 0)bp.indptr_L.resize(size + 1);
       bp.out_degree_local.resize(size);
       info.indptr_L.data = bp.indptr_L.ptr();
       info.indptr_L.offset = offset_indptr;
@@ -268,7 +280,8 @@ void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, 
       }
 
       size = size - offset;
-      bp.indptr_R.resize(size + 1);
+      bp.indptr_R.resize(0);
+      if(size != 0)bp.indptr_R.resize(size + 1);
       info.indptr_R.data = bp.indptr_R.ptr();
       info.indptr_R.offset = offset_indptr;
       bp.out_nodes_remote.resize(size);

@@ -21,7 +21,7 @@ from utils.utils import *
 from cu_shared import *
 from data.serialize import *
 import logging
-# from test_accuracy import *
+from test_accuracy import *
 
 
 
@@ -99,9 +99,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     if use_cpu_sampler:
         print("Using CPU Slicer")
         from cslicer import cslicer
-        sampler = cslicer(graph_name, storage_vector, fanout[0],\
-                    deterministic, testing , self_edge, rounds, \
-                    pull_optimization, num_layers, num_gpus)
+        # sampler = cslicer(graph_name, storage_vector, fanout[0],\
+        #             deterministic, testing , self_edge, rounds, \
+        #             pull_optimization, num_layers, num_gpus)
     else:
         print("using GPU Sampler")
         from cuslicer import cuslicer
@@ -156,13 +156,13 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         flog = logging.getLogger()
     e_t1 = time.time()
     while(True):
-        print("try to get sample")
-        training_node= sample_queue.get()
-        print("Got sample")
-        if(type(training_node) == type("") and training_node == "END"):
+        print("try to get sample", current_minibatch , minibatches_per_epoch, num_epochs, epochs_required)
+        if num_epochs == epochs_required :
             break
+        training_node= sample_queue.get()
+
         sample_get_start = time.time()
-        if(len(training_node) != 0):
+        if(type(training_node) != type("")):
             csample = sampler.getSample(training_node)
             tensorized_sample = Sample(csample)
             sample_id = tensorized_sample.randid
@@ -181,6 +181,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                 name = sm_client.write_to_shared_memory(data, for_worker_id, sample_id)
                 ref = ((sample_id, for_worker_id, name, data.shape, data.dtype.name))
                 exchange_queue[for_worker_id].put(ref)
+            del csample
+            # gc.collect()
+            # torch.cuda.empty_cache()
         else:
             for gpu_id in range(num_gpus):
                 sample_id = proc_id
@@ -200,7 +203,6 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         sample_keys = list(partitioned_sample.keys())
         sample_keys.sort()
         for sample_id in sample_keys:
-            print("running on ", sample_id, proc_id)
             ref = partitioned_sample[sample_id]
             (sample_id, for_worker_id, name, shape, dtype) = ref
             if(name == "EMPTY"):
@@ -213,10 +215,44 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             device = torch.device(device)
 
             construct_from_tensor_on_gpu(tensor, device, gpu_local_sample)
+            # gpu_local_sample.debug()
             attention = False
             # FixME: What is attention ?
             gpu_local_sample.prepare(attention)
             sm_client.free_used_shared_memory(name)
+
+#             if proc_id == 0:
+#                 if test_acc_func != None:
+#                     test_accuracy = test_acc_func.get_accuracy(model,flog)
+#                     test_accuracy_list.append(test_accuracy)
+#                     print("test_accuracy_log:{}, epoch:{}".format(test_accuracy, num_epochs-1))
+
+#         #assert(features.device == torch.device('cpu'))
+#         #gpu_local_sample.debug()
+            classes = labels[gpu_local_sample.out_nodes].to(torch.device(proc_id))
+#         # print("Last layer nodes",gpu_local_sample.last_layer_nodes)
+            torch.cuda.set_device(proc_id)
+            optimizer.zero_grad()
+            m_t1 = time.time()
+            input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cache_hit_from, \
+                    gpu_local_sample.cache_hit_to, gpu_local_sample.cache_miss_from, gpu_local_sample.cache_miss_to)
+            movement_feat = time.time() - m_t1
+            edges, nodes = gpu_local_sample.get_edges_and_send_data()
+            edges_per_gpu += edges
+            data_moved_per_gpu += (gpu_local_sample.cache_miss_from.shape[0] * features.shape[1] * 4 /(1024 * 1024)) +\
+                                (nodes * args.num_hidden * 4/(1024 * 1024))
+            data_moved_inter_gpu  += (nodes * args.num_hidden *4/(1024 * 1024))
+            fp_start.record()
+            output = model.forward(gpu_local_sample, input_features, None)
+            torch.cuda.synchronize()
+            loss = loss_fn(output,classes)/args.batch_size
+            fp_end.record()
+            loss.backward()
+            bp_end.record()
+            optimizer.step()
+
+            # print(proc_id, "Does both forward and backward!!", current_minibatch)
+            current_minibatch += 1
             if (current_minibatch == minibatches_per_epoch):
                 sample_get_epoch.append(sample_get_time)
                 forward_epoch.append(forward_time)
@@ -239,45 +275,10 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                 num_epochs += 1
                 e_t1 = time.time()
                 current_minibatch = 0
-#             if proc_id == 0:
-#                 if test_acc_func != None:
-#                     test_accuracy = test_acc_func.get_accuracy(model,flog)
-#                     test_accuracy_list.append(test_accuracy)
-#                     print("test_accuracy_log:{}, epoch:{}".format(test_accuracy, num_epochs-1))
-#             if num_epochs == epochs_required and num_sampler_workers == 0:
-#                 break
-#         #assert(features.device == torch.device('cpu'))
-#         #gpu_local_sample.debug()
-            classes = labels[gpu_local_sample.out_nodes].to(torch.device(proc_id))
-#         # print("Last layer nodes",gpu_local_sample.last_layer_nodes)
-            torch.cuda.set_device(proc_id)
-            optimizer.zero_grad()
-            m_t1 = time.time()
-            gpu_local_sample.debug()
-            input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cache_hit_from, \
-                    gpu_local_sample.cache_hit_to, gpu_local_sample.cache_miss_from, gpu_local_sample.cache_miss_to)
-            movement_feat = time.time() - m_t1
-            edges, nodes = gpu_local_sample.get_edges_and_send_data()
-            edges_per_gpu += edges
-            data_moved_per_gpu += (gpu_local_sample.cache_miss_from.shape[0] * features.shape[1] * 4 /(1024 * 1024)) +\
-                                (nodes * args.num_hidden * 4/(1024 * 1024))
-            data_moved_inter_gpu  += (nodes * args.num_hidden *4/(1024 * 1024))
-            fp_start.record()
-            output = model.forward(gpu_local_sample, input_features, None)
-            loss = loss_fn(output,classes)/args.batch_size
-            fp_end.record()
-            loss.backward()
-            bp_end.record()
-            optimizer.step()
-            current_minibatch += 1
-            print(proc_id, "Does both forward and backward!!", current_minibatch)
 
-            if args.deterministic:
                 if args.test_graph_dir != None and proc_id == 0 :
-                        actual_out = test_acc_func.test_accuracy( model , gpu_local_sample.last_layer_nodes)
-                        print("expected ", output,  "actual", actual_out, "check sums", output.sum(), actual_out.sum())
-                        test_accuracy_list.append(test_accuracy)
-                print("Expected value", output.sum(), gpu_local_sample.debug_val)
+                    test_accuracy =  test_acc_func.get_accuracy( model )
+                    test_accuracy_list.append(test_accuracy)
 
             if output.shape[0] !=0:
                 acc = compute_acc(output,classes)
@@ -286,7 +287,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             torch.cuda.synchronize(bp_end)
             forward_time += fp_start.elapsed_time(fp_end)/1000
             backward_time += fp_end.elapsed_time(bp_end)/1000
-    print("Exiting main training loop")
+    print("Exiting main training loop",sample_queue.qsize())
 #     dev_id = proc_id
     if proc_id == 1:
 #     #     prof.dump_stats('worker.lprof')

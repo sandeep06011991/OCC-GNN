@@ -14,9 +14,16 @@
 #include <ctime>
 #include <chrono>
 #include "../util/cuda_utils.h"
+#include "../util/cub.h"
+
+#include <memory>
 using namespace std::chrono;
 namespace py = pybind11;
 
+__global__
+void testKernel(long  *t){
+  t[0] = 0;
+}
 int sample_flow_up_sample(Sample &s, int number_of_nodes);
 
 int sample_flow_up_ps(PartitionedSample &s,
@@ -29,7 +36,7 @@ struct pyredundant{
   int redundant_communication = 0;
 };
 
-class CSlicer{
+class CUSlicer{
     std::string name;
     int samples_generated = 0;
     long num_nodes;
@@ -49,7 +56,7 @@ class CSlicer{
 
 public:
     // py::list v;
-    CSlicer(const std::string &name,
+    CUSlicer(const std::string &name,
       std::vector<std::vector<long>> gpu_map,
       vector<int> fanout,
        bool deterministic, bool testing,
@@ -62,7 +69,7 @@ public:
         std::cout << "Got dataset" << this->name << "\n";
 
         this->deterministic = deterministic;
-        this->dataset = std::make_shared<Dataset>(this->name, testing);
+        this->dataset = std::make_shared<Dataset>(this->name, testing, num_gpus);
 
         num_nodes = dataset->num_nodes;
 
@@ -85,9 +92,12 @@ public:
         }
         std::cout << "data opulated\n";
       	this->sample = new Sample(num_layers);
+        std::cout << "Sampling Layers \n";
       	this->p_sample = new PartitionedSample(num_layers, num_gpus);
 
+        std::cout << "Sampling Layers Cross \n";
         this->slicer = new PushSlicer((workload_map), storage_map,  pull_optimization, num_gpus);
+        std::cout << "Checl again \n";
         this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout,  self_edge);
     }
 
@@ -100,7 +110,7 @@ public:
     //   PySample *sample = new PySample(*p_sample);
     // }
 
-    PySample * getSample(vector<long> sample_nodes){
+    unique_ptr<PySample> getSample(vector<long> sample_nodes){
       std::cout << "try to get a sample \n";
       sample->clear();
       p_sample->clear();
@@ -124,28 +134,46 @@ public:
      std::cout << "sample " << (double)duration1.count()/1000 << "slice"<< (double)duration2.count()/1000 <<"\n";
 
       // spdlog::info("covert to torch");
-      PySample *sample = new PySample(*p_sample, current_gpu, num_gpus);
+      auto sample = std::make_unique<PySample>(*p_sample, current_gpu, num_gpus);
       return sample;
     }
 
-    ~CSlicer(){
+    ~CUSlicer(){
       std::cout <<"cslicer clean up start\n";
       // Delete dataset
       // Delete cslicer
+    }
+
+    torch::Tensor getDummyTensor(){
+        cudaSetDevice(0);
+        std::vector<long> data;
+        for(int i = 0;i < 1000; i++){
+          data.push_back(i);
+        }
+        auto v = device_vector<long>(data);
+        testKernel<<<1,1>>>(v.ptr());
+        gpuErrchk(cudaDeviceSynchronize());
+        auto sum = cuslicer::transform::reduce(v);
+
+        std::cout << sum <<"sum \n";
+        auto opts = torch::TensorOptions().dtype(torch::kInt64)\
+        .device(torch::kCUDA, 0);
+        return torch::from_blob(v.ptr(), {(long)v.size()}, opts).clone();
     }
 
 };
 
 PYBIND11_MODULE(cuslicer, m) {
     m.doc() = "pybind11 example plugin"; // optional module docstring
-    py::class_<CSlicer>(m,"cuslicer")
+    py::class_<CUSlicer>(m,"cuslicer")
          .def(py::init<const std::string &,
                std::vector<std::vector<long>>, vector<int>,\
                 bool, bool, bool, int, bool,int,\
                   int, int>())
-         .def("getSample", &CSlicer::getSample, py::return_value_policy::take_ownership);
+        .def("getTensor", &CUSlicer::getDummyTensor)
+         .def("getSample", &CUSlicer::getSample, py::return_value_policy::take_ownership);
          // .def("sampleAndVerify",&CSlicer::test_correctness);
-         py::class_<PySample>(m,"sample")
+         py::class_<PySample>(m,"CUsample")
              .def_readwrite("layers",&PySample::layers)
              .def_readwrite("cache_hit_from", &PySample::cache_hit_from)
              .def_readwrite("cache_hit_to", &PySample::cache_hit_to)
@@ -153,7 +181,7 @@ PYBIND11_MODULE(cuslicer, m) {
              .def_readwrite("cache_miss_to", &PySample::cache_miss_to)
              .def_readwrite("out_nodes", &PySample::out_nodes)
              .def_readwrite("debug_vals", &PySample::debug_vals);
-         py::class_<PyBipartite>(m,"bipartite")
+         py::class_<PyBipartite>(m,"CUbipartite")
              .def_readwrite("num_in_nodes_local", &PyBipartite::num_in_nodes_local)
              .def_readwrite("num_in_nodes_pulled", &PyBipartite::num_in_nodes_pulled)
              .def_readwrite("num_out_local",&PyBipartite::num_out_local)

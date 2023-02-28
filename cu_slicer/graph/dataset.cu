@@ -12,9 +12,10 @@
 
 using namespace cuslicer;
 
-Dataset::Dataset(std::string dir, bool testing){
+Dataset::Dataset(std::string dir, bool testing, int num_partitions){
   this->BIN_DIR = dir;
   this->testing = testing;
+  this->num_partitions = num_partitions;
   read_meta_file();
   read_graph();
   read_node_data();
@@ -45,9 +46,15 @@ void Dataset::read_graph(){
 void Dataset::read_node_data(){
     // Add feature for flexible partition
     // Make shared pointernaj
-    std::fstream file2(this->BIN_DIR + "/partition_map_opt.bin",std::ios::in|std::ios::binary);
+
     int * _partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
-    file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
+    if (this->num_partitions != -1){
+    	std::fstream file2(this->BIN_DIR + "/partition_map_opt_" + std::to_string(this->num_partitions) +".bin",std::ios::in|std::ios::binary);
+    	file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
+    }else{
+  	std::fstream file2(this->BIN_DIR + "/partition_map_opt_random.bin", std::ios::in|std::ios::binary);
+    	file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
+    }
     std::vector<int> _t_partition_map(_partition_map, _partition_map + this->num_nodes);
     partition_map_d = (* new device_vector<int>(_t_partition_map));
     // gpuErrchk(cudaMalloc((void**)&this->partition_map, (this->num_nodes *  sizeof(int))));

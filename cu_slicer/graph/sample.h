@@ -10,6 +10,9 @@ using namespace std;
 // The zeroth block is constructed from the set of target nodes as follows
 // [null, null, batch_ids]
 // Each block is constructed by sampling the neighbours of the previous blocks layer_nids.
+
+namespace cuslicer {
+
 struct Block{
   cuslicer::device_vector<long> offsets;
   cuslicer::device_vector<long> indices;
@@ -60,3 +63,5 @@ public:
     }
   }
 };
+
+}

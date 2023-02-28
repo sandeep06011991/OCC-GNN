@@ -6,14 +6,14 @@ class Sample:
 
     def __init__(self, csample):
         self.layers = []
-        self.randid = random.randint(0,10000)
+        self.randid = 8
+        #random.randint(0,10000)
         self.cache_hit_from= []
         self.cache_hit_to = []
         self.cache_miss_from = []
         self.cache_miss_to = []
         self.out_nodes = []
-        print("Sample: Not modified for different kidns")
-        for i in range(4):
+        for i in range(len(csample.cache_hit_to)):
             self.cache_hit_to.append(csample.cache_hit_to[i])
             self.cache_hit_from.append(csample.cache_hit_from[i])
             self.cache_miss_to.append(csample.cache_miss_to[i])
@@ -31,8 +31,9 @@ class Sample:
             self.layers.append(l)
 
     def debug(self):
-        for bp in layer:
-            bp.debug()
+        for ll in self.layers:
+            for bp in ll:
+                bp.debug()
 
     def get_number_of_edges(self):
         s = 0

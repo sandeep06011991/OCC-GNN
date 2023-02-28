@@ -124,10 +124,22 @@ void Slice::reorder(PartitionedLayer &l){\
         bool last_layer = false;
         if (i == s.num_layers) last_layer = true;
     	  PartitionedLayer& l = ps.layers[i-1];
+
         this->slice_layer(s.block[i-1]->layer_nds, \
             (* s.block[i]), l, last_layer);
+            std::cout <<"Slice\n";
         this->reorder(l);
+        std::cout <<"Reorder\n";
+        //consistency check
+        for(int j = 0; j< this->num_gpus; j++){
+          for(int k = 0; k < this->num_gpus;k ++ ){
+            auto to = l.bipartite[j]->to_offsets[k + 1]  - l.bipartite[j]->to_offsets[k];
+            std::cout  << to <<":" << l.bipartite[k]->push_from_ids[j].size() <<"\n";
+            assert(to == l.bipartite[k]->push_from_ids[j].size());
+          }
+        }
       }
+      std::cout << "All clear\n";
       #ifdef DEBUG
         gpuErrchk(cudaDeviceSynchronize());
       #endif
@@ -144,4 +156,6 @@ void Slice::reorder(PartitionedLayer &l){\
           }
           ps.last_layer_nodes[i] = ps.layers[0].bipartite[i]->out_nodes_local;
       }
+
+      std::cout << "All clear\n";
 }

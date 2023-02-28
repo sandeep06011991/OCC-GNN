@@ -9,6 +9,7 @@
 using namespace std;
 namespace py = pybind11;
 
+namespace cuslicer{
 
 class PyBipartite{
 
@@ -42,7 +43,7 @@ public:
   ~PyBipartite();
 };
 
-class PySample{
+class PySample {
 public:
   std::vector<std::vector<PyBipartite *> *> layers;
 
@@ -70,4 +71,5 @@ inline torch::Tensor getTensor(cuslicer::device_vector<long> &v, c10::TensorOpti
 
     }
 
+}
 }

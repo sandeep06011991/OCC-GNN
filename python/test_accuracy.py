@@ -30,7 +30,9 @@ class TestAccuracy:
         pull_optimization = False
         num_layers = 1
         self.self_edge = self_edge
-        self.sampler = cslicer(filename, storage_vector, fanout, deterministic, testing, self_edge, rounds, pull_optimization, num_layers)
+        
+        num_gpus = 4
+        self.sampler = cslicer(filename, storage_vector, fanout, deterministic, testing, self_edge, rounds, pull_optimization, num_layers, num_gpus)
         test_mask = dg_graph.ndata['test_mask']
         self.test_ids = torch.where(test_mask)[0]
 
@@ -88,7 +90,7 @@ class TestAccuracy:
             for l_id, l in enumerate(model.module.layers):
                 in_nodes = torch.arange(0,num_nodes)
                 out = []
-                
+
                 print("Working on layer ",l_id)
                 for i in range(0, num_nodes, batch_size):
                     if flog !=  None:
@@ -107,14 +109,14 @@ class TestAccuracy:
                 # print(data.device , device)
                     construct_from_tensor_on_gpu(data, self.device, gpu_local_sample)
                     gpu_local_sample.prepare(attention = self.self_edge)
-                    in_feat = torch.empty(gpu_local_sample.cache_hit_to.shape[0], *y.shape[1:], device = 0) 
+                    in_feat = torch.empty(gpu_local_sample.cache_hit_to.shape[0], *y.shape[1:], device = 0)
                     in_feat[gpu_local_sample.cache_hit_to] = y[gpu_local_sample.cache_hit_from]
                     predicted = l(gpu_local_sample.layers[0], in_feat ,True)
                 # print(predicted)
                     if l_id != len(model.module.layers):
                         predicted = model.module.activation(predicted)
                     out.append(predicted)
-                y = torch.cat(out, dim = 0)    
+                y = torch.cat(out, dim = 0)
             a, b = compute_acc(y[self.test_ids], self.labels[self.test_ids])
             correct =  a.item()
             test = b

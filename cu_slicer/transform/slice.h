@@ -95,6 +95,8 @@ public:
     	t[i] = this->storage_map[i].ptr();
       // std::cout << "Storage map size" << this->storage_map[i].size() <<"\n";
     }
+    std::cout << "All storage maps moved\n";
+    
     gpuErrchk(cudaMemcpy(storage_map_flattened, t, sizeof(int *) * num_gpus,\
       cudaMemcpyHostToDevice));
 

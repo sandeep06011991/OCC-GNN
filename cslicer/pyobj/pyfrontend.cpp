@@ -129,11 +129,10 @@ public:
           }
           gpu_capacity[i] = gpu_map[i].size();
         }
-      	this->sample = new Sample(num_layers);
-      	this->p_sample = new PartitionedSample(num_layers, num_gpus);
+        this->sample = new Sample(num_layers);
+        this->p_sample = new PartitionedSample(num_layers, num_gpus);
         this->slicer = new Slice((workload_map), storage_map, self_edge, rounds, pull_optimization, num_gpus);
         this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout, deterministic, self_edge);
-        std::cout << "All DOne !\n";
     }
 
     bool test_correctness(vector<long> sample_nodes){

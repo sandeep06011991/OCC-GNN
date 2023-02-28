@@ -23,7 +23,26 @@ class Bipartite:
         print("to offsets", self.gpu_id, self.to_offsets)
         for i in self.from_ids.keys():
             print("from", i, self.gpu_id, self.from_ids[i].shape)
- # dgl.heterograph({('a','b','c'):('csc',(torch.tensor([0,2]),torch.tensor([0,1]),torch.tensor([])))},{'a':2,'c':1})
+        print("num_in_local",self.num_in_nodes_local)
+        print("in pulled",self.num_in_nodes_pulled)
+        print("out local", self.num_out_local)
+        print("num out remote", self.num_out_remote)
+        print("self ids offset", self.self_ids_offset)
+
+        print("GPU id ", self.gpu_id)
+        print("Indptr_L", self.indptr_L.shape)
+        print("IndicesL",self.indices_L.shape)
+        print("Indptr_R", self.indptr_R.shape)
+        print("Indices R", self.indices_R.shape)
+        print("Out degrees", self.out_degrees.shape)
+        assert(torch.all(self.indices_L < self.num_in_nodes_local))
+        assert(torch.all(self.indices_R < self.num_in_nodes_local))
+        assert(self.num_out_local >= self.self_ids_offset)
+        # print(self.from_ids)
+        # print(self.push_to_ids)
+        # print(self.to_offsets)
+        # print(self.pull_from_offsets)
+        # dgl.heterograph({('a','b','c'):('csc',(torch.tensor([0,2]),torch.tensor([0,1]),torch.tensor([])))},{'a':2,'c':1})
     def __init__(self):
         self.num_in_nodes_local = 0
         self.num_in_nodes_pulled = 0

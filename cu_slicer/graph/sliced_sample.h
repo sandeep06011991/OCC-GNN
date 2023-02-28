@@ -62,23 +62,13 @@ class PartitionedLayer{
     index_edge_remote.debug("index edge remote");
   }
 
-  //
-  //   void inclusive_scan_indptr(long * local_nodes){
-  //     for(int dest=0;dest<this->num_gpus;dest++){
-  //       for(int src=0;src<this->num_gpus;src++){
-  //         long N = local_nodes[this->num_gpus * dest + src];
-  //         if(N != 0){
-  //           thrust::device_vector<long> & indptr = bipartite[dest]->indptr_[src];
-  //           thrust::inclusive_scan(indptr.begin(), indptr.end(), indptr.begin());
-  //         }
-  //       }
-  //     }
-  //   }
+
 
     void clear(){
       for(int i=0;i<this->num_gpus;i++){
         this->bipartite[i]->refresh();
       }
+      std::cout << "edge size " << index_edge_remote.size() <<"\n";
     }
 
     void debug(){

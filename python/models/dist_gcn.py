@@ -6,6 +6,12 @@ from layers.dist_sageconv import DistSageConv
 # Move this function to seperate file after first forward and back pass
 class DistSAGEModel(torch.nn.Module):
 
+    def _backward_hook(self, module, grad_input, grad_output):
+        print("Backward hook runs !!!!!!!!!!!!!")
+        print("grad input", grad_input.shape)
+        # for i in grad_out:
+        #     print("grad output", i)
+
     def __init__(self,
                  in_feats,
                  n_hidden,
