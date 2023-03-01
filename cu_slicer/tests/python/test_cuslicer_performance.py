@@ -3,6 +3,7 @@ import time
 import torch
 from cuslicer import cuslicer
 import numpy as np
+import nvtx
 def get_total_comm(s):
     skew = {}
     edge = []
@@ -19,7 +20,7 @@ def get_total_comm(s):
 # // Get this from data
 storage_map_empty = [[],[],[],[]]
 graphnames = ["ogbn-arxiv","ogbn-products"]
-graphname = "amazon"
+graphname = "ogbn-products"
 # graphname = "reorder-papers100M"
 # csl1 = cslicer(graphname, storage_map_empty, 10, True, False)
 # import numpy as np
@@ -44,7 +45,7 @@ storage_map_part = [torch.where(p_map == i)[0].tolist() for i in range(4)]
 #     int num_layers, int num_gpus, int current_gpu
 print("check 1")
 csl3 = cuslicer(graphname, storage_map_part,
-        [10,10,10], False , False, True, 4, False, num_layers, num_gpus,0)
+        [20,20,20], False , False, True, 4, False, num_layers, num_gpus,0)
 print("Ask for Sample")
 batch_size = 4096
 i = 0
@@ -53,7 +54,11 @@ s_time = time.time()
 
 while(i < len(training_nodes)):
     in_nodes = training_nodes[i:i+batch_size]
-    s3= csl3.getSample(in_nodes)
+    t1 = time.time()
+    with nvtx.annotate("Sample",color = 'red'):
+        s3= csl3.getSample(in_nodes)
+    t2 = time.time()
+
     # break
     i = i + batch_size
 e_time = time.time()

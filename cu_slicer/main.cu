@@ -31,12 +31,12 @@ int main(){
 // std::cout << "Read synthetic dataset\n ";
 // // // Test2: Construct simple k-hop neighbourhood sample.
 // // // Sample datastructure.
-  int num_layers = 3 ;
+  int num_layers = 1 ;
   Sample *s1  = new Sample(num_layers);
-  vector<int> fanout({20,20, 20});
+  vector<int> fanout({-1});
   bool self_edge = false;
   std::vector<long> training_nodes;
-  for(int i=0;i<4096;i++){
+  for(int i=0;i<400;i++){
       training_nodes.push_back(i);
   }
 
@@ -53,9 +53,10 @@ int main(){
   int is_present =1;
 // // Test 3b. is_present = 1;
   int gpu_capacity[num_gpus];
+  workload_map = dataset->partition_map_d;
   for(int i=0;i < num_gpus; i++)gpu_capacity[i] = 0;
 // // Write a better version of this.
-  workload_map = dataset->partition_map_d;
+
   for(int i=0;i<dataset->num_nodes;i++){
    #pragma unroll
     for(int j=0;j<num_gpus;j++){
@@ -75,11 +76,11 @@ int main(){
     int rounds = 7;
     PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
     PartitionedSample ps1(num_layers, num_gpus);
-    // s1->debug();
-
+    s1->debug();
+    return;
     std::cout <<"Reached erere1\n";
     sc1->slice_sample((*s1),ps1);
-    // ps1.debug();
+    ps1.debug();
     std::cout <<"Reached erere2\n";
 
     // sc1->slice_sample((*s1),ps1);

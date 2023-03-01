@@ -129,6 +129,13 @@ public:
       layers[i].debug();
 
     }
+    for(int i=0;i < num_gpus; i++){
+      cache_hit_from[i].debug("Cache hit from");
+      cache_hit_to[i].debug("Cache hit to");
+      cache_miss_from[i].debug("Cache miss from ");
+      cache_miss_to[i].debug("Cache miss to");
+
+    }
   }
 };
 

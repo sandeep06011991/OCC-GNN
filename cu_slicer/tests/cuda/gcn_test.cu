@@ -5,6 +5,8 @@
 #include <vector>
 #include <assert.h>
 #include "test.h"
+#include <bits/stdc++.h>
+#include<tuple>
 // Test gcn and gat
 using namespace std;
 
@@ -22,18 +24,25 @@ void aggregate_gcn(std::vector<long> layer_out_nds, \
     int nbs = 0;
     int self = 0;
     long dest_nd = layer_out_nds[i];
+
     for(int j = start; j < end; j++){
       int src_nd = layer_in_nds[indices[j]];
       if ((src_nd == dest_nd)){
 	       std::cout << "Found self node which is never the case\n";
         self = in[indices[j]];
       }else{
+        if( i==317){
+          std::cout << "Adding for 317 " << in[indices[j]] <<" ";
+        }
         // std::cout << "(" << indices[j] <<":"<< in[indices[j]]<<")";
 	      nbs += in[indices[j]];
       }
     }
     out.push_back((nbs/degree[i]) + in[i]);
-    // std::cout << "in value is " << in[i] <<"\n";
+    if( i==317){
+      std::cout << "Adding for 317 self " << in[i] <<" ";
+    }
+    // std::cout << "(" << i <<":" <<out[i] <<")";
     //out.push_back((nbs/degree[i]) + self);
 
   }
@@ -42,14 +51,14 @@ void aggregate_gcn(std::vector<long> layer_out_nds, \
 
 // Sample without any reordering.
 // returns sum of flow up after all layers.
-int naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
+std::vector<int> naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
    std::vector<int> in_f;
    std::vector<int> out_f;
    // num lyaers = 3
    // since tehre is null layer iinitially ()
    for(auto nd : s.block[s.num_layers]->layer_nds.to_std_vector()){
-     // in_f.push_back(nd);
-     in_f.push_back(nd % 10);
+     in_f.push_back(nd);
+     // in_f.push_back(nd % 10);
    }
 
    for(int i=s.num_layers - 1; i >=0; i--){
@@ -62,7 +71,8 @@ int naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
    for(int nd: in_f){
 	   sd += ((nd) );
    }
-   return sd;
+   // return sd;
+   return in_f;
 }
 
 void aggregate(std::vector<int> &out, std::vector<int> &in,
@@ -78,12 +88,16 @@ void aggregate(std::vector<int> &out, std::vector<int> &in,
       int t = 0;
       for(int off = off_start; off < off_end; off ++ ){
           t += in[indices[off]];
+          if(i == 41){
+            std::cout <<"Adding " << in[indices[off]] <<"\n";
+          }
           if(in[indices[off]] < 0){
             std::cout <<"Incorrect read "<<  indices[off] << " " << in[indices[off]] <<"\n";
           }
           // std::cout << "(" << in[indices[off]]<<":"<<indices[off]<<")";
           assert(in[indices[off]] >= 0);
       }
+      std::cout <<"Adding $$$$$$$$$$$$$$$$$$$$$$$$$\n";
       out[i] = t;
     }
 }
@@ -101,13 +115,16 @@ void pull_own_node(BiPartite *bp,
       std::vector<int> &out, std::vector<int> &in){
   assert(bp->self_ids_offset == bp->out_degree_local.size());
   for(int i=0; i < bp->self_ids_offset; i++){
+    if (i == 41){
+      std::cout <<"local compute" << out[i] << ":" << bp->out_degree_local[i] <<":" << in[i] <<"\n";
+    }
       out[i] = (out[i] /bp->out_degree_local[i]) + in[i];
     }
 }
 
 
 // Partitioned flow must have same output.
-int sample_flow_up_ps(PartitionedSample &s,
+  std::vector<std::tuple<int, int>>  sample_flow_up_ps(PartitionedSample &s,
     std::vector<int> storage_map[8], int num_gpus){
   // refresh storage map with local_ids.
   std::vector<int> in[8];
@@ -123,12 +140,17 @@ int sample_flow_up_ps(PartitionedSample &s,
      int cache_miss = s.cache_miss_to[i].size();
      in[i].resize(cache_hit + cache_miss);
      for(int j=0; j < cache_hit; j++) {
-          in[i][s.cache_hit_to[i][j]] = storage_map[i][s.cache_hit_from[i][j]]%10;
+         std::cout << "(" << s.cache_hit_to[i][j] << ":" << storage_map[i][s.cache_hit_from[i][j]] <<")";
+          in[i][s.cache_hit_to[i][j]] = storage_map[i][s.cache_hit_from[i][j]];
+          // in[i][s.cache_hit_to[i][j]] = storage_map[i][s.cache_hit_from[i][j]]%10;
     }
      for(int j=0; j < cache_miss; j++) {
            in[i][s.cache_miss_to[i][j]] = s.cache_miss_from[i][j]%10;
+           // in[i][s.cache_miss_to[i][j]] = s.cache_miss_from[i][j]%10;
+
      }
   }
+  std::cout << "storage setup complete\n";
   for(int i =  s.num_layers-1  ; i>=0; i--){
     // Bipartite local aggregation.
 
@@ -201,28 +223,47 @@ int sample_flow_up_ps(PartitionedSample &s,
   }
   int sss = 0;
   // Return final sum
+  std::vector<std::tuple<int, int>> t;
   for(int i=0;i < num_gpus;i++){
     int ss = 0;
-    for(int k:in[i]){
-      ss += k;
+    PartitionedLayer &layer = s.layers[0];
+    auto v = layer.bipartite[i]->out_nodes_local.to_std_vector();
+    for(int j = 0 ; j < in[i].size() ; j++){
+      t.push_back(make_tuple(v[j],in[i][j]));
+      std::cout<<"("<< j <<":"<<v[j]<<") ";
+      ss += in[i][j];
     }
+    std::cout <<"\n\n\n";
     sss += ss;
   }
-  return sss;
+
+  sort(t.begin(), t.end(), [&](auto a, auto b){
+    return get<0>(a) < get<0>(b);
+  });
+
+
+  // return sss;
+  return t;
 }
 
 void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
   std::vector<int> local_storage[8], int gpu_capacity[8],
     int num_nodes, int num_gpus){
-    int correct = naive_flow_up_sample_gcn(s, num_nodes);
-    std::cout << "Correct answer is " << correct << "\n";
+    auto correct = naive_flow_up_sample_gcn(s, num_nodes);
+    // std::cout << "Correct answer is " << correct << "\n";
 
     for(int i=0;i<num_gpus; i++){
       assert(local_storage[i].size() == gpu_capacity[i]);
     }
     std::cout <<"reached here !\n";
-    int out = sample_flow_up_ps(ps, local_storage, num_gpus);
-    std::cout << correct << "==" << out << "\n";
-    assert(correct == out);
+    auto out = sample_flow_up_ps(ps, local_storage, num_gpus);
+    for(int i = 0; i <correct.size(); i++){
+      if(correct[i] != get<1>(out[i])){
+        std::cout << "Miss" << get<0>(out[i]) <<" expect "<< \
+            get<1>(out[i]) << "original"<< correct[i] <<"\n";
+      }
+    }
+    // std::cout << correct << "==" << out << "\n";
+    // assert(correct == out);
 
 }

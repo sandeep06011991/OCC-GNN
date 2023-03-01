@@ -35,8 +35,8 @@ def test_sampling_overhead():
     try:
         while True:
             t1 = time.time()
-            with nvtx.annotate("Sample",color = 'blue'):
-                return(next(dt))
+            with nvtx.annotate("Sample",color = 'red'):
+                (next(dt))
             t2 = time.time()
             print("Total sampling time", t2-t1)
     except StopIteration:
