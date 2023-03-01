@@ -38,31 +38,36 @@ void sample_offsets(long *in, size_t in_size, \
     long *offsets_s, long* in_degrees,\
      long  *indptr_g, long num_nodes, \
     int fanout, bool self_edge){
-      int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-      int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), in_size);
+      int tileId = blockIdx.x;
+      int last_tile = ((in_size - 1) / TILE_SIZE + 1);
+      while(tileId < last_tile){
+      int start = threadIdx.x + (tileId * TILE_SIZE);
+      int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), in_size);
 
-      while(start < end){
-        int id = start;
-        long nd = in[id];
-      #ifdef DEBUG
-        assert(nd < num_nodes);
-      #endif
-      long nbs_size = indptr_g[nd+1] - indptr_g[nd];
-      if(fanout != -1){
-        if(fanout < nbs_size){
-            nbs_size = fanout;
+        while(start < end){
+          int id = start;
+          long nd = in[id];
+        #ifdef DEBUG
+          assert(nd < num_nodes);
+        #endif
+        long nbs_size = indptr_g[nd+1] - indptr_g[nd];
+        if(fanout != -1){
+          if(fanout < nbs_size){
+              nbs_size = fanout;
+          }
         }
-      }
-      if(nbs_size == 0){
-      	in_degrees[id] = 1;
-      }else{
-        in_degrees[id] = nbs_size;
-      }
-      if(self_edge) nbs_size += 1;
-      // TODO: Check impact of misaligned access
-      offsets_s[id+1] = nbs_size;
-      start += BLOCK_SIZE;
-  }
+        if(nbs_size == 0){
+        	in_degrees[id] = 1;
+        }else{
+          in_degrees[id] = nbs_size;
+        }
+        if(self_edge) nbs_size += 1;
+        // TODO: Check impact of misaligned access
+        offsets_s[id+1] = nbs_size;
+        start += BLOCK_SIZE;
+        }
+      tileId += gridDim.x;
+    }
 }
 
 template<int BLOCK_SIZE, int TILE_SIZE>
@@ -72,8 +77,6 @@ void neigh_sample_based_on_offsets(long * in, long size,\
       long * graph_indptr, long * graph_indices, long num_nodes,\
          curandState *random_states, size_t num_random_states, int fanout,\
        bool self_edge){
-     int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-     int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), size);
      // Colascing random loads
      // Credit: Abhinav Jangda from nextdoor paper
     __shared__ unsigned char shRand[BLOCK_SIZE * sizeof(curandState)];
@@ -89,40 +92,50 @@ void neigh_sample_based_on_offsets(long * in, long size,\
 
     __syncthreads();
     auto curandSrcPtr = (curandState*)(&shStateBuff[threadIdx.x*intsInRandState]);
+    int tileId = blockIdx.x;
+    int last_tile = ((size - 1) / TILE_SIZE + 1);
+    while(tileId < last_tile){
+      int start = threadIdx.x + (tileId * TILE_SIZE);
+      int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), size);
+      while(start < end){
+        int id = start;
+        long nd = in[id];
+        #ifdef DEBUG
+          assert(nd < num_nodes);
+                // printf("%ld %ld %ld %ld\n", nd, offsets[nd], indices[offsets[id]], size);
+                // assert(indices[offsets[nd]] < size);
+        #endif
+            // Todo
+        long nbs_size = graph_indptr[nd+1] -graph_indptr[nd];
+        long *read = &graph_indices[graph_indptr[nd]];
 
-    while(start < end){
-      int id = start;
-      long nd = in[id];
-      #ifdef DEBUG
-        assert(nd < num_nodes);
-              // printf("%ld %ld %ld %ld\n", nd, offsets[nd], indices[offsets[id]], size);
-              // assert(indices[offsets[nd]] < size);
-      #endif
-          // Todo
-      long nbs_size = graph_indptr[nd+1] -graph_indptr[nd];
-      long *read = &graph_indices[graph_indptr[nd]];
-
-      long *write = &indices[offsets[id]];
-      if((nbs_size > fanout) && (fanout != -1)){
-         for(int j = 0; j < fanout; j++){
-            int sid = (int) (curand_uniform(curandSrcPtr ) * nbs_size);
-             #ifdef DEBUG
-                  assert(sid < nbs_size);
-             #endif
-             write[j] = read[sid];
-           }
-           if(self_edge){
-             write[fanout] = nd;
+        long *write = &indices[offsets[id]];
+        if((nbs_size > fanout) && (fanout != -1)){
+           for(int j = 0; j < fanout; j++){
+              float f = curand_uniform(curandSrcPtr ) ;
+              int sid = (int) (f * nbs_size - 1);
+               #ifdef DEBUG
+                if(sid >= nbs_size){
+                    printf("overflow %f %d %ld\n", f, sid, nbs_size);
+                  }
+                    assert(sid < nbs_size);
+               #endif
+               write[j] = read[sid];
              }
-          }else{
-            for(int j = 0; j < nbs_size; j++){
-              write[j] = read[j];
-            }
-            if(self_edge){
-              write[nbs_size] = nd;
-            }
+             if(self_edge){
+               write[fanout] = nd;
+               }
+            }else{
+              for(int j = 0; j < nbs_size; j++){
+                write[j] = read[j];
+              }
+              if(self_edge){
+                write[nbs_size] = nd;
+              }
+          }
+          start += BLOCK_SIZE;
         }
-        start += BLOCK_SIZE;
+        tileId += gridDim.x;
       }
   }
 

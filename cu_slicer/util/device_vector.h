@@ -12,6 +12,8 @@
 #include <memory>
 namespace cuslicer{
 
+
+
   template <typename DATATYPE>
   class device_vector{
 
@@ -26,31 +28,42 @@ namespace cuslicer{
 
       public:
 
+        static long TOTAL_ALLOCATED ;
+
+
         DATATYPE *data = nullptr;
         size_t sz = 0;
         cuda_memory(DATATYPE *d, size_t sz){
             this->data = d;
             this->sz = sz;
+            TOTAL_ALLOCATED += sz * sizeof(DATATYPE);
           }
 
           ~cuda_memory(){
-            std::cout << "Freeing " << sz <<"\n";
+            TOTAL_ALLOCATED -= sz * sizeof(DATATYPE);
+            // std::cout << "Freeing " << sz <<"\n";
             gpuErrchk(cudaFree(data));
           }
 
           static std::shared_ptr<cuda_memory> alloc(int size_t){
               DATATYPE *d;
-              std::cout << "Allocating " << size_t<<"\n";
+              // std::cout << "Allocating " << size_t<<"\n";
               gpuErrchk(cudaMalloc((void**)&d, (sizeof(DATATYPE) * size_t)));
               return std::make_shared<cuda_memory>(d, size_t);
           }
 
+
+
           inline DATATYPE * ptr(){return data;}
     };
+
 
   public:
     size_t current_size= 0;
 
+    float getAllocatedMemory(){
+      return (cuda_memory::TOTAL_ALLOCATED  * 1.0) / (1032 * 1032 * 1032);
+    }
     // Todo instead of raw pointer in data use shared memory
     // This is a local change, add more tests to testfile testss/device_vector.cu
 

@@ -11,6 +11,7 @@ const std::string ornl = "/mnt/bigdata/sandeep/";
 const std::string aws  = "/home/ubuntu/data/";
 
 const std::string ERROR = "dir_error";
+inline 
 std::string get_dataset_dir(){
 	char * u = getenv("USER");
 	std::string user = std::string(u);

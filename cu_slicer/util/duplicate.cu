@@ -14,9 +14,11 @@ template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
 void set_nodes_not_present(long * nodes, size_t nodes_size,
         int * mask, size_t mask_size, long *_tv){
-    int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-    int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), nodes_size);
-
+    int tileId = blockIdx.x;
+    int last_tile = ((nodes_size - 1) / TILE_SIZE + 1);
+    while(tileId < last_tile){
+    int start = threadIdx.x + (tileId * TILE_SIZE);
+    int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE),nodes_size);
     while(start < end){
       int id = start;
       #ifdef DEBUG
@@ -29,6 +31,8 @@ void set_nodes_not_present(long * nodes, size_t nodes_size,
        }
        start += BLOCK_SIZE;
     }
+    tileId += gridDim.x;
+  }
 }
 
 
@@ -37,8 +41,12 @@ __global__
 void get_unique_nodes(long *nodes, size_t nodes_size,
       int *mask, size_t mask_size,
         long *_tv, long *_tv1, size_t tv1_size){
-    int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-      int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), nodes_size);
+          int tileId = blockIdx.x;
+          int last_tile = ((nodes_size - 1) / TILE_SIZE + 1);
+          while(tileId < last_tile){
+          int start = threadIdx.x + (tileId * TILE_SIZE);
+          int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE),nodes_size);
+
     while(start < end){
       int id = start;
     #ifdef DEBUG
@@ -52,6 +60,8 @@ void get_unique_nodes(long *nodes, size_t nodes_size,
       }
        start += BLOCK_SIZE;
    }
+      tileId += gridDim.x;
+  }
 }
 
 
@@ -60,17 +70,22 @@ template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
 void update_mask_with_unique(int *mask, long mask_size,
       int current_unique_nodes, long * _tv1, size_t sz){
-    int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-      int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), sz);
-    while(start < end){
+    int tileId = blockIdx.x;
+    int last_tile = ((sz - 1) / TILE_SIZE + 1);
+    while(tileId < last_tile){
+    int start = threadIdx.x + (tileId * TILE_SIZE);
+    int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE),sz );
+        while(start < end){
           int id = start;
-      #ifdef DEBUG
-          assert(current_unique_nodes >= 0);
-          assert(_tv1[id] < mask_size);
-      #endif
-      mask[_tv1[id]] = current_unique_nodes + id + 1;
-      start += BLOCK_SIZE;
-    }
+          #ifdef DEBUG
+              assert(current_unique_nodes >= 0);
+              assert(_tv1[id] < mask_size);
+          #endif
+          mask[_tv1[id]] = current_unique_nodes + id + 1;
+          start += BLOCK_SIZE;
+        }
+    tileId += gridDim.x;
+  }
 }
 
 
@@ -78,8 +93,11 @@ template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
 void clear_mask(int * mask, long mask_size,\
       long *used_nodes, size_t used_nodes_size){
-  int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-    int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), used_nodes_size);
+  int tileId = blockIdx.x;
+  int last_tile = ((used_nodes_size - 1) / TILE_SIZE + 1);
+  while(tileId < last_tile){
+  int start = threadIdx.x + (tileId * TILE_SIZE);
+  int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE),used_nodes_size );
   while(start < end){
         int id = start;
   #ifdef DEBUG
@@ -88,14 +106,19 @@ void clear_mask(int * mask, long mask_size,\
     mask[used_nodes[id]] = 0;
     start += BLOCK_SIZE;
   }
+    tileId += gridDim.x;
+  }
 }
 
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
 void update_nodes(int * mask,long  mask_size, long * nodes, size_t node_size){
-  int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-  int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), node_size);
+  int tileId = blockIdx.x;
+  int last_tile = ((node_size - 1) / TILE_SIZE + 1);
+  while(tileId < last_tile){
+  int start = threadIdx.x + (tileId * TILE_SIZE);
+  int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE),node_size );
   while(start < end){
         int id = start;
     #ifdef DEBUG
@@ -106,7 +129,9 @@ void update_nodes(int * mask,long  mask_size, long * nodes, size_t node_size){
         assert(mask[nodes[id]] != 0);
     #endif
      nodes[id] = mask[nodes[id]] - 1;
-    start += BLOCK_SIZE;
+     start += BLOCK_SIZE;
+    }
+    tileId += gridDim.x;
   }
 }
 
@@ -162,10 +187,10 @@ void ArrayMap::assert_no_duplicates(device_vector<long> &nodes){
   #ifdef DEBUG
       // check no duplicates;
       transform::unique(nodes, _tv);
-      if(_tv.size()!= nodes.size()){
-        _tv.debug("Unique");
-        nodes.debug("Not Unique");
-      }
+      // if(_tv.size()!= nodes.size()){
+      //   _tv.debug("Unique");
+      //   nodes.debug("Not Unique");
+      // }
       assert(_tv.size()  == nodes.size());
   #endif
 }

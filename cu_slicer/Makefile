@@ -31,7 +31,7 @@ all: build/main.o build/util/cub.o build/util/duplicate.o build/util/device_vect
 				build/tests/gcn_test.o build/graph/bipartite.o
 	nvcc -G build/main.o build/util/cub.o build/util/device_vector.o   build/samplers/ns.o \
 			build/graph/dataset.o  build/transform/slice.o build/transform/push_slice.o  build/tests/gcn_test.o \
-	build/util/duplicate.o build/graph/bipartite.o -o cuslicer
+	build/util/duplicate.o build/graph/bipartite.o -o build/cuslicer
 
 traverse: build/traverse_main.o build/util/cub.o build/util/duplicate.o build/util/device_vector.o \
 				build/graph/dataset.o build/samplers/ns.o
@@ -39,15 +39,19 @@ traverse: build/traverse_main.o build/util/cub.o build/util/duplicate.o build/ut
 				build/graph/dataset.o  \
 				build/util/duplicate.o -o traverse
 
-tests: build/tests/test1_fact.o  build/tests/cub_tests.o  build/tests/device_vector.o \
+tests: build/tests/gtest_entry.o  build/tests/cub_tests.o  build/tests/device_vector.o \
 			build/util/cub.o build/util/device_vector.o build/tests/array_map.o build/util/duplicate.o \
-				build/tests/sampling.o build/samplers/ns.o build/graph/dataset.o
-	nvcc -G  build/tests/test1_fact.o build/tests/cub_tests.o build/samplers/ns.o  \
+				build/tests/sampling.o build/tests/slicing.o build/samplers/ns.o build/graph/dataset.o\
+				build/transform/push_slice.o build/transform/slice.o \
+					build/tests/gcn_test.o build/graph/bipartite.o
+	nvcc -G  build/tests/gtest_entry.o build/tests/cub_tests.o build/samplers/ns.o  \
 		build/util/cub.o  build/tests/array_map.o build/util/duplicate.o build/tests/device_vector.o  \
-		build/util/device_vector.o build/tests/sampling.o build/graph/dataset.o\
-		-lgtest -o gtests
+		build/util/device_vector.o build/tests/sampling.o   build/tests/slicing.o build/graph/dataset.o\
+		build/transform/push_slice.o build/transform/slice.o \
+			build/tests/gcn_test.o build/graph/bipartite.o\
+		-lgtest -o build/gtests
 	# ./gtests --gtest_filter=CUB.exclusive_sum
-	./gtests --gtest_filter=ARRAYMAP.memory
+	# ./gtests --gtest_filter=ARRAYMAP.memory
 
 build/main.o : main.cu
 	mkdir -p build/
@@ -74,7 +78,7 @@ build/transform/%.o: transform/%.cu
 	mkdir -p build/transform
 	nvcc $(DEBUG) -c $(INCLUDE) $< -o $@
 
-build/tests/%.o: tests/%.cu
+build/tests/%.o: tests/cuda/%.cu
 	mkdir -p build/tests
 	nvcc $(DEBUG) -c $(INCLUDE) $< -o $@
 

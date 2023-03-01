@@ -9,8 +9,11 @@ using namespace cuslicer;
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
 void calculate_cache_hit_mask(long * in_nodes, int * storage_map, size_t size, int * cache_hit_mask, int * cache_miss_mask){
-  int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-    int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), size);
+  int tileId = blockIdx.x;
+  int last_tile = ((size - 1) / TILE_SIZE + 1);
+  while(tileId < last_tile){
+  int start = threadIdx.x + (tileId * TILE_SIZE);
+  int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), size);
   while(start < end){
         int tid = start;
 
@@ -23,15 +26,20 @@ void calculate_cache_hit_mask(long * in_nodes, int * storage_map, size_t size, i
 		cache_miss_mask[tid] = 0;
 	 }
 	 start = start + BLOCK_SIZE;
-   }
+ }
+ tileId += gridDim.x;
+  }
 }
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
 void  fill_cache_nodes(long * in_nodes, int * storage_map, size_t size, int * cache_hit_mask, int * cache_miss_mask, \
 			long * miss_from , long* miss_to, long * hit_from, long *hit_to){
-  int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-  int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), size);
+        int tileId = blockIdx.x;
+        int last_tile = ((size - 1) / TILE_SIZE + 1);
+        while(tileId < last_tile){
+        int start = threadIdx.x + (tileId * TILE_SIZE);
+        int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), size);
   while(start < end){
         int tid = start;
         long nd = in_nodes[tid];
@@ -44,6 +52,8 @@ void  fill_cache_nodes(long * in_nodes, int * storage_map, size_t size, int * ca
         }
         start = start + BLOCK_SIZE;;
 
+  }
+    tileId += gridDim.x;
   }
 
 }
@@ -124,17 +134,16 @@ void Slice::reorder(PartitionedLayer &l){\
         bool last_layer = false;
         if (i == s.num_layers) last_layer = true;
     	  PartitionedLayer& l = ps.layers[i-1];
-
+        std::cout <<"Slice" << i <<"\n";
         this->slice_layer(s.block[i-1]->layer_nds, \
             (* s.block[i]), l, last_layer);
-            std::cout <<"Slice\n";
+        std::cout <<"Slice" << i <<"\n";
         this->reorder(l);
-        std::cout <<"Reorder\n";
+        std::cout <<"Reorder " << i <<"\n";
         //consistency check
         for(int j = 0; j< this->num_gpus; j++){
           for(int k = 0; k < this->num_gpus;k ++ ){
             auto to = l.bipartite[j]->to_offsets[k + 1]  - l.bipartite[j]->to_offsets[k];
-            std::cout  << to <<":" << l.bipartite[k]->push_from_ids[j].size() <<"\n";
             assert(to == l.bipartite[k]->push_from_ids[j].size());
           }
         }

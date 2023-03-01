@@ -26,11 +26,12 @@ constexpr static const int MAX_GPUS = 8;
 inline int GRID_SIZE(size_t t){
   size_t b =  (t-1)/TILE_SIZE + 1;
   if(b >= MAX_BLOCKS){
-    std::cout << "Calculated Blocks " << b <<" which is above MAX BLOCKS\n";
-    return MAX_BLOCKS;
+      return MAX_BLOCKS;
   }
   return b;
 }
+
+
 
 const int MAX_DEVICES = 8;
 const int MAX_LAYERS = 5;

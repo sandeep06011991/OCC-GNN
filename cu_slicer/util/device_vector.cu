@@ -14,14 +14,21 @@
 
 namespace cuslicer{
 
+
+
 template<int BLOCKSIZE, int TILESIZE, typename DATATYPE>
 __global__
 void sample_fill_kernel(DATATYPE *d, size_t sz, DATATYPE fill_value){
-  int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-  int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE),sz);
+  int tileId = blockIdx.x;
+  int last_tile = ((sz - 1) / TILE_SIZE + 1);
+  while(tileId < last_tile){
+  int start = threadIdx.x + (tileId * TILE_SIZE);
+  int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), sz);
   while(start < end){
     d[start] = fill_value;
     start += BLOCK_SIZE;
+    }
+    tileId += gridDim.x;
   }
 }
 
@@ -93,6 +100,8 @@ device_vector<DATATYPE>::~device_vector(){
    // }
 }
 
+template<typename DATATYPE>
+long device_vector<DATATYPE>::cuda_memory::TOTAL_ALLOCATED = 0;
 
 template<typename DATATYPE>
 device_vector<DATATYPE>& device_vector<DATATYPE>::operator=(device_vector<DATATYPE> &in){

@@ -19,9 +19,11 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
       // Partitioned graphs such that indptr_map[dest, src]
        	  	bool last_layer, void ** storage_map, int NUM_GPUS){
             // Last layer use storage map
-    int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-    int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), out_nodes_size);
-
+    int tileId = blockIdx.x;
+    int last_tile = ((out_nodes_size - 1) / TILE_SIZE + 1);
+    while(tileId < last_tile){
+    int start = threadIdx.x + (tileId * TILE_SIZE);
+    int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), out_nodes_size);
     while(start < end){
       int tid = start;
       long nd1 = out_nodes[tid];
@@ -90,6 +92,8 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
     }
       start +=  BLOCK_SIZE;
   }
+      tileId += gridDim.x;
+  }
 }
 
 __device__
@@ -101,9 +105,11 @@ bool is_selected(long *id, size_t sz){
 template<int BLOCKSIZE, int TILESIZE>
 __global__ void fill_indices_local(long *sample_indices,
       long *index_edges, long num_edges, long * index_in_nodes, size_t num_in_nodes, PushSlicer::LocalGraphInfo *info, int num_gpus){
-  int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-  int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), num_edges * num_gpus);
-
+  int tileId = blockIdx.x;
+  int last_tile = (((num_edges * num_gpus) - 1) / TILE_SIZE + 1);
+  while(tileId < last_tile){
+  int start = threadIdx.x + (tileId * TILE_SIZE);
+  int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), num_edges * num_gpus);
   while(start < end){
     int tid = start;
     int gpu_id = tid / (num_edges);
@@ -113,14 +119,19 @@ __global__ void fill_indices_local(long *sample_indices,
       }
     start += BLOCK_SIZE;
   }
+    tileId += gridDim.x;
+  }
 }
 
 template<int BLOCKSIZE, int TILESIZE>
 __global__ void fill_indices_remote(long * index_edge_remote, size_t num_edges, \
        long * index_in_nodes, size_t num_in_nodes,
             PushSlicer::LocalGraphInfo * info, int num_gpus, long *sample_indices){
-    int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-    int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), num_edges * (num_gpus - 1) * (num_gpus));
+    int tileId = blockIdx.x;
+    int last_tile = (((num_edges * (num_gpus - 1) * (num_gpus)) - 1) / TILE_SIZE + 1);
+    while(tileId < last_tile){
+    int start = threadIdx.x + (tileId * TILE_SIZE);
+    int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), num_edges * (num_gpus - 1) * (num_gpus));
     while(start < end){
       int tid = start;
       int gpu_id = tid / (num_edges * (num_gpus - 1));
@@ -129,6 +140,8 @@ __global__ void fill_indices_remote(long * index_edge_remote, size_t num_edges, 
         info[gpu_id].indices_R.add_position_offset(indice, index_edge_remote[tid]);
       }
       start += BLOCK_SIZE;
+    }
+      tileId += gridDim.x;
     }
 }
 
@@ -140,8 +153,11 @@ void fill_out_nodes_local(long * index_out_nodes_local,\
         PushSlicer::LocalGraphInfo *info, int num_gpus,\ // Meta data
         long *out_nodes, long * out_node_degree,\
         long num_out_nodes){
-        int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-        int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), index_out_nodes_local_size);
+        int tileId = blockIdx.x;
+        int last_tile = (( index_out_nodes_local_size - 1) / TILE_SIZE + 1);
+        while(tileId < last_tile){
+        int start = threadIdx.x + (tileId * TILE_SIZE);
+        int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), index_out_nodes_local_size);
         while(start < end){
             int tid = start;
             int gpu_id = tid/num_out_nodes;
@@ -163,6 +179,8 @@ void fill_out_nodes_local(long * index_out_nodes_local,\
              }
             start += BLOCK_SIZE;
       }
+      tileId += gridDim.x;
+    }
 }
 
 template<int BLOCKSIZE, int TILESIZE>
@@ -171,8 +189,11 @@ __global__ void fill_out_nodes_remote(long * index_out_nodes_remote, \
         long * index_indptr_remote, \
         PushSlicer::LocalGraphInfo *info, int num_gpus,\ // Meta data
         long *out_nodes, long num_out_nodes ){
-          int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-          int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), index_out_nodes_remote_sizes);
+          int tileId = blockIdx.x;
+          int last_tile = (( index_out_nodes_remote_sizes - 1) / TILE_SIZE + 1);
+          while(tileId < last_tile){
+          int start = threadIdx.x + (tileId * TILE_SIZE);
+          int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE),  index_out_nodes_remote_sizes);
           while(start < end){
             int tid = start;
             int gpu_idx = tid / num_out_nodes;
@@ -197,6 +218,8 @@ __global__ void fill_out_nodes_remote(long * index_out_nodes_remote, \
             }
             start += BLOCK_SIZE;
       }
+            tileId += gridDim.x;
+    }
 }
 
 template<int BLOCKSIZE, int TILESIZE>
@@ -204,10 +227,10 @@ __global__ void fill_in_nodes(long * index_in_nodes, \
     PushSlicer::LocalGraphInfo *info, int num_gpus,\
       long * in_nodes, size_t num_in_nodes){
         int tileId = blockIdx.x;
-        int lastTile = (num_in_nodes - 1)/TILE_SIZE + 1;
+        int lastTile = ( num_in_nodes * num_gpus- 1)/TILE_SIZE + 1;
         while(tileId < lastTile){
-        int start = threadIdx.x + (blockIdx.x * TILE_SIZE);
-        int end = min(static_cast<int64_t>(threadIdx.x + (blockIdx.x + 1) * TILE_SIZE), num_in_nodes * num_gpus);
+        int start = threadIdx.x + (tileId * TILE_SIZE);
+        int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), num_in_nodes * num_gpus);
         while(start < end){
         int tid = start;
         int gpu_id = tid/ (num_in_nodes);

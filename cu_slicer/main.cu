@@ -8,7 +8,7 @@
 #include <vector>
 #include "transform/slice.h"
 #include "graph/sliced_sample.h"
-#include "tests/test.h"
+#include "tests/cuda/test.h"
 #include "util/device_vector.h"
 #include "util/cub.h"
 #include "util/duplicate.h"
@@ -24,7 +24,7 @@ int main(){
   cudaSetDevice(1);
 // std::cout << "hello world\n";
   // std::string graph_name = "synth_8_2";
-  std::string graph_name = "ogbn-products";
+  std::string graph_name = "ogbn-arxiv";
   std::string file = get_dataset_dir() + graph_name;
   int num_gpus = 4;
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_gpus);
@@ -33,7 +33,7 @@ int main(){
 // // // Sample datastructure.
   int num_layers = 3 ;
   Sample *s1  = new Sample(num_layers);
-  vector<int> fanout({20,20,20});
+  vector<int> fanout({20,20, 20});
   bool self_edge = false;
   std::vector<long> training_nodes;
   for(int i=0;i<4096;i++){
@@ -44,21 +44,20 @@ int main(){
 
   cuslicer::device_vector<long> target(training_nodes);
   ns->sample(target,(*s1));
-
     bool pull_optim = false;
 
 // //
 
   cuslicer::device_vector<int> workload_map;
   std::vector<int> storage[8];
-  int is_present =0;
+  int is_present =1;
 // // Test 3b. is_present = 1;
   int gpu_capacity[num_gpus];
   for(int i=0;i < num_gpus; i++)gpu_capacity[i] = 0;
 // // Write a better version of this.
+  workload_map = dataset->partition_map_d;
   for(int i=0;i<dataset->num_nodes;i++){
-   workload_map = dataset->partition_map_d;
-    #pragma unroll
+   #pragma unroll
     for(int j=0;j<num_gpus;j++){
       if(is_present == 1){
         gpu_capacity[j]++;
@@ -73,16 +72,19 @@ int main(){
   }
 
 // // std::cout << "basic population done \n";
-    int rounds = 4;
-
+    int rounds = 7;
     PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
     PartitionedSample ps1(num_layers, num_gpus);
     // s1->debug();
-    std::cout <<"Reached erere\n";
+
+    std::cout <<"Reached erere1\n";
     sc1->slice_sample((*s1),ps1);
-    std::cout <<"Reached erere\n";
-    ps1.clear();
-    sc1->slice_sample((*s1),ps1);
+    // ps1.debug();
+    std::cout <<"Reached erere2\n";
+
+    // sc1->slice_sample((*s1),ps1);
+    // std::cout <<"Reached erere3\n";
+
 //     // PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
 //    std::cout << "Slicer created \n";
 // //   s1->debug();
