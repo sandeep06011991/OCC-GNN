@@ -79,11 +79,10 @@ int main(){
     //
     // std::cout <<"Reached erere1\n";
     s1->debug();
-    return 1;
-    // sc1->slice_sample((*s1),ps1);
+    sc1->slice_sample((*s1),ps1);
     //
     // ps1.debug();
-
+    return;
     std::cout <<"Reached erere2\n";
 
     // sc1->slice_sample((*s1),ps1);

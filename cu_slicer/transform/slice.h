@@ -157,6 +157,9 @@ public:
     void slice_layer(device_vector<long>& in, Block &bl, \
         PartitionedLayer& l, bool last_layer) ;
 
+    void slice_layer_per_gpu(device_vector<long>& in, Block &bl, \
+        PartitionedLayer& l, bool last_layer, int gpu);
+           
     void resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, int num_out_nodes, int num_edges);
 };
 

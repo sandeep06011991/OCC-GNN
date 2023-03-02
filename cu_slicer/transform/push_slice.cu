@@ -26,29 +26,28 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
     int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), out_nodes_size);
     while(start < end){
       int tid = start;
-      printf("thread ok %d\n", tid);
+      printf("Hello\n");
       long nd1 = out_nodes[tid];
-      printf("thread ok %d\n", tid);
       long nbs = indptr[tid+1] - indptr[tid];
-      printf("thread ok %d\n", tid);
-
       #ifdef DEBUG
           assert(nd1 < num_nodes_in_graph);
       #endif
+      printf("Hello\n");
       int p_nd1 = partition_map[nd1];
       long offset_edge_start = indptr[tid];
       int p_nbs[MAX_DEVICES];
       for(int n=0; n<NUM_GPUS; n++){
         p_nbs[n] = 0;
       }
-      printf("thread ok %d %ld\n", tid, offset_edge_start);
+      printf("Hello\n");
       p_nbs[p_nd1] = 0;
       for(int nb_idx = 0; nb_idx < nbs; nb_idx ++ ){
+        printf("Hello\n");
         long nd2_idx = indices[offset_edge_start + nb_idx];
-        printf("edge %ld \n", nd2_idx);
         #ifdef DEBUG
             assert(nd2_idx < in_nodes_size);
         #endif
+        printf("Hello\n");
         long nd2 = in_nodes[nd2_idx];
         int p_nd2 = partition_map[nd2];
         if(p_nd1 == p_nd2){
