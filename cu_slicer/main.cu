@@ -23,20 +23,20 @@ int main(){
 // test_duplicate();
   cudaSetDevice(1);
 // std::cout << "hello world\n";
-  // std::string graph_name = "synth_8_2";
-  std::string graph_name = "ogbn-arxiv";
+  std::string graph_name = "synth_8_2";
+  // std::string graph_name = "ogbn-arxiv";
   std::string file = get_dataset_dir() + graph_name;
-  int num_gpus = 4;
+  int num_gpus = 2;
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_gpus);
 // std::cout << "Read synthetic dataset\n ";
 // // // Test2: Construct simple k-hop neighbourhood sample.
 // // // Sample datastructure.
-  int num_layers = 1 ;
+  int num_layers =2 ;
   Sample *s1  = new Sample(num_layers);
-  vector<int> fanout({-1});
+  vector<int> fanout({-1,-1});
   bool self_edge = false;
   std::vector<long> training_nodes;
-  for(int i=0;i<400;i++){
+  for(int i=1;i<2;i++){
       training_nodes.push_back(i);
   }
 
@@ -44,13 +44,13 @@ int main(){
 
   cuslicer::device_vector<long> target(training_nodes);
   ns->sample(target,(*s1));
-    bool pull_optim = false;
+  bool pull_optim = false;
 
 // //
 
   cuslicer::device_vector<int> workload_map;
   std::vector<int> storage[8];
-  int is_present =1;
+  int is_present =0;
 // // Test 3b. is_present = 1;
   int gpu_capacity[num_gpus];
   workload_map = dataset->partition_map_d;
@@ -76,11 +76,14 @@ int main(){
     int rounds = 7;
     PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
     PartitionedSample ps1(num_layers, num_gpus);
+    //
+    // std::cout <<"Reached erere1\n";
     s1->debug();
-    return;
-    std::cout <<"Reached erere1\n";
-    sc1->slice_sample((*s1),ps1);
-    ps1.debug();
+    return 1;
+    // sc1->slice_sample((*s1),ps1);
+    //
+    // ps1.debug();
+
     std::cout <<"Reached erere2\n";
 
     // sc1->slice_sample((*s1),ps1);
@@ -105,12 +108,12 @@ int main(){
 //    // std::cout << "Pull done \n";
 //    // std::cout << "everything but cache managemnet done !\n";
 // // //   std::cout << "slicing done \n";
-  // ps1.debug();
+  ps1.debug();
 // //
-  test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
-
-  cuslicer::transform::cleanup();
-  std::cout <<"Done !\n";
+  // test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+  //
+  // cuslicer::transform::cleanup();
+  // std::cout <<"Done !\n";
 
   return 0;
 //   // test_pull_benefits(*s1, workload_map, storage, rounds);

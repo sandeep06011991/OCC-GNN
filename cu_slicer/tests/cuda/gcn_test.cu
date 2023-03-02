@@ -97,7 +97,7 @@ void aggregate(std::vector<int> &out, std::vector<int> &in,
           // std::cout << "(" << in[indices[off]]<<":"<<indices[off]<<")";
           assert(in[indices[off]] >= 0);
       }
-      std::cout <<"Adding $$$$$$$$$$$$$$$$$$$$$$$$$\n";
+
       out[i] = t;
     }
 }
@@ -158,6 +158,13 @@ void pull_own_node(BiPartite *bp,
     // PULL
     for(int j=0;j < num_gpus;j ++){
       BiPartite *bp = layer.bipartite[j];
+      if(in[j].size() != bp->in_nodes.size()){
+        for(auto k :in[j]){
+          std::cout << k <<" ";
+        }
+        bp->in_nodes.debug("OUT");
+      }
+      std::cout << in[j].size() <<" " << bp->in_nodes.size() <<"\n";
       assert(in[j].size() == bp->in_nodes.size());
       int new_size = bp->num_in_nodes_local + bp->num_in_nodes_pulled;
 
@@ -261,6 +268,7 @@ void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
       if(correct[i] != get<1>(out[i])){
         std::cout << "Miss" << get<0>(out[i]) <<" expect "<< \
             get<1>(out[i]) << "original"<< correct[i] <<"\n";
+            assert(false);
       }
     }
     // std::cout << correct << "==" << out << "\n";

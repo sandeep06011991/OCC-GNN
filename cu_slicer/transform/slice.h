@@ -96,7 +96,7 @@ public:
       // std::cout << "Storage map size" << this->storage_map[i].size() <<"\n";
     }
     std::cout << "All storage maps moved\n";
-    
+
     gpuErrchk(cudaMemcpy(storage_map_flattened, t, sizeof(int *) * num_gpus,\
       cudaMemcpyHostToDevice));
 
@@ -133,7 +133,7 @@ public:
         Vector_From_Index out_degree_local;
         Vector_From_Index indptr_L;
         Vector_From_Index indptr_R;
-
+        long num_out_local;
         Vector_From_Index indices_L;
         Vector_From_Index indices_R;
         Vector_From_Index push_from_ids[MAX_GPUS - 1];
@@ -160,6 +160,45 @@ public:
     void resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, int num_out_nodes, int num_edges);
 };
 
+class MemoryMinimizedPushSlicer: public Slice{
+
+public:
+    // Contains information from the offsets array and exclusive sum.
+    // Use to construct graphs from partitioned edges.
+    // Must have one to one mapping from every object in bipartite graph
+    struct LocalGraphInfo{
+        Vector_From_Index in_nodes;
+        Vector_From_Index out_nodes_local;
+        Vector_From_Index out_nodes_remote;
+        Vector_From_Index out_degree_local;
+        Vector_From_Index indptr_L;
+        Vector_From_Index indptr_R;
+        long num_out_local;
+        Vector_From_Index indices_L;
+        Vector_From_Index indices_R;
+        Vector_From_Index push_from_ids[MAX_GPUS - 1];
+
+    };
+
+    LocalGraphInfo host_graph_info[MAX_GPUS];
+    LocalGraphInfo * device_graph_info;
+
+  MemoryMinimizedPushSlicer(device_vector<int> workload_map,
+        std::vector<int> storage[8],
+          bool pull_optimization, int num_gpus):Slice(workload_map,
+            storage, pull_optimization, num_gpus){
+              gpuErrchk(cudaMalloc(&device_graph_info, sizeof(LocalGraphInfo) * this->num_gpus ));
+    }
+
+    void copy_graph_info(){
+      gpuErrchk(cudaMemcpy(device_graph_info, host_graph_info,  sizeof(LocalGraphInfo) * this->num_gpus, cudaMemcpyHostToDevice));
+    }
+
+    void slice_layer(device_vector<long>& in, Block &bl, \
+        PartitionedLayer& l, bool last_layer) ;
+
+    void resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, int num_out_nodes, int num_edges);
+};
 
 // class PullSlicer: public Slice{
 //

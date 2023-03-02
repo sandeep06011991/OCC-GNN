@@ -26,12 +26,8 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
     int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), out_nodes_size);
     while(start < end){
       int tid = start;
-      printf("thread ok %d\n", tid);
       long nd1 = out_nodes[tid];
-      printf("thread ok %d\n", tid);
       long nbs = indptr[tid+1] - indptr[tid];
-      printf("thread ok %d\n", tid);
-
       #ifdef DEBUG
           assert(nd1 < num_nodes_in_graph);
       #endif
@@ -41,11 +37,9 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
       for(int n=0; n<NUM_GPUS; n++){
         p_nbs[n] = 0;
       }
-      printf("thread ok %d %ld\n", tid, offset_edge_start);
       p_nbs[p_nd1] = 0;
       for(int nb_idx = 0; nb_idx < nbs; nb_idx ++ ){
         long nd2_idx = indices[offset_edge_start + nb_idx];
-        printf("edge %ld \n", nd2_idx);
         #ifdef DEBUG
             assert(nd2_idx < in_nodes_size);
         #endif
@@ -54,11 +48,7 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
         if(p_nd1 == p_nd2){
           // Same partition add local edge
           ((long *)&index_edge_local[num_edges * p_nd1])[offset_edge_start + nb_idx] = 1;
-          // Mark only if not in the outnode list
-          // Makes setting self nodes easier
-          if(!(nd2_idx < out_nodes_size)){
-            ((long *)&index_in_nodes[in_nodes_size * p_nd2])[nd2_idx] = 1;
-            }
+          ((long *)&index_in_nodes[in_nodes_size * p_nd2])[nd2_idx] = 1;
            p_nbs[p_nd1] ++;
            continue;
         }
@@ -90,8 +80,7 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
           if(p_nd == p_nd1){
             ((long *)&index_out_nodes_local[out_nodes_size * p_nd])[tid] = 1;
             ((long *)&index_indptr_local[out_nodes_size * p_nd])[tid] = p_nbs[p_nd];
-            // Dont mark out nodes in innodes
-            // ((long *)&index_in_nodes[in_nodes_size * p_nd])[tid] = 1;
+            ((long *)&index_in_nodes[in_nodes_size * p_nd])[tid] = 1;
           }else{
           if(p_nbs[p_nd] > 0){
             int remote_offset= p_nd1;
@@ -115,10 +104,7 @@ bool is_selected(long *id, size_t sz){
 
 template<int BLOCKSIZE, int TILESIZE>
 __global__ void fill_indices_local(long *sample_indices,
-      long *index_edges, long num_edges,
-      long * index_in_nodes, size_t num_in_nodes,
-      long * index_out_nodes_local, size_t num_out_nodes,
-      PushSlicer::LocalGraphInfo *info, int num_gpus){
+      long *index_edges, long num_edges, long * index_in_nodes, size_t num_in_nodes, PushSlicer::LocalGraphInfo *info, int num_gpus){
   int tileId = blockIdx.x;
   int last_tile = (((num_edges * num_gpus) - 1) / TILE_SIZE + 1);
   while(tileId < last_tile){
@@ -128,17 +114,7 @@ __global__ void fill_indices_local(long *sample_indices,
     int tid = start;
     int gpu_id = tid / (num_edges);
     if(is_selected(index_edges,tid)){
-       auto edge_idx = tid % num_edges;
-       long indice;
-       if((sample_indices[edge_idx] < num_out_nodes) && \
-        is_selected(index_out_nodes_local, gpu_id * num_out_nodes + sample_indices[edge_idx])){
-         indice = index_out_nodes_local[num_out_nodes * gpu_id + sample_indices[edge_idx]] \
-              - info[gpu_id].out_nodes_local.offset - 1;
-
-       }else{
-         indice = info[gpu_id].num_out_local +\
-          index_in_nodes[num_in_nodes * gpu_id + sample_indices[tid % num_edges]] - info[gpu_id].in_nodes.offset - 1;
-        }
+       long indice = index_in_nodes[num_in_nodes * gpu_id + sample_indices[tid % num_edges]] - info[gpu_id].in_nodes.offset - 1;
        info[gpu_id].indices_L.add_position_offset(indice, index_edges[tid]);
       }
     start += BLOCK_SIZE;
@@ -150,8 +126,7 @@ __global__ void fill_indices_local(long *sample_indices,
 template<int BLOCKSIZE, int TILESIZE>
 __global__ void fill_indices_remote(long * index_edge_remote, size_t num_edges, \
        long * index_in_nodes, size_t num_in_nodes,
-           long * index_out_nodes_local, size_t num_out_nodes,
-              PushSlicer::LocalGraphInfo * info, int num_gpus, long *sample_indices){
+            PushSlicer::LocalGraphInfo * info, int num_gpus, long *sample_indices){
     int tileId = blockIdx.x;
     int last_tile = (((num_edges * (num_gpus - 1) * (num_gpus)) - 1) / TILE_SIZE + 1);
     while(tileId < last_tile){
@@ -160,18 +135,8 @@ __global__ void fill_indices_remote(long * index_edge_remote, size_t num_edges, 
     while(start < end){
       int tid = start;
       int gpu_id = tid / (num_edges * (num_gpus - 1));
-      if(is_selected(index_edge_remote,tid) ){
-        auto edge_idx = tid % num_edges;
-        long indice;
-        if((sample_indices[edge_idx] < num_out_nodes) && \
-          is_selected(index_out_nodes_local, gpu_id * num_out_nodes + sample_indices[edge_idx])){
-          indice = index_out_nodes_local[num_out_nodes * gpu_id + sample_indices[edge_idx]] \
-               -info[gpu_id].out_nodes_local.offset - 1;
-
-        }else{
-          indice = info[gpu_id].num_out_local +\
-            index_in_nodes[num_in_nodes * gpu_id +sample_indices[tid % num_edges]] - info[gpu_id].in_nodes.offset - 1;
-        }
+      if(is_selected(index_edge_remote,tid)){
+        long indice = index_in_nodes[num_in_nodes * gpu_id +sample_indices[tid % num_edges]] - info[gpu_id].in_nodes.offset - 1;
         info[gpu_id].indices_R.add_position_offset(indice, index_edge_remote[tid]);
       }
       start += BLOCK_SIZE;
@@ -259,35 +224,22 @@ __global__ void fill_out_nodes_remote(long * index_out_nodes_remote, \
 
 template<int BLOCKSIZE, int TILESIZE>
 __global__ void fill_in_nodes(long * index_in_nodes, \
-    long * index_out_nodes_local, \
     PushSlicer::LocalGraphInfo *info, int num_gpus,\
-      long * in_nodes, size_t num_in_nodes,
-      size_t num_out_nodes){
+      long * in_nodes, size_t num_in_nodes){
         int tileId = blockIdx.x;
         int lastTile = ( num_in_nodes * num_gpus- 1)/TILE_SIZE + 1;
         while(tileId < lastTile){
         int start = threadIdx.x + (tileId * TILE_SIZE);
         int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), num_in_nodes * num_gpus);
         while(start < end){
-          int tid = start;
-          int gpu_id = tid/ (num_in_nodes);
-          auto in_node_idx = tid % num_in_nodes;
-          if(in_node_idx < num_out_nodes){
-            if(is_selected(index_out_nodes_local, (num_out_nodes * gpu_id + in_node_idx))){
-                long in_node = in_nodes[tid % num_in_nodes];
-                auto d = info[gpu_id].out_nodes_local;
-                auto write_index = index_out_nodes_local[num_out_nodes * gpu_id + in_node_idx] - d.offset - 1;
-                info[gpu_id].in_nodes.data[write_index] = in_node;
-                start += BLOCK_SIZE;
-                continue;
-            }
-          }
-          if(is_selected(index_in_nodes, tid)){
-            long in_node = in_nodes[tid % num_in_nodes];
-            auto write_index = index_in_nodes[tid] + info[gpu_id].num_out_local;
-            info[gpu_id].in_nodes.add_position_offset(in_node, write_index);
-          }
-          start += BLOCK_SIZE;
+        int tid = start;
+        int gpu_id = tid/ (num_in_nodes);
+        if(is_selected(index_in_nodes, tid)){
+          long in_node = in_nodes[tid % num_in_nodes];
+          auto write_index = index_in_nodes[tid];
+          info[gpu_id].in_nodes.add_position_offset(in_node, write_index);
+        }
+        start += BLOCK_SIZE;
         }
         tileId += gridDim.x;
         }
@@ -308,7 +260,17 @@ void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, 
     for(int i =0; i < this->num_gpus; i++){
       BiPartite &bp = *ps.bipartite[i];
       LocalGraphInfo &info = this->host_graph_info[i];
-
+      // In nodes
+      size = ps.index_in_nodes[num_in_nodes * (i + 1) - 1];
+      offset = 0;
+      if(i != 0){
+        offset = ps.index_in_nodes[num_in_nodes * i - 1];
+      }
+      size = size - offset;
+      bp.in_nodes.resize(size);
+      bp.num_in_nodes_local = size;
+      info.in_nodes.data = bp.in_nodes.ptr();
+      info.in_nodes.offset = offset;
       // Out Nodes Local
       size = ps.index_out_nodes_local[num_out_nodes * (i + 1) - 1];
       offset = 0;
@@ -329,23 +291,8 @@ void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, 
       info.out_nodes_local.offset = offset;
       info.out_degree_local.data = bp.out_degree_local.ptr();
       info.out_degree_local.offset = offset;
+
       bp.self_ids_offset = size;
-      info.num_out_local = size;
-
-      // In nodes
-      size = ps.index_in_nodes[num_in_nodes * (i + 1) - 1];
-      offset = 0;
-      if(i != 0){
-        offset = ps.index_in_nodes[num_in_nodes * i - 1];
-      }
-      size = size - offset;
-      bp.in_nodes.resize(size + info.num_out_local );
-      bp.num_in_nodes_local = size + info.num_out_local  ;
-      info.in_nodes.data = bp.in_nodes.ptr();
-      info.in_nodes.offset = offset;
-
-
-
       // Out Nodes Remote
       size = ps.index_out_nodes_remote[(num_out_nodes * (this->num_gpus - 1)) * (i + 1)- 1];
       offset = 0;
@@ -421,7 +368,7 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
     ps.resize_selected_push(num_out_nodes * G, num_out_nodes * G * (G-1),\
              num_edges * G, num_edges * (G-1) * G, num_in_nodes * G);
 
-    gpuErrchk(cudaDeviceSynchronize());
+
     partition_edges_push<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()),BLOCK_SIZE>>>\
         (this->workload_map.ptr(),\
           layer_nds.ptr(), layer_nds.size(),\
@@ -435,7 +382,6 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
     #ifdef DEBUG
 
     #endif
-    std::cout << "Error \n";
     gpuErrchk(cudaDeviceSynchronize());
     // Stage 2 get sizes of Offsets for all graphs
     // Inclusive Scan Everything
@@ -471,30 +417,22 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
               #ifdef DEBUG
                 gpuErrchk(cudaDeviceSynchronize());
               #endif
-
     fill_indices_remote<BLOCK_SIZE, TILE_SIZE>\
     <<<GRID_SIZE( ps.index_edge_remote.size()),BLOCK_SIZE>>>(ps.index_edge_remote.ptr(), num_edges, \
-          ps.index_in_nodes.ptr(),  num_in_nodes,\
-            ps.index_out_nodes_local.ptr(), num_out_nodes, \
-            this->device_graph_info, num_gpus, bs.indices.ptr());
+          ps.index_in_nodes.ptr(),  num_in_nodes,  this->device_graph_info, num_gpus, bs.indices.ptr());
             #ifdef DEBUG
               gpuErrchk(cudaDeviceSynchronize());
             #endif
-
     fill_indices_local<BLOCK_SIZE, TILE_SIZE>\
     <<<GRID_SIZE( ps.index_edge_local.size()),BLOCK_SIZE>>>(bs.indices.ptr(),
-         ps.index_edge_local.ptr(), num_edges, \
-         ps.index_in_nodes.ptr() , num_in_nodes, \
-         ps.index_out_nodes_local.ptr(), num_out_nodes, \
-          this->device_graph_info, num_gpus);
+         ps.index_edge_local.ptr(), num_edges, ps.index_in_nodes.ptr() , \
+         num_in_nodes, this->device_graph_info, num_gpus);
          #ifdef DEBUG
            gpuErrchk(cudaDeviceSynchronize());
          #endif
-
   fill_in_nodes<BLOCK_SIZE, TILE_SIZE>\
         <<<GRID_SIZE( ps.index_in_nodes.size()),BLOCK_SIZE>>>(ps.index_in_nodes.ptr(), \
-        ps.index_out_nodes_local.ptr(), \
-       this->device_graph_info, num_gpus, bs.layer_nds.ptr(), num_in_nodes, num_out_nodes);
+       this->device_graph_info, num_gpus, bs.layer_nds.ptr(), num_in_nodes);
 
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());

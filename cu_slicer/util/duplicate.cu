@@ -22,6 +22,9 @@ void set_nodes_not_present(long * nodes, size_t nodes_size,
     while(start < end){
       int id = start;
       #ifdef DEBUG
+        if(nodes[id] >= mask_size){
+          printf("node id %ld greater than mask %ld %ld \n", nodes[id], mask_size, nodes_size);
+        }
           assert(nodes[id] < mask_size);
       #endif
       if(mask[nodes[id]] == 0){
