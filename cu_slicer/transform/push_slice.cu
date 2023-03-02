@@ -26,28 +26,23 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
     int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), out_nodes_size);
     while(start < end){
       int tid = start;
-      printf("Hello\n");
       long nd1 = out_nodes[tid];
       long nbs = indptr[tid+1] - indptr[tid];
       #ifdef DEBUG
           assert(nd1 < num_nodes_in_graph);
       #endif
-      printf("Hello\n");
       int p_nd1 = partition_map[nd1];
       long offset_edge_start = indptr[tid];
       int p_nbs[MAX_DEVICES];
       for(int n=0; n<NUM_GPUS; n++){
         p_nbs[n] = 0;
       }
-      printf("Hello\n");
       p_nbs[p_nd1] = 0;
       for(int nb_idx = 0; nb_idx < nbs; nb_idx ++ ){
-        printf("Hello\n");
         long nd2_idx = indices[offset_edge_start + nb_idx];
         #ifdef DEBUG
             assert(nd2_idx < in_nodes_size);
         #endif
-        printf("Hello\n");
         long nd2 = in_nodes[nd2_idx];
         int p_nd2 = partition_map[nd2];
         if(p_nd1 == p_nd2){
@@ -419,7 +414,7 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
     int G = this->num_gpus;
     ps.resize_selected_push(num_out_nodes * G, num_out_nodes * G * (G-1),\
              num_edges * G, num_edges * (G-1) * G, num_in_nodes * G);
-
+  
     gpuErrchk(cudaDeviceSynchronize());
     partition_edges_push<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()),BLOCK_SIZE>>>\
         (this->workload_map.ptr(),\

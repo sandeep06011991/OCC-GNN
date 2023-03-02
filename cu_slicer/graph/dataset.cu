@@ -48,14 +48,19 @@ void Dataset::read_node_data(){
     // Make shared pointernaj
 
     int * _partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
+    int n_gpu = 4;
     if (this->num_partitions != -1){
     	std::fstream file2(this->BIN_DIR + "/partition_map_opt_" + std::to_string(this->num_partitions) +".bin",std::ios::in|std::ios::binary);
     	file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
+      n_gpu = this->num_partitions;
     }else{
   	std::fstream file2(this->BIN_DIR + "/partition_map_opt_random.bin", std::ios::in|std::ios::binary);
     	file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
     }
     std::vector<int> _t_partition_map(_partition_map, _partition_map + this->num_nodes);
+    for(int i : _t_partition_map){
+      assert(i < n_gpu);
+    }
     partition_map_d = (* new device_vector<int>(_t_partition_map));
     // gpuErrchk(cudaMalloc((void**)&this->partition_map, (this->num_nodes *  sizeof(int))));
     // gpuErrchk(cudaMemcpy(this->partition_map, _partition_map, (this->num_nodes *  sizeof(int)) , cudaMemcpyHostToDevice));

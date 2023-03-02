@@ -4,7 +4,7 @@
 
 INCLUDE= -I/home/spolisetty/3rdparty/thrust/dependencies/cub
 DEBUG=-DDEBUG  --extended-lambda
-FLAGS=-lstdc++
+FLAGS=-lstdc++ -g -G -O0
 # everything:
 # 	nvcc -c -I. -I/home/spolisetty/3rdparty/thrust -I/home/spolisetty/3rdparty/thrust/dependencies/cub \
 # 	      -I/home/spolisetty/3rdparty/thrust/dependencies/libcubxx	main.cu\
@@ -29,7 +29,7 @@ OBJ := $(SRC:%.cu=build/%.o)
 all: build/main.o build/util/cub.o build/util/duplicate.o build/util/device_vector.o \
 			build/graph/dataset.o build/samplers/ns.o build/transform/push_slice.o build/transform/slice.o \
 				build/tests/gcn_test.o build/graph/bipartite.o
-	nvcc -G build/main.o build/util/cub.o build/util/device_vector.o   build/samplers/ns.o \
+	nvcc -G $(FLAGS) build/main.o build/util/cub.o build/util/device_vector.o   build/samplers/ns.o \
 			build/graph/dataset.o  build/transform/slice.o build/transform/push_slice.o   build/tests/gcn_test.o \
 	build/util/duplicate.o build/graph/bipartite.o -o build/cuslicer
 
@@ -44,7 +44,7 @@ tests: build/tests/gtest_entry.o  build/tests/cub_tests.o  build/tests/device_ve
 				build/tests/sampling.o build/tests/slicing.o build/samplers/ns.o build/graph/dataset.o\
 				build/transform/push_slice.o build/transform/slice.o \
 					build/tests/gcn_test.o build/graph/bipartite.o
-	nvcc -G  build/tests/gtest_entry.o build/tests/cub_tests.o build/samplers/ns.o  \
+	nvcc -G $(FLAGS) build/tests/gtest_entry.o build/tests/cub_tests.o build/samplers/ns.o  \
 		build/util/cub.o  build/tests/array_map.o build/util/duplicate.o build/tests/device_vector.o  \
 		build/util/device_vector.o build/tests/sampling.o   build/tests/slicing.o build/graph/dataset.o\
 		build/transform/push_slice.o build/transform/slice.o \
@@ -55,7 +55,7 @@ tests: build/tests/gtest_entry.o  build/tests/cub_tests.o  build/tests/device_ve
 
 build/main.o : main.cu
 	mkdir -p build/
-	nvcc $(DEBUG) $(INCLUDE) main.cu -c -o build/main.o
+	nvcc $(DEBUG) $(FLAGS) $(INCLUDE) main.cu -c -o build/main.o
 
 
 build/traverse_main.o : traverse_main.cu
@@ -65,26 +65,26 @@ build/traverse_main.o : traverse_main.cu
 
 build/graph/%.o: graph/%.cu
 	mkdir -p build/graph
-	nvcc  $(DEBUG) -c $(INCLUDE) $< -o $@
+	nvcc  $(DEBUG)  $(FLAGS) -c $(INCLUDE) $< -o $@
 
 # util/%.o: util/%.cu
 # 	nvcc  $(DEBUG) -c $(INCLUDE) $< -o $@
 
 build/samplers/%.o: samplers/%.cu
 	mkdir -p build/samplers
-	nvcc  $(DEBUG) -c $(INCLUDE) $< -o $@
+	nvcc  $(DEBUG) $(FLAGS) -c $(INCLUDE) $< -o $@
 
 build/transform/%.o: transform/%.cu
 	mkdir -p build/transform
-	nvcc $(DEBUG) -c $(INCLUDE) $< -o $@
+	nvcc $(DEBUG) $(FLAGS) -c $(INCLUDE) $< -o $@
 
 build/tests/%.o: tests/cuda/%.cu
 	mkdir -p build/tests
-	nvcc $(DEBUG) -c $(INCLUDE) $< -o $@
+	nvcc $(DEBUG)  -c $(INCLUDE) $< -o $@
 
 build/util/%.o: util/%.cu
 	mkdir -p build/util
-	nvcc $(DEBUG) -c $(INCLUDE) $< $(FLAGS) -o $@
+	nvcc $(DEBUG) $(FLAGS) -c $(INCLUDE) $< $(FLAGS) -o $@
 
 
 clean:
