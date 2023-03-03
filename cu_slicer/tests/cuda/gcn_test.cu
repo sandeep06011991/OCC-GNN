@@ -31,17 +31,11 @@ void aggregate_gcn(std::vector<long> layer_out_nds, \
 	       std::cout << "Found self node which is never the case\n";
         self = in[indices[j]];
       }else{
-        if( i==317){
-          std::cout << "Adding for 317 " << in[indices[j]] <<" ";
-        }
         // std::cout << "(" << indices[j] <<":"<< in[indices[j]]<<")";
 	      nbs += in[indices[j]];
       }
     }
     out.push_back((nbs/degree[i]) + in[i]);
-    if( i==317){
-      std::cout << "Adding for 317 self " << in[i] <<" ";
-    }
     // std::cout << "(" << i <<":" <<out[i] <<")";
     //out.push_back((nbs/degree[i]) + self);
 
@@ -57,8 +51,8 @@ std::vector<int> naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
    // num lyaers = 3
    // since tehre is null layer iinitially ()
    for(auto nd : s.block[s.num_layers]->layer_nds.to_std_vector()){
-     in_f.push_back(nd);
-     // in_f.push_back(nd % 10);
+     // in_f.push_back(nd);
+     in_f.push_back(nd % 10);
    }
 
    for(int i=s.num_layers - 1; i >=0; i--){
@@ -88,9 +82,7 @@ void aggregate(std::vector<int> &out, std::vector<int> &in,
       int t = 0;
       for(int off = off_start; off < off_end; off ++ ){
           t += in[indices[off]];
-          if(i == 41){
-            std::cout <<"Adding " << in[indices[off]] <<"\n";
-          }
+
           if(in[indices[off]] < 0){
             std::cout <<"Incorrect read "<<  indices[off] << " " << in[indices[off]] <<"\n";
           }
@@ -140,17 +132,16 @@ void pull_own_node(BiPartite *bp,
      int cache_miss = s.cache_miss_to[i].size();
      in[i].resize(cache_hit + cache_miss);
      for(int j=0; j < cache_hit; j++) {
-         std::cout << "(" << s.cache_hit_to[i][j] << ":" << storage_map[i][s.cache_hit_from[i][j]] <<")";
-          in[i][s.cache_hit_to[i][j]] = storage_map[i][s.cache_hit_from[i][j]];
-          // in[i][s.cache_hit_to[i][j]] = storage_map[i][s.cache_hit_from[i][j]]%10;
-    }
+         // std::cout << "(" << s.cache_hit_to[i][j] << ":" << storage_map[i][s.cache_hit_from[i][j]] <<")";
+          // in[i][s.cache_hit_to[i][j]] = storage_map[i][s.cache_hit_from[i][j]];
+          in[i][s.cache_hit_to[i][j]] = storage_map[i][s.cache_hit_from[i][j]]%10;
+        }
      for(int j=0; j < cache_miss; j++) {
+           // in[i][s.cache_miss_to[i][j]] = s.cache_miss_from[i][j];
            in[i][s.cache_miss_to[i][j]] = s.cache_miss_from[i][j]%10;
-           // in[i][s.cache_miss_to[i][j]] = s.cache_miss_from[i][j]%10;
 
      }
   }
-  std::cout << "storage setup complete\n";
   for(int i =  s.num_layers-1  ; i>=0; i--){
     // Bipartite local aggregation.
 
@@ -158,13 +149,6 @@ void pull_own_node(BiPartite *bp,
     // PULL
     for(int j=0;j < num_gpus;j ++){
       BiPartite *bp = layer.bipartite[j];
-      if(in[j].size() != bp->in_nodes.size()){
-        for(auto k :in[j]){
-          std::cout << k <<" ";
-        }
-        bp->in_nodes.debug("OUT");
-      }
-      std::cout << in[j].size() <<" " << bp->in_nodes.size() <<"\n";
       assert(in[j].size() == bp->in_nodes.size());
       int new_size = bp->num_in_nodes_local + bp->num_in_nodes_pulled;
 
@@ -237,10 +221,8 @@ void pull_own_node(BiPartite *bp,
     auto v = layer.bipartite[i]->out_nodes_local.to_std_vector();
     for(int j = 0 ; j < in[i].size() ; j++){
       t.push_back(make_tuple(v[j],in[i][j]));
-      std::cout<<"("<< j <<":"<<v[j]<<") ";
       ss += in[i][j];
     }
-    std::cout <<"\n\n\n";
     sss += ss;
   }
 
@@ -262,7 +244,6 @@ void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
     for(int i=0;i<num_gpus; i++){
       assert(local_storage[i].size() == gpu_capacity[i]);
     }
-    std::cout <<"reached here !\n";
     auto out = sample_flow_up_ps(ps, local_storage, num_gpus);
     for(int i = 0; i <correct.size(); i++){
       if(correct[i] != get<1>(out[i])){

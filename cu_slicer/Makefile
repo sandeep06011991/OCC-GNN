@@ -4,7 +4,9 @@
 
 INCLUDE= -I/home/spolisetty/3rdparty/thrust/dependencies/cub
 DEBUG=-DDEBUG  --extended-lambda
-FLAGS=-lstdc++ -g -G -O0
+FLAGS=-lstdc++
+# -g -G
+# EXTRAFLAGS = -01
 # everything:
 # 	nvcc -c -I. -I/home/spolisetty/3rdparty/thrust -I/home/spolisetty/3rdparty/thrust/dependencies/cub \
 # 	      -I/home/spolisetty/3rdparty/thrust/dependencies/libcubxx	main.cu\

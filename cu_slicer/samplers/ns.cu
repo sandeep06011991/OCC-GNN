@@ -177,10 +177,9 @@ void NeighbourSampler::sample(device_vector<long> &target_nodes, Sample &s){
   dr->clear();
   dr->order(target_nodes);
   s.block[0]->layer_nds = target_nodes;
-   assert(s.num_layers == this->fanout.size());
+  assert(s.num_layers == this->fanout.size());
   for(int i=1;i<s.num_layers+1;i++){
     s.block[i]->clear();
-
     layer_sample(s.block[i-1]->layer_nds, s.block[i]->in_degree,
             s.block[i]->offsets,  s.block[i]->indices, this->fanout[i-1]);
     _t.clear();
@@ -188,11 +187,9 @@ void NeighbourSampler::sample(device_vector<long> &target_nodes, Sample &s){
     dr->order(_t);
     // This line causes ptr copy and double destruction.
     // TODO: add a test for this and use shared ptr inside device vector
-
     device_vector<long> us =   dr->get_used_nodes();
     s.block[i]->layer_nds.append(dr->get_used_nodes());
     dr->replace(s.block[i]->indices);
-      std::cout << "Layer nodes" << s.block[i]->layer_nds.size() <<"\n";
     gpuErrchk(cudaDeviceSynchronize());
   }
   // dr->clear();

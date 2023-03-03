@@ -4,6 +4,9 @@
 #include "../util/cuda_utils.h"
 #include "../util/duplicate.h"
 #include <string>
+#include <vector>
+#include <iterator>
+#include <algorithm>
 #pragma once
 
 // ================BiPartite Dest Nodes Order========================
@@ -136,10 +139,9 @@ public:
     // std::cout << "Not implemented\n";
     // std::ostream &out = std::cout ;
     // std::cout << "BiPartitie############" << gpu_id <<  "\n";
-    // debug_vector("in_nodes", in_nodes, out);
-    // debug_vector("self in  nodes", self_in_nodes, out);
-    // debug_vector("pulled in_nodes", pulled_in_nodes, out);
-    // debug_vector("out nodes remote", out_nodes_remote, out);
+    assert(!in_nodes.has_duplicates());
+    assert(!out_nodes_local.has_duplicates());
+    assert(!out_nodes_remote.has_duplicates());
     in_nodes.debug("In nodes");
     out_nodes_local.debug("Out nodes local");
     out_nodes_remote.debug("Out nodes remote");
@@ -161,7 +163,7 @@ public:
     std::cout <<"\n";
 
 
-  
+
   }
 };
 

@@ -16,13 +16,13 @@ using namespace std::chrono;
 using namespace cuslicer;
 
 TEST(SAMPLING, perf){
-  cudaSetDevice(0);
+  cudaSetDevice(3);
 // std::cout << "hello world\n";
   // std::string graph_name = "synth_8_2";
   float TARGET_TIME = .006;
   std::string graph_name = "ogbn-arxiv";
   std::string file = get_dataset_dir() + graph_name;
-  std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, 0);
+  std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, 4);
 // std::cout << "Read synthetic dataset\n ";
 // // // Test2: Construct simple k-hop neighbourhood sample.
 // // // Sample datastructure.

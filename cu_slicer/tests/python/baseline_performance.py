@@ -6,7 +6,7 @@ import nvtx
 
 def test_sampling_overhead():
     torch.cuda.set_device(0)
-    filename = "ogbn-products"
+    filename = "ogbn-arxiv"
     fsize = 128
     num_gpus = 4
     dg_graph, partition_map, num_classes =\
@@ -36,7 +36,7 @@ def test_sampling_overhead():
         while True:
             t1 = time.time()
             with nvtx.annotate("Sample",color = 'blue'):
-                return(next(dt))
+                (next(dt))
             t2 = time.time()
             print("Total sampling time", t2-t1)
     except StopIteration:

@@ -116,7 +116,8 @@ public:
 
   void fill_cache_hits_and_misses(PartitionedSample &ps, int gpu, device_vector<long> &in_nodes);
 
-  virtual void resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, int num_out_nodes, int num_edges) = 0;
+  virtual void resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, int num_out_nodes,\
+    int num_edges) = 0;
 
 };
 
@@ -159,8 +160,9 @@ public:
 
     void slice_layer_per_gpu(device_vector<long>& in, Block &bl, \
         PartitionedLayer& l, bool last_layer, int gpu);
-           
-    void resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, int num_out_nodes, int num_edges);
+
+    void resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, int num_out_nodes,
+        int num_edges);
 };
 
 class MemoryMinimizedPushSlicer: public Slice{

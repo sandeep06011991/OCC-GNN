@@ -137,6 +137,20 @@ public:
 
     }
   }
+
+  void push_consistency(){
+    for(int i=1; i < num_layers; i++){
+      for (int j=0; j < num_gpus; j++){
+        if(layers[i - 1].bipartite[j]->num_in_nodes_local !=\
+            layers[i].bipartite[j]->num_out_local ){
+              layers[i - 1].bipartite[j]->in_nodes.debug("In node");
+              layers[i].bipartite[j]->out_nodes_local.debug("out nodes");
+            }
+        assert(layers[i - 1].bipartite[j]->num_in_nodes_local ==\
+            layers[i].bipartite[j]->num_out_local );
+      }
+    }
+  }
 };
 
 }

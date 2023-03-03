@@ -10,6 +10,10 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <string>
+#include <vector>
+#include <iterator>
+#include <algorithm>
 namespace cuslicer{
 
 
@@ -140,6 +144,13 @@ namespace cuslicer{
     this->fill(0);
   }
 
+  bool has_duplicates(){
+    auto v1 = this->to_std_vector();
+    std::sort(v1.begin(), v1.end());
+     auto last = std::unique(v1.begin(), v1.end());
+    v1.erase(last, v1.end());
+    return !(v1.size() == this->size());
+  }
  };
 
 }

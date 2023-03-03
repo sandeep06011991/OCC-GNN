@@ -6,6 +6,7 @@
 
 using namespace cuslicer;
 
+
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
 void partition_edges_push(int*  partition_map,\ // partition_map assigning each vertex ID to one GPU
@@ -66,6 +67,8 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
              continue;
     		   }
       	}
+        // ToDO keep note of when to mark and when to not mark
+        // local nodes
         //  remote edge
         // remote partitions are stored continuosly
         // For ex. remote edge for gpu 2 =[0, 1, 3].
@@ -75,7 +78,9 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
 
         ((long *)&index_edge_remote[num_edges * (NUM_GPUS - 1) * p_nd2  +  remote_offset  * num_edges])[offset_edge_start + nb_idx] = 1;
         // change back value This is incorrect
-        ((long *)&index_in_nodes[in_nodes_size * p_nd2])[nd2_idx] = 1;
+        if(!(nd2_idx < out_nodes_size)){
+          ((long *)&index_in_nodes[in_nodes_size * p_nd2])[nd2_idx] = 1;
+        }
         p_nbs[p_nd2] ++;
       }
 
@@ -290,7 +295,8 @@ __global__ void fill_in_nodes(long * index_in_nodes, \
 
 
 
-void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, int num_out_nodes, int num_edges){
+void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes,
+    int num_out_nodes, int num_edges){
     transform::self_inclusive_scan(ps.index_in_nodes);
     transform::self_inclusive_scan(ps.index_out_nodes_local);
     transform::self_inclusive_scan(ps.index_out_nodes_remote);
@@ -414,7 +420,7 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
     int G = this->num_gpus;
     ps.resize_selected_push(num_out_nodes * G, num_out_nodes * G * (G-1),\
              num_edges * G, num_edges * (G-1) * G, num_in_nodes * G);
-  
+
     gpuErrchk(cudaDeviceSynchronize());
     partition_edges_push<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()),BLOCK_SIZE>>>\
         (this->workload_map.ptr(),\
@@ -429,7 +435,6 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
     #ifdef DEBUG
 
     #endif
-    std::cout << "Error \n";
     gpuErrchk(cudaDeviceSynchronize());
     // Stage 2 get sizes of Offsets for all graphs
     // Inclusive Scan Everything

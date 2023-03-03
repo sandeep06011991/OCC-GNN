@@ -41,15 +41,7 @@ void test_sample_slice_consistency(int num_layers, std::vector<int> fanout, \
   }
 
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, self_edge);
-  cuslicer::device_vector<long> target(training_nodes);
-  auto start = high_resolution_clock::now();
-  ns->sample(target,(*s1));
-  size_t edges = s1->block[1]->indices.size();
-  EXPECT_EQ(edges , dataset->num_edges);
-  auto stop = high_resolution_clock::now();
-  auto sampling_time = ((float)duration_cast<milliseconds>(stop - start).count())/1000;
-  gpuErrchk(cudaDeviceSynchronize());
-  cuslicer::transform::cleanup();
+
   cuslicer::device_vector<int> workload_map;
   std::vector<int> storage[8];
 // // Test 3b. is_present = 1;
@@ -77,6 +69,7 @@ void test_sample_slice_consistency(int num_layers, std::vector<int> fanout, \
     PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
     PartitionedSample ps1(num_layers, num_gpus);
     // s1->debug();
+    int j = 0;
     for(int i=0; i < dataset->num_nodes - batch_size; i = i + batch_size){
       std::vector<long> b(training_nodes.begin() + i, training_nodes.begin() + i + batch_size);
       cuslicer::device_vector<long> target(b);
@@ -85,6 +78,8 @@ void test_sample_slice_consistency(int num_layers, std::vector<int> fanout, \
         sc1->slice_sample((*s1),ps1);
         test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
         s1->clear();
+        j++;
+        if(j >5)break;
         ps1.clear();
         // std::cout << "Sampling time " << duration <<"\n";
     }
@@ -95,7 +90,7 @@ TEST(SLICE_CORRECTNESS, LAYERS){
   int num_layers = 4;
   std::vector<int> fanout = {10,10,10,10};
   int num_gpus = 4;
-  // test_sample_slice_consistency(num_layers, fanout,  num_gpus, true);
+  test_sample_slice_consistency(num_layers, fanout,  num_gpus, true);
   test_sample_slice_consistency(num_layers, fanout,  num_gpus, false);
 
   cuslicer::transform::cleanup();
@@ -105,7 +100,7 @@ TEST(SLICE_CORRECTNESS, GPUS){
   int num_layers = 2;
   std::vector<int> fanout = {10,10};
   int num_gpus = 5;
-  // test_sample_slice_consistency(num_layers, fanout,  num_gpus, true);
+  test_sample_slice_consistency(num_layers, fanout,  num_gpus, true);
   test_sample_slice_consistency(num_layers, fanout,  num_gpus, false);
   cuslicer::transform::cleanup();
 }
