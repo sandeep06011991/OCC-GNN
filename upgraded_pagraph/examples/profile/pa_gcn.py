@@ -141,9 +141,10 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
   model.cuda(rank)
   model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
   ctx = torch.device(rank)
-
+  fanouts = [int(i) for i in args.fan_out.split(",")]
+  assert(len(fanouts) == args.n_layers)
   sampler = dgl.dataloading.NeighborSampler(
-            [int(args.num_neighbors) for i in range(3)], replace = True)
+            fanouts, replace = True)
   world_size = 4
   #train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
   number_of_minibatches = train_nid.shape[0]/args.batch_size
@@ -362,8 +363,9 @@ if __name__ == '__main__':
   parser.add_argument("--weight-decay", type=float, default=0,
                       help="Weight for L2 loss")
   # sampling hyper-params
-  parser.add_argument("--num-neighbors", type=int, default=20,
-                      help="number of neighbors to be sampled")
+  parser.add_argument("--fan-out", type = str, default="20,20,20")
+  # parser.add_argument("--num-neighbors", type=int, default=20,
+                      # help="number of neighbors to be sampled")
   parser.add_argument("--num-workers", type=int, default=4)
   parser.add_argument("--remote-sample", dest='remote_sample', action='store_true')
   parser.add_argument("--model",type = str, required = True)

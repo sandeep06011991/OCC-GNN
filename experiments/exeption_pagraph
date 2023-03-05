@@ -12,3 +12,87 @@ Traceback (most recent call last):
   File "/home/spolisetty/OCC-GNN/experiments/exp6/pagraph.py", line 67, in start_server
     time.sleep(1)
 KeyboardInterrupt
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache,\
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache,\
+NameError: name 'cache' is not defined
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    res = start_client(ffilename, model, num_hidden, batch_size, cache_per, \
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    res = start_client(ffilename, model, num_hidden, batch_size, cache_per, \
+NameError: name 'ffilename' is not defined
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    res = start_client(filename, model, num_hidden, batch_size, cache_per, \
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    res = start_client(filename, model, num_hidden, batch_size, cache_per, \
+NameError: name 'num_hidden' is not defined
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 126, in run_experiment_on_graph
+    fp.close()
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 126, in run_experiment_on_graph
+    fp.close()
+AttributeError: 'Popen' object has no attribute 'close'
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 126, in run_experiment_on_graph
+    fp.close()
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 126, in run_experiment_on_graph
+    fp.close()
+AttributeError: 'Popen' object has no attribute 'close'
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 127, in run_experiment_on_graph
+    fp.close()
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 127, in run_experiment_on_graph
+    fp.close()
+AttributeError: 'Popen' object has no attribute 'close'
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 128, in run_experiment_on_graph
+    return res
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 34, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 128, in run_experiment_on_graph
+    return res
+NameError: name 'res' is not defined
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 38, in run_experiment
+    fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "jupiter", cache_per, hidden_size, feat_size, \
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 38, in run_experiment
+    fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(filename, "jupiter", cache_per, hidden_size, feat_size, \
+NameError: name 'filename' is not defined
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 38, in run_experiment
+    fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(graphname, "jupiter", cache_per, hidden_size, feat_size, \
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 38, in run_experiment
+    fp.write("{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n".format(graphname, "jupiter", cache_per, hidden_size, feat_size, \
+NameError: name 'feat_size' is not defined
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 33, in run_experiment
+    feat_size = Feat[filename]
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 33, in run_experiment
+    feat_size = Feat[filename]
+NameError: name 'filename' is not defined
