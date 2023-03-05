@@ -13,20 +13,20 @@ PyBipartite::PyBipartite(BiPartite *bp){
     num_out_local = bp->num_out_local;
     num_out_remote = bp->num_out_remote;
 
-    indptr_L = torch::from_blob((p->indptr_L.data(), {bp->indptr_L.size()}, opts);
-    indices_L = torch::from_blob((long *)thrust::raw_pointer_cast(bp->indices_L.data()), {bp->indices_L.size()}, opts);
+    indptr_L = torch::from_blob(bp->indptr_L.data(), {bp->indptr_L.size()}, opts);
+    indices_L = torch::from_blob(bp->indices_L.data(), {bp->indices_L.size()}, opts);
 
-    indptr_R = torch::from_blob((long *)thrust::raw_pointer_cast(bp->indptr_R.data()), {bp->indptr_R.size()}, opts);
-    indices_R = torch::from_blob((long *)thrust::raw_pointer_cast(bp->indices_R.data()), {bp->indices_R.size()}, opts);
-    out_degree_local = torch::from_blob((long *)thrust::raw_pointer_cast(bp->out_degree_local.data()), {bp->out_degree_local.size()}, opts);
+    indptr_R = torch::from_blob(bp->indptr_R.data(), {bp->indptr_R.size()}, opts);
+    indices_R = torch::from_blob(bp->indices_R.data(), {bp->indices_R.size()}, opts);
+    out_degree_local = torch::from_blob(bp->out_degree_local.data(), {bp->out_degree_local.size()}, opts);
 
     to_offsets.push_back(bp->to_offsets[0]);
     pull_from_offsets.push_back(bp->pull_from_offsets[0]);
     for(int i=0;i<4;i++){
       to_offsets.push_back(bp->to_offsets[i+1]);
       pull_from_offsets.push_back(bp->pull_from_offsets[i+1]);
-      from_ids.push_back(torch::from_blob((long *)thrust::raw_pointer_cast(bp->from_ids[i].data()), {bp->from_ids[i].size()}, opts));
-      push_to_ids.push_back(torch::from_blob((long *)thrust::raw_pointer_cast(bp->push_to_ids[i].data()), {bp->push_to_ids[i].size()}, opts));
+      from_ids.push_back(torch::from_blob(bp->from_ids[i].data(), {bp->from_ids[i].size()}, opts));
+      push_to_ids.push_back(torch::from_blob(bp->push_to_ids[i].data(), {bp->push_to_ids[i].size()}, opts));
     }
 
     self_ids_offset = bp->self_ids_offset;

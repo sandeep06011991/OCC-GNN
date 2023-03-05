@@ -3,6 +3,8 @@
 # 	-I/home/spolisetty/3rdparty/thrust/dependencies/libcubxx
 
 INCLUDE= -I/home/spolisetty/3rdparty/thrust/dependencies/cub
+INCLUDE= -I/home/ubuntu/OCC-GNN/3rdparty/thrust/dependencies/cub
+
 DEBUG=-DDEBUG  --extended-lambda
 FLAGS=-lstdc++
 # -g -G

@@ -147,7 +147,7 @@ class GpuLocalStorage():
         total_features = torch.empty(num_in_nodes, self.features.shape[1], \
                     device = self.proc_id, dtype = torch.float)
         total_features[cache_hit_to,:] = self.batch_in[cache_hit_from,:]
-        total_features[cache_miss_to,:] = self.features[cache_miss_from, :].to(self.proc_id)
+        total_features[cache_miss_to,:] = self.features[cache_miss_from.to('cpu'), :].to(self.proc_id)
         # No caching
         # total_features = self.features[node_ids,:].to(self.proc_id)
         return total_features

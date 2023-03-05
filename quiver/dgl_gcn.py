@@ -23,6 +23,7 @@ from utils.async_timing_analysis import *
 from utils.env import *
 from utils.utils import *
 import pickle
+import nvtx
 
 def average(ls):
     if(len(ls) == 1):
@@ -77,7 +78,7 @@ def load_subtensor(nfeat, labels, seeds, input_nodes, device):
     Extracts features and labels for a set of nodes.
     """
     batch_inputs = nfeat[input_nodes].to(device)
-    batch_labels = labels[seeds].to(device)
+    batch_labels = labels[seeds.to('cpu')].to(device)
     return batch_inputs, batch_labels
 
 # Entry point
@@ -162,6 +163,7 @@ def run(rank, args,  data):
         minibatch_metrics = []
         try:
             while True:
+                torch.cuda.nvtx.range_push("minibatch")
                 batch_time = {}
                 optimizer.zero_grad()
                 t1 = time.time()
@@ -212,6 +214,7 @@ def run(rank, args,  data):
                 if args.early_stopping and step ==5:
                     break
                 step = step + 1
+                torch.cuda.nvtx.range_pop()
                 #print("forward time", e2.elapsed_time(e3)/1000)
                 #print("backward time", e3.elapsed_time(e4)/1000)
                 total_loss += loss.item()
@@ -283,7 +286,7 @@ if __name__ == '__main__':
     # load ogbn-products data
     #root = "/mnt/bigdata/sandeep/"
     #from utils import  get_process_graph
-    dg_graph, partition_map, num_classes = get_process_graph(args.graph, -1)
+    dg_graph, partition_map, num_classes = get_process_graph(args.graph, -1, 4)
     data = dg_graph
     train_idx = torch.where(data.ndata.pop('train_mask'))[0]
     val_idx = torch.where(data.ndata.pop('val_mask'))[0]

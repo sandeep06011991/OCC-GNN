@@ -164,7 +164,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         if num_epochs == epochs_required :
             break
         training_node= sample_queue.get()
-
+        torch.cuda.nvtx.range_push("Minibatch")
         sample_get_start = time.time()
         if(type(training_node) != type("")):
             csample = sampler.getSample(training_node)
@@ -232,7 +232,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
 
 #         #assert(features.device == torch.device('cpu'))
 #         #gpu_local_sample.debug()
-            classes = labels[gpu_local_sample.out_nodes].to(torch.device(proc_id))
+            classes = labels[gpu_local_sample.out_nodes.to('cpu')].to(torch.device(proc_id))
 #         # print("Last layer nodes",gpu_local_sample.last_layer_nodes)
             torch.cuda.set_device(proc_id)
             optimizer.zero_grad()
@@ -246,11 +246,13 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                                 (nodes * args.num_hidden * 4/(1024 * 1024))
             data_moved_inter_gpu  += (nodes * args.num_hidden *4/(1024 * 1024))
             fp_start.record()
+            torch.cuda.nvtx.range_push("training")
             output = model.forward(gpu_local_sample, input_features, None)
             torch.cuda.synchronize()
             loss = loss_fn(output,classes)/args.batch_size
             fp_end.record()
             loss.backward()
+            torch.cuda.nvtx.range_pop()
             bp_end.record()
             optimizer.step()
 
@@ -288,6 +290,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                 acc = (acc[0].item()/acc[1])
                 print("Accuracy ", acc, current_minibatch ,num_epochs)
             torch.cuda.synchronize(bp_end)
+            torch.cuda.nvtx.range_pop()
             forward_time += fp_start.elapsed_time(fp_end)/1000
             backward_time += fp_end.elapsed_time(bp_end)/1000
     print("Exiting main training loop",sample_queue.qsize())
