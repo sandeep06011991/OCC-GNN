@@ -24,7 +24,7 @@ int main(){
   cudaSetDevice(0);
 // std::cout << "hello world\n";
   // std::string graph_name = "synth_8_2";
-  std::string graph_name = "ogbn-arxiv";
+  std::string graph_name = "ogbn-products";
   std::string file = get_dataset_dir() + graph_name;
   int num_gpus = 6;
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_gpus);
@@ -32,13 +32,13 @@ int main(){
 // // // Test2: Construct simple k-hop neighbourhood sample.
 // // // Sample datastructure.
 
-  int num_layers =4;
+  int num_layers =3;
   Sample *s1  = new Sample(num_layers);
-  vector<int> fanout({10,10,10,10});
+  vector<int> fanout({20,20,20});
   bool self_edge = false;
   for(int k = 0; k<10; k++){
   std::vector<long> training_nodes;
-  for(int i=0;i<10000 ;i++){
+  for(int i=0;i<4096 ;i++){
       training_nodes.push_back(i);
   }
 

@@ -9,7 +9,7 @@ OBJECT_LIST = [Bipartite,Sample,Gpu_Local_Sample, torch.device]
 IGNORED_LIST = [DGLGraph]
 
 # todo: Add ordering to global object.
-def get_attr_order_and_offset_size(object, num_partitions = 4):
+def get_attr_order_and_offset_size(object):
     tensors = []
     integers = []
     dictionary = []
@@ -48,7 +48,7 @@ def get_attr_order_and_offset_size(object, num_partitions = 4):
 
     # All integer offsets can be put into 1
     # Final size of the offset
-    offset_size = len(tensors) + len(lists) + (len(dictionary) * num_partitions) + len(objects) + len(integers) + 1
+    offset_size = len(tensors) + len(lists) + (len(dictionary) * 4) + len(objects) + len(integers) + 1
     return (integers + tensors  + objects + dictionary + lists ), offset_size
 
 global_order_dict = {}
@@ -57,7 +57,7 @@ global_order_dict[Gpu_Local_Sample] = get_attr_order_and_offset_size(Gpu_Local_S
 # print(global_order_dict.keys())
 
 
-def construct_from_tensor_on_gpu(tensor, device, object, num_gpus = 4):
+def construct_from_tensor_on_gpu(tensor, device, object):
     # print("Warning. Dont have to reanalyze the object everytime. ")
     # order, offset_size = get_attr_order_and_offset_size(object)
     order, offset_size = global_order_dict[type(object)]
@@ -102,13 +102,13 @@ def construct_from_tensor_on_gpu(tensor, device, object, num_gpus = 4):
                     start = list_data[i+1]
                     end = list_data[i+2]
                     data_ = tensor_list_data[start:end]
-                    final_value.append(construct_from_tensor_on_gpu(data_, device, object_type(), num_gpus = num_gpus))
+                    final_value.append(construct_from_tensor_on_gpu(data_, device, object_type()))
             setattr(object, attr_name, final_value)
             offset_ptr = offset_ptr + 1
             continue
         if type(attr_value) == type({}):
             d = {}
-            for i in range(num_gpus):
+            for i in range(4):
                 val_tensor = data[offsets[offset_ptr] :offsets[offset_ptr + 1]]
                 d[i] = val_tensor
                 offset_ptr = offset_ptr + 1
@@ -119,14 +119,14 @@ def construct_from_tensor_on_gpu(tensor, device, object, num_gpus = 4):
                 constructed_object = None
                 setattr(object, attr_name, constructed_object)
             else:
-                constructed_object = construct_from_tensor_on_gpu(val_tensor,device, attr_value, num_gpus = num_gpus)
+                constructed_object = construct_from_tensor_on_gpu(val_tensor,device, attr_value)
                 setattr(object, attr_name, constructed_object)
             offset_ptr = offset_ptr + 1
             continue
         assert(False)
     return object
 
-def serialize_to_tensor(object, device = torch.device('cpu'), num_gpus = 4):
+def serialize_to_tensor(object, device = torch.device('cpu')):
     serialization_order, offset_size =  global_order_dict[type(object)]
     data = []
     offsets = [0]
@@ -164,7 +164,7 @@ def serialize_to_tensor(object, device = torch.device('cpu'), num_gpus = 4):
                 for i in range(len(attr_value)):
                     item = attr_value[i]
                     assert(type(item) in OBJECT_LIST)
-                    tensor = serialize_to_tensor(item,device, num_gpus = num_gpus)
+                    tensor = serialize_to_tensor(item,device)
                     objects_serialized.append(tensor)
                     local_offsets.append(local_offsets[-1] + tensor.shape[0])
                 local_tensors = torch.cat([length, torch.tensor(local_offsets, device = device)] + objects_serialized, dim = 0)
@@ -172,8 +172,8 @@ def serialize_to_tensor(object, device = torch.device('cpu'), num_gpus = 4):
             offsets.append(offsets[-1] + local_tensors.shape[0])
             continue
         if type(attr_value) == type({}):
-            assert(len(attr_value) == num_gpus)
-            for i in range(num_gpus):
+            assert(len(attr_value) == 4)
+            for i in range(4):
                 val = attr_value[i]
                 assert(len(val.shape) == 1)
                 data.append(attr_value[i])
@@ -183,7 +183,7 @@ def serialize_to_tensor(object, device = torch.device('cpu'), num_gpus = 4):
             print("Heterograph neednt be serialized")
             continue
         if type(attr_value) in OBJECT_LIST:
-            tensor_value = serialize_to_tensor(attr_value, device, num_gpus= num_gpus)
+            tensor_value = serialize_to_tensor(attr_value, device)
             data.append(tensor_value)
             offsets.append(offsets[-1] + tensor_value.shape[0])
             continue

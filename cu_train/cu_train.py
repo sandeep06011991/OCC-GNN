@@ -88,8 +88,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             pull_optimization = False
         else:
             pull_optimization = True
+        
         model = get_gat_distributed(args.num_hidden, features, num_classes,
-                proc_id, args.deterministic, args.model, pull, gpus,  args.num_layers)
+                proc_id, args.deterministic, args.model, pull_optimization, gpus,  args.num_layers)
         self_edge = True
         attention = True
     rounds = 3
@@ -155,6 +156,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     if proc_id == 0:
         flog = logging.getLogger()
     e_t1 = time.time()
+    global_order_dict[Bipartite] = get_attr_order_and_offset_size(Bipartite(), num_partitions = gpus)
+    global_order_dict[Gpu_Local_Sample] = get_attr_order_and_offset_size(Gpu_Local_Sample(), num_partitions = gpus)
+
     while(True):
         print("try to get sample", current_minibatch , minibatches_per_epoch, num_epochs, epochs_required)
         if num_epochs == epochs_required :
@@ -171,9 +175,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                 obj.set_from_global_sample(tensorized_sample,gpu_id)
                 print("Temporary fix serializing on cpu")
                 if use_cpu_sampler:
-                    data = serialize_to_tensor(obj, torch.device('cpu'))
+                    data = serialize_to_tensor(obj, torch.device('cpu'), num_gpus = gpus)
                 else:
-                    data = serialize_to_tensor(obj, torch.device(proc_id))
+                    data = serialize_to_tensor(obj, torch.device(proc_id), num_gpus = gpus)
                 data = data.to('cpu').numpy()
                 #print("Warning shared memory queue may be  emtpy ", sm_filename_queue.qsize())
                 sample_id = proc_id
@@ -214,9 +218,8 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             gpu_local_sample = Gpu_Local_Sample()
             device = torch.device(device)
 
-            construct_from_tensor_on_gpu(tensor, device, gpu_local_sample)
+            construct_from_tensor_on_gpu(tensor, device, gpu_local_sample, num_gpus = gpus)
             # gpu_local_sample.debug()
-            attention = False
             # FixME: What is attention ?
             gpu_local_sample.prepare(attention)
             sm_client.free_used_shared_memory(name)
@@ -289,9 +292,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             backward_time += fp_end.elapsed_time(bp_end)/1000
     print("Exiting main training loop",sample_queue.qsize())
 #     dev_id = proc_id
-    if proc_id == 1:
+    #if proc_id == 1:
 #     #     prof.dump_stats('worker.lprof')
-        print("edges per epoch:{}".format(avg(edges_per_gpu_epoch)))
+    print("edges per epoch:{}".format(avg(edges_per_gpu_epoch)))
     if proc_id == 0:
         print("Test Accuracy:", test_accuracy_list)
         print("accuracy:{}".format(acc))

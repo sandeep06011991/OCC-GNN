@@ -109,7 +109,7 @@ class Bipartite:
 
     def get_from_nds_size(self):
         from_nds_size = {}
-        for i in range(4):
+        for i in range(len(self.from_ids)):
             if i != self.gpu_id:
                 from_nds_size[i] = self.from_ids[i].shape[0]
         return from_nds_size
@@ -136,7 +136,7 @@ class Bipartite:
         self.to_offsets.append(cobject.to_offsets[0])
         self.pull_from_offsets.append(cobject.to_offsets[0])
 
-        for i in range(4):
+        for i in range(len(cobject.from_ids)):
             self.from_ids[i] = cobject.from_ids[i]
             self.push_to_ids[i] = cobject.push_to_ids[i]
             self.to_offsets.append(cobject.to_offsets[i+1])

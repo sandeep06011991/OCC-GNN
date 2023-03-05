@@ -1,4 +1,4 @@
-SHARED_MEMORY_SIZE = 100 * 1024 * 1024
+SHARED_MEMORY_SIZE = 1000 * 1024 * 1024
 from multiprocessing.shared_memory import SharedMemory
 import multiprocessing as mp
 import numpy as np
