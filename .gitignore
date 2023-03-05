@@ -19,3 +19,4 @@ slurm-log-occ/
 *.o
 *.qdrep
 *.sqlite
+*.nsys-rep
