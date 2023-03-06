@@ -96,3 +96,273 @@ Traceback (most recent call last):
   File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 33, in run_experiment
     feat_size = Feat[filename]
 NameError: name 'filename' is not defined
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 95, in start_client
+    backward = parse_float("backward time:(\d+\.\d+)", output)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 95, in start_client
+    backward = parse_float("backward time:(\d+\.\d+)", output)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+AssertionError
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+KeyboardInterrupt
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+KeyboardInterrupt
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+KeyboardInterrupt
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+KeyboardInterrupt
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+KeyboardInterrupt
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 95, in start_client
+    backward = parse_float("backward time:(\d+\.\d+)", output)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 95, in start_client
+    backward = parse_float("backward time:(\d+\.\d+)", output)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+AssertionError
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 90, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 90, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+AssertionError
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fanout, num_layers):
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 121, in run_experiment_on_graph
+    fanout, num_layers):
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+KeyboardInterrupt
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 125, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 90, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 125, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 90, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+AssertionError
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 122, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 122, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+KeyboardInterrupt
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 125, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 90, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 125, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 90, in start_client
+    accuracy = parse_float("accuracy: (\d+\.\d+)", output)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 74, in parse_float
+    assert(len(matches) == 1)
+AssertionError
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 122, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 35, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 122, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+KeyboardInterrupt
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+TypeError: run_experiment_on_graph() takes 7 positional arguments but 8 were given
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+TypeError: run_experiment_on_graph() takes 7 positional arguments but 8 were given
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+TypeError: run_experiment_on_graph() takes 7 positional arguments but 8 were given
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+TypeError: run_experiment_on_graph() takes 7 positional arguments but 8 were given
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 127, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 87, in start_client
+    output = subprocess.run(cmd, capture_output=True)
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1868, in _communicate
+    ready = selector.select(timeout)
+  File "/usr/lib/python3.8/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 127, in run_experiment_on_graph
+    res = start_client(filename, model, hidden_size, batch_size, cache_per, \
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 87, in start_client
+    output = subprocess.run(cmd, capture_output=True)
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1868, in _communicate
+    ready = selector.select(timeout)
+  File "/usr/lib/python3.8/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+KeyboardInterrupt
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+Traceback (most recent call last):
+  File "/home/spolisetty/OCC-GNN/experiments/fanouts/pagraph.py", line 36, in run_experiment
+    res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 124, in run_experiment_on_graph
+    fp = start_server(filename)
+  File "/home/spolisetty/OCC-GNN/experiments/baselines/pagraph.py", line 67, in start_server
+    time.sleep(1)
+KeyboardInterrupt

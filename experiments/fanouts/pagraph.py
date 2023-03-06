@@ -6,10 +6,10 @@ def run_model(model):
     #graphs = ['ogbn-papers100M']
     #graphs = ['ogbn-arxiv']
     settings = [#('ogbn-arxiv', 16, 1024),
-                ('ogbn-arxiv', 16, 4096),
-                # ('ogbn-products', 16, 4096),
-                # ('reorder-papers100M',16, 4096),
-                # ('amazon', 16, 4096),
+                #('ogbn-arxiv', 16, 4096),
+                # ('ogbn-products', 16, 1024),
+                 ('reorder-papers100M',16, 1024),
+                 ('amazon', 16, 1024),
                 # ('amazon', 16, 256)
                 ]
 
@@ -24,6 +24,7 @@ def run_experiment(model, settings, cache_per, fanouts, num_layers):
     sha, dirty = get_git_info()
     check_path()
     check_no_stale()
+    sample_gpu = False
     with open('{}/fanouts/{}_pagraph.txt'.format(OUT_DIR, SYSTEM),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize " +\
@@ -33,7 +34,7 @@ def run_experiment(model, settings, cache_per, fanouts, num_layers):
             feat_size = Feat[graphname]
             for fanout in fanouts:
                 res = run_experiment_on_graph(graphname, model,  hidden_size, batch_size, cache_per,\
-                 fanout, num_layers)
+                 fanout, num_layers, sample_gpu)
                 WRITE = '{}/fanouts/{}_pagraph.txt'.format(OUT_DIR, SYSTEM)
                 with open(WRITE,'a') as fp:
 
@@ -53,4 +54,4 @@ def run_experiment(model, settings, cache_per, fanouts, num_layers):
 if __name__ == "__main__":
     run_model("gcn")
     #print("Success!!!!!!!!!!!!!!!!!!!")
-    # run_model("gat")
+    run_model("gat")

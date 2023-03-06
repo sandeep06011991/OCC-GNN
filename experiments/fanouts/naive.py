@@ -17,7 +17,7 @@ def run_experiment_quiver( model ):
                  ("amazon", 16, 200, 256),\
                  ("amazon", 16, 200,4096),\
                 #("amazon", 16, 200, 1024),\
-                 ]
+                 ] 
     no_epochs = 5
     # settings = [("ogbn-arxiv",16, 128, 1024)]
     # settings = [("ogbn-papers100M",2)]

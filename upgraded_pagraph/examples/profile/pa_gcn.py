@@ -214,15 +214,17 @@ def trainer(rank, world_size, args, metrics_queue , backend='nccl'):
                 s2 = time.time()
                 batch_time[SAMPLE_START_TIME] = s1
                 batch_time[GRAPH_LOAD_START_TIME] = s2
+                assert(s2>s1)
         except StopIteration:
             break
         #torch.distributed.barrier()
         with nvtx.annotate("cache",color = 'blue'):
         #with torch.autograd.profiler.record_function('gpu-load'):
         #if True:
-          s0 = time.time()
+          # s0 = time.time()
           blocks = [b.to(rank) for b in blocks]
           s1 = time.time()
+          assert(s1 > s2)
           batch_time[DATALOAD_START_TIME] = s1
           input_data = cacher.fetch_data(input_nodes)
           batch_nids = seeds

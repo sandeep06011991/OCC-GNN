@@ -19,17 +19,17 @@ def get_git_info():
 def run_experiment_occ(model):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
     settings = [
-                ("ogbn-arxiv", 16, 128, 4096), \
-                # ("ogbn-products", 16, 100, 4096), \
-                #("reorder-papers100M", 16, 128, 4096),\
-                #("amazon", 16, 200, 4096),\
+                #("ogbn-arxiv", 16, 128, 4096), \
+                 ("ogbn-products", 16, 100, 4096), \
+                ("reorder-papers100M", 16, 128, 4096),\
+                ("amazon", 16, 200, 4096),\
                  ]
     cache  = ".25"
     num_layers = 3
     num_partition= 4
     hidden_sizes = [16]
-    fanouts = ["10,10,10", "20,20,20", "30,30,30"]
-    fanouts = ["10,10,10"]
+    fanouts = ["20,20,20", "30,30,30"]
+    #fanouts = ["10,10,10"]
     #hidden_sizes = [64]
 
     sha,dirty = get_git_info()
@@ -56,7 +56,7 @@ def run_experiment_occ(model):
 
 if __name__ == "__main__":
     run_experiment_occ("gcn")
-    # run_experiment_occ("gat")
-    run_experiment_occ("gat-pull")
+    run_experiment_occ("gat")
+    # run_experiment_occ("gat-pull")
     print("Success!!!!!!!!!!!!!!!!!!!")
     #run_model("gat")

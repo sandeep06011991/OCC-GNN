@@ -45,7 +45,7 @@ class CUSlicer{
     std::vector<int> workload_map;
     int gpu_capacity[MAX_DEVICES];
     NeighbourSampler *neighbour_sampler;
-    Slice *slicer;
+    Slice *slicer;:
     std::shared_ptr<Dataset> dataset;
     PartitionedSample *p_sample;
     Sample *sample;

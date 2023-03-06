@@ -75,13 +75,15 @@ def parse_float(string, output):
     return float(matches[0])
 
 def start_client(filename, model, num_hidden, batch_size, cache_per, \
-            fanout, num_layers):
+            fanout, num_layers, sample_gpu):
     feat_size = Feat[filename]
     print(cache_per)
     cmd = ['python3','{}/examples/profile/pa_gcn.py'.format(ROOT_DIR), '--dataset', filename,'--n-epochs','5'\
                     , '--n-hidden', str(num_hidden), '--batch-size', str(batch_size),\
                         '--model', model, "--cache-per",str(cache_per), \
-                            '--fan-out', fanout, '--n-layers', str(num_layers), '--sample-gpu']
+                            '--fan-out', fanout, '--n-layers', str(num_layers)]
+    if sample_gpu:
+        cmd.append('--sample-gpu')
     output = subprocess.run(cmd, capture_output=True)
     out = str(output.stdout)
     err = str(output.stderr)
@@ -92,7 +94,8 @@ def start_client(filename, model, num_hidden, batch_size, cache_per, \
     move_feat = parse_float("movement feature:(\d+\.\d+)", output)
     total_movement = parse_float("data movement:(\d+\.\d+)",output)
     forward = parse_float("forward time:(\d+\.\d+)", output)
-    backward = parse_float("backward time:(\d+\.\d+)", output)
+    
+    backward = parse_float("backward time:-?(\d+\.\d+)", output)
     sample = parse_float("sample_time:(\d+\.\d+)",output)
     #compute  = float(re.findall("Compute time: (\d+\.\d+)s",output)[0])
     # collect  = float(re.findall("CPU collect: (\d+\.\d+)s",output)[0])
@@ -117,12 +120,12 @@ def start_client(filename, model, num_hidden, batch_size, cache_per, \
             , "accuracy": accuracy, "miss_num":miss_num, "edges":edges_processed, "total_movement":total_movement}
 
 def run_experiment_on_graph(filename, model, hidden_size, batch_size, cache_per,\
-            fanout, num_layers):
+            fanout, num_layers, sample_gpu):
     fp = start_server(filename)
     feat_size = Feat[filename]
 
     res = start_client(filename, model, hidden_size, batch_size, cache_per, \
-                fanout, num_layers)
+                fanout, num_layers, sample_gpu)
     fp.terminate()
     return res
     # WRITE = "{}/exp6_{}_pagraph.txt".format(OUT_DIR, SYSTEM)
