@@ -7,20 +7,15 @@ from data.serialize import *
 from utils.utils import get_process_graph
 from layers.dist_sageconv import *
 import torch.distributed as dist
+from cuslicer import cuslicer
+from data import Bipartite, Sample, Gpu_Local_Sample
+from models.dist_gcn import get_sage_distributed
+from models.dist_gat import get_gat_distributed
 
-class Model(nn.Module):
-
-    def __init__(self, gpu_id):
-        super().__init__()
-        self.gcn_conv1 = DistSageConv(10, 10, gpu_id, deterministic = True)
-        self.gcn_conv2 = DistSageConv(10, 10, gpu_id, deterministic = True)
-
-    def forward(self, local_graph, x):
-        l1 = self.gcn_conv1(local_graph.layers[0], x, 0)
-        l2 = self.gcn_conv2(local_graph.layers[1], l1, 1)
-        return l2
 
 def trainer(proc_id, world_num):
+    graph_name = "ogbn-arxiv"
+    torch.cuda.set_device(proc_id)
     backend = "nccl"
     rank = proc_id
     world_size = world_num
@@ -28,91 +23,131 @@ def trainer(proc_id, world_num):
     os.environ['MASTER_PORT'] = '29501'
     dist.init_process_group(backend, rank=rank, world_size=world_size)
     torch.cuda.set_device(rank)
-    model = Model(proc_id).to(proc_id)
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
-    graph_name = "ogbn-arxiv"
-    dg_graph, partition_map, _ = get_process_graph(graph_name, -1)
-    nd = torch.where(dg_graph.in_degrees() == 0)[0][0]
-    
-    gpu_map = [[] for _ in range(4)]
-    fanout = 1000
+    num_hidden = 16
     deterministic = True
-    testing = False
+    model = "gcn"
+    gpus = 4
+    num_layers = 3
+    dg_graph, p_map, num_classes = get_process_graph(graph_name, -1, gpus)
+    features = dg_graph.ndata['features']        
+    Model = get_sage_distributed(num_hidden, features, num_classes,
+            proc_id, deterministic, model, gpus,  num_layers)
     self_edge = False
-    rounds = 1
+    attention = False
     pull_optimization = False
-    no_layers = 2
-    slicer = cslicer(graph_name, gpu_map, fanout,
-       deterministic, testing,
-          self_edge, rounds, pull_optimization, no_layers)
-    train_nids = torch.arange(1)
-    #train_nids = torch.tensor([nd])
-    csample = slicer.getSample(train_nids.tolist())
-    print(train_nids, "Train")
-    global_sample = Sample(csample)
+    model = Model.to(proc_id)
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
 
-    local_samples = [Gpu_Local_Sample() for i in range(4)]
-    local_samples[proc_id].set_from_global_sample(global_sample, proc_id)
 
-    # x = torch.sum(local_samples[i].layers[0].indptr_L)
-    t  = serialize_to_tensor(local_samples[proc_id])
-    object = Gpu_Local_Sample()
-    t = t.to(proc_id)
-    construct_from_tensor_on_gpu(t, torch.device(proc_id),  object)
-    object.prepare(attention = True)
-    n = object.cache_hit_from.shape[0] + object.cache_miss_from.shape[0]
-    n1 = torch.ones(n, 10, device = proc_id, requires_grad = True)
-    #print(n1.shape, object.cache_miss_from)
-    n = n1 * (object.cache_miss_from.reshape(object.cache_miss_from.shape[0],1) % 10)
-    out = model(object, n )
-    print(torch.sum(out), "my out")
-    torch.sum(out).backward()
-    print(torch.sum(n1.grad),"my grad")
-    print(n1.grad[1,:], "sample")
+    ## CUSLICER GET CU SAMPLE 
+    
+    num_layers = 3
+    num_gpus = 4
+
+    storage_map_part = [[],[],[],[]]
+    csl3 = cuslicer(graph_name, storage_map_part,
+        [-1, -1, -1], False , False, True, 4, False, num_layers, num_gpus, proc_id)
+    
+    csample =  csl3.getSample([i for i in range(4096)])
+    tensorized_sample = Sample(csample)
+    obj = Gpu_Local_Sample()
+    attention = False
+    obj.set_from_global_sample(tensorized_sample, proc_id)
+    obj.prepare(attention)
+    
+    input_data = torch.ones((obj.cache_miss_to.shape[0], features.shape[1]), device = proc_id)
+    e1 = torch.cuda.Event(enable_timing = True)
+    e2 = torch.cuda.Event(enable_timing = True)
+    for i in range(10):
+        e1.record()
+        print("Start")
+        torch.cuda.nvtx.range_push("culice_minibatch")
+        out = model(obj, input_data, None)
+        torch.cuda.nvtx.range_pop()
+        e2.record()
+        e2.synchronize()
+        print("time", e1.elapsed_time(e2)/1000)
+    print("Forward pass done!")
+'''
+time 0.009733119964599609
+time 0.009049087524414063
+time 0.009588735580444336
+time 0.009523200035095216
+time 0.009492480278015136
+time 0.009554944038391112
+'''
 def test_groot_gcn():
     gpu_num = 4
-    # mp.set_start_method('spawn')
-    mp.spawn(trainer, args=(gpu_num,), nprocs=gpu_num, join=True)
-
-
+    
+    mp.set_start_method('spawn')
+    p = []
+    for i in range(gpu_num):
+        pp = mp.Process(target = trainer, args=(i, gpu_num))
+        pp.start()
+        p.append(pp)
+    for pp in p:
+        pp.join()
+'''
+forward pass time 0.003757055997848511
+forward pass time 0.003738624095916748
+forward pass time 0.003949568033218383
+forward pass time 0.0037068800926208494
+forward pass time 0.0037376000881195067
+forward pass time 0.0037201919555664062
+forward pass time 0.004220928192138672'''
 def get_correct_gcn():
     graph_name = "ogbn-arxiv"
-    dg_graph, partition_map, num_classes  = get_process_graph(graph_name, -1)
-    train_nid = torch.arange(1)
+    dg_graph, partition_map, num_classes  = get_process_graph(graph_name, -1, 4)
+    train_nid = torch.arange(4096 * 4)
     #dg_graph = dg_graph.add_self_loop()
-    sampler = dgl.dataloading.MultiLayerFullNeighborSampler(2)
+    num_layers = 3
+    sampler = dgl.dataloading.MultiLayerFullNeighborSampler(num_layers)
+    #sampler = dgl.dataloading.NeighborSampler([20,20,20])
     dataloader = dgl.dataloading.NodeDataLoader(
-        dg_graph,
-        train_nid,
+        dg_graph.to(0),
+        train_nid.to(0),
         sampler,
-        device='cpu',
-        batch_size= 1000,
-        shuffle=True,
+        device='cuda',
+        batch_size= 4096,
+        shuffle=False,
         drop_last= False,
         num_workers=0 )
-    nn1 = dgl.nn.SAGEConv(10, 10, aggregator_type = 'mean')
-    nn2 = dgl.nn.SAGEConv(10, 10, aggregator_type = 'mean')
+    layers = []
+    layers.append(dgl.nn.SAGEConv(128, 16, aggregator_type = 'mean').to(0))
+    for i in range(num_layers - 2):
+        layers.append(dgl.nn.SAGEConv(16,16, aggregator_type = 'mean').to(0))
+    layers.append(dgl.nn.SAGEConv(16,40, aggregator_type = 'mean').to(0))    
+    
+    
     it = iter(dataloader)
     input_nodes, seeds, blocks = next(it)
     print(seeds.shape,"batch_size")
-    nn1.fc_self.weight = torch.nn.Parameter(torch.ones(nn1.fc_self.weight.shape))
-    nn1.fc_neigh.weight = torch.nn.Parameter(torch.ones(nn1.fc_neigh.weight.shape))
-    nn2.fc_self.weight = torch.nn.Parameter(torch.ones(nn2.fc_self.weight.shape))
-    nn2.fc_neigh.weight = torch.nn.Parameter(torch.ones(nn2.fc_neigh.weight.shape))
+    for l in layers:
+        l.fc_self.weight = torch.nn.Parameter(torch.ones(l.fc_self.weight.shape, device = 0))
+        l.fc_neigh.weight = torch.nn.Parameter(torch.ones(l.fc_neigh.weight.shape, device = 0))
+    e1 = torch.cuda.Event(enable_timing = True)
+    e2 = torch.cuda.Event(enable_timing = True)
 
-    a  =  torch.ones(input_nodes.shape[0],10, requires_grad = True) 
-    f_out = nn1(blocks[0], input_nodes.reshape(input_nodes.shape[0],1) % 10 * a)
-    x = nn2(blocks[1], f_out)
-    print(torch.sum(x))
-    torch.sum(x).backward()
-    for i in range(4):
-        print(torch.sum(x[torch.where(partition_map[seeds] ==i)[0]]), i, "correct out")
-        print(torch.sum(a.grad[torch.where(partition_map[input_nodes]==i)[0]]), i , "crrect grad")
+    for input_nodes, seeds, blocks in dataloader:
+        c  =  torch.ones(input_nodes.shape[0],128, device = 0)
+        
+        for k in range(10):
+            b = c
+            e1.record()
+            torch.cuda.nvtx.range_push("minibatch-naive")
+            for i,l in enumerate(layers):
+                b = l(blocks[i], b)
+            #print(torch.sum(b))
+            torch.cuda.nvtx.range_pop()
+            e2.record()
+            e2.synchronize()
+            print("forward pass time", e1.elapsed_time(e2)/1000)
+        torch.sum(b).backward()
     
 # get_correct_gat()
     # test_heterograph_construction_python()
 
 if __name__ == "__main__":
-    get_correct_gcn()
+    print(get_correct_gcn())
     #print("Seperate")
-    test_groot_gcn()
+    print(test_groot_gcn())

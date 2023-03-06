@@ -198,6 +198,7 @@ def run(rank, args,  data):
                 with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
                     e3.record()
                     batch_pred = model(blocks, batch_inputs)
+                    print(batch_pred.shape, torch.max(batch_labels))
                     loss = loss_fcn(batch_pred, batch_labels)
                     e4.record()
                     loss.backward()
@@ -248,6 +249,7 @@ def run(rank, args,  data):
     if rank == 0:
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch_time:{}".format(average(epoch_time)))
+    print(edges_per_epoch)
     print("edges_per_epoch:{}".format(average(edges_per_epoch)))
     print("data moved :{}MB".format(average(data_movement_epoch)))
     dist.destroy_process_group()

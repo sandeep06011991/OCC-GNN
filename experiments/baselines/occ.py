@@ -44,7 +44,7 @@ def check_single(ls):
 
 def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         num_layers, num_partition, fanout):
-    output = subprocess.run(["python3.8",\
+    output = subprocess.run(["python3",\
             "{}/cu_train/main.py".format(ROOT_DIR),\
         "--graph",graphname,  \
         "--model", model , \

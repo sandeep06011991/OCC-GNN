@@ -24,7 +24,7 @@ graphname = "ogbn-products"
 # graphname = "reorder-papers100M"
 # csl1 = cslicer(graphname, storage_map_empty, 10, True, False)
 # import numpy as np
-DATA_DIR = "/data/sandeep"
+DATA_DIR = "/home/ubuntu/data"
 num_gpus = 4
 num_layers = 3
 p_map = np.fromfile("{}/{}/partition_map_opt_4.bin".format(DATA_DIR,graphname),dtype = np.intc)

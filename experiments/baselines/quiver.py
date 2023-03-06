@@ -48,7 +48,7 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size,\
             "--batch-size", str(minibatch_size), \
             "--num-hidden", str(num_layers),\
             "--fan-out", fanout, \
-            "--data", "quiver", "--num-epochs", str(epochs)] \
+            "--data", "quiver", "--num-epochs", str(epochs), "--sample-gpu"] \
                 , capture_output = True)
 
     out = str(output.stdout)
@@ -76,8 +76,8 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size,\
         data_moved = sum(data_moved)/4
         #print("accuracy",accuracy)
         #print("edges", edges)
-        sample_get, movement_data, forward_time, backward_time = normalize\
-                (epoch, sample_get, movement_data, forward_time, backward_time)
+        #sample_get, movement_data, forward_time, backward_time = normalize\
+        #        (epoch, sample_get, movement_data, forward_time, backward_time)
 
     except Exception as e:
         with open('exception_quiver.txt','a') as fp:
@@ -99,5 +99,6 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size,\
 
 
 if __name__=="__main__":
-    run_experiment_quiver("GAT")
-    run_experiment_quiver("GCN")
+    run_quiver("ogbn-arxiv", "GCN", 4 , .20, 16, 128, 1024, 3, "20,20,20") 
+    #run_experiment_quiver("GAT")
+    #run_experiment_quiver("GCN")
