@@ -23,7 +23,9 @@ def run_experiment_occ(model):
                 ("ogbn-products", 16, 100, 4096), \
                 #("reorder-papers100M", 16, 128, 4096),\
                 #("amazon", 16, 200, 4096),\
-                ]
+                #("reorder-papers100M", 16, 128, 4096),\
+                #("amazon", 16, 200, 4096),\
+                 ]
     cache  = ".25"
     num_layers = 3
     num_partition= 4

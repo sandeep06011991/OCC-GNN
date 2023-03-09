@@ -20,6 +20,7 @@ def run_experiment_occ(model):
     settings = [
                 #("ogbn-arxiv", 16, 128, 4096), \
                  ("ogbn-products", 16, 100, 4096), \
+                #("ogbn-products", 16, 100, 4096), \
                 ("reorder-papers100M", 16, 128, 4096),\
                 ("amazon", 16, 200, 4096),\
                  ]
@@ -30,7 +31,7 @@ def run_experiment_occ(model):
     fanout = "20,20,20"
     #fanouts = ["10,10,10"]
     hidden_sizes = [16,64,128]
-
+    #hidden_sizes = [128]
     sha,dirty = get_git_info()
     assert(model in ["gcn","gat","gat-pull"])
     with open(OUT_DIR + '/hidden/occ_{}.txt'.format(SYSTEM),'a') as fp:
@@ -54,7 +55,7 @@ def run_experiment_occ(model):
 
 
 if __name__ == "__main__":
-    run_experiment_occ("gcn")
+    # run_experiment_occ("gcn")
     # run_experiment_occ("gat")
     run_experiment_occ("gat")
     print("Success!!!!!!!!!!!!!!!!!!!")

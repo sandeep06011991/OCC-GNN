@@ -22,7 +22,7 @@ from cu_shared import *
 from data.serialize import *
 import logging
 from test_accuracy import *
-
+import gc
 
 
 def avg(ls):
@@ -53,6 +53,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     print("Trainer process starts!!!")
     torch.cuda.set_device(proc_id)
     gpu_local_storage = GpuLocalStorage(cache_percentage, features, batch_in, proc_id)
+    print(PATH_DIR, "logging")
     if proc_id == 0:
         ## Configure logger
         os.makedirs('{}/logs'.format(PATH_DIR),exist_ok = True)
@@ -186,8 +187,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                 ref = ((sample_id, for_worker_id, name, data.shape, data.dtype.name))
                 exchange_queue[for_worker_id].put(ref)
             del csample
-            # gc.collect()
-            # torch.cuda.empty_cache()
+            if args.model == "gat":
+                gc.collect()
+                torch.cuda.empty_cache()
         else:
             for gpu_id in range(num_gpus):
                 sample_id = proc_id
@@ -290,6 +292,8 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                 acc = (acc[0].item()/acc[1])
                 print("Accuracy ", acc, current_minibatch ,num_epochs)
             torch.cuda.synchronize(bp_end)
+            if proc_id == 0:
+                flog.info("epoch: {}, Minibatch:{}, tota minibatches:{}".format(num_epochs, current_minibatch,minibatches_per_epoch))
             torch.cuda.nvtx.range_pop()
             forward_time += fp_start.elapsed_time(fp_end)/1000
             backward_time += fp_end.elapsed_time(bp_end)/1000

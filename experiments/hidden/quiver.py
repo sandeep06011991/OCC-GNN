@@ -20,7 +20,7 @@ def run_experiment_quiver( model, cache ):
     layers = 3
 
     hidden_sizes = [16, 64, 128]
-    #hidden_sizes = [16]
+    hidden_sizes = [16]
     with open('{}/hidden/quiver.txt'.format(OUT_DIR),'a') as fp:
         #fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  |" + \

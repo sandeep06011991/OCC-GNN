@@ -101,9 +101,9 @@ def generate_partition_file(DATA_DIR,graphname):
     read_partition_file(graphname)
 
 if __name__=="__main__":
-    filename = "reorder-papers100M"
+    filename = "ogbn-products"
     create_metis_file(filename)
-    for num_partitions in range(2,8):
+    for num_partitions in range(8,9):
         run_metis(filename, num_partitions)
         read_partition_file(filename, num_partitions)
     create_random_partition(filename)    
