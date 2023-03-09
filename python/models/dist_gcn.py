@@ -20,17 +20,17 @@ class DistSAGEModel(torch.nn.Module):
                  activation,
                  dropout,
                  gpu_id, num_gpus,
-                 queues = None, deterministic = False):
+                 queues = None, deterministic = False, skip_shuffle = False):
         super().__init__()
         self.n_layers = n_layers
         self.n_hidden = n_hidden
         self.n_classes = n_classes
         self.layers = nn.ModuleList()
         self.queues = queues
-        self.layers.append(DistSageConv(in_feats, n_hidden, gpu_id,  num_gpus, deterministic = deterministic))
+        self.layers.append(DistSageConv(in_feats, n_hidden, gpu_id,  num_gpus, deterministic = deterministic, skip_shuffle = skip_shuffle))
         for i in range(1, n_layers - 1):
-            self.layers.append(DistSageConv(n_hidden, n_hidden,  gpu_id,  num_gpus, deterministic = deterministic))
-        self.layers.append(DistSageConv(n_hidden, n_classes, gpu_id,  num_gpus, deterministic = deterministic))
+            self.layers.append(DistSageConv(n_hidden, n_hidden,  gpu_id,  num_gpus, deterministic = deterministic, skip_shuffle = skip_shuffle))
+        self.layers.append(DistSageConv(n_hidden, n_classes, gpu_id,  num_gpus, deterministic = deterministic, skip_shuffle = skip_shuffle))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
         self.deterministic = deterministic
@@ -69,7 +69,7 @@ class DistSAGEModel(torch.nn.Module):
 
 
 
-def get_sage_distributed(hidden, features, num_classes, gpu_id, deterministic, model, num_gpus, n_layers):
+def get_sage_distributed(hidden, features, num_classes, gpu_id, deterministic, model, num_gpus, n_layers, skip_shuffle):
     dropout = 0
     in_feats = features.shape[1]
     n_hidden = hidden
@@ -81,4 +81,4 @@ def get_sage_distributed(hidden, features, num_classes, gpu_id, deterministic, m
     activation = torch.nn.ReLU()
     assert(model==  "gcn")
     return DistSAGEModel(in_feats, n_hidden, n_classes, n_layers, activation, \
-            dropout, gpu_id, num_gpus, deterministic = deterministic )
+            dropout, gpu_id, num_gpus, deterministic = deterministic, skip_shuffle = skip_shuffle )

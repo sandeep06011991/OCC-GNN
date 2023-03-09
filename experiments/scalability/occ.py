@@ -1,4 +1,5 @@
 from baselines.occ import run_occ
+#from baselines.pagraph import *
 import subprocess
 import re
 import sys
@@ -18,32 +19,34 @@ def get_git_info():
 def run_experiment_occ(model):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
     settings = [
-                #("ogbn-arxiv", 16, 128, 4096), \
-                 ("ogbn-products", 16, 100, 4096), \
-                ("reorder-papers100M", 16, 128, 4096),\
-                ("amazon", 16, 200, 4096),\
-                 ]
-    cache  = ".25"
+                #("ogbn-arxiv", 16, 128, 1024), \
+                ("ogbn-products", 16, 100, 4096 * 10), \
+                #("reorder-papers100M", 16, 128, 4096),\
+                #("amazon", 16, 200, 4096),\
+                ]
+    cache  = ".5"
     num_layers = 3
-    num_partition= 4
-    hidden_sizes = [16]
+    #num_partition = 2
+    #hidden_sizes = [16]
     fanout = "20,20,20"
     #fanouts = ["10,10,10"]
-    hidden_sizes = [16,64,128]
+    #hidden_sizes = [64]
+    hidden_size = 16
 
     sha,dirty = get_git_info()
     assert(model in ["gcn","gat","gat-pull"])
-    with open(OUT_DIR + '/hidden/occ_{}.txt'.format(SYSTEM),'a') as fp:
+    with open(OUT_DIR + '/scalability/occ_{}.txt'.format(SYSTEM),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size |"+\
                 "num_partitions | num-layers |" + \
             " model  | fanout |  sample_get | move-graph | move-feature | forward | backward  |"+\
                 " epoch_time | accuracy | data_moved | edges_computed\n")
     for graphname, hidden_size, fsize, batch_size in settings:
-        for hidden_size in hidden_sizes:
+        for num_partition in [8]:
+            #batch_size = batch_size_min * num_partition
             out = run_occ(graphname, model,  cache, hidden_size, fsize,\
                     batch_size, num_layers, num_partition, fanout)
-            with open(OUT_DIR + '/hidden/occ_{}.txt'.format(SYSTEM),'a') as fp:
+            with open(OUT_DIR + '/scalability/occ_{}.txt'.format(SYSTEM),'a') as fp:
                 fp.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |{} | {} \n".\
                 format(graphname , SYSTEM, cache, hidden_size, fsize, batch_size,\
                     num_partition, num_layers, model, fanout, out["sample_get"], \
@@ -55,7 +58,7 @@ def run_experiment_occ(model):
 
 if __name__ == "__main__":
     run_experiment_occ("gcn")
-    # run_experiment_occ("gat")
     run_experiment_occ("gat")
+    # run_experiment_occ("gat-pull")
     print("Success!!!!!!!!!!!!!!!!!!!")
     #run_model("gat")

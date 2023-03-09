@@ -32,6 +32,7 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
       #ifdef DEBUG
           assert(nd1 < num_nodes_in_graph);
       #endif
+	//int p_nd1 = 0;
       int p_nd1 = partition_map[nd1];
       long offset_edge_start = indptr[tid];
       int p_nbs[MAX_DEVICES];
@@ -45,7 +46,8 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
             assert(nd2_idx < in_nodes_size);
         #endif
         long nd2 = in_nodes[nd2_idx];
-        int p_nd2 = partition_map[nd2];
+	//int p_nd2 = 0;
+	int p_nd2 = partition_map[nd2];
         if(p_nd1 == p_nd2){
           // Same partition add local edge
           ((long *)&index_edge_local[num_edges * p_nd1])[offset_edge_start + nb_idx] = 1;

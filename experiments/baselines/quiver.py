@@ -33,12 +33,13 @@ def parse_float(string, output):
     matches = re.findall(string,output)
     print(matches)
     assert(len(matches) == 1)
-    return "{:.2f}".format(float(matches[0]))
+    return "{:.2f}".format(abs(float(matches[0])))
 
 
 # measures cost of memory transfer of dataset
 def run_quiver(graphname, model, epochs,cache_per, hidden_size,\
         fsize, minibatch_size, num_layers, fanout):
+    
     output = subprocess.run(["python3",\
             "{}/quiver/dgl_gcn.py".format(ROOT_DIR),\
             "--graph",graphname,  \

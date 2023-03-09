@@ -75,6 +75,7 @@ class Bipartite:
         metagraph_index_local = heterograph_index.create_metagraph_index(['_U','_V_local'],[('_U','_E','_V_local')])
         if(self.num_out_local != 0 ):
         # if True:
+            torch.cuda.nvtx.range_push("graph create")
             hg_local = heterograph_index.create_unitgraph_from_csr(\
                         2,  in_nodes , self.num_out_local, self.indptr_L,
                             self.indices_L, edge_ids_local , formats , transpose = True)
@@ -84,6 +85,7 @@ class Bipartite:
             if attention:
                 self.graph_local = self.graph_local.formats(['csr','csc','coo'])
                 self.graph_local.create_formats_()
+            torch.cuda.nvtx.range_pop()
         else:
             print("Local graph is none")
             self.graph_local = None

@@ -139,9 +139,10 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
             p_map_file = "{}/{}/partition_map_opt_random.bin".format(DATA_DIR,graphname)
         else:
             p_map_file = "{}/{}/partition_map_opt_{}.bin".format(DATA_DIR,graphname, num_gpus)
-        p_map = np.fromfile(p_map_file)
+        p_map = np.fromfile(p_map_file,dtype = np.int32)
         # edges = dg_graph.edges()
         partition_map = torch.from_numpy(p_map)
+        print(partition_map.dtype)
     else:
         partition_map = None
     # assert(False)

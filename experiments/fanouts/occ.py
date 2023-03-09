@@ -1,5 +1,5 @@
 from baselines.occ import run_occ
-from baselines.pagraph import *
+#from baselines.pagraph import *
 import subprocess
 import re
 import sys
@@ -20,21 +20,22 @@ def run_experiment_occ(model):
     # graph, num_epochs, hidden_size, fsize, minibatch_size
     settings = [
                 #("ogbn-arxiv", 16, 128, 4096), \
-                 ("ogbn-products", 16, 100, 4096), \
-                ("reorder-papers100M", 16, 128, 4096),\
-                ("amazon", 16, 200, 4096),\
-                 ]
+                ("ogbn-products", 16, 100, 4096), \
+                #("reorder-papers100M", 16, 128, 4096),\
+                #("amazon", 16, 200, 4096),\
+                ]
     cache  = ".25"
     num_layers = 3
     num_partition= 4
-    hidden_sizes = [16]
-    fanouts = ["20,20,20", "30,30,30"]
+    #hidden_sizes = [16]
+    fanouts = ["10,10,10", "20,20,20", "30,30,30"]
     #fanouts = ["10,10,10"]
     #hidden_sizes = [64]
+    hidden_size = 16
 
     sha,dirty = get_git_info()
     assert(model in ["gcn","gat","gat-pull"])
-    with open(OUT_DIR + '/exp6/exp6_occ_{}.txt'.format(SYSTEM),'a') as fp:
+    with open(OUT_DIR + '/fanouts/occ_{}.txt'.format(SYSTEM),'a') as fp:
         fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph | system | cache |  hidden-size | fsize  | batch-size |"+\
                 "num_partitions | num-layers |" + \

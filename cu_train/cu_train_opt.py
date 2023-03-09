@@ -22,7 +22,7 @@ from cu_shared import *
 from data.serialize import *
 import logging
 from test_accuracy import *
-
+from layers.shuffle_functional import *
 
 
 def avg(ls):
@@ -158,7 +158,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     e_t1 = time.time()
     global_order_dict[Bipartite] = get_attr_order_and_offset_size(Bipartite(), num_partitions = gpus)
     global_order_dict[Gpu_Local_Sample] = get_attr_order_and_offset_size(Gpu_Local_Sample(), num_partitions = gpus)
-
+    labels = labels.to(proc_id)
     while(True):
         print("try to get sample", current_minibatch , minibatches_per_epoch, num_epochs, epochs_required)
         if num_epochs == epochs_required :
@@ -166,6 +166,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         training_node= sample_queue.get()
         torch.cuda.nvtx.range_push("Minibatch")
         sample_get_start = time.time()
+        send_dict = {}
+        recv_dict = {}
+        my_gpu_local_sample = None
         if(type(training_node) != type("")):
             csample = sampler.getSample(training_node)
             tensorized_sample = Sample(csample)
@@ -173,57 +176,74 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             for gpu_id in range(num_gpus):
                 obj = Gpu_Local_Sample()
                 obj.set_from_global_sample(tensorized_sample,gpu_id)
-                print("Temporary fix serializing on cpu")
+                if gpu_id == proc_id:
+                    my_gpu_local_sample = obj
+                    continue   
+                #print("Temporary fix serializing on cpu")
                 if use_cpu_sampler:
+                    assert(False)
                     data = serialize_to_tensor(obj, torch.device('cpu'), num_gpus = gpus)
                 else:
                     data = serialize_to_tensor(obj, torch.device(proc_id), num_gpus = gpus)
-                data = data.to('cpu').numpy()
+                    if gpu_id != proc_id:
+                        send_dict[gpu_id] = data.clone()
+                #data = data.to('cpu').numpy()
                 #print("Warning shared memory queue may be  emtpy ", sm_filename_queue.qsize())
                 sample_id = proc_id
                 for_worker_id = gpu_id
-                name = sm_client.write_to_shared_memory(data, for_worker_id, sample_id)
-                ref = ((sample_id, for_worker_id, name, data.shape, data.dtype.name))
+                #name = sm_client.write_to_shared_memory(data, for_worker_id, sample_id)
+                #ref = ((sample_id, for_worker_id, name, data.shape, data.dtype.name))
+                ref = (sample_id, for_worker_id, data.shape)
+                assert(len(data.shape) != 0)
                 exchange_queue[for_worker_id].put(ref)
             del csample
             # gc.collect()
             # torch.cuda.empty_cache()
         else:
             for gpu_id in range(num_gpus):
+                if gpu_id == proc_id:
+                   my_gpu_local_sample = torch.tensor([], device = proc_id)
+                   continue
                 sample_id = proc_id
                 for_worker_id = gpu_id
-                ref = (sample_id, for_worker_id, "EMPTY", None, None)
+                send_dict[gpu_id] = torch.empty([0], device = proc_id, dtype = torch.int64)
+                ref = (sample_id, for_worker_id, "EMPTY")
                 exchange_queue[for_worker_id].put(ref)
-
+        
         sample_get_end = time.time()
         sample_get_time += sample_get_end - sample_get_start
         # exchange
-        partitioned_sample = {}
         for gpu_id in range(num_gpus):
             # Read my own exchange_queue
-            ref = exchange_queue[proc_id].get()
-            partitioned_sample[ref[0]] = ref
-            assert(ref[1] == proc_id)
-        sample_keys = list(partitioned_sample.keys())
-        sample_keys.sort()
-        for sample_id in sample_keys:
-            ref = partitioned_sample[sample_id]
-            (sample_id, for_worker_id, name, shape, dtype) = ref
-            if(name == "EMPTY"):
-                print("Foind empty")
+            if(gpu_id) == proc_id:
                 continue
-            dtype = np.dtype( dtype )
-            tensor = sm_client.read_from_shared_memory(for_worker_id, sample_id, shape, dtype)
-            tensor = tensor.to(device)
-            gpu_local_sample = Gpu_Local_Sample()
-            device = torch.device(device)
-
-            construct_from_tensor_on_gpu(tensor, device, gpu_local_sample, num_gpus = gpus)
+            
+            sample_id, for_worker_id, shape = exchange_queue[proc_id].get()
+            assert(for_worker_id == proc_id)
+            if shape != "EMPTY":
+                recv_dict[sample_id] = torch.empty(shape, device = proc_id, dtype = torch.int64)
+            else:
+                recv_dict[sample_id] = torch.empty([0], device= proc_id)
+        shuffle_functional(proc_id, send_dict, recv_dict, gpus)
+        for i in range(num_gpus):
+            if i == proc_id:
+                gpu_local_sample = my_gpu_local_sample
+                if type(gpu_local_sample) is type(torch.tensor([])):
+                    continue
+            else:
+                tensor = recv_dict[i]
+                if(tensor.shape[0] == 0):
+                    continue
+                gpu_local_sample = Gpu_Local_Sample()
+                device = torch.device(device)
+                #print(tensor.shape, "RECOEVECD", tensor.dtype, torch.sum(tensor))
+                construct_from_tensor_on_gpu(tensor, device, gpu_local_sample, num_gpus = gpus)
+            #construct_from_tensor_on_gpu(tensor, device, gpu_local_sample, num_gpus = gpus)
             # gpu_local_sample.debug()
             # FixME: What is attention ?
+            torch.cuda.nvtx.range_push("prepare")
             gpu_local_sample.prepare(attention)
-            sm_client.free_used_shared_memory(name)
-
+            torch.cuda.nvtx.range_pop()
 #             if proc_id == 0:
 #                 if test_acc_func != None:
 #                     test_accuracy = test_acc_func.get_accuracy(model,flog)
@@ -232,19 +252,21 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
 
 #         #assert(features.device == torch.device('cpu'))
 #         #gpu_local_sample.debug()
-            classes = labels[gpu_local_sample.out_nodes.to('cpu')].to(torch.device(proc_id))
+            classes = labels[gpu_local_sample.out_nodes].to(torch.device(proc_id))
 #         # print("Last layer nodes",gpu_local_sample.last_layer_nodes)
             torch.cuda.set_device(proc_id)
             optimizer.zero_grad()
             m_t1 = time.time()
+            torch.cuda.nvtx.range_push("storage")
             input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cache_hit_from, \
                     gpu_local_sample.cache_hit_to, gpu_local_sample.cache_miss_from, gpu_local_sample.cache_miss_to)
             movement_feat = time.time() - m_t1
+            torch.cuda.nvtx.range_pop()
             edges, nodes = gpu_local_sample.get_edges_and_send_data()
             edges_per_gpu += edges
-            data_moved_per_gpu += (gpu_local_sample.cache_miss_from.shape[0] * features.shape[1] * 4 /(1024 * 1024)) +\
-                                (nodes * args.num_hidden * 4/(1024 * 1024))
-            data_moved_inter_gpu  += (nodes * args.num_hidden *4/(1024 * 1024))
+            data_moved_per_gpu += ((gpu_local_sample.cache_miss_from.shape[0] * features.shape[1] * 4)/(1024 * 1024)) +\
+                                ((nodes * args.num_hidden * 4)/(1024 * 1024))
+            data_moved_inter_gpu  += ((nodes * args.num_hidden *4)/(1024 * 1024))
             fp_start.record()
             torch.cuda.nvtx.range_push("training")
             output = model.forward(gpu_local_sample, input_features, None)
@@ -277,6 +299,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                 movement_feat = 0
                 edges_per_gpu = 0
                 data_moved_per_gpu = 0
+                data_moved_inter_gpu = 0
                 num_epochs += 1
                 e_t1 = time.time()
                 current_minibatch = 0
@@ -293,6 +316,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             torch.cuda.nvtx.range_pop()
             forward_time += fp_start.elapsed_time(fp_end)/1000
             backward_time += fp_end.elapsed_time(bp_end)/1000
+            #assert(False)
     print("Exiting main training loop",sample_queue.qsize())
 #     dev_id = proc_id
     #if proc_id == 1:
@@ -309,7 +333,8 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         print("forward time:{}".format(avg(forward_epoch)))
         print("backward time:{}".format(avg(backward_epoch)))
         print("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
+        #print("Inter gpu data movement:{}MB".format(avg(data_moved_inter_gpu_epoch)))
         print("Shuffle time:{}".format(avg(movement_partials_epoch)))
 #     print("Trainer returns")
 #         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
-#     # print("Thread running")
+     # print("Thread running")

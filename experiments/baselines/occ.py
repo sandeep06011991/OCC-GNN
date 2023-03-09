@@ -54,7 +54,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         "--num-epochs", "6",\
         "--num-layers", str(num_layers), \
         "--num-gpus", str(num_partition),\
-        "--fan-out", fanout, \
+        "--fan-out", fanout, "--optimization1"\
         ] \
             , capture_output = True)
     # print(out,error)

@@ -18,7 +18,7 @@ class DistSageConv(nn.Module):
             print("grad input", i.shape)
     # Not exactly matching SageConv as normalization and activation as removed.
     def __init__(self, in_feats, out_feats, gpu_id,  num_gpus,\
-        feat_drop=0.1, bias=True, deterministic = False):
+        feat_drop=0.1, bias=True, deterministic = False, skip_shuffle = False):
         super( DistSageConv, self).__init__()
         self.device_ids = [0,1,2,3]
         self._in_src_feats = in_feats
@@ -28,6 +28,7 @@ class DistSageConv(nn.Module):
         self._aggre_type = aggregator_type
         self.feat_drop = nn.Dropout(feat_drop)
         self.gpu_id = gpu_id
+        self.skip_shuffle = skip_shuffle
 
         # aggregator type: mean/pool/lstm/gcn
         assert aggregator_type in ['sum']
@@ -40,6 +41,7 @@ class DistSageConv(nn.Module):
         self.reset_parameters()
         self.shuffle_time = 0
         self.num_gpus = num_gpus
+        self.debug = False
         # self.local_stream = torch.cuda.default_stream()
         # self.remote_stream = torch.cuda.default_stream()
         # Not parallelizing in htis variation
@@ -97,15 +99,20 @@ class DistSageConv(nn.Module):
         # self.local_stream.wait_stream(torch.cuda.current_stream())
         # self.remote_stream.wait_stream(torch.cuda.current_stream())
         # with torch.cuda.stream(self.remote_stream):
+        torch.cuda.nvtx.range_push("gather_remote {}".format(self.gpu_id))
         out1 = bipartite_graph.gather_remote(out)
+        torch.cuda.nvtx.range_pop()
         t1 = time.time()
+        
         merge_tensors = Shuffle.apply(out1, self.gpu_id,self.num_gpus,  layer_id, bipartite_graph.get_from_nds_size(), \
                             bipartite_graph.to_offsets)
                     # Work on this signature later.
         # with torch.cuda.stream(self.local_stream):
         t2 = time.time()
         self.shuffle_time += (t2-t1)
+        torch.cuda.nvtx.range_push("Gater local{}".format(self.gpu_id))
         out3 = bipartite_graph.gather_local(out).clone()
+        torch.cuda.nvtx.range_pop()
 
         # torch.cuda.current_stream().wait_stream(self.local_stream)
         # torch.cuda.current_stream().wait_stream(self.remote_stream)
@@ -114,17 +121,22 @@ class DistSageConv(nn.Module):
         # out.record_stream(self.local_stream)
         # out.record_stream(self.remote_stream)
         # out3.record_stream(torch.cuda.current_stream())
-        for i in range(self.num_gpus):
-            if i != self.gpu_id:
-                out3[bipartite_graph.from_ids[i]] += merge_tensors[i]
-
-
-        assert(not torch.any(torch.isnan(out3)))
-        assert(torch.all(bipartite_graph.out_degrees != 0))
+        torch.cuda.nvtx.range_push("Range merge")
+        if not self.skip_shuffle:
+            for i in range(self.num_gpus):
+                if i != self.gpu_id:
+                    out3[bipartite_graph.from_ids[i]] += merge_tensors[i]
+        torch.cuda.nvtx.range_pop()
+        torch.cuda.nvtx.range_push("Clear crap")
+        if self.debug:
+            assert(not torch.any(torch.isnan(out3)))
+            assert(torch.all(bipartite_graph.out_degrees != 0))
+        torch.cuda.nvtx.range_pop()
         a = bipartite_graph.out_degrees.shape
         degree = bipartite_graph.out_degrees.reshape(a[0],1)
         out4 = (out3/degree)
-        assert(not torch.any(torch.isnan(out4)))
+        if self.debug:
+            assert(not torch.any(torch.isnan(out4)))
 
         if not self.fc1.in_features > self.fc1.out_features:
             out4 = self.fc1(out4)

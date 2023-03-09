@@ -120,32 +120,85 @@ def using_dist_async(proc_id, n_gpus):
     GB =  1024 * 1024 * 1024
     j = 0
     device_id = proc_id
-    data = [torch.rand(((int)(GB / 4) ,),device = proc_id) for i in range(4)]
+    data = [torch.ones(((int)(GB / 4) ,),device = proc_id) for i in range(4)]
+    recv_data = [torch.ones((int(GB/4),),device = proc_id) for i in range(4)]
 
-
-    num_tries = 10
+    num_tries = 100
     for _ in range(num_tries):
         t1 = time.time()
         send = []
         recv = []
+        torch.cuda.nvtx.range_push("async")
         for i in range(3):
             peer_id = comm_map[device_id][i]
             if(peer_id < device_id):
-                send.append(torch.distributed.isend(data[device_id], peer_id))
-                recv.append(torch.distributed.irecv(data[peer_id], src = peer_id))
+                send.append(torch.distributed.isend(data[peer_id], peer_id))
+                recv.append(torch.distributed.irecv(recv_data[peer_id], src = peer_id))
             else:
-                recv.append(torch.distributed.irecv(data[peer_id], src = peer_id))
-                send.append(torch.distributed.isend(data[device_id], peer_id))
-        torch.distributed.barrier()
-        t2 = time.time()
+                recv.append(torch.distributed.irecv(recv_data[peer_id], src = peer_id))
+                send.append(torch.distributed.isend(data[peer_id], peer_id))
+        
         for s in send:
             s.wait()
         for r in recv:
             r.wait()
-        torch.distributed.barrier()
+        torch.cuda.nvtx.range_pop()
         t2 = time.time()
         if device_id == 0:
             print("Time ", t2-t1, "Bandwidth", 12 * 1/(t2-t1))
+
+def using_dist_all_to_all(proc_id, n_gpus):
+    dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+            master_ip='127.0.0.1', master_port='30099')
+    world_size = n_gpus
+    th.distributed.init_process_group(backend="nccl",\
+             init_method=dist_init_method,  world_size=world_size,rank=proc_id)
+    GB  =  1024 * 1024
+    GB = 10*   1024 * 1024
+    j = 0
+    device_id = proc_id
+    inp = torch.ones(((int)(GB ) * 4 ,) ,device = proc_id) * proc_id
+    out =  torch.rand(((int)(GB ) * 4,),device = proc_id)
+    
+    m = []
+    for i in range(4):
+        #if i == proc_id:
+        #    m.append(0)
+        #    continue
+        m.append(GB)   
+    print(m)
+    print(inp.shape)
+    num_tries = 10
+    for _ in range(num_tries):
+        for GB in [1024, 1024 * 1024, 1024 * 1024 * 10, 1024 * 1024 * 100, 1024 * 1024 * 1024 ]:
+            
+            inp = torch.ones(((int)(GB ) * 4 ,) ,device = proc_id) * proc_id
+            out =  torch.rand(((int)(GB ) * 4,),device = proc_id)
+            m = []
+            for i in range(4):
+        #if i == proc_id:
+        #    m.append(0)
+        #    continue
+                m.append(GB)
+
+            t1 = time.time()
+            send = []
+            recv = []
+            torch.cuda.nvtx.range_push("all-to-all")
+            l = th.distributed.all_to_all_single(out, inp,m,m, async_op = True)
+            l.wait()
+            torch.cuda.nvtx.range_pop()
+            t2 = time.time()
+            for j in range(4):
+                print(j, proc_id, out[j * GB : j * GB + GB][0])
+            t2 = time.time()
+            #print("diff time", t3 - t2)
+            out =  torch.rand(((int)(GB ) * 4,),device = proc_id)
+            torch.distributed.barrier()
+            #t2 = time.time()
+            if device_id == 0:
+                print("Time ", t2-t1, "Bandwidth", 12 * (GB * 4/((t2-t1)* 1024 **3)))
+
 
 
 def pcie_data_transfer(proc_id, n_gpus):
@@ -212,8 +265,9 @@ if __name__ == "__main__":
     # assert(False)
     test_functions = [using_dist_send_p2p]
     # test_functions = [using_dist_send_buffer_blocked]
-    # test_functions = [using_dist_async]
-    # test_functions = [using_dist_send_sync_co_ordinated]
+    test_functions = [using_dist_all_to_all]
+    #test_functions = [using_dist_all_to_all, using_dist_async]
+    #test_functions = [using_dist_send_sync_co_ordinated]
     for f in test_functions:
         for proc_id in range(n_gpus):
             p = mp.Process(target=(f),

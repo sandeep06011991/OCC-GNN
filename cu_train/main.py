@@ -57,7 +57,6 @@ from utils.utils import *
 import time
 import inspect
 from cu_shared import *
-from cu_train import *
 
 # Trainer Queues, assign work to each of the trainer which are later shuffled
 # deterministic flag disables shuffle for e2e testing to with naive dgl version
@@ -140,7 +139,7 @@ def main(args):
     num_workers = num_gpus
     for i in range(num_gpus):
         storage_vector.append(mm.local_to_global_id[i].tolist())
-
+        print("STorage check",len(storage_vector[-1]))
     # Each gpu gets vertices to sample from this queue from work producer
     work_queues = [mp.Queue(3) for _ in range(num_workers)]
     # Exchange meta data required to read from shared memory
@@ -176,7 +175,10 @@ def main(args):
     procs = []
     labels = dg_graph.ndata["labels"]
     labels.share_memory_()
-
+    if args.optimization1 :
+        from cu_train_opt import run_trainer_process
+    else:
+        from cu_train import run_trainer_process
     for proc_id in range(num_gpus):
         p = mp.Process(target=(run_trainer_process), \
                       args=(proc_id, num_gpus, work_queues[proc_id], minibatches_per_epoch \
@@ -231,6 +233,8 @@ if __name__=="__main__":
     argparser.add_argument('--test-graph-dir', type = str)
     argparser.add_argument('--num-gpus', type = int, required = True)
     argparser.add_argument('--random-partition', action = "store_true", default = False)
+    argparser.add_argument('--optimization1', action = "store_true", default = False)
+    argparser.add_argument('--skip-shuffle', action = "store_true", default = False)
     # We perform only transductive training
     # argparser.add_argument('--inductive', action='store_false',
     #                        help="Inductive learning setting")

@@ -31,6 +31,7 @@ def shuffle_functional(device_id, send_dict, recv_dict, num_devices):
     t1 = time.time()
     send = []
     recv = []
+    torch.cuda.nvtx.range_push("shuffle {}".format(device_id))
     for i in range(7):
         peer_id = comm_map[device_id][i]
         if peer_id >= num_devices:
@@ -49,6 +50,29 @@ def shuffle_functional(device_id, send_dict, recv_dict, num_devices):
         r.wait()
     for s in send:
         s.wait()
+    torch.cuda.nvtx.range_pop()     
+
+
+def shuffle_functional_try(device_id, send_dict, recv_dict, num_devices):
+    input_splits = []
+    input_tensors = []
+    output_tensors = []
+    output_splits = []
+    
+    for i in range(num_devices):
+        if i== device_id:
+            send_dict[i] = recv_dict[i].clone()
+        input_splits.append(send_dict[i].shape[0])
+        output_splits.append(recv_dict[i].shape[0])
+        input_tensors.append(send_dict[i])
+        output_tensors.append(recv_dict[i])
+    send = torch.cat(input_tensors)
+    recv = torch.cat(output_tensors)
+    torch.distributed.all_to_all_single(recv, send, output_splits, input_splits)
+    s = 0
+    for i in range(num_devices):
+        recv_dict[i] = recv[s : s + output_splits[i]]
+        s = s + output_splits[i]
 
 
 def using_dist_send_sync_co_ordinated(proc_id, n_gpus):

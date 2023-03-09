@@ -98,6 +98,7 @@ def run(rank, args,  data):
         # copy only the csc to the GPU
         g = g.formats(['csc'])
         g = g.to(device)
+    labels = labels.to(device)
     print("Cross check edges moved !")
     # Create PyTorch DataLoader for constructing blocks
     sampler = dgl.dataloading.MultiLayerNeighborSampler(
@@ -198,7 +199,7 @@ def run(rank, args,  data):
                 with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
                     e3.record()
                     batch_pred = model(blocks, batch_inputs)
-                    print(batch_pred.shape, torch.max(batch_labels))
+                    #print(batch_pred.shape, torch.max(batch_labels))
                     loss = loss_fcn(batch_pred, batch_labels)
                     e4.record()
                     loss.backward()
