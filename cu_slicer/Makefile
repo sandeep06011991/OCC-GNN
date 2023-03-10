@@ -2,9 +2,10 @@
 # INCLUDE=-I. -I/home/spolisetty/3rdparty/thrust -I/home/spolisetty/3rdparty/thrust/dependencies/cub \
 # 	-I/home/spolisetty/3rdparty/thrust/dependencies/libcubxx
 
-INCLUDE= -I/home/spolisetty/3rdparty/thrust/dependencies/cub
-INCLUDE= -I/home/ubuntu/OCC-GNN/3rdparty/thrust/dependencies/cub
+GTEST_INCLUDE=-I/home/spolisetty_umass_edu/googletest/googletest/include
+LGTEST=/home/spolisetty_umass_edu/googletest/build/lib/libgtest.a
 
+INCLUDE= -I/home/spolisetty/3rdparty/thrust/dependencies/cub $(GTEST_INCLUDE)
 DEBUG=-DDEBUG  --extended-lambda
 FLAGS=-lstdc++
 # -g -G
@@ -50,10 +51,8 @@ tests: build/tests/gtest_entry.o  build/tests/cub_tests.o  build/tests/device_ve
 					build/tests/gcn_test.o build/graph/bipartite.o
 	nvcc -G $(FLAGS) build/tests/gtest_entry.o build/tests/cub_tests.o build/samplers/ns.o  \
 		build/util/cub.o  build/tests/array_map.o build/util/duplicate.o build/tests/device_vector.o  \
-		build/util/device_vector.o build/tests/sampling.o   build/tests/slicing.o build/graph/dataset.o\
-		build/transform/push_slice.o build/transform/slice.o \
-			build/tests/gcn_test.o build/graph/bipartite.o\
-		-lgtest -o build/gtests
+		build/util/device_vector.o build/tests/sampling.o build/graph/dataset.o\
+		$(LGTEST)  -o gtests
 	# ./gtests --gtest_filter=CUB.exclusive_sum
 	# ./gtests --gtest_filter=ARRAYMAP.memory
 
