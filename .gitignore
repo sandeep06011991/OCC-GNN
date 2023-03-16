@@ -20,3 +20,4 @@ slurm-log-occ/
 *.qdrep
 *.sqlite
 *.nsys-rep
+.ipynb_checkpoints/

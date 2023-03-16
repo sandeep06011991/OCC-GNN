@@ -91,7 +91,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             pull_optimization = True
         
         model = get_gat_distributed(args.num_hidden, features, num_classes,
-                proc_id, args.deterministic, args.model, pull_optimization, gpus,  args.num_layers)
+                proc_id, args.deterministic, args.model, pull_optimization, gpus,  args.num_layers, args.skip_shuffle)
         self_edge = True
         attention = True
     rounds = 3

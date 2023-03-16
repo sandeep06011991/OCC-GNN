@@ -19,7 +19,7 @@ class DistGATConv(nn.Module):
 
     # Not exactly matching SageConv as normalization and activation as removed.
     def __init__(self, in_feats, out_feats, gpu_id,  num_gpus,
-     deterministic = False, num_heads=3, negative_slope=0.2):
+     deterministic = False, skip_shuffle = False,  num_heads=3, negative_slope=0.2):
         super(DistGATConv, self).__init__()
         self.gpu_id = gpu_id
         self.num_heads = num_heads
@@ -28,7 +28,7 @@ class DistGATConv(nn.Module):
         self.attn_r = nn.Parameter(
             torch.FloatTensor(size=(1, num_heads, out_feats)))
         self.fc = nn.Linear(in_feats, out_feats*num_heads, bias=False)
-
+        self.skip_shuffle = skip_shuffle
         self.in_feats = in_feats
         self.out_feats = out_feats
 
@@ -66,6 +66,7 @@ class DistGATConv(nn.Module):
     def forward(self, bipartite_graph, in_feats, l, testing = False):
         # Refactor this increase readability.
         # Go for a cleanr convention. Feels very bad.
+        print(self.skip_shuffle)
         src_prefix_shape = in_feats.shape[:-1]
         in_feats = self.fc(in_feats).view(
             *src_prefix_shape, self.num_heads, self.out_feats)
@@ -79,7 +80,7 @@ class DistGATConv(nn.Module):
         er = (out_feats * self.attn_r).sum(dim=-1).unsqueeze(-1)
 
         # Apply Edge here
-        if not testing:
+        if not testing and not self.skip_shuffle:
             t1 = time.time()
             er_remote = ShuffleRev.apply(er, self.gpu_id,  self.num_gpus,  l, bipartite_graph.from_ids, \
                                 bipartite_graph.to_offsets)
@@ -88,7 +89,7 @@ class DistGATConv(nn.Module):
 
         e = bipartite_graph.apply_edge_local(el, er)
         e = self.leaky_relu(e)
-        if not testing:
+        if not testing and not self.skip_shuffle:
             e_r = bipartite_graph.apply_edge_remote(el,er_remote)
             e_r = self.leaky_relu(e_r)
         # TODO: fix exponent overflow
@@ -96,7 +97,7 @@ class DistGATConv(nn.Module):
         #with torch.no_grad():
         if True:
             local_max = bipartite_graph.gather_local_max(e)
-            if not testing:
+            if not testing and not self.skip_shuffle:
                 remote_max = bipartite_graph.gather_remote_max(e_r)
                 t1 = time.time()
                 merge_maxes = Shuffle.apply(
@@ -110,26 +111,26 @@ class DistGATConv(nn.Module):
                 pass
                 # global_max = local_max
 
-            if not testing:
+            if not testing and not self.skip_shuffle:
                 t1 = time.time()
                 remote_max  = ShuffleRev.apply(
                     local_max , self.gpu_id, self.num_gpus, l,   bipartite_graph.from_ids,  bipartite_graph.to_offsets)
                 t2 = time.time()
                 self.shuffle_time += (t2-t1)
             local_max = bipartite_graph.copy_from_out_nodes_local(local_max)
-            if not testing:
+            if not testing and not self.skip_shuffle:
                 remote_max = bipartite_graph.copy_from_out_nodes_remote(remote_max)
 
         # m = 0
         exponent_l = e - local_max
         exponent_l = torch.exp(exponent_l)
         sum_exponent_local = bipartite_graph.apply_node_local(exponent_l)
-        if not testing:
+        if not testing and not self.skip_shuffle:
             exponent_r = e_r - remote_max
             exponent_r = torch.exp(exponent_r)
             sum_exponent_remote_r = bipartite_graph.apply_node_remote(exponent_r)
 
-        if not testing:
+        if not testing and not self.skip_shuffle:
             t1 = time.time()
             merge_sum = Shuffle.apply(
                 sum_exponent_remote_r,self.gpu_id,  self.num_gpus, l,  bipartite_graph.get_from_nds_size(), bipartite_graph.to_offsets)
@@ -147,13 +148,13 @@ class DistGATConv(nn.Module):
         sum_exponent = bipartite_graph.copy_from_out_nodes_local(sum_exponent_local)
         sum_exponent[torch.where(sum_exponent == 0)[0]] = 1
         attention_l = exponent_l / sum_exponent
-        if not testing:
+        if not testing and not self.skip_shuffle:
             remote_sum_l = bipartite_graph.copy_from_out_nodes_remote(remote_sum)
             remote_sum_l[torch.where(remote_sum_l == 0)[0]] = 1
             attention_r = exponent_r / remote_sum_l
 
         out_local = bipartite_graph.attention_gather_local(attention_l, in_feats)
-        if not testing:
+        if not testing and not self.skip_shuffle:
             out_remote = bipartite_graph.attention_gather_remote(attention_r, in_feats)
             t1 = time.time()
             merge_out = Shuffle.apply(
