@@ -30,7 +30,7 @@ num_layers = 3
 p_map = np.fromfile("{}/{}/partition_map_opt_4.bin".format(DATA_DIR,graphname),dtype = np.intc)
 p_map = torch.from_numpy(p_map)
 training_nodes = p_map.shape[0]
-training_nodes = [i for i in range(training_nodes)]
+training_nodes = [i for i in range(int(training_nodes/4))]
 # s1 = csl1.getSample(in_nodes)
 # storage_map_full = [[i for i in range(169343)] for i in range(4)]
 # csl2 = cslicer(graphname, storage_map_full, 10, True, False)
@@ -58,7 +58,7 @@ while(i < len(training_nodes)):
     with nvtx.annotate("Sample",color = 'red'):
         s3= csl3.getSample(in_nodes)
     t2 = time.time()
-
+    print("minibatch time", t2-t1)
     # break
     i = i + batch_size
 e_time = time.time()

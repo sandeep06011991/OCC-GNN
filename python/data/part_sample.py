@@ -87,7 +87,12 @@ class Gpu_Local_Sample:
     def get_edges_and_send_data(self):
         edges_total = 0
         edges_remote = 0
+        edges = []
+        nodes = []
         for  graph in self.layers:
             edges_total += graph.indices_L.shape[0] + graph.indices_R.shape[0]
             edges_remote += graph.indices_R.shape[0]
-        return (edges_total, edges_remote)
+            edges.append( graph.indices_L.shape[0] + graph.indices_R.shape[0])
+            nodes.append(graph.indptr_L.shape[0] + graph.indptr_R.shape[0])
+        return (edges_total, edges_remote, edges, nodes)
+

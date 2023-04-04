@@ -9,4 +9,7 @@ def get_data_dir():
         DATA_DIR = "/data/sandeep"
     if username == "q91":
         DATA_DIR = "/mnt/bigdata/sandeep"
+    if username == "ubuntu":
+        # AWS 
+        DATA_DIR = "/home/ubuntu/data"     
     return DATA_DIR

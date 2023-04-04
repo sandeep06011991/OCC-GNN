@@ -46,7 +46,8 @@ public:
   long csum_edges;
   bool testing = true;
   int num_partitions;
-  Dataset(std::string dir, bool testing,  int num_partitions);
+  bool random = false;
+  Dataset(std::string dir, bool testing,  int num_partitions, bool random);
 
   ~Dataset(){
     // gpuErrchk(cudaFree(indptr_d));

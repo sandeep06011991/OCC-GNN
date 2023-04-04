@@ -78,19 +78,23 @@ def load_subtensor(nfeat, labels, seeds, input_nodes, device):
     Extracts features and labels for a set of nodes.
     """
     batch_inputs = nfeat[input_nodes].to(device)
-    batch_labels = labels[seeds.to('cpu')].to(device)
+    batch_labels = labels[seeds].to(device)
     return batch_inputs, batch_labels
 
 # Entry point
 
-def run(rank, args,  data):
+def run(rank, args,  data, nfeat):
     # Unpack data
+    torch.cuda.set_device(rank)
+    #print(feature.cpu_part)
+
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '11112'
     dist.init_process_group('nccl', rank=rank, world_size=4)
-
+    nfeat.lazy_init_from_ipc_handle()
     device = rank
-    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets, metrics_queue = data
+    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat_, g, offsets, metrics_queue = data
+
     if args.data == 'gpu':
         nfeat = nfeat.to(rank)
     if args.sample_gpu:
@@ -102,10 +106,11 @@ def run(rank, args,  data):
     print("Cross check edges moved !")
     # Create PyTorch DataLoader for constructing blocks
     sampler = dgl.dataloading.MultiLayerNeighborSampler(
-            [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
+            [int(fanout) for fanout in args.fan_out.split(',')], replace = False)
     world_size = 4
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
     print("nubmer of batches", train_nid.shape[0]/args.batch_size)
+    print(torch.sum(g.in_degrees(train_nid)), device)
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
@@ -123,7 +128,7 @@ def run(rank, args,  data):
                  args.num_layers, F.relu, args.dropout)
     else:
         assert(args.model == "GAT")
-        heads = 3
+        heads = 4
         model = GAT(in_feats, args.num_hidden, \
                 n_classes , heads, args.num_layers, F.relu, args.dropout)
     model = model.to(device)
@@ -164,11 +169,15 @@ def run(rank, args,  data):
         minibatch_metrics = []
         try:
             while True:
+                if step == 5:
+                    torch.cuda.profiler.start()
+                if step == 10:
+                    torch.cuda.profiler.stop()
+
                 torch.cuda.nvtx.range_push("minibatch")
                 batch_time = {}
                 optimizer.zero_grad()
                 t1 = time.time()
-                torch.cuda.nvtx.range_push("sample")
                 input_nodes, seeds, blocks = next(dataloader_i)
                 torch.cuda.nvtx.range_pop()
                 t2 = time.time()
@@ -182,8 +191,13 @@ def run(rank, args,  data):
 
                     for blk in blocks:
                         blk.create_formats_()
+                e = []
+                n = [blocks[0].num_src_nodes()]
                 for blk in blocks:
                     edges_computed += blk.edges()[0].shape[0]
+                    e.append(blk.edges()[0].shape[0])
+                    n.append(blk.num_dst_nodes())
+                #print(device, e, n)    
                 #print(edges_computed)
                 t3 = time.time()
                 batch_time[DATALOAD_START_TIME] = t3
@@ -198,14 +212,31 @@ def run(rank, args,  data):
                     hit = 0
                     missed = 0
                 # Load the input features as well as output labels
-                torch.cuda.nvtx.range_push("fetch")
-                batch_inputs, batch_labels = load_subtensor(
-                    nfeat, labels, seeds, input_nodes, device)
-                torch.cuda.nvtx.range_pop()
-                e1.record()
+                #torch.cuda.nvtx.range_push("fetch")
+                for _ in range(1):
+                    e0.record()
+                    batch_inputs, batch_labels = load_subtensor(
+                        nfeat, labels, seeds, input_nodes, device)
+                    #torch.cuda.nvtx.range_pop()
+                    #nfeat[input_nodes].to(device)
+                    e1.record()
+                    e1.synchronize()
+                    break
+                    gpu_order = nfeat.feature_order[input_nodes]
+                    for i in range(4):
+                        print(nfeat, nfeat.clique_tensor_list[0], nfeat.clique_tensor_list[0].shard_tensor_config)
+                                                                                            
+                        print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
+                        assert(False)
+                        print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[i].start)
+                        first = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[i].start
+                        last = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[i].end
+                        print("cache hit", i , torch.sum((gpu_order >=first ) & (gpu_order < last))/gpu_order.shape[0])
+
+                    print("Data", (batch_inputs.shape[0] * batch_inputs.shape[1]  * 4)/(1024 ** 2),  "Bandwidth", (batch_inputs.shape[0] * batch_inputs.shape[1] * 4 )/ (1024 **3 * (e0.elapsed_time(e1)/1000)))
                 batch_time[DATALOAD_END_TIME] = time.time()
                 # Compute loss and prediction
-                torch.cuda.nvtx.range_push("training")
+                torch.cuda.nvtx.range_push("training {} {}".format(e,n))
                 
                 with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
                     e3.record()
@@ -233,8 +264,6 @@ def run(rank, args,  data):
                     break
                 step = step + 1
                 torch.cuda.nvtx.range_pop()
-                #print("forward time", e2.elapsed_time(e3)/1000)
-                #print("backward time", e3.elapsed_time(e4)/1000)
                 total_loss += loss.item()
                 total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
         #        pbar.update(args.batch_size)
@@ -283,7 +312,7 @@ if __name__ == '__main__':
     argparser.add_argument('--gpu', type=int, default=0,
                            help="GPU device ID. Use -1 for CPU training")
     argparser.add_argument('--num-epochs', type=int, default=6)
-    argparser.add_argument('--num-hidden', type=int, default=16)
+    argparser.add_argument('--num-hidden', type=int, default=256)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='20,20,20')
     argparser.add_argument('--batch-size', type=int, default=1024)
@@ -357,6 +386,8 @@ if __name__ == '__main__':
         #feat = dg_graph.in_degrees().unflatten(0, (dg_graph.num_nodes(), 1)) * torch.ones(dg_graph.num_nodes(), 10, dtype = torch.float32)
         #print(feat.shape)
         nfeat.from_cpu_tensor(feat)
+        print(nfeat.feature_order.shape)
+        print(graph.out_degrees(nfeat.feature_order.to('cpu')))
         if float(args.cache_per) <= .25:
             if len(nfeat.clique_tensor_list) != 0:
                 last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
@@ -367,11 +398,12 @@ if __name__ == '__main__':
         offsets = {}
         offsets[3] = last_node_stored
         # Temporary disable
-        #for device in range(4):
-        #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
-        #    end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
-        #    offsets[device] = (start,end)
+        for device in range(4):
+            start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
+            end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
+            offsets[device] = (start,end)
         #    print(device, nfeat[start:end])
+        print(offsets)
     elif args.data == 'unified':
         from distutils.version import LooseVersion
         assert LooseVersion(dgl.__version__) >= LooseVersion('0.8.0'), \
@@ -389,6 +421,11 @@ if __name__ == '__main__':
     graph.create_formats_()
     # Pack data
     metrics_queue = mp.Queue(4)
+    train_idx = train_idx[torch.randperm(train_idx.shape[0])]
+    print(nfeat, nfeat.clique_tensor_list[0], nfeat.clique_tensor_list[0].shard_tensor_config)
+    print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
+    print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[2].start)
+
     data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, metrics_queue
 
 
@@ -403,7 +440,7 @@ if __name__ == '__main__':
     world_size = 4
     mp.spawn(
         run,
-        args=(args,  data),
+        args=(args,  data, nfeat),
         nprocs=world_size,
         join=True
     )

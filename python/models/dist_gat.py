@@ -22,14 +22,14 @@ class DistGATModel(torch.nn.Module):
         self.n_classes = n_classes
         self.layers = nn.ModuleList()
         self.queues = queues
-        self.num_heads = 3
+        self.num_heads = 4
         self.num_gpus = num_gpus
         self.gpu_id = gpu_id
         num_heads = self.num_heads
         self.layers.append(DistGATConv(in_feats, n_hidden, gpu_id, num_gpus,
                     deterministic = deterministic, num_heads = num_heads, skip_shuffle = skip_shuffle))
         for i in range(1, n_layers - 1):
-            self.layers.append(DistGATConv(n_hidden * num_heads, n_hidden,  gpu_id,  num_gpus, num_heads = 3, deterministic = deterministic, skip_shuffle = skip_shuffle))
+            self.layers.append(DistGATConv(n_hidden * num_heads, n_hidden,  gpu_id,  num_gpus, num_heads = num_heads, deterministic = deterministic, skip_shuffle = skip_shuffle))
         self.layers.append(DistGATConv(n_hidden * num_heads, n_classes, gpu_id,  num_gpus, num_heads = 1, deterministic = deterministic, skip_shuffle = skip_shuffle))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation

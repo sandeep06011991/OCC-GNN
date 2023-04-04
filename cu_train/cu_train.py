@@ -79,7 +79,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     current_gpu = proc_id
     if args.model == "gcn":
         model = get_sage_distributed(args.num_hidden, features, num_classes,
-            proc_id, args.deterministic, args.model, gpus,  args.num_layers, args.skip_shuffle)
+            proc_id, args.deterministic, args.model, gpus,  args.num_layers, args.skip_shuffle, args.barrier)
         self_edge = False
         attention = False
         pull_optimization = False
@@ -107,8 +107,10 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     else:
         print("using GPU Sampler")
         from cuslicer import cuslicer
+        assert(False)
         sampler = cuslicer(graph_name, storage_vector,
-                fanout ,deterministic, testing, self_edge, rounds, pull_optimization, num_layers, num_gpus, proc_id)
+                fanout ,deterministic, testing, self_edge, rounds, pull_optimization, num_layers, num_gpus, proc_id,
+                    args.random)
     device = proc_id
     if proc_id ==0:
         print(args.test_graph_dir)
@@ -260,6 +262,10 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
 
             # print(proc_id, "Does both forward and backward!!", current_minibatch)
             current_minibatch += 1
+            if(current_minibatch == 10):
+                torch.cuda.profiler.start()
+            if(current_minibatch == 15):
+                torch.cuda.profiler.stop()
             if (current_minibatch == minibatches_per_epoch):
                 sample_get_epoch.append(sample_get_time)
                 forward_epoch.append(forward_time)
@@ -313,6 +319,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         print("forward time:{}".format(avg(forward_epoch)))
         print("backward time:{}".format(avg(backward_epoch)))
         print("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
+        print("Total partials", movement_partials_epoch)
         print("Shuffle time:{}".format(avg(movement_partials_epoch)))
 #     print("Trainer returns")
 #         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())

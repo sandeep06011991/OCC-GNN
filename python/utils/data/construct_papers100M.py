@@ -20,6 +20,7 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
     # Read from here for quiver file
     name = "ogbn-papers100M"
     dataset = DglNodePropPredDataset(name, root=ROOT_DIR)
+    
     graph, labels = dataset[0]
     features = graph.ndata['feat']
     split = dataset.get_idx_split()

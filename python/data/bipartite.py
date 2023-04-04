@@ -11,6 +11,11 @@ dummy_local_graph = dgl.heterograph({('_U', '_E', '_V_local'): ([],[])}, \
                              {'_U': 1, '_V_local': 1})
 dummy_remote_graph = dgl.heterograph({('_U', '_E', '_V_remote'): ([],[])}, \
                              {'_U': 1, '_V_remote': 1})
+import torch_scatter
+from torch_scatter import segment_csr
+import torch_sparse
+import torch_geometric
+
 class Bipartite:
 
     def get_number_of_edges(self):
@@ -85,9 +90,10 @@ class Bipartite:
             if attention:
                 self.graph_local = self.graph_local.formats(['csr','csc','coo'])
                 self.graph_local.create_formats_()
+            self.spg_local = torch_sparse.SparseTensor(rowptr = self.indptr_L, col = self.indices_L, sparse_sizes = (self.num_out_local, in_nodes))
             torch.cuda.nvtx.range_pop()
         else:
-            print("Local graph is none")
+            #print("Local graph is none")
             self.graph_local = None
 
         if self.num_out_remote != 0:
@@ -104,11 +110,14 @@ class Bipartite:
             if attention:
                 self.graph_remote = self.graph_remote.formats(['csr','csc','coo'])
                 self.graph_remote.create_formats_()
+            #print(self.indices_R.shape, self.indices_R.dtype)
+            self.spg_remote = torch_sparse.SparseTensor(rowptr = self.indptr_R, col = self.indices_R, sparse_sizes = (self.num_out_remote, in_nodes))
+
         else:
             self.graph_remote = None
-            print("remote graph is none")
+            #print("remote graph is none")
 
-
+        
     def get_from_nds_size(self):
         from_nds_size = {}
         for i in range(len(self.from_ids)):
@@ -158,18 +167,27 @@ class Bipartite:
             self.graph_local.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
             assert(f == self.graph_local.formats())
             return self.graph_local.nodes['_V_local'].data['out']
+    
+    def gather_local_gcn(self,f_in):
+        o =  torch_geometric.utils.spmm(self.spg_local, f_in)
+        return o
+    def gather_remote_gcn(self,f_in):
+        return torch_geometric.utils.spmm(self.spg_remote, f_in)
+        #print(f_in.shape, self.indptr_R.shape, self.indices)
+        #return segment_csr(f_in, self.indptr_R, self.indices_R, reduce = 'sum')
 
     def gather_remote(self, f_in):
         #print(f_in.shape, self.graph.number_of_nodes('_U'))
         if self.num_out_remote  == 0:
             return f_in[0:0,:]
         with self.graph_remote.local_scope():
-            # FixME Todo: Fix this inconsistency in number of nodes
-            assert(f_in.shape[0] == self.graph_remote.number_of_nodes('_U'))
+        #if True:
+        # FixME Todo: Fix this inconsistency in number of nodes
+            #assert(f_in.shape[0] == self.graph_remote.number_of_nodes('_U'))
             self.graph_remote.nodes['_U'].data['in'] = f_in
-            f = self.graph_remote.formats()
+            #f = self.graph_remote.formats()
             self.graph_remote.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
-            assert(f == self.graph_remote.formats())
+            #assert(f == self.graph_remote.formats())
             return self.graph_remote.nodes['_V_remote'].data['out']
 
     def gather_local_max(self, nf):
