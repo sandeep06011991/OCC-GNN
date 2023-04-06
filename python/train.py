@@ -144,6 +144,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     t = torch.cuda.get_device_properties(0).total_memory
     r = torch.cuda.memory_reserved(0)
     a = torch.cuda.memory_allocated(0)
+    labels = labels.to(proc_id)
     print('again total,reserved, allocated',t,r,a)
     if proc_id == 0:
         ## Configure logger
@@ -182,7 +183,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
     #     sampler = cslicer(graph_name,storage_vector,fanout, deterministic)
     if args.model == "gcn":
         model = get_sage_distributed(args.num_hidden, features, num_classes,
-            proc_id, args.deterministic, args.model, gpus,  args.num_layers)
+            proc_id, args.deterministic, args.model, gpus,  args.num_layers,  args.skip_shuffle)
         self_edge = False
         attention = False
     else:
@@ -192,7 +193,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         else:
             pull = True
         model = get_gat_distributed(args.num_hidden, features, num_classes,
-                proc_id, args.deterministic, args.model, pull, gpus,  args.num_layers)
+                proc_id, args.deterministic, args.model, pull, gpus,  args.num_layers, args.skip_shuffle)
         self_edge = True
         attention = True
 
@@ -350,7 +351,8 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         loss = loss_fn(output,classes)/args.batch_size
         #assert(classes.shape[0] != 0)
         #print("loss",loss)
-        loss.backward()
+        with torch.autograd.set_detect_anomaly(True):
+            loss.backward()
         # continue
         # print("backward complete",proc_id)
         for p in model.parameters():
@@ -365,7 +367,7 @@ def run_trainer_process(proc_id, gpus, sample_queue, minibatches_per_epoch, feat
         if output.shape[0] !=0:
             acc = compute_acc(output,classes)
             acc = (acc[0].item()/acc[1])
-            #print("Accuracy ", acc, ii,num_epochs)
+            print("Accuracy ", acc, ii,num_epochs)
         torch.cuda.synchronize(bp_end)
         forward_time += fp_start.elapsed_time(fp_end)/1000
         # print("Forward time",fp_start.elapsed_time(fp_end)/1000 )

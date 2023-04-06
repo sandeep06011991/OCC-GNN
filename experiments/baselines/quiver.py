@@ -38,23 +38,42 @@ def parse_float(string, output):
 
 # measures cost of memory transfer of dataset
 def run_quiver(graphname, model, epochs,cache_per, hidden_size,\
-        fsize, minibatch_size, num_layers, fanout):
-    
-    output = subprocess.run(["python3",\
+        fsize, minibatch_size, num_layers, fanout, sample_gpu):
+    if sample_gpu :
+        output = subprocess.run(["python3",\
             "{}/quiver/dgl_gcn.py".format(ROOT_DIR),\
             "--graph",graphname,  \
             "--model", model , \
             "--cache-per" , str(cache_per),\
             "--num-hidden",  str(hidden_size), \
             "--batch-size", str(minibatch_size), \
-            "--num-hidden", str(num_layers),\
+            "--num-layers", str(num_layers),\
             "--fan-out", fanout, \
             "--data", "quiver", "--num-epochs", str(epochs), "--sample-gpu"] \
+                , capture_output = True)
+    else:
+        output = subprocess.run(["python3",\
+            "{}/quiver/dgl_gcn.py".format(ROOT_DIR),\
+            "--graph",graphname,  \
+            "--model", model , \
+            "--cache-per" , str(cache_per),\
+            "--num-hidden",  str(hidden_size), \
+            "--batch-size", str(minibatch_size), \
+            "--num-layers", str(num_layers),\
+            "--fan-out", fanout, \
+            "--data", "quiver", "--num-epochs", str(epochs)] \
                 , capture_output = True)
 
     out = str(output.stdout)
     error = str(output.stderr)
     print(out,error)
+    if "out of memory" in error:
+        return {"forward":"OOM", "sample_get":"OOM", "backward":"OOM", \
+                "movement_graph":"OOM", "movement_data": "OOM", \
+                "movement_feat": "OOM", "epoch":"OOM",
+                "accuracy": "OOM","data_moved":"OOM", "edges":"OOM"}
+
+
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
     try:
     #if True:
@@ -65,7 +84,7 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size,\
         movement_graph =  parse_float("movement graph:(\d+\.\d+)",out)
         movement_feat = parse_float("movement feature:(\d+\.\d+)",out)
         forward_time = parse_float("forward time:(\d+\.\d+)",out)
-        backward_time = parse_float("backward time:(\d+\.\d+)",out)[0]
+        backward_time = parse_float("backward time:(\d+\.\d+)",out)
         edges = re.findall("edges_per_epoch:(\d+\.\d+)",out)
         edges = [float(edge) for edge in edges]
         assert(len(edges) == 4)

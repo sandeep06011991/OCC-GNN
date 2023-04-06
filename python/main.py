@@ -3,7 +3,7 @@ import argparse
 import torch
 import dgl
 # Ensures all enviroments are running on the correct version
-assert(dgl.__version__ == '0.9.1post1' or dgl.__version__ == '0.8.2' or dgl.__version__=='0.9.1')
+#assert(dgl.__version__ == '0.9.1post1' or dgl.__version__ == '0.8.2' or dgl.__version__=='0.9.1')
 import time
 import nvtx
 from dgl.sampling import sample_neighbors
@@ -94,6 +94,7 @@ def work_producer(work_queue,training_nodes, batch_size,
 def main(args):
     print("Graph read pk")
     graph_name = args.graph
+    
     dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize,args.num_gpus)
     partition_map = partition_map.type(torch.LongTensor)
     if args.num_gpus == -1:
@@ -235,7 +236,7 @@ if __name__=="__main__":
     argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.003)
     # .007 is best
-    argparser.add_argument('--num-workers', type=int, default=1,
+    argparser.add_argument('--num-workers', type=int, default=4,
        help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
     # model name and details
@@ -254,6 +255,9 @@ if __name__=="__main__":
     argparser.add_argument('--early-stopping', action = "store_true")
     argparser.add_argument('--test-graph-dir', type = str)
     argparser.add_argument('--num-gpus', type = int)
+    argparser.add_argument('--random-partition', action = "store_true", default = False)
+    argparser.add_argument('--skip-shuffle', action = "store_true", default = False)
+
     # We perform only transductive training
     # argparser.add_argument('--inductive', action='store_false',
     #                        help="Inductive learning setting")

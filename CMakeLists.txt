@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(example-app)
 
 set(CMAKE_PREFIX_PATH "/home/spolisetty/libtorch")

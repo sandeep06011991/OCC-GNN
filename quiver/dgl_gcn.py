@@ -105,6 +105,7 @@ def run(rank, args,  data):
             [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
     world_size = 4
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
+    print("nubmer of batches", train_nid.shape[0]/args.batch_size)
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
@@ -113,9 +114,8 @@ def run(rank, args,  data):
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
-        prefetch_factor = 2,
-        num_workers=0 if args.sample_gpu else args.num_workers,
-        persistent_workers=not args.sample_gpu)
+        num_workers= 0,
+        persistent_workers=False)
 
     # Define model and optimizer
     if args.model == "GCN":
@@ -145,7 +145,7 @@ def run(rank, args,  data):
     e1 = torch.cuda.Event(enable_timing = True)
     e3 = torch.cuda.Event(enable_timing = True)
     e4 = torch.cuda.Event(enable_timing = True)
-
+    e5 = torch.cuda.Event(enable_timing = True)
     for epoch in range(args.num_epochs):
         tic = time.time()
 
@@ -168,17 +168,21 @@ def run(rank, args,  data):
                 batch_time = {}
                 optimizer.zero_grad()
                 t1 = time.time()
+                torch.cuda.nvtx.range_push("sample")
                 input_nodes, seeds, blocks = next(dataloader_i)
+                torch.cuda.nvtx.range_pop()
                 t2 = time.time()
                 batch_time[SAMPLE_START_TIME] = t1
                 batch_time[GRAPH_LOAD_START_TIME] = t2
                 # copy block to gpu
-                blocks = [blk.to(device) for blk in blocks]
+                if not args.sample_gpu:
+                    blocks = [blk.to(device) for blk in blocks]
                 #t2 = time.time()
-                blocks = [blk.formats(['coo','csr','csc']) for blk in blocks]
+                    blocks = [blk.formats(['coo','csr','csc']) for blk in blocks]
 
+                    for blk in blocks:
+                        blk.create_formats_()
                 for blk in blocks:
-                    blk.create_formats_()
                     edges_computed += blk.edges()[0].shape[0]
                 #print(edges_computed)
                 t3 = time.time()
@@ -187,25 +191,37 @@ def run(rank, args,  data):
                 #start = offsets[device][0]
                 #end = offsets[device][1]
                 #hit = torch.where((input_nodes > start) & (input_nodes < end))[0].shape[0]
-
-                hit = torch.where(input_nodes < offsets[3])[0].shape[0]
-                missed = input_nodes.shape[0] - hit
+                if False:
+                    hit = torch.where(input_nodes < offsets[3])[0].shape[0]
+                    missed = input_nodes.shape[0] - hit
+                else:
+                    hit = 0
+                    missed = 0
                 # Load the input features as well as output labels
+                torch.cuda.nvtx.range_push("fetch")
                 batch_inputs, batch_labels = load_subtensor(
                     nfeat, labels, seeds, input_nodes, device)
+                torch.cuda.nvtx.range_pop()
                 e1.record()
                 batch_time[DATALOAD_END_TIME] = time.time()
                 # Compute loss and prediction
+                torch.cuda.nvtx.range_push("training")
+                
                 with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
                     e3.record()
                     batch_pred = model(blocks, batch_inputs)
                     #print(batch_pred.shape, torch.max(batch_labels))
                     loss = loss_fcn(batch_pred, batch_labels)
+                    
                     e4.record()
                     loss.backward()
-                    batch_time[END_BACKWARD] = time.time()
-                e4.synchronize()
+                    e5.record()
+                
+                e5.synchronize()
+                batch_time[END_BACKWARD] = time.time()
+                torch.cuda.nvtx.range_pop()
                 optimizer.step()
+                
                 batch_time[FORWARD_ELAPSED_EVENT_TIME] = e3.elapsed_time(e4)/1000
                 batch_time[DATALOAD_ELAPSED_EVENT_TIME] = e0.elapsed_time(e1)/1000
                 #print("sample time", t2-t1, t3-t2)
@@ -223,6 +239,8 @@ def run(rank, args,  data):
                 total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
         #        pbar.update(args.batch_size)
         except StopIteration:
+            torch.cuda.nvtx.range_pop()
+            torch.cuda.nvtx.range_pop()
             pass
         print("EPOCH TIME",time.time() - epoch_start)
         epoch_metrics.append(minibatch_metrics)
@@ -271,8 +289,8 @@ if __name__ == '__main__':
     argparser.add_argument('--batch-size', type=int, default=1024)
     argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default=0.5)
-    argparser.add_argument('--num-workers', type=int, default=4,
-                           help="Number of sampling processes. Use 0 for no extra process.")
+    #argparser.add_argument('--num-workers', type=int, default=4,
+    #                       help="Number of sampling processes. Use 0 for no extra process.")
     argparser.add_argument('--save-pred', type=str, default='')
     argparser.add_argument('--wd', type=float, default=0)
     argparser.add_argument('--sample-gpu', action='store_true')
@@ -336,6 +354,8 @@ if __name__ == '__main__':
                                cache_policy = cache_policy,
                                #cache_policy="device_replicate",
                                csr_topo=csr_topo)
+        #feat = dg_graph.in_degrees().unflatten(0, (dg_graph.num_nodes(), 1)) * torch.ones(dg_graph.num_nodes(), 10, dtype = torch.float32)
+        #print(feat.shape)
         nfeat.from_cpu_tensor(feat)
         if float(args.cache_per) <= .25:
             if len(nfeat.clique_tensor_list) != 0:
@@ -351,11 +371,14 @@ if __name__ == '__main__':
         #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
         #    end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
         #    offsets[device] = (start,end)
+        #    print(device, nfeat[start:end])
     elif args.data == 'unified':
         from distutils.version import LooseVersion
         assert LooseVersion(dgl.__version__) >= LooseVersion('0.8.0'), \
             f'Current DGL version ({dgl.__version__}) does not support UnifiedTensor.'
-        feat = dgl.contrib.UnifiedTensor(feat, device=device)
+        nfeat = dgl.contrib.UnifiedTensor(feat, device=device)
+        offsets = {}
+        offsets[3] = 0
     else:
         raise ValueError(f'Unsupported feature storage location {args.data}.')
 

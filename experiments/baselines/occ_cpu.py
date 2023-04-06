@@ -42,11 +42,11 @@ def check_single(ls):
     assert(len(ls) == 1)
     return ls[0]
 
-def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
+def run_occ_cpu(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         num_layers, num_partition, fanout, skip_shuffle = False):
     if not skip_shuffle:
         output = subprocess.run(["python3",\
-            "{}/cu_train/main.py".format(ROOT_DIR),\
+            "{}/python/main.py".format(ROOT_DIR),\
         "--graph",graphname,  \
         "--model", model , \
         "--cache-per" , str(cache_per),\
@@ -55,7 +55,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         "--num-epochs", "6",\
         "--num-layers", str(num_layers), \
         "--num-gpus", str(num_partition),\
-        "--fan-out", fanout, "--optimization1"\
+        "--fan-out", fanout,\
         ] \
             , capture_output = True)
     else:
@@ -69,7 +69,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         "--num-epochs", "6",\
         "--num-layers", str(num_layers), \
         "--num-gpus", str(num_partition),\
-        "--fan-out", fanout, "--optimization1",\
+        "--fan-out", fanout,\
         "--skip-shuffle"] \
             , capture_output = True)
 
