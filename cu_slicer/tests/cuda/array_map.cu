@@ -2,6 +2,8 @@
 #include "../../util/device_vector.h"
 #include "../../util/duplicate.h"
 #include "../../util/cub.h"
+#include <stdlib.h>
+#include <algorithm>
 using namespace cuslicer;
 
 TEST(ARRAYMAP, basic){
@@ -47,4 +49,69 @@ TEST(ARRAYMAP, memory){
   EXPECT_TRUE(d.is_same(correct));
   map->clear();
   cuslicer::transform::cleanup();
+}
+
+TEST(ARRAYMAP, initial){
+  cudaSetDevice(0);
+  for(int i=0; i<300; i++)
+  {
+    std::vector<long> v(i);
+    std:generate(v.begin(), v.end(), std:rand);
+    std::vector<long> ref(i);
+    std:iota(ref.begin(), ref.end(), 0);
+    ArrayMap * map = new ArrayMap(2000);
+    device_vector<long> c(v);
+    map->order(c);
+    map->replace(c);
+    EXPECT_TRUE(c.is_same(ref));
+    map->clear();
+    cuslicer::transform::cleanup();
+  }
+}
+
+TEST(ARRAYMAP, order_test_one){
+  cudaSetDevice(0);
+  std::vector<long> a = {500};
+  ArrayMap * map = new ArrayMap(2000);
+  device_vector<long> c(a);
+  map->order(c);
+  map->replace(c);
+  std::vector<long> ref = {0};
+  EXPECT_TRUE(c.is_same(ref));
+  std::vector<long> d = {10,28,38,86,56,500};
+  device_vector<long> e(d);
+  map->order(e);
+  map->replace(e);
+  std::vector<long> ref1 = {1,2,3,4,5,0};
+  EXPECT_TRUE(e.is_same(ref1));
+  std::vector<long> f = {10,30,28,30,38,30,86,56,500};
+  device_vector<long> g(f);
+  map->order(g);
+  map->replace(g);
+  std::vector<long> ref2 = {1,6,2,6,3,6,4,5,0};
+  EXPECT_TRUE(e.is_same(ref2));
+  map->clear();
+  cuslicer::transform::cleanup();
+}
+
+TEST(ARRAYMAP, memory_test_one){
+  std::vector<long> a = {10,28,38,86,56,500};
+  std::vector<long> correct = {10,30,28,30,38,30,86,56,500};
+  device_vector<long> d_ref(correct);
+  device_vector<long> d_vec(a);
+  ArrayMap * map = new ArrayMap(2000);
+  // device_vector<long> c(a);
+  map->order(d_vec);
+  a.insert(a.end(), correct.begin(), correct.end());
+  device_vector<long> d(a);
+  map->remove_nodes_seen(d);
+  std::vector<long> correct = {30,30,30};
+  EXPECT_TRUE(d.is_same(correct));
+  map->clear();
+  cuslicer::transform::cleanup();
+  map->order(d_ref);
+  device_vector<long> f(correct);
+  map->remove_nodes_seen(f);
+  std::vector<long> cc = {};
+  EXPECT_TRUE(f.is_same(cc));
 }

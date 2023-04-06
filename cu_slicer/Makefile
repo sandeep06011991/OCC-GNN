@@ -2,10 +2,10 @@
 # INCLUDE=-I. -I/home/spolisetty/3rdparty/thrust -I/home/spolisetty/3rdparty/thrust/dependencies/cub \
 # 	-I/home/spolisetty/3rdparty/thrust/dependencies/libcubxx
 
-GTEST_INCLUDE=-I/home/spolisetty_umass_edu/googletest/googletest/include
-LGTEST=/home/spolisetty_umass_edu/googletest/build/lib/libgtest.a
+GTEST_INCLUDE=-I/home/azheng_umass_edu/cudagura/googletest/googletest/include
+LGTEST=/home/azheng_umass_edu/cudagura/googletest/build/lib/libgtest.a
 
-INCLUDE= -I/home/spolisetty/3rdparty/thrust/dependencies/cub $(GTEST_INCLUDE)
+INCLUDE= -I/home/azheng_umass_edu/cudagura/3rdparty/thrust/dependencies/cub $(GTEST_INCLUDE)
 DEBUG=-DDEBUG  --extended-lambda
 FLAGS=-lstdc++
 # -g -G
