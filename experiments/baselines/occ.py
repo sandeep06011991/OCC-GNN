@@ -46,7 +46,8 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         num_layers, num_partition, fanout, skip_shuffle = False):
     print(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         num_layers, num_partition, fanout, skip_shuffle)
-    if not skip_shuffle:
+    if False:
+    #if not skip_shuffle:
         output = subprocess.run(["python3",\
             "{}/cu_train/main.py".format(ROOT_DIR),\
         "--graph",graphname,  \

@@ -218,6 +218,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         for gpu_id in range(num_gpus):
             # Read my own exchange_queue
             if(gpu_id) == proc_id:
+                recv_dict[gpu_id] = torch.empty([0], device = proc_id, dtype = torch.int64)
                 continue
             
             sample_id, for_worker_id, shape = exchange_queue[proc_id].get()
@@ -225,9 +226,12 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             if shape != "EMPTY":
                 recv_dict[sample_id] = torch.empty(shape, device = proc_id, dtype = torch.int64)
             else:
-                recv_dict[sample_id] = torch.empty([0], device= proc_id)
+                recv_dict[sample_id] = torch.empty([0], device= proc_id, dtype = torch.int64)
         shuffle_functional(proc_id, send_dict, recv_dict, gpus)
+        torch.cuda.synchronize()
+
         for i in range(num_gpus):
+            optimizer.zero_grad()
             if i == proc_id:
                 gpu_local_sample = my_gpu_local_sample
                 if type(gpu_local_sample) is type(torch.tensor([])):
@@ -257,7 +261,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             classes = labels[gpu_local_sample.out_nodes].to(torch.device(proc_id))
 #         # print("Last layer nodes",gpu_local_sample.last_layer_nodes)
             torch.cuda.set_device(proc_id)
-            optimizer.zero_grad()
+            #optimizer.zero_grad()
             m_t1 = time.time()
             torch.cuda.nvtx.range_push("storage")
             input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cache_hit_from, \

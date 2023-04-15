@@ -44,8 +44,8 @@ class DistSageConv(nn.Module):
         self.debug = False
         self.shbuffs = shbuffs
         self.mpBarrier = mpBarrier
-        # self.local_stream = torch.cuda.default_stream()
-        # self.remote_stream = torch.cuda.default_stream()
+        self.local_stream = torch.cuda.default_stream()
+        self.remote_stream = torch.cuda.default_stream()
         # Not parallelizing in htis variation
 
         self.local_stream = torch.cuda.Stream()
@@ -68,7 +68,7 @@ class DistSageConv(nn.Module):
             nn.init.xavier_uniform_(self.fc2.weight,gain = gain)
             nn.init.xavier_uniform_(self.fc1.weight,gain = gain)
 
-
+        return 
         if self.gpu_id != 0:
             return
         print("layer neigh ",l,self.fc1.weight[:3,0], torch.sum(self.fc1.weight))
@@ -86,6 +86,7 @@ class DistSageConv(nn.Module):
 
     def forward(self, bipartite_graph, in_features, layer_id):
         t1 = time.time()
+        torch.cuda.nvtx.range_push("push {}".format(layer_id))
         if self.fc1.in_features > self.fc1.out_features:
             # Could incur more communication potentially
             # Makes backward pass mode complaceted
@@ -101,21 +102,21 @@ class DistSageConv(nn.Module):
         # self.remote_stream.wait_stream(torch.cuda.current_stream())
         # with torch.cuda.stream(self.remote_stream):
         with torch.cuda.stream(self.remote_stream):
-            out1 = bipartite_graph.gather_remote_gcn(out)
+        
+            out1 = bipartite_graph.gather_remote(out)
             
         #torch.cuda.nvtx.range_push("try remote")
         #with torch.no_grad():
         #    _ = bipartite_graph.gather_remote(out)
         #torch.cuda.nvtx.range_pop()
-        with torch.cuda.stream(self.local_stream):
-            out3 = bipartite_graph.gather_local_gcn(out)
         if self.barrier:
             torch.distributed.barrier()
         if not self.skip_shuffle:
             with torch.cuda.stream(self.remote_stream):
                 if self.shbuffs is None:
+                    async_dict = {}
                     merge_tensors = Shuffle.apply(out1, self.gpu_id,self.num_gpus,  layer_id, bipartite_graph.get_from_nds_size(), \
-                            bipartite_graph.to_offsets, None, None)
+                            bipartite_graph.to_offsets, None, None, async_dict)
                 else:
                     merge_tensors = Shuffle.apply(out1, self.gpu_id,self.num_gpus,  layer_id, bipartite_graph.get_from_nds_size(), \
                             bipartite_graph.to_offsets,  self.shbuffs, self.mpBarrier)
@@ -124,11 +125,14 @@ class DistSageConv(nn.Module):
                     # Work on this signature later.
         # with torch.cuda.stream(self.local_stream):
         #self.shuffle_time += (t2-t1)
-        self.local_stream.synchronize()
-        self.remote_stream.synchronize()
-        out3 = out3.clone()
-
-        
+        with torch.cuda.stream(self.local_stream):
+            out3 = bipartite_graph.gather_local(out)
+            
+        #selif.local_stream.synchronize()
+        #self.remote_stream.synchronize()
+            out3 = out3.clone()
+            async_dict['async_op'].wait()
+            
         #torch.cuda.nvtx.range_push("Gater local{}".format(self.gpu_id))
         #out3 = bipartite_graph.gather_local_gcn(out).clone()
         #torch.cuda.nvtx.range_pop()
@@ -165,6 +169,7 @@ class DistSageConv(nn.Module):
         out5 = bipartite_graph.self_gather(in_features)
         out6 = self.fc2(out5)
         final = out4 + out6
+        torch.cuda.nvtx.range_pop()
         print("Forward pass")
         # print("reamining", c-b)
         return final

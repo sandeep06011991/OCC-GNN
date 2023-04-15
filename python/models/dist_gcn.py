@@ -51,8 +51,8 @@ class DistSAGEModel(torch.nn.Module):
         x = in_features
         for l,(layer, bipartite_graph) in  \
             enumerate(zip(self.layers,bipartite_graphs.layers)):
-            import time
-            t1 = time.time()
+            #import time
+            #t1 = time.time()
             # assert(not torch.any(torch.sum(x,1)==0))
             #self.fp_end.record()
             # print("in layer ", l)
@@ -65,7 +65,7 @@ class DistSAGEModel(torch.nn.Module):
             #print("layer time", l, self.fp_end.elapsed_time(self.bp_end)/1000)
             #predicted_time)
             x = y
-            t2 = time.time()
+            #t2 = time.time()
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
         return x

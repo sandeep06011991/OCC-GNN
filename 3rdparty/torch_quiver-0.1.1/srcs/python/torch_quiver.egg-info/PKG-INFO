@@ -1,0 +1,12 @@
+Metadata-Version: 1.2
+Name: torch-quiver
+Version: 0.1.1
+Summary: Distributed Graph Learning Library for Pytorch Geometric
+Home-page: https://github.com/quiver-team/torch-quiver
+Author: Zeyuan Tan
+Author-email: zeyuan.tan@ed.ac.uk
+License: Apache
+Description: UNKNOWN
+Keywords: pytorch,distributed,graph
+Platform: UNKNOWN
+Requires-Python: >=3.6

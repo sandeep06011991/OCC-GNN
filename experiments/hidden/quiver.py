@@ -5,7 +5,7 @@ def run_experiment_quiver( model, cache, sample_gpu):
     # graph, hidden_size, fsize, minibatch_size
     settings = [
                 #("ogbn-arxiv", 128,  1024), \
-               # ("ogbn-products", 100, 2048 ), \
+                ("ogbn-products", 100, 1024 ), \
                 ("reorder-papers100M", 128, 1024),\
                 ("amazon", 200, 1024),\
                # ("ogbn-products", 100, 256), \
@@ -26,7 +26,7 @@ def run_experiment_quiver( model, cache, sample_gpu):
     if model == "GAT":
         hidden_sizes = [64]
     else:
-        hidden_sizes = [256, 512]
+        hidden_sizes = [256]
     with open('{}/hidden/quiver_upgrade.txt'.format(OUT_DIR),'a') as fp:
         #fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
         fp.write("graph,system,cache,hidden-size,fsize," + \
@@ -45,8 +45,8 @@ def run_experiment_quiver( model, cache, sample_gpu):
 
 if __name__=="__main__":
     for sample_gpu in [True]:
-        #run_experiment_quiver("GCN",".25", sample_gpu)
-        run_experiment_quiver("GAT", ".25", sample_gpu)
+        run_experiment_quiver("GCN",".25", sample_gpu)
+        #run_experiment_quiver("GAT", ".25", sample_gpu)
     #sample_gpu = False
     #run_experiment_quiver("GAT", ".25", sample_gpu)
     #run_experiment_quiver("GCN", ".10", sample_gpu)

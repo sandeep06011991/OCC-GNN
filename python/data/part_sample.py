@@ -61,7 +61,6 @@ class Gpu_Local_Sample:
         last_layer = self.layers[0]
         i = 0
         l = self.layers[0]
-
         for i in self.layers:
             i.reconstruct_graph(attention)
         self.layers.reverse()

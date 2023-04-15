@@ -15,6 +15,9 @@ import torch_scatter
 from torch_scatter import segment_csr
 import torch_sparse
 import torch_geometric
+metagraph_index_local = heterograph_index.create_metagraph_index(['_U','_V_local'],[('_U','_E','_V_local')])
+metagraph_index_remote = heterograph_index.create_metagraph_index (['_U','_V_remote'],[('_U','_E','_V_remote')])
+
 
 class Bipartite:
 
@@ -77,7 +80,7 @@ class Bipartite:
         formats = "csc"
         in_nodes = self.num_in_nodes_local + self.num_in_nodes_pulled
 
-        metagraph_index_local = heterograph_index.create_metagraph_index(['_U','_V_local'],[('_U','_E','_V_local')])
+        #metagraph_index_local = heterograph_index.create_metagraph_index(['_U','_V_local'],[('_U','_E','_V_local')])
         if(self.num_out_local != 0 ):
         # if True:
             torch.cuda.nvtx.range_push("graph create")
@@ -90,7 +93,7 @@ class Bipartite:
             if attention:
                 self.graph_local = self.graph_local.formats(['csr','csc','coo'])
                 self.graph_local.create_formats_()
-            self.spg_local = torch_sparse.SparseTensor(rowptr = self.indptr_L, col = self.indices_L, sparse_sizes = (self.num_out_local, in_nodes))
+            #self.spg_local = torch_sparse.SparseTensor(rowptr = self.indptr_L, col = self.indices_L, sparse_sizes = (self.num_out_local, in_nodes))
             torch.cuda.nvtx.range_pop()
         else:
             #print("Local graph is none")
@@ -98,8 +101,8 @@ class Bipartite:
 
         if self.num_out_remote != 0:
         # if True:
-            metagraph_index_remote = heterograph_index.create_metagraph_index\
-                    (['_U','_V_remote'],[('_U','_E','_V_remote')])
+            #metagraph_index_remote = heterograph_index.create_metagraph_index\
+            #        (['_U','_V_remote'],[('_U','_E','_V_remote')])
             hg_remote = heterograph_index.create_unitgraph_from_csr(\
                         2,  in_nodes , self.num_out_remote, self.indptr_R,
                             self.indices_R, edge_ids_remote, formats  , transpose = True)
@@ -111,7 +114,7 @@ class Bipartite:
                 self.graph_remote = self.graph_remote.formats(['csr','csc','coo'])
                 self.graph_remote.create_formats_()
             #print(self.indices_R.shape, self.indices_R.dtype)
-            self.spg_remote = torch_sparse.SparseTensor(rowptr = self.indptr_R, col = self.indices_R, sparse_sizes = (self.num_out_remote, in_nodes))
+            #self.spg_remote = torch_sparse.SparseTensor(rowptr = self.indptr_R, col = self.indices_R, sparse_sizes = (self.num_out_remote, in_nodes))
 
         else:
             self.graph_remote = None

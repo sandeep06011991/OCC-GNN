@@ -123,8 +123,6 @@ def shuffle_functional(device_id, send_dict, recv_dict, num_devices):
     input_tensors = []
     output_tensors = []
     output_splits = []
-    print("all to all")
-    print(send_dict,recv_dict)
     torch.cuda.nvtx.range_push("all to all {}".format(device_id)) 
     for i in range(num_devices):
         if i== device_id:
@@ -135,7 +133,7 @@ def shuffle_functional(device_id, send_dict, recv_dict, num_devices):
         output_tensors.append(recv_dict[i])
     send = torch.cat(input_tensors)
     recv = torch.cat(output_tensors)
-    torch.distributed.all_to_all_single(recv, send, output_splits, input_splits)
+    async_all = torch.distributed.all_to_all_single(recv, send, output_splits, input_splits, async_op = True)
     torch.cuda.nvtx.range_pop()
     s = 0
     torch.cuda.nvtx.range_push("merge")
@@ -143,6 +141,7 @@ def shuffle_functional(device_id, send_dict, recv_dict, num_devices):
         recv_dict[i] = recv[s : s + output_splits[i]]
         s = s + output_splits[i]
     torch.cuda.nvtx.range_pop()
+    return async_all 
 
 def using_dist_send_sync_co_ordinated(proc_id, n_gpus):
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(

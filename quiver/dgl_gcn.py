@@ -83,7 +83,7 @@ def load_subtensor(nfeat, labels, seeds, input_nodes, device):
 
 # Entry point
 
-def run(rank, args,  data, nfeat):
+def run(rank, args,  data):
     # Unpack data
     torch.cuda.set_device(rank)
     #print(feature.cpu_part)
@@ -91,10 +91,12 @@ def run(rank, args,  data, nfeat):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '11112'
     dist.init_process_group('nccl', rank=rank, world_size=4)
-    nfeat.lazy_init_from_ipc_handle()
     device = rank
-    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat_, g, offsets, metrics_queue = data
-
+    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets, metrics_queue = data
+    nfeat.lazy_init_from_ipc_handle()
+    #print("Feature order", nfeat.feature_order.shape)
+    #print("Max", torch.max(nfeat.feature_order), offsets)
+    #print("Total nodes", g.num_nodes())
     if args.data == 'gpu':
         nfeat = nfeat.to(rank)
     if args.sample_gpu:
@@ -221,19 +223,13 @@ def run(rank, args,  data, nfeat):
                     #nfeat[input_nodes].to(device)
                     e1.record()
                     e1.synchronize()
-                    break
-                    gpu_order = nfeat.feature_order[input_nodes]
-                    for i in range(4):
-                        print(nfeat, nfeat.clique_tensor_list[0], nfeat.clique_tensor_list[0].shard_tensor_config)
-                                                                                            
-                        print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
-                        assert(False)
-                        print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[i].start)
-                        first = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[i].start
-                        last = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[i].end
-                        print("cache hit", i , torch.sum((gpu_order >=first ) & (gpu_order < last))/gpu_order.shape[0])
+                    #gpu_order = nfeat.feature_order[input_nodes]
 
-                    print("Data", (batch_inputs.shape[0] * batch_inputs.shape[1]  * 4)/(1024 ** 2),  "Bandwidth", (batch_inputs.shape[0] * batch_inputs.shape[1] * 4 )/ (1024 **3 * (e0.elapsed_time(e1)/1000)))
+                    #for i in range(4):
+                    #    first,last = offsets[i]
+                    #    print("cache hit", device, "from",  i ,  torch.sum((gpu_order >=first ) & (gpu_order < last))/gpu_order.shape[0])
+                    #print("Cache miss", torch.sum(gpu_order > offsets[3][1]), input_nodes.shape)
+                print("Data", (batch_inputs.shape[0] * batch_inputs.shape[1]  * 4)/(1024 ** 2),  "Bandwidth", (batch_inputs.shape[0] * batch_inputs.shape[1] * 4 )/ (1024 **3 * (e0.elapsed_time(e1)/1000)))
                 batch_time[DATALOAD_END_TIME] = time.time()
                 # Compute loss and prediction
                 torch.cuda.nvtx.range_push("training {} {}".format(e,n))
@@ -252,7 +248,10 @@ def run(rank, args,  data, nfeat):
                 batch_time[END_BACKWARD] = time.time()
                 torch.cuda.nvtx.range_pop()
                 optimizer.step()
-                
+                r = torch.cuda.memory.max_memory_allocated()
+                t = torch.cuda.get_device_properties(0).total_memory
+                print("Total avalable memory", (t-r)/(1024 ** 3), "GB")
+ 
                 batch_time[FORWARD_ELAPSED_EVENT_TIME] = e3.elapsed_time(e4)/1000
                 batch_time[DATALOAD_ELAPSED_EVENT_TIME] = e0.elapsed_time(e1)/1000
                 #print("sample time", t2-t1, t3-t2)
@@ -344,7 +343,7 @@ if __name__ == '__main__':
     graph = dg_graph
     labels = dg_graph.ndata.pop('labels')
     feat = dg_graph.ndata.pop('features')
-    
+    print("Feature shape ", feat.shape) 
     graph = graph.add_self_loop()
     ###################################
     #data = DglNodePropPredDataset(name=args.graph, root=root)
@@ -365,8 +364,9 @@ if __name__ == '__main__':
     elif args.data == 'quiver':
         quiver.init_p2p(device_list = [0,1,2,3])
         csr_topo = quiver.CSRTopo(th.stack(graph.edges('uv')))
-        cache_size = int(float(args.cache_per) * feat.shape[0] * feat.shape[1] * 4/(1024 * 1024))
-        device_cache_size = "{}M".format(cache_size)
+        #csr_topo = None
+        cache_size = int((float(args.cache_per) * feat.shape[0] * feat.shape[1] * 4))
+        device_cache_size = cache_size
         print("calculated cache_size ", cache_size)
         if float(args.cache_per) > .25:
             cache_policy = "device_replicate"
@@ -386,24 +386,22 @@ if __name__ == '__main__':
         #feat = dg_graph.in_degrees().unflatten(0, (dg_graph.num_nodes(), 1)) * torch.ones(dg_graph.num_nodes(), 10, dtype = torch.float32)
         #print(feat.shape)
         nfeat.from_cpu_tensor(feat)
-        print(nfeat.feature_order.shape)
-        print(graph.out_degrees(nfeat.feature_order.to('cpu')))
-        if float(args.cache_per) <= .25:
+        if float(args.cache_per) == .25 :
             if len(nfeat.clique_tensor_list) != 0:
                 last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
             else:
                 last_node_stored = 0
         print("Using quiver feature")
-        print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
+        #print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
         offsets = {}
-        offsets[3] = last_node_stored
+        #offsets[3] = last_node_stored
         # Temporary disable
-        for device in range(4):
-            start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
-            end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
-            offsets[device] = (start,end)
+        #for device in range(4):
+        #    start = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].start)
+        #    end = (nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[device].end)
+        #    offsets[device] = (start,end)
         #    print(device, nfeat[start:end])
-        print(offsets)
+        #print(offsets)
     elif args.data == 'unified':
         from distutils.version import LooseVersion
         assert LooseVersion(dgl.__version__) >= LooseVersion('0.8.0'), \
@@ -422,9 +420,6 @@ if __name__ == '__main__':
     # Pack data
     metrics_queue = mp.Queue(4)
     train_idx = train_idx[torch.randperm(train_idx.shape[0])]
-    print(nfeat, nfeat.clique_tensor_list[0], nfeat.clique_tensor_list[0].shard_tensor_config)
-    print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device)
-    print(nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[2].start)
 
     data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, metrics_queue
 
@@ -440,7 +435,7 @@ if __name__ == '__main__':
     world_size = 4
     mp.spawn(
         run,
-        args=(args,  data, nfeat),
+        args=(args,  data),
         nprocs=world_size,
         join=True
     )

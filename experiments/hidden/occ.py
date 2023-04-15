@@ -22,9 +22,9 @@ def run_experiment_occ(model, skip_shuffle = False):
                #("ogbn-products", 16, 100, 1024), \
                 ("ogbn-products", 16, 100, 4096), \
                #("reorder-papers100M", 16, 128, 1024),\
-                ("reorder-papers100M", 16, 128, 4096),\
+               ("reorder-papers100M", 16, 128, 4096),\
                 #("amazon", 16, 200, 1024),\
-                ("amazon", 16, 200, 4096),\
+                # ("amazon", 16, 200, 4096),\
                  ]
     cache  = ".25"
     num_layers = 3
@@ -33,7 +33,7 @@ def run_experiment_occ(model, skip_shuffle = False):
     fanout = "20,20,20"
     #fanouts = ["10,10,10"]
     if model == "gcn":
-        hidden_sizes = [512]
+        hidden_sizes = [256]
     else:
         hidden_sizes = [128]
     #hidden_sizes = [128]
@@ -61,7 +61,7 @@ def run_experiment_occ(model, skip_shuffle = False):
 
 if __name__ == "__main__":
     run_experiment_occ("gcn", skip_shuffle = False)
-    run_experiment_occ("gat", skip_shuffle =  False)
+    #run_experiment_occ("gat", skip_shuffle =  False)
     #run_experiment_occ("gat")
     print("Success!!!!!!!!!!!!!!!!!!!")
     #run_model("gat")

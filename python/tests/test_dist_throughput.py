@@ -153,9 +153,11 @@ def using_dist_async(proc_id, n_gpus):
             if device_id == 0:
                 print("DATA", 12 * (GB/(1024 **3)), "Time ", t2-t1, "Bandwidth", 12 * (GB/ (1024 **3))/(t2-t1))
 
-def using_dist_all_to_all(proc_id, n_gpus):
+
+def using_dist_all_to_all(proc_id: int, n_gpus:int ):
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
             master_ip='127.0.0.1', master_port='30099')
+    #dist_init_method = "tcp://127.0.0.1:38983"
     world_size = n_gpus
     th.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
@@ -165,14 +167,9 @@ def using_dist_all_to_all(proc_id, n_gpus):
     device_id = proc_id
     #inp = torch.ones(((int)(GB ) * 4 ,) ,device = proc_id) * proc_id
     #out =  torch.rand(((int)(GB ) * 4,),device = proc_id)
-    
+    a = torch.rand((1000,1000), device = proc_id) 
+    b = torch.rand((1000,1000), device = proc_id)
     m = []
-    for i in range(n_gpus):
-        #if i == proc_id:
-        #    m.append(0)
-        #    continue
-        m.append(GB)   
-    print(m)
     num_tries = 10
     for _ in range(num_tries):
         for GB in [1024, 1024 * 1024, 1024 * 1024 * 10, 1024 * 1024 * 100 , 1024 * 1024 * 500]:
@@ -189,9 +186,12 @@ def using_dist_all_to_all(proc_id, n_gpus):
             t1 = time.time()
             send = []
             recv = []
-            torch.cuda.nvtx.range_push("all-to-all")
-            l = th.distributed.all_to_all_single(out, inp, m, m, async_op = True)
-            l.wait()
+            torch.cuda.nvtx.range_push("all-to-all {}".format(proc_id))
+            for _ in range(10):
+                if (proc_id == 0):
+                    time.sleep(.1)
+                l = th.distributed.all_to_all_single(out, inp, m, m)
+                c = a @ b
             torch.cuda.synchronize()
             torch.cuda.nvtx.range_pop()
             t2 = time.time()
@@ -208,8 +208,9 @@ def using_dist_all_to_all(proc_id, n_gpus):
 
 
 def pcie_data_transfer(proc_id, n_gpus):
-    dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
-            master_ip='127.0.0.1', master_port='30099')
+    #dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+    #        master_ip='127.0.0.1', master_port='30099')
+    dist_init_method = "tcp://127.0.0.1:38983"
     world_size = n_gpus
     th.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
@@ -266,12 +267,12 @@ two to four gpus transfer time  .4 - .8 seconds per gpu. bandwirdh 2 gps .06 - .
 '''
 if __name__ == "__main__":
     mp.set_start_method('spawn')
-    n_gpus = 8
-    n_gpus = 8
+    n_gpus = 4
+    n_gpus = 4
     procs = []
     # assert(False)
-    test_functions = [using_dist_send_p2p]
-    test_functions = [using_dist_async]
+    #test_functions = [using_dist_send_p2p]
+    #test_functions = [using_dist_async]
     # test_functions = [using_dist_send_buffer_blocked]
     test_functions = [using_dist_all_to_all]
     #test_functions = [using_dist_all_to_all, using_dist_async]
