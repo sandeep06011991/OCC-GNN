@@ -151,6 +151,9 @@ namespace cuslicer{
     v1.erase(last, v1.end());
     return !(v1.size() == this->size());
   }
+
+
  };
+
 
 }

@@ -14,7 +14,8 @@ namespace cuslicer{
   // removing seen vertives
   // TODO: Can make this static as only function runs at a time and there are no local properties to take advantage off.
   // This will minimize memory usage.
-
+  // If this map ends up being try with dgl hash map. 
+   
   class DuplicateRemover{
 
   public:

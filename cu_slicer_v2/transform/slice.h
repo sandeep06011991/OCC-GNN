@@ -25,6 +25,7 @@ namespace cuslicer{
 
 class Slice{
 protected:
+  device_vector<int> sample_workload_map;
   device_vector<int> workload_map;
   device_vector<int> storage_map[8];
   device_vector<int> storage[8];
@@ -138,7 +139,7 @@ public:
         long num_out_local;
         Vector_From_Index indices_L;
         Vector_From_Index indices_R;
-        Vector_From_Index push_from_ids[MAX_GPUS - 1];
+        Vector_From_Index push_from_ids[MAX_GPUS];
 
     };
 
@@ -166,60 +167,43 @@ public:
         int num_edges);
 };
 
-class MemoryMinimizedPushSlicer: public Slice{
+class PullSlicer: public Slice{
 
-public:
-    // Contains information from the offsets array and exclusive sum.
-    // Use to construct graphs from partitioned edges.
-    // Must have one to one mapping from every object in bipartite graph
     struct LocalGraphInfo{
-        Vector_From_Index in_nodes;
+        Vector_From_Index in_nodes_local;
         Vector_From_Index out_nodes_local;
-        Vector_From_Index out_nodes_remote;
         Vector_From_Index out_degree_local;
         Vector_From_Index indptr_L;
-        Vector_From_Index indptr_R;
-        long num_out_local;
         Vector_From_Index indices_L;
-        Vector_From_Index indices_R;
-        Vector_From_Index push_from_ids[MAX_GPUS - 1];
-
+        long num_out_local;
+        long num_in_local;
+        long num_in_pulled;
+        Vector_From_Index pull_to_ids[MAX_GPUS - 1];
     };
 
     LocalGraphInfo host_graph_info[MAX_GPUS];
     LocalGraphInfo * device_graph_info;
 
-  MemoryMinimizedPushSlicer(device_vector<int> workload_map,
-        std::vector<int> storage[8],
+public:
+    PullSlicer(device_vector<int> workload_map,
+        std::vector<int>  storage[8],
           bool pull_optimization, int num_gpus):Slice(workload_map,
             storage, pull_optimization, num_gpus){
               gpuErrchk(cudaMalloc(&device_graph_info, sizeof(LocalGraphInfo) * this->num_gpus ));
-    }
+            }
+
+    void slice_layer(device_vector<long>& in, Block &bl, \
+        PartitionedLayer& l, bool last_layer);
+
+    void resize_bipartite_graphs(PartitionedLayer &ps,
+      int num_in_nodes, int num_out_nodes,
+          int num_edges);    
 
     void copy_graph_info(){
       gpuErrchk(cudaMemcpy(device_graph_info, host_graph_info,  sizeof(LocalGraphInfo) * this->num_gpus, cudaMemcpyHostToDevice));
     }
 
-    void slice_layer(device_vector<long>& in, Block &bl, \
-        PartitionedLayer& l, bool last_layer) ;
-
-    void resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, int num_out_nodes, int num_edges);
 };
-
-// class PullSlicer: public Slice{
-//
-// public:
-//     PullSlicer(thrust::device_vector<int> workload_map,
-//         thrust::device_vector<int> storage[8],
-//           bool pull_optimization, int num_gpus):Slice(workload_map,
-//             storage, pull_optimization, num_gpus){
-//
-//     }
-//
-//       void slice_layer(thrust::device_vector<long>& in, Block &bl, \
-//           PartitionedLayer& l, bool last_layer) ;
-//
-// };
 
 
 }

@@ -63,6 +63,7 @@ void Dataset::read_node_data(){
     }
     std::vector<int> _t_partition_map(_partition_map, _partition_map + this->num_nodes);
     for(int i : _t_partition_map){
+      std::cout << i <<"check\n";
       assert(i < n_gpu);
     }
     partition_map_d = (* new device_vector<int>(_t_partition_map));

@@ -12,9 +12,10 @@ __global__
 void partition_edges_push(int*  partition_map,\ // partition_map assigning each vertex ID to one GPU
     long * out_nodes, size_t out_nodes_size,\ // Sample layer out nodes indexed into the graph
       long *in_nodes, size_t in_nodes_size, \ // Sample Layer In Nodes Indexed into the graph
-        long * indptr, long *indices, size_t num_edges, \ // Sampled graph representation
+        long * indptr, long *indices, size_t num_edges, \// Sampled graph representation
           long num_nodes_in_graph, \
-            long * index_in_nodes, long * index_out_nodes_local, long * index_out_nodes_remote,\
+            long * index_in_nodes, long * index_out_nodes_local,\
+             long * index_out_nodes_remote,\
               long * index_indptr_local, long * index_indptr_remote, \
                 long * index_edge_local, long * index_edge_remote,\
       // Partitioned graphs such that indptr_map[dest, src]
@@ -423,7 +424,7 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
     ps.resize_selected_push(num_out_nodes * G, num_out_nodes * G * (G-1),\
              num_edges * G, num_edges * (G-1) * G, num_in_nodes * G);
 
-    gpuErrchk(cudaDeviceSynchronize());
+    // gpuErrchk(cudaDeviceSynchronize());
     partition_edges_push<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()),BLOCK_SIZE>>>\
         (this->workload_map.ptr(),\
           layer_nds.ptr(), layer_nds.size(),\

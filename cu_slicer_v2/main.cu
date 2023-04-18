@@ -4,7 +4,6 @@
 #include "memory"
 #include "graph/sample.h"
 #include "samplers/samplers.h"
-
 #include <vector>
 #include "transform/slice.h"
 #include "graph/sliced_sample.h"
@@ -16,29 +15,27 @@
 #include <iostream>
 using namespace std;
 using namespace std::chrono;
+
 int main(){
 
-// Test1: Read graph datastructure.
-
-// test_duplicate();
   cudaSetDevice(0);
-  // std::cout << "hello world\n";
-  // std::string graph_name = "synth_8_2";
-  std::string graph_name = "ogbn-arxiv";
+  std::string graph_name = "synth_8_2";
+  // std::string graph_name = "ogbn-arxiv";
+
   std::string file = get_dataset_dir() + graph_name;
   int num_gpus = 2;
-  std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_gpus);
-// std::cout << "Read synthetic dataset\n ";
-// // // Test2: Construct simple k-hop neighbourhood sample.
-// // // Sample datastructure.
+  bool random = false;
+  std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_gpus, random);
 
-  int num_layers =3;
+  // Sample datastructure.
+  int num_layers =1;
   Sample *s1  = new Sample(num_layers);
-  vector<int> fanout({20,20,20});
+  vector<int> fanout({20});
+  
   bool self_edge = false;
-  for(int k = 0; k<10; k++){
+  for(int k = 0; k<4; k++){
   std::vector<long> training_nodes;
-  for(int i=0;i<4 ;i++){
+  for(int i=0;i<num_gpus ;i++){
       training_nodes.push_back(i);
   }
 
@@ -75,50 +72,21 @@ int main(){
     }
   }
 
-// // std::cout << "basic population done \n";
-    int rounds = 7;
-    PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
-    PartitionedSample ps1(num_layers, num_gpus);
-    //
-    // std::cout <<"Reached erere1\n";
-    std::cout << "Start slicing\n";
-    sc1->slice_sample((*s1),ps1);
-
-
+    // std::cout << "basic population done \n";
+    // PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
+    // PartitionedSample ps1(num_layers, num_gpus);
     // sc1->slice_sample((*s1),ps1);
-    // std::cout <<"Reached erere3\n";
 
-//     // PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
-//    std::cout << "Slicer created \n";
-//
-//     PartitionedSample ps2(num_layers, num_gpus);
-//     // s1->debug();
-//
-// //   std::cout << "partition map created \n";
-//    sc1->slice_sample((*s1), ps2);
-//      // ps2.debug();
-//    // std::cout << "Push done \n";
-   // ps1.debug();
-   // return 0;
-//    //
-//
-//    // ps2.debug();
-//    // std::cout << "Pull done \n";
-//    // std::cout << "everything but cache managemnet done !\n";
-// // //   std::cout << "slicing done \n";
-  // ps1.debug();
-    ps1.push_consistency();
-// //
-    test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
-  //
+
+    PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
+    //     PartitionedSample ps2(num_layers, num_gpus);
+    //    sc1->slice_sample((*s1), ps2);
+    // ps2.debug();
+    // ps1.push_consistency();
+    // test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
 
   cuslicer::transform::cleanup();
   std::cout <<"All Done is consistent !\n";
 
   return 0;
-//   // test_pull_benefits(*s1, workload_map, storage, rounds);
-//
-//   // test_reduction_communication_computation(*s1,workload_map,
-//   //           storage, storage_map,  rounds );
-  // std::cout << "Hello World\n";
 }
