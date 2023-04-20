@@ -16,7 +16,6 @@ class PartitionedLayer{
     // We need one index_* per element to be partitioned per gpu
     // To minimize overhead we squash all index_* per gpu into the same vector for all gpus.
     device_vector<NDTYPE> index_in_nodes;
-    device_vector<NDTYPE> index_in_nodes_pulled;
     device_vector<NDTYPE> index_out_nodes_local;
     device_vector<NDTYPE> index_out_nodes_remote;
     device_vector<NDTYPE> index_indptr_local;
@@ -54,12 +53,11 @@ class PartitionedLayer{
 
    void resize_selected_pull(int num_out_nodes,\
          int num_edges, int num_in_nodes){
-        index_in_nodes.resize_and_zero(num_in_nodes * N_GPUS);
-        index_in_nodes_pulled.resize_and_zero(num_in_nodes * N_GPUS * (N_GPUS - 1));
-        index_out_nodes_local.resize_and_zero(num_out_nodes * N_GPUS);
-        index_indptr_local.resize_and_zero(num_out_nodes * N_GPUS);
-        index_edge_local.resize_and_zero(num_edge * N_GPUS);
-        index_out_nodes_local.resize_and_zero(num_out_nodes * N_GPUS);
+        index_in_nodes.resize_and_zero(num_in_nodes * num_gpus * num_gpus);
+        index_out_nodes_local.resize_and_zero(num_out_nodes * num_gpus);
+        index_indptr_local.resize_and_zero(num_out_nodes * num_gpus);
+        index_edge_local.resize_and_zero(num_edges * num_gpus);
+        index_out_nodes_local.resize_and_zero(num_out_nodes *num_gpus);
 
   }
 

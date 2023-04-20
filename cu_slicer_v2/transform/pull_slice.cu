@@ -11,14 +11,14 @@ using namespace cuslicer;
 // Elaborate as many cases as possible.
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void partition_edges_pull(PARTITIONIDX * partition_map,\
+void partition_edges_pull(PARTITIONIDX * partition_map, \
       PARTITIONIDX * workload_map, \
       NDTYPE * out_nodes, size_t out_nodes_size, \
     // Sample layer out nodes indexed into the graph
-    NDTYPE *in_nodes, size_t in_nodes_size, \
-    NDTYPE * indptr, NDTYPE * indices, size_t num_edges, \
+      NDTYPE *in_nodes, size_t in_nodes_size, \
+      NDTYPE * indptr, NDTYPE * indices, size_t num_edges, \
       long num_nodes_in_graph, \
-        NDTYPE * index_in_nodes_local, NDTYPE * index_in_nodes_pulled, 
+        NDTYPE * index_in_nodes_local,
         NDTYPE * index_out_nodes, NDTYPE * index_indptr_local,\
          NDTYPE * index_edge_local,\
       // Partitioned graphs such that indptr_map[dest, src]
@@ -54,19 +54,17 @@ void partition_edges_pull(PARTITIONIDX * partition_map,\
           // In pull optimization always select edge
           ((NDTYPE *)&index_edge_local[p_nd1* num_edges])\
                 [offset_edge_start + nb_idx] = 1;
-          if(last_layer){
-              if(((int *)storage_map[p_nd1])[nd2]!= -1){
-                  index_in_nodes_local[p_nd1 * in_nodes_size + nd2_idx] = 1;
-              }else{
-                  // Fetch from original partition
-                  auto original_partition = partition_map[nd2];
-                  if(original_partition > p_nd1) original_partition --;
-                  index_in_nodes_pulled[(p_nd1 *(NUM_GPUS - 1) + original_partition)* in_nodes_size + nd2_idx] = 1;   
-              }
-              continue;
-          }
+        
           if(p_nd1 != p_nd2){
-            ((NDTYPE *)&index_in_nodes_pulled[(p_nd1 * (NUM_GPUS - 1) + p_nd2) * in_nodes_size])[nd2_idx] = 1;
+            if(last_layer){
+              if(((int *)storage_map[p_nd1])[nd2]!= -1){
+                  index_in_nodes_local[p_nd1 * (in_nodes_size) * NUM_GPUS + nd2_idx] = 1;
+                  continue;
+              }
+            }
+            auto pull_partition = 0;
+            if(p_nd2 > p_nd1)pull_partition = p_nd2 - 1;
+            ((NDTYPE *)&index_in_nodes_local[(p_nd1 * (NUM_GPUS) + pull_partition) * in_nodes_size])[nd2_idx] = 1;
             if(!(nd2_idx < num_out_nodes)){
               // If nd2 idx is less than num out, partition 2 out nodes will
               // mark it anyways
@@ -74,12 +72,11 @@ void partition_edges_pull(PARTITIONIDX * partition_map,\
             }
           }else{
             if(!(nd2_idx < num_out_nodes)){
-              index_in_nodes_local[p_nd1 * in_nodes_size + nd2_idx] = 1;
+              index_in_nodes_local[p_nd1 * (in_nodes_size * NUM_GPUS) + nd2_idx] = 1;
             }
           }
-
         }
-      start +=  BLOCK_SIZE; 
+        start +=  BLOCK_SIZE; 
       }
       tileId += gridDim.x;
     }
@@ -89,7 +86,6 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
     int num_in_nodes,\
     int num_out_nodes, int num_edges){
     transform<NDTYPE>::self_inclusive_scan(ps.index_in_nodes);
-    transform<NDTYPE>::self_inclusive_scan(ps.index_in_nodes_pulled);
     transform<NDTYPE>::self_inclusive_scan(ps.index_out_nodes_local);
     transform<NDTYPE>::self_inclusive_scan(ps.index_indptr_local);
     transform<NDTYPE>::self_inclusive_scan(ps.index_edge_local);
@@ -293,7 +289,7 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
           bs.layer_nds.ptr(), bs.layer_nds.size(),\
           bs.offsets.ptr(),bs.indices.ptr(), bs.indices.size(),\
           this->num_nodes,\
-          ps.index_in_nodes.ptr(), ps.index_in_nodes_pulled.ptr(),\
+          ps.index_in_nodes.ptr(),\
           ps.index_out_nodes_local.ptr(), ps.index_indptr_local.ptr(),
           ps.index_edge_local.ptr(),\
           last_layer, this->storage_map_flattened,this->num_gpus);
