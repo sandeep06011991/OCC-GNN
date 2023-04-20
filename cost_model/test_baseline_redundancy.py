@@ -189,11 +189,11 @@ def edges_per_epoch(filename, batch_size):
 # bs 4096 edges 6621680480 0.7959240567670525
 # bs 16384 edges 3979739620 0.601016559470112
 def test_redundancy_in_edges():
-    graph_name = "ogbn-products"
+    graph_name = "reorder-papers100M"
     #reorder-papers100M"
-    e1 = edges_per_epoch(graph_name, 1024)
+    #e1 = edges_per_epoch(graph_name, 1024)
 
-    #e2 = edges_per_epoch(graph_name, 4096)
+    e2 = edges_per_epoch(graph_name, 4096)
 
     #e3 = edges_per_epoch(graph_name, 4096)
 

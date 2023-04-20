@@ -3,8 +3,19 @@
 #include "../graph/sample.h"
 #include "../graph/sliced_sample.h"
 
+// Ogbn-products sample charectersitcs
+// Nodes [1705194, 684535, 76689, 4096] Edges [12975036, 1490753, 80134]
+// Reorder - map 
+// Nodes [753565, 226407, 36803, 4096] Edges [1743108, 308245, 33447]
+
 namespace cuslicer{
 
+  // This wierd data structure is needed as 
+  // all the edges for the local bipartite graphs are constructed in one pass.
+  // The samples are read in one kernel and the following kernel constructs
+  // all the local bipartite graph. 
+  // We do this by maintaining index for all gpu specfic data in one long 
+  // array where each gpu data is stacked next to each other
   struct Vector_From_Index{
       long * data;
       long offset;
@@ -22,6 +33,24 @@ namespace cuslicer{
         data[pos] = val - offset;
       }
   };
+
+    struct LocalGraphInfo{
+        Vector_From_Index in_nodes_local;
+        Vector_From_Index in_nodes_pulled;
+        Vector_From_Index out_nodes_local;
+        Vector_From_Index out_nodes_remote;
+        Vector_From_Index out_degree_local;
+        Vector_From_Index indptr_L;
+        Vector_From_Index indptr_R;
+        long num_out_local;
+        long num_in_local;
+        long num_in_pulled;
+        Vector_From_Index indices_L;
+        Vector_From_Index indices_R;
+        Vector_From_Index push_from_ids[MAX_GPUS];
+        Vector_From_Index pull_to_ids[MAX_GPUS - 1];
+    };
+
 
 class Slice{
 protected:
@@ -49,6 +78,10 @@ protected:
   cudaEvent_t event7;
 
 
+
+
+    LocalGraphInfo host_graph_info[MAX_GPUS];
+    LocalGraphInfo * device_graph_info;
 
 
 public:
@@ -125,27 +158,12 @@ public:
 
 class PushSlicer: public Slice{
 
-public:
+
     // Contains information from the offsets array and exclusive sum.
     // Use to construct graphs from partitioned edges.
     // Must have one to one mapping from every object in bipartite graph
-    struct LocalGraphInfo{
-        Vector_From_Index in_nodes;
-        Vector_From_Index out_nodes_local;
-        Vector_From_Index out_nodes_remote;
-        Vector_From_Index out_degree_local;
-        Vector_From_Index indptr_L;
-        Vector_From_Index indptr_R;
-        long num_out_local;
-        Vector_From_Index indices_L;
-        Vector_From_Index indices_R;
-        Vector_From_Index push_from_ids[MAX_GPUS];
-
-    };
-
-    LocalGraphInfo host_graph_info[MAX_GPUS];
-    LocalGraphInfo * device_graph_info;
-
+    
+public:
     PushSlicer(device_vector<int> workload_map,
         std::vector<int> storage[8],
           bool pull_optimization, int num_gpus):Slice(workload_map,
@@ -169,21 +187,7 @@ public:
 
 class PullSlicer: public Slice{
 
-    struct LocalGraphInfo{
-        Vector_From_Index in_nodes_local;
-        Vector_From_Index out_nodes_local;
-        Vector_From_Index out_degree_local;
-        Vector_From_Index indptr_L;
-        Vector_From_Index indices_L;
-        long num_out_local;
-        long num_in_local;
-        long num_in_pulled;
-        Vector_From_Index pull_to_ids[MAX_GPUS - 1];
-    };
-
-    LocalGraphInfo host_graph_info[MAX_GPUS];
-    LocalGraphInfo * device_graph_info;
-
+    
 public:
     PullSlicer(device_vector<int> workload_map,
         std::vector<int>  storage[8],

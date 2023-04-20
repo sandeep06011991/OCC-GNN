@@ -4,7 +4,7 @@
 #include "bipartite.h"
 #include "../util/device_vector.h"
 #include "../util/cuda_utils.h"
-
+#include "../util/types.h"
 namespace cuslicer{
 
 class PartitionedLayer{
@@ -15,14 +15,14 @@ class PartitionedLayer{
     // The index_* i th element is set to one to indicate that it is selected
     // We need one index_* per element to be partitioned per gpu
     // To minimize overhead we squash all index_* per gpu into the same vector for all gpus.
-    device_vector<long> index_in_nodes;
-    device_vector<long> index_in_nodes_pulled;
-    device_vector<long> index_out_nodes_local;
-    device_vector<long> index_out_nodes_remote;
-    device_vector<long> index_indptr_local;
-    device_vector<long> index_indptr_remote;
-    device_vector<long> index_edge_local;
-    device_vector<long> index_edge_remote;
+    device_vector<NDTYPE> index_in_nodes;
+    device_vector<NDTYPE> index_in_nodes_pulled;
+    device_vector<NDTYPE> index_out_nodes_local;
+    device_vector<NDTYPE> index_out_nodes_remote;
+    device_vector<NDTYPE> index_indptr_local;
+    device_vector<NDTYPE> index_indptr_remote;
+    device_vector<NDTYPE> index_edge_local;
+    device_vector<NDTYPE> index_edge_remote;
 
     int num_gpus = -1;
     PartitionedLayer(){}
@@ -106,12 +106,12 @@ public:
 
   // From ids are storage order ids in the local cache or local feature
   // To ids are the position they are moved to in the input tensor
-  device_vector<long> cache_hit_from[MAX_DEVICES];
-  device_vector<long> cache_hit_to[MAX_DEVICES];
-  device_vector<long> cache_miss_from[MAX_DEVICES];
-  device_vector<long> cache_miss_to[MAX_DEVICES];
+  device_vector<NDTYPE> cache_hit_from[MAX_DEVICES];
+  device_vector<NDTYPE> cache_hit_to[MAX_DEVICES];
+  device_vector<NDTYPE> cache_miss_from[MAX_DEVICES];
+  device_vector<NDTYPE> cache_miss_to[MAX_DEVICES];
   // Nodes of the final raining values.
-  device_vector<long> last_layer_nodes[MAX_DEVICES];
+  device_vector<NDTYPE> last_layer_nodes[MAX_DEVICES];
   int num_gpus = -1;
 
   PartitionedSample(int num_layers, int num_gpus){

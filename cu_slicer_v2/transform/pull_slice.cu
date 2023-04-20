@@ -5,78 +5,94 @@
 #include "nvtx3/nvToolsExt.h"
 #include "../util/cub.h"
 #include "../util/cuda_utils.h"
-
+#include "../util/types.h"
 using namespace cuslicer;
 
+// Elaborate as many cases as possible.
+template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void partition_edges_pull(int*  partition_map, 
-      int * workload_map, \
-      long * out_nodes, size_t out_nodes_size, \
+void partition_edges_pull(PARTITIONIDX * partition_map,\
+      PARTITIONIDX * workload_map, \
+      NDTYPE * out_nodes, size_t out_nodes_size, \
     // Sample layer out nodes indexed into the graph
-    long *in_nodes, size_t in_nodes_size, \
-    long * indptr, long *indices, size_t num_edges, \
+    NDTYPE *in_nodes, size_t in_nodes_size, \
+    NDTYPE * indptr, NDTYPE * indices, size_t num_edges, \
       long num_nodes_in_graph, \
-        long * index_in_nodes_local, long * index_in_nodes_pulled, 
-        long * index_out_nodes, long * index_indptr_local,\
-         long * index_edge_local,\
+        NDTYPE * index_in_nodes_local, NDTYPE * index_in_nodes_pulled, 
+        NDTYPE * index_out_nodes, NDTYPE * index_indptr_local,\
+         NDTYPE * index_edge_local,\
       // Partitioned graphs such that indptr_map[dest, src]
        		bool last_layer, void ** storage_map, int NUM_GPUS){
             // Last layer use storage map
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    while(tid < out_nodes_size){
-      long nd1 = out_nodes[tid];
-      long nbs = indptr[tid+1] - indptr[tid];
-      #ifdef DEBUG
-          assert(nd1 < num_nodes_in_graph);
-      #endif
-      // Sample tid 
-      int p_nd1 = workload_map[tid];
-      long offset_edge_start = indptr[tid];
-      index_out_nodes[out_nodes_size * p_nd1 + tid] = 1;
-      index_indptr_local[out_nodes_size * p_nd1 + tid] = nbs;
+    int tileId = blockIdx.x;
+    int last_tile = ((out_nodes_size - 1) / TILE_SIZE + 1);
+    while(tileId < last_tile){
+        int start = threadIdx.x + (tileId * TILE_SIZE);
+        int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE),\
+            out_nodes_size);
+        while(start < end){
+            int tid = start;
+            auto nd1 = out_nodes[tid];
+            auto nbs = indptr[tid+1] - indptr[tid];
+            #ifdef DEBUG
+                assert(nd1 < num_nodes_in_graph);
+            #endif
+            // Sample tid 
+            auto p_nd1 = workload_map[tid];
+            auto offset_edge_start = indptr[tid];
+            index_out_nodes[out_nodes_size * p_nd1 + tid] = 1;
+            index_indptr_local[out_nodes_size * p_nd1 + tid] = nbs;
 
-      for(int nb_idx = 0; nb_idx < nbs; nb_idx ++ ){
-        long nd2_idx = indices[offset_edge_start + nb_idx];
+            for(int nb_idx = 0; nb_idx < nbs; nb_idx ++ ){
+              auto nd2_idx = indices[offset_edge_start + nb_idx];
         #ifdef DEBUG
             assert(nd2_idx < in_nodes_size);
         #endif
-        long nd2 = in_nodes[nd2_idx];
-        int p_nd2 = workload_map[nd2_idx];
+              auto nd2 = in_nodes[nd2_idx];
+              auto p_nd2 = workload_map[nd2_idx];
 
           // In pull optimization always select edge
-         ((long *)&index_edge_local[p_nd1* num_edges])[offset_edge_start + nb_idx] = 1;
-         if(last_layer){
-            if(((int *)storage_map[p_nd1])[nd2]!= -1){
-                index_in_nodes_local[p_nd1 * in_nodes_size + nd2_idx] = 1;
-            }else{
-                // Fetch from original partition
-                int original_partition = partition_map[nd2];
-                if(original_partition > p_nd1) original_partition --;
-                index_in_nodes_pulled[(p_nd1 *(NUM_GPUS - 1) + original_partition)* in_nodes_size + nd2_idx] = 1;   
+          ((NDTYPE *)&index_edge_local[p_nd1* num_edges])\
+                [offset_edge_start + nb_idx] = 1;
+          if(last_layer){
+              if(((int *)storage_map[p_nd1])[nd2]!= -1){
+                  index_in_nodes_local[p_nd1 * in_nodes_size + nd2_idx] = 1;
+              }else{
+                  // Fetch from original partition
+                  auto original_partition = partition_map[nd2];
+                  if(original_partition > p_nd1) original_partition --;
+                  index_in_nodes_pulled[(p_nd1 *(NUM_GPUS - 1) + original_partition)* in_nodes_size + nd2_idx] = 1;   
+              }
+              continue;
+          }
+          if(p_nd1 != p_nd2){
+            ((NDTYPE *)&index_in_nodes_pulled[(p_nd1 * (NUM_GPUS - 1) + p_nd2) * in_nodes_size])[nd2_idx] = 1;
+            if(!(nd2_idx < num_out_nodes)){
+              // If nd2 idx is less than num out, partition 2 out nodes will
+              // mark it anyways
+                index_in_nodes_local[p_nd2 * in_nodes_size + nd2_idx] = 1;
             }
-            continue;
-         }
-         if(p_nd1 != p_nd2){
-         	((long *)&index_in_nodes_pulled[(p_nd1 * (NUM_GPUS - 1) + p_nd2) * in_nodes_size])[nd2_idx] = 1;
-         }else{
-            index_in_nodes_local[p_nd1 * in_nodes_size + nd2_idx] = 1;
-         }
+          }else{
+            if(!(nd2_idx < num_out_nodes)){
+              index_in_nodes_local[p_nd1 * in_nodes_size + nd2_idx] = 1;
+            }
+          }
 
-       }
-      tid += (blockDim.x * gridDim.x);
+        }
+      start +=  BLOCK_SIZE; 
+      }
+      tileId += gridDim.x;
     }
-}
-
-
+  }
 
 void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
     int num_in_nodes,\
     int num_out_nodes, int num_edges){
-    transform::self_inclusive_scan(ps.index_in_nodes);
-    transform::self_inclusive_scan(ps.index_in_nodes_pulled);
-    transform::self_inclusive_scan(ps.index_out_nodes_local);
-    transform::self_inclusive_scan(ps.index_indptr_local);
-    transform::self_inclusive_scan(ps.index_edge_local);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_in_nodes);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_in_nodes_pulled);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_out_nodes_local);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_indptr_local);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_edge_local);
     size_t size; size_t offset;
     for(int i=0; i < this->num_gpus; i++){
       BiPartite &bp = *ps.bipartite[i];
@@ -114,6 +130,7 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
       bp.num_in_nodes_local = size + info.num_out_local  ;
       info.in_nodes_local.data = bp.in_nodes.ptr();
       info.in_nodes_local.offset = offset;
+
       // Local pull nodes
       auto global_offset = 0;
       if(i != 0)global_offset = num_in_nodes * (this->num_gpus - 1) * i ;
@@ -153,7 +170,7 @@ void fill_out_nodes_local(long * index_out_nodes_local,\
         size_t index_out_nodes_local_size,\
        // mask is set to where to write
         long * index_indptr_local, \
-        PullSlicer::LocalGraphInfo *info, int num_gpus,\
+        LocalGraphInfo *info, int num_gpus,\
         // Meta data
         long *out_nodes, long * out_node_degree,\
         long num_out_nodes){
@@ -190,7 +207,7 @@ void fill_out_nodes_local(long * index_out_nodes_local,\
 template<int BLOCKSIZE, int TILESIZE>
 __global__ void fill_in_nodes(long * index_in_nodes, \
     long * index_out_nodes_local, \
-    PullSlicer::LocalGraphInfo *info, int num_gpus,\
+    LocalGraphInfo *info, int num_gpus,\
       long * in_nodes, size_t num_in_nodes,
       size_t num_out_nodes){
         int tileId = blockIdx.x;
@@ -308,7 +325,7 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
          #ifdef DEBUG
            gpuErrchk(cudaDeviceSynchronize());
          #endif
-
+    // Replace pull indices correctly
     // Out Nodes
     fill_out_nodes_local<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(num_out_nodes), TILE_SIZE>>>(\
         ps.index_out_nodes_local.ptr(),\

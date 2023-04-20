@@ -3,52 +3,56 @@
 #include "../graph/bipartite.h"
 #include "nvtx3/nvToolsExt.h"
 #include "../util/cub.h"
-
+#include "../util/types.h"
 using namespace cuslicer;
 
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void partition_edges_push(int*  partition_map,\ // partition_map assigning each vertex ID to one GPU
-    long * out_nodes, size_t out_nodes_size,\ // Sample layer out nodes indexed into the graph
-      long *in_nodes, size_t in_nodes_size, \ // Sample Layer In Nodes Indexed into the graph
-        long * indptr, long *indices, size_t num_edges, \// Sampled graph representation
-          long num_nodes_in_graph, \
-            long * index_in_nodes, long * index_out_nodes_local,\
-             long * index_out_nodes_remote,\
-              long * index_indptr_local, long * index_indptr_remote, \
-                long * index_edge_local, long * index_edge_remote,\
-      // Partitioned graphs such that indptr_map[dest, src]
-       	  	bool last_layer, void ** storage_map, int NUM_GPUS){
-            // Last layer use storage map
+void partition_edges_push(PARTITIONIDX *  sample_workload_map,\
+    PARTITIONIDX * global_workload_map,
+  // partition_map assigning each vertex ID to one GPU
+    NDTYPE * out_nodes, size_t out_nodes_size,\
+    // Sample layer out nodes indexed into the graph
+    NDTYPE *in_nodes, size_t in_nodes_size, \
+    // Sample Layer In Nodes Indexed into the graph
+    NDTYPE * indptr, NDTYPE *indices, size_t num_edges, \
+    // Sampled graph representation
+    NDTYPE num_nodes_in_graph, \
+    NDTYPE * index_in_nodes, NDTYPE * index_out_nodes_local,\
+    NDTYPE * index_out_nodes_remote,\
+    NDTYPE * index_indptr_local, NDTYPE * index_indptr_remote, \
+    NDTYPE * index_edge_local, NDTYPE * index_edge_remote,\
+    // Partitioned graphs such that indptr_map[dest, src]
+    bool last_layer, void ** storage_map, int NUM_GPUS){
+    // Last layer use storage map
     int tileId = blockIdx.x;
     int last_tile = ((out_nodes_size - 1) / TILE_SIZE + 1);
     while(tileId < last_tile){
-    int start = threadIdx.x + (tileId * TILE_SIZE);
-    int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), out_nodes_size);
-    while(start < end){
-      int tid = start;
-      long nd1 = out_nodes[tid];
-      long nbs = indptr[tid+1] - indptr[tid];
-      #ifdef DEBUG
-          assert(nd1 < num_nodes_in_graph);
-      #endif
-	//int p_nd1 = 0;
-      int p_nd1 = partition_map[nd1];
-      long offset_edge_start = indptr[tid];
-      int p_nbs[MAX_DEVICES];
-      for(int n=0; n<NUM_GPUS; n++){
-        p_nbs[n] = 0;
-      }
-      p_nbs[p_nd1] = 0;
-      for(int nb_idx = 0; nb_idx < nbs; nb_idx ++ ){
-        long nd2_idx = indices[offset_edge_start + nb_idx];
+      int start = threadIdx.x + (tileId * TILE_SIZE);
+      int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), out_nodes_size);
+      while(start < end){
+        int tid = start;
+        long nd1 = out_nodes[tid];
+        long nbs = indptr[tid+1] - indptr[tid];
+        #ifdef DEBUG
+            assert(nd1 < num_nodes_in_graph);
+        #endif
+  	    auto p_nd1 = sample_workload_map[tid];
+        long offset_edge_start = indptr[tid];
+        int p_nbs[MAX_DEVICES];
+        for(int n=0; n<NUM_GPUS; n++){
+          p_nbs[n] = 0;
+        }
+        p_nbs[p_nd1] = 0;
+        for(int nb_idx = 0; nb_idx < nbs; nb_idx ++ ){
+          long nd2_idx = indices[offset_edge_start + nb_idx];
         #ifdef DEBUG
             assert(nd2_idx < in_nodes_size);
         #endif
         long nd2 = in_nodes[nd2_idx];
-	//int p_nd2 = 0;
-	int p_nd2 = partition_map[nd2];
+	      //int p_nd2 = 0;
+	      int p_nd2 = sample_workload_map[nd2_idx];
         if(p_nd1 == p_nd2){
           // Same partition add local edge
           ((long *)&index_edge_local[num_edges * p_nd1])[offset_edge_start + nb_idx] = 1;
@@ -56,7 +60,7 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
           // Makes setting self nodes easier
           if(!(nd2_idx < out_nodes_size)){
             ((long *)&index_in_nodes[in_nodes_size * p_nd2])[nd2_idx] = 1;
-            }
+          }
            p_nbs[p_nd1] ++;
            continue;
         }
@@ -300,13 +304,13 @@ __global__ void fill_in_nodes(long * index_in_nodes, \
 
 void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes,
     int num_out_nodes, int num_edges){
-    transform::self_inclusive_scan(ps.index_in_nodes);
-    transform::self_inclusive_scan(ps.index_out_nodes_local);
-    transform::self_inclusive_scan(ps.index_out_nodes_remote);
-    transform::self_inclusive_scan(ps.index_indptr_local);
-    transform::self_inclusive_scan(ps.index_indptr_remote);
-    transform::self_inclusive_scan(ps.index_edge_local);
-    transform::self_inclusive_scan(ps.index_edge_remote);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_in_nodes);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_out_nodes_local);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_out_nodes_remote);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_indptr_local);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_indptr_remote);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_edge_local);
+    transform<NDTYPE>::self_inclusive_scan(ps.index_edge_remote);
     size_t size; size_t offset;
     for(int i =0; i < this->num_gpus; i++){
       BiPartite &bp = *ps.bipartite[i];
