@@ -26,7 +26,8 @@ namespace cuslicer{
           // -1 because positions are caclulated from inclusie sum
           data[pos - 1 - offset ] = val;
       }
-
+      // Used mostly by indptr. 
+      
       __device__
       inline void  add_value_offset(long val, long pos){
         assert(pos >= 0);
