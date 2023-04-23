@@ -72,11 +72,13 @@ void Slice::reorder(PartitionedLayer &l){\
          dr->replace(l.bipartite[to]->push_from_ids[from]);
        }
      }
-    // for(int pull_from = 0;pull_from < this->num_gpus; pull_from++){
-    //   dr->clear();
-    //   dr->order(l.bipartite[pull_from]->in_nodes);
-    //   for(int pull_to = 0; pull_to < this->num_gpus; pull_to ++ ){
-    //     if(pull_from == pull_to)continue;
+
+    for(int pull_from = 0;pull_from < this->num_gpus; pull_from++){
+      dr->clear();
+      dr->order(l.bipartite[pull_from]->in_nodes);
+      for(int pull_to = 0; pull_to < this->num_gpus; pull_to ++ ){
+        if(pull_from == pull_to)continue;
+        dr->replace(l.bipartite[pull_from]->pull_to_ids[pull_to]);
     //     int start = l.bipartite[pull_to]->pull_from_offsets[pull_from];
     //     int end = l.bipartite[pull_to]->pull_from_offsets[pull_from + 1];
     //     thrust::device_vector<long> &f = l.bipartite[pull_from]->pull_to_ids[pull_to];
@@ -86,7 +88,7 @@ void Slice::reorder(PartitionedLayer &l){\
     //     f.insert(f.end(), t.begin() + start, t.begin() + end);
     //     dr->replace(f);
     //   }
-    // }
+    }
     // nvtxRangePop();
   }
 

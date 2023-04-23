@@ -1,8 +1,6 @@
-#include "transform/slice.h"
+#include "slice.h"
 #include <cstring>
-#include "graph/bipartite.h"
 #include "../graph/bipartite.h"
-#include "nvtx3/nvToolsExt.h"
 #include "../util/cub.h"
 #include "../util/cuda_utils.h"
 #include "../util/types.h"

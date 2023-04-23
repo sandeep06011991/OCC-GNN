@@ -83,7 +83,7 @@ int main(){
     //    sc1->slice_sample((*s1), ps2);
     // ps2.debug();
     // ps1.push_consistency();
-    // test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+    test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
 
   cuslicer::transform::cleanup();
   std::cout <<"All Done is consistent !\n";
