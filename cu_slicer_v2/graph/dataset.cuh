@@ -6,6 +6,8 @@
 #include <string>
 #include "../util/cuda_utils.h"
 #include "../util/device_vector.h"
+#include "../util/types.h"
+
 #ifndef DATASET_H
 #define DATASET_H
 
@@ -21,8 +23,8 @@ public:
 
   std::string BIN_DIR;
   // Meta-variables
-  long num_nodes;
-  long num_edges;
+  NDTYPE num_nodes;
+  NDTYPE num_edges;
   int noClasses;
   int fsize;
 
@@ -31,12 +33,12 @@ public:
   // const int *labels;
 
   // gpu_partition_map
-  cuslicer::device_vector<int> partition_map_d;
+  cuslicer::device_vector<PARTITIONIDX> partition_map_d;
 
   // graph data.
   // Assume in node range same as out node range.
-  cuslicer::device_vector<long> indptr_d; // size = num_nodes + 1
-  cuslicer::device_vector<long> indices_d; // size = num_edges
+  cuslicer::device_vector<NDTYPE> indptr_d; // size = num_nodes + 1
+  cuslicer::device_vector<NDTYPE> indices_d; // size = num_edges
 
 
   // check sum

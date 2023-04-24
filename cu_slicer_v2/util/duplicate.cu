@@ -12,8 +12,8 @@ using namespace cuslicer;
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void set_nodes_not_present(long * nodes, size_t nodes_size,
-        int * mask, size_t mask_size, long *_tv){
+void set_nodes_not_present(NDTYPE * nodes, size_t nodes_size,
+        int * mask, size_t mask_size, NDTYPE *_tv){
     int tileId = blockIdx.x;
     int last_tile = ((nodes_size - 1) / TILE_SIZE + 1);
     while(tileId < last_tile){
@@ -41,9 +41,9 @@ void set_nodes_not_present(long * nodes, size_t nodes_size,
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void get_unique_nodes(long *nodes, size_t nodes_size,
+void get_unique_nodes(NDTYPE*nodes, size_t nodes_size,
       int *mask, size_t mask_size,
-        long *_tv, long *_tv1, size_t tv1_size){
+        NDTYPE*_tv, NDTYPE*_tv1, size_t tv1_size){
           int tileId = blockIdx.x;
           int last_tile = ((nodes_size - 1) / TILE_SIZE + 1);
           while(tileId < last_tile){
@@ -71,8 +71,8 @@ void get_unique_nodes(long *nodes, size_t nodes_size,
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void update_mask_with_unique(int *mask, long mask_size,
-      int current_unique_nodes, long * _tv1, size_t sz){
+void update_mask_with_unique(int *mask, NDTYPE mask_size,
+      int current_unique_nodes, NDTYPE* _tv1, size_t sz){
     int tileId = blockIdx.x;
     int last_tile = ((sz - 1) / TILE_SIZE + 1);
     while(tileId < last_tile){
@@ -94,8 +94,8 @@ void update_mask_with_unique(int *mask, long mask_size,
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void clear_mask(int * mask, long mask_size,\
-      long *used_nodes, size_t used_nodes_size){
+void clear_mask(int * mask, NDTYPEmask_size,\
+      NDTYPE*used_nodes, size_t used_nodes_size){
   int tileId = blockIdx.x;
   int last_tile = ((used_nodes_size - 1) / TILE_SIZE + 1);
   while(tileId < last_tile){
@@ -114,9 +114,10 @@ void clear_mask(int * mask, long mask_size,\
 }
 
 
+//  Order based on blocks
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void update_nodes(int * mask,long  mask_size, long * nodes, size_t node_size){
+void update_nodes(NDTYPE * mask,NDTYPE mask_size, NDTYPE* nodes, size_t node_size){
   int tileId = blockIdx.x;
   int last_tile = ((node_size - 1) / TILE_SIZE + 1);
   while(tileId < last_tile){
@@ -139,7 +140,7 @@ void update_nodes(int * mask,long  mask_size, long * nodes, size_t node_size){
 }
 
 
-ArrayMap::ArrayMap(long num_nodes){
+ArrayMap::ArrayMap(NDTYPEnum_nodes){
     gpuErrchk(cudaMalloc((void**)&mask, sizeof(int) * num_nodes));
     gpuErrchk(cudaMemset(mask, 0, sizeof(int) * num_nodes));
     mask_size = num_nodes;
@@ -147,7 +148,7 @@ ArrayMap::ArrayMap(long num_nodes){
 }
 
 // Function changes the elements of nodes
-void ArrayMap::remove_nodes_seen(device_vector<long> &nodes){
+void ArrayMap::remove_nodes_seen(device_vector<NDTYPE> &nodes){
   if(nodes.size() == 0)return;
   assert_no_duplicates(nodes);
   _tv.resize(nodes.size());
@@ -157,8 +158,8 @@ void ArrayMap::remove_nodes_seen(device_vector<long> &nodes){
           (nodes.ptr(), nodes.size(),\
           mask, mask_size, (_tv.ptr()));
 
-  cudaDeviceSynchronize();
-  long nodes_not_seen = _tv[_tv.size()-1];
+  // cudaDeviceSynchronize();
+  NDTYPE nodes_not_seen = _tv[_tv.size()-1];
   _tv1 = _tv;
 
 
@@ -198,7 +199,7 @@ void ArrayMap::assert_no_duplicates(device_vector<long> &nodes){
   #endif
 }
 // nodes has no duplicates
-void ArrayMap::order(device_vector<long> &nodes){
+void ArrayMap::order(device_vector<NDTYPE> &nodes){
   if(nodes.size() == 0)return;
   _tv2 = nodes;
   remove_nodes_seen(_tv2);

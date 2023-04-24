@@ -25,18 +25,18 @@ Dataset::Dataset(std::string dir, bool testing, int num_partitions, bool random)
 void Dataset::read_graph(){
   // Different file format as sampling needs csc format or indegree graph
   std::fstream file1(this->BIN_DIR + "/cindptr.bin",std::ios::in|std::ios::binary);
-  long  * _indptr = (long *)malloc ((this->num_nodes + 1) * sizeof(long));
-  file1.read((char *)_indptr,(this->num_nodes + 1) * sizeof(long));
-  std::vector<long> _t_indptr(_indptr, _indptr + this->num_nodes+ 1);
-  indptr_d = (* new device_vector<long>(_t_indptr));
+  NDTYPE  * _indptr = (NDTYPE *)malloc ((this->num_nodes + 1) * sizeof(NDTYPE));
+  file1.read((char *)_indptr,(this->num_nodes + 1) * sizeof(NDTYPE));
+  std::vector<NDTYPE> _t_indptr(_indptr, _indptr + this->num_nodes+ 1);
+  indptr_d = (* new device_vector<NDTYPE>(_t_indptr));
 
-  long sum = cuslicer::transform::reduce(indptr_d);
+  NDTYPE sum = cuslicer::transform::reduce(indptr_d);
 
   std::fstream file2(this->BIN_DIR + "/cindices.bin",std::ios::in|std::ios::binary);
-  long * _indices = (long *)malloc ((this->num_edges) * sizeof(long));
-  file2.read((char *)_indices,(this->num_edges) * sizeof(long));
-  std::vector<long> _t_indices(_indices, _indices + this->num_edges);
-  indices_d = ( * new device_vector<long>(_t_indices));
+  NDTYPE * _indices = (NDTYPE *)malloc ((this->num_edges) * sizeof(NDTYPE));
+  file2.read((char *)_indices,(this->num_edges) * sizeof(NDTYPE));
+  std::vector<NDTYPE> _t_indices(_indices, _indices + this->num_edges);
+  indices_d = ( * new device_vector<NDTYPE>(_t_indices));
 
   free(_indptr);
   free(_indices);

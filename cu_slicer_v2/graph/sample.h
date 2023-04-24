@@ -4,6 +4,7 @@
 #include <vector>
 #include "../util/device_vector.h"
 #include "../util/cuda_utils.h"
+#include "../util/types.h"
 
 using namespace std;
 // A simple sample structure
@@ -14,10 +15,10 @@ using namespace std;
 namespace cuslicer {
 
 struct Block{
-  cuslicer::device_vector<long> offsets;
-  cuslicer::device_vector<long> indices;
-  cuslicer::device_vector<long> layer_nds;
-  cuslicer::device_vector<long> in_degree;
+  cuslicer::device_vector<NDTYPE> offsets;
+  cuslicer::device_vector<NDTYPE> indices;
+  cuslicer::device_vector<NDTYPE> layer_nds;
+  cuslicer::device_vector<NDTYPE> in_degree;
 
 public:
   void clear(){

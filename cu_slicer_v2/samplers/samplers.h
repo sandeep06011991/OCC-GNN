@@ -10,6 +10,7 @@
 #include <chrono>
 #include <curand.h>
 #include <curand_kernel.h>
+#include "../util/types.h"
 
 using namespace cuslicer;
 
@@ -18,7 +19,7 @@ class NeighbourSampler{
   std::shared_ptr<Dataset> dataset;
 
   DuplicateRemover *dr;
-  cuslicer::device_vector<long> _t;
+  cuslicer::device_vector<NDTYPE> _t;
   std::mt19937 random_number_engine;
   // Use constant fan out for all layers.
 
@@ -27,17 +28,17 @@ class NeighbourSampler{
   bool self_edge = false;
   curandState* dev_curand_states;
   const int TOTAL_RAND_STATES = MAX_BLOCKS * BLOCK_SIZE;
-  cuslicer::device_vector<long> _t1;
+  cuslicer::device_vector<NDTYPE> _t1;
 public:
 
   NeighbourSampler(std::shared_ptr<Dataset> dataset,
       vector<int> fanout, bool self_edge);
 
-  void sample(device_vector<long> &target_nodes, Sample &s);
+  void sample(device_vector<NDTYPE> &target_nodes, Sample &s);
 
 private:
-  void layer_sample(device_vector<long> &in, \
-      device_vector<long> &in_degrees, \
-        device_vector<long> &offsets,
-        device_vector<long> &indices, int fanout);
+  void layer_sample(device_vector<NDTYPE> &in, \
+      device_vector<NDTYPE> &in_degrees, \
+        device_vector<NDTYPE> &offsets,
+        device_vector<NDTYPE> &indices, int fanout);
 };

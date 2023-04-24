@@ -34,9 +34,9 @@ NeighbourSampler::NeighbourSampler(std::shared_ptr<Dataset> dataset,
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void sample_offsets(long *in, size_t in_size, \
-    long *offsets_s, long* in_degrees,\
-     long  *indptr_g, long num_nodes, \
+void sample_offsets(NDTYPE *in, size_t in_size, \
+    NDTYPE *offsets_s, NDTYPE* in_degrees,\
+     NDTYPE  *indptr_g, NDTYPE num_nodes, \
     int fanout, bool self_edge){
       int tileId = blockIdx.x;
       int last_tile = ((in_size - 1) / TILE_SIZE + 1);
@@ -46,11 +46,11 @@ void sample_offsets(long *in, size_t in_size, \
 
         while(start < end){
           int id = start;
-          long nd = in[id];
+          NDTYPE nd = in[id];
         #ifdef DEBUG
           assert(nd < num_nodes);
         #endif
-        long nbs_size = indptr_g[nd+1] - indptr_g[nd];
+        NDTYPE nbs_size = indptr_g[nd+1] - indptr_g[nd];
         if(fanout != -1){
           if(fanout < nbs_size){
               nbs_size = fanout;
@@ -72,9 +72,9 @@ void sample_offsets(long *in, size_t in_size, \
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void neigh_sample_based_on_offsets(long * in, long size,\
-    long * offsets, long * indices,\
-      long * graph_indptr, long * graph_indices, long num_nodes,\
+void neigh_sample_based_on_offsets(NDTYPE * in, NDTYPE size,\
+    NDTYPE * offsets, NDTYPE * indices,\
+      NDTYPE * graph_indptr, NDTYPE * graph_indices, NDTYPE num_nodes,\
          curandState *random_states, size_t num_random_states, int fanout,\
        bool self_edge){
      // Colascing random loads
@@ -99,17 +99,17 @@ void neigh_sample_based_on_offsets(long * in, long size,\
       int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), size);
       while(start < end){
         int id = start;
-        long nd = in[id];
+        NDTYPE nd = in[id];
         #ifdef DEBUG
           assert(nd < num_nodes);
                 // printf("%ld %ld %ld %ld\n", nd, offsets[nd], indices[offsets[id]], size);
                 // assert(indices[offsets[nd]] < size);
         #endif
             // Todo
-        long nbs_size = graph_indptr[nd+1] -graph_indptr[nd];
-        long *read = &graph_indices[graph_indptr[nd]];
+        NDTYPE nbs_size = graph_indptr[nd+1] -graph_indptr[nd];
+        NDTYPE *read = &graph_indices[graph_indptr[nd]];
 
-        long *write = &indices[offsets[id]];
+        NDTYPE *write = &indices[offsets[id]];
         if((nbs_size > fanout) && (fanout != -1)){
            for(int j = 0; j < fanout; j++){
               float f = curand_uniform(curandSrcPtr ) ;
@@ -140,10 +140,10 @@ void neigh_sample_based_on_offsets(long * in, long size,\
   }
 
 // Not Reviewed
-void NeighbourSampler::layer_sample(device_vector<long> &in,
-    device_vector<long>  &in_degrees,
-      device_vector<long>  &offsets,
-        device_vector<long>  &indices, int fanout){
+void NeighbourSampler::layer_sample(device_vector<NDTYPE> &in,
+    device_vector<NDTYPE>  &in_degrees,
+      device_vector<NDTYPE>  &offsets,
+        device_vector<NDTYPE>  &indices, int fanout){
 	//Fix me:
 	//Do on gpu sampling
       offsets.clear();
@@ -171,7 +171,7 @@ void NeighbourSampler::layer_sample(device_vector<long> &in,
         gpuErrchk(cudaDeviceSynchronize());
 }
 
-void NeighbourSampler::sample(device_vector<long> &target_nodes, Sample &s){
+void NeighbourSampler::sample(device_vector<NDTYPE> &target_nodes, Sample &s){
   nvtxRangePush("sample");
   s.block[0]->clear();
   dr->clear();
@@ -187,7 +187,7 @@ void NeighbourSampler::sample(device_vector<long> &target_nodes, Sample &s){
     dr->order(_t);
     // This line causes ptr copy and double destruction.
     // TODO: add a test for this and use shared ptr inside device vector
-    device_vector<long> us =   dr->get_used_nodes();
+    device_vector<NDTYPE> us =   dr->get_used_nodes();
     s.block[i]->layer_nds.append(dr->get_used_nodes());
     dr->replace(s.block[i]->indices);
     gpuErrchk(cudaDeviceSynchronize());

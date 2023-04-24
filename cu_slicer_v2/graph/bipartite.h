@@ -3,6 +3,7 @@
 #include "../util/device_vector.h"
 #include "../util/cuda_utils.h"
 #include "../util/duplicate.h"
+#include "../util/types.h"
 #include <string>
 #include <vector>
 #include <iterator>
@@ -31,17 +32,18 @@ public:
   // Follows global order.
   // Built during REORDERING
   // All locally present in nodes
-  device_vector<long> in_nodes;
+  // Does not contain non local nodes
+  device_vector<NDTYPE> in_nodes_local;
   // Self nodes that are reordered first
-  device_vector<long> self_in_nodes;
-  device_vector<long> pulled_in_nodes;
+  // device_vector<NDTYPE> self_in_nodes;
+  device_vector<NDTYPE> pulled_in_nodes;
   // Stick to this throughout.
   // out nodes_remote[gpu_i] = out_nodes_remote[remote_offsets[i]:[i+1]]
 
   // Built during slicing.
-  device_vector<long> out_nodes_remote;
-  device_vector<long> out_nodes_local;
-  device_vector<long> out_degree_local;
+  device_vector<NDTYPE> out_nodes_remote;
+  device_vector<NDTYPE> out_nodes_local;
+  device_vector<NDTYPE> out_degree_local;
 
   // Built during REORDERING
   // Num in nodes can be much larger then in the actual graph, if we use
@@ -56,33 +58,33 @@ public:
 
   // Built during REORDERING
   // built locally
-  device_vector<long> indptr_L;
-  device_vector<long> indices_L;
-  device_vector<long> indptr_R;
-  device_vector<long> indices_R;
+  device_vector<NDTYPE> indptr_L;
+  device_vector<NDTYPE> indices_L;
+  device_vector<NDTYPE> indptr_R;
+  device_vector<NDTYPE> indices_R;
 
   // Build during slicing
-  // device_vector<long> indptr_[MAX_DEVICES];
-  // device_vector<long> indices_[MAX_DEVICES];
+  // device_vector<NDTYPE> indptr_[MAX_DEVICES];
+  // device_vector<NDTYPE> indices_[MAX_DEVICES];
 
 
   // Built during reordering
   // Destination vertices out nodes, that have to be send will be populated locally at to_ids_
   // After reordering destination partition stores to_ids as offsets and from_ids are populated at src.
-  device_vector<long> push_from_ids[MAX_DEVICES];
+  device_vector<NDTYPE> push_from_ids[MAX_DEVICES];
   int to_offsets[MAX_DEVICES + 1];
-  device_vector<long> push_to_ids_[MAX_DEVICES];
-  // thrust::device_vector<long> in_nodes_[MAX_DEVICES];
+  device_vector<NDTYPE> push_to_ids_[MAX_DEVICES];
+  // thrust::device_vector<NDTYPE> in_nodes_[MAX_DEVICES];
   // Built during slicing
-  // vector<long> part_in_nodes[MAX_DEVICES];
+  // vector<NDTYPE> part_in_nodes[MAX_DEVICES];
 
   // In nodes that have be pulled from neighbour partition
   // These ids will be reordered so that the src partition knows what values to send
   // which are stored in push_to_ids, the dest partition only stores the offsets where
   // to place these recieved values.
-  device_vector<long> pull_to_ids[MAX_DEVICES];
+  device_vector<NDTYPE> pull_to_ids[MAX_DEVICES];
   int pull_from_offsets[MAX_DEVICES + 1];
-  device_vector<long> pull_from_ids_[MAX_DEVICES];
+  device_vector<NDTYPE> pull_from_ids_[MAX_DEVICES];
 
   // Used for self attention.
   // Built during re-ordering.
@@ -104,7 +106,7 @@ public:
 
 
   void refresh(){
-    in_nodes.clear();
+    in_nodes_local.clear();
     pulled_in_nodes.clear();
     out_nodes_remote.clear();
     out_nodes_local.clear();
@@ -142,7 +144,7 @@ public:
     assert(!in_nodes.has_duplicates());
     assert(!out_nodes_local.has_duplicates());
     assert(!out_nodes_remote.has_duplicates());
-    in_nodes.debug("In nodes");
+    in_nodes_local.debug("In nodes");
     out_nodes_local.debug("Out nodes local");
     out_nodes_remote.debug("Out nodes remote");
     out_degree_local.debug("Degree");
