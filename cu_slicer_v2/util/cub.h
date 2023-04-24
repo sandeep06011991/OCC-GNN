@@ -36,7 +36,7 @@ namespace cuslicer{
 
     static void self_inclusive_scan(cuslicer::device_vector<T> &in);
 
-  static void  self_inclusive_scan_int(cuslicer::device_vector<T> &in);
+    // static void  self_inclusive_scan_int(cuslicer::device_vector<T> &in);
 
     static void cleanup(){
         d_temp_storage.destroy();

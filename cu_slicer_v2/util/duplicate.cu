@@ -162,7 +162,7 @@ void ArrayMap::remove_nodes_seen(device_vector<long> &nodes){
   _tv1 = _tv;
 
 
-  transform::exclusive_scan(_tv, _tv1 );
+  transform<NDTYPE>::exclusive_scan(_tv, _tv1 );
   nodes_not_seen += _tv1[_tv1.size()-1];
   if(nodes_not_seen == 0){
     _tv1.clear();

@@ -79,13 +79,14 @@ int main(){
 
 
     PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
-    //     PartitionedSample ps2(num_layers, num_gpus);
+        PartitionedSample ps2(num_layers, num_gpus);
     //    sc1->slice_sample((*s1), ps2);
     // ps2.debug();
     // ps1.push_consistency();
-    test_sample_partition_consistency((*s1),ps1, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+    test_sample_partition_consistency((*s1),ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
 
-  cuslicer::transform::cleanup();
+  cuslicer::transform<int>::cleanup();
+  
   std::cout <<"All Done is consistent !\n";
 
   return 0;

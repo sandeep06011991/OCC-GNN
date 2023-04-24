@@ -5,6 +5,7 @@
 #include <iostream>
 #include "device_vector.h"
 #include <cub/cub.cuh>
+#include "types.h"
 
 void test_duplicate();
 
@@ -39,19 +40,19 @@ namespace cuslicer{
   //  Better for scalability.
   //  Come back to this if its a problem
   class  ArrayMap: public  DuplicateRemover {
-    device_vector<long> _tv;
-    device_vector<long> _tv1;
-    device_vector<long> _tv2;
+    device_vector<NDTYPE> _tv;
+    device_vector<NDTYPE> _tv1;
+    device_vector<NDTYPE> _tv2;
 
     int * mask = nullptr;
     long mask_size = 0;
-    device_vector<long> used_nodes;
-    void assert_no_duplicates(device_vector<long>  &nodes);
+    device_vector<NDTYPE> used_nodes;
+    void assert_no_duplicates(device_vector<NDTYPE>  &nodes);
 
   public:
 
 
-    ArrayMap(long num_nodes);
+    ArrayMap(NDTYPE num_nodes);
 
     device_vector<long>& get_used_nodes() ;
     // void order_and_remove_duplicates(thrust::device_vector<long>& nodes);
