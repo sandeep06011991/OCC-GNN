@@ -149,7 +149,7 @@ void pull_own_node(BiPartite *bp,
     // PULL
     for(int j=0;j < num_gpus;j ++){
       BiPartite *bp = layer.bipartite[j];
-      assert(in[j].size() == bp->in_nodes.size());
+      assert(in[j].size() == bp->in_nodes_local.size());
       int new_size = bp->num_in_nodes_local + bp->num_in_nodes_pulled;
 
       in[j].resize(new_size);

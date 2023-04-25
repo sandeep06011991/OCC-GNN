@@ -120,9 +120,9 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
         offset = ps.index_in_nodes[num_in_nodes * i  * this-> num_gpus - 1];
       }
       size = size - offset;
-      bp.in_nodes.resize(size + info.num_out_local);
+      bp.in_nodes_local.resize(size + info.num_out_local);
       bp.num_in_nodes_local = size + info.num_out_local  ;
-      info.in_nodes_local.data = bp.in_nodes.ptr();
+      info.in_nodes_local.data = bp.in_nodes_local.ptr();
       info.in_nodes_local.offset = offset;
 
       // Local pull nodes
@@ -137,9 +137,9 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
         bp.pull_from_offsets[from + 1 ] \
         = ps.index_in_nodes[(num_in_nodes  * this-> num_gpus ) * i + num_in_nodes + num_in_nodes * (l_from + 1) - 1]\
                 - in_not_pulled;
-        this->host_graph_info[from].pull_to_ids[i].data = ps.bipartite[from].pull_to_ids[i].ptr();
-        this->host_graph_info[from].pull_to_ids.offset = \
-                ps.index_in_nodes[(num_in_nodes  * this-> num_gpus * i ) + num_in_nodes +  num_in_nodes * l_from - 1]
+        this->host_graph_info[from].pull_to_ids[i].data = ps.bipartite[from]->pull_to_ids[i].ptr();
+        this->host_graph_info[from].pull_to_ids[i].offset = \
+                ps.index_in_nodes[(num_in_nodes  * this-> num_gpus * i ) + num_in_nodes +  num_in_nodes * l_from - 1];
        }  
        bp.num_in_nodes_pulled  = bp.pull_from_offsets[this-> num_gpus] ;
 
@@ -226,10 +226,10 @@ __global__ void fill_in_nodes(long * index_in_nodes, \
             }
             if(is_selected(index_in_nodes, tid)){
               long in_node = in_nodes[tid % num_in_nodes];
-              \\ num out local nodes are not marked in in nodes
+              // num out local nodes are not marked in in nodes
               auto write_index = index_in_nodes[tid] \
               + info[gpu_id].num_out_local;
-              info[gpu_id].in_nodes.\
+              info[gpu_id].in_nodes_local.\
               add_position_offset(in_node, write_index);
             }
             if(pull_from_gpu != 0){
@@ -248,7 +248,7 @@ __global__ void fill_indices_local(long *sample_indices,
       long *index_edges, long num_edges,
       long * index_in_nodes, size_t num_in_nodes,
       long * index_out_nodes_local, size_t num_out_nodes,
-      PullSlicer::LocalGraphInfo *info, int num_gpus){
+      LocalGraphInfo *info, int num_gpus){
   int tileId = blockIdx.x;
   int last_tile = (((num_edges * num_gpus) - 1) / TILE_SIZE + 1);
   while(tileId < last_tile){
@@ -271,7 +271,7 @@ __global__ void fill_indices_local(long *sample_indices,
          indice = info[gpu_id].num_out_local +\
           index_in_nodes\
           [num_in_nodes * gpu_id + sample_indices[edge_idx]]\
-           - info[gpu_id].in_nodes.offset - 1;
+           - info[gpu_id].in_nodes_local.offset - 1;
         }
        info[gpu_id].indices_L.add_position_offset(indice, index_edges[tid]);
       }
@@ -293,7 +293,7 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     auto num_edges = bs.indices.size();
     auto num_in_nodes = bs.layer_nds.size();
     std::cout << "Note workload map is repeated twice \n";
-    partition_edges_pull<<<GRID_SIZE(layer_nds.size()), TILE_SIZE>>>\
+    partition_edges_pull<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()), TILE_SIZE>>>\
         (this->workload_map.ptr(), this->workload_map.ptr(),\
           layer_nds.ptr(), layer_nds.size(),\
           bs.layer_nds.ptr(), bs.layer_nds.size(),\

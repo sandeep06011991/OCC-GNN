@@ -31,10 +31,12 @@ void calculate_cache_hit_mask(NDTYPE * in_nodes, NDTYPE * storage_map, size_t si
   }
 }
 
+// Dont change this due to load balancing. 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void  fill_cache_nodes(long * in_nodes, int * storage_map, size_t size, int * cache_hit_mask, int * cache_miss_mask, \
-			long * miss_from , long* miss_to, long * hit_from, long *hit_to){
+void  fill_cache_nodes(NDTYPE * in_nodes, NDTYPE * storage_map, size_t size,\
+       NDTYPE * cache_hit_mask, NDTYPE * cache_miss_mask, \
+			  NDTYPE * miss_from , NDTYPE * miss_to, NDTYPE  * hit_from, NDTYPE *hit_to){
         int tileId = blockIdx.x;
         int last_tile = ((size - 1) / TILE_SIZE + 1);
         while(tileId < last_tile){
@@ -75,7 +77,7 @@ void Slice::reorder(PartitionedLayer &l){\
 
     for(int pull_from = 0;pull_from < this->num_gpus; pull_from++){
       dr->clear();
-      dr->order(l.bipartite[pull_from]->in_nodes);
+      dr->order(l.bipartite[pull_from]->in_nodes_local);
       for(int pull_to = 0; pull_to < this->num_gpus; pull_to ++ ){
         if(pull_from == pull_to)continue;
         dr->replace(l.bipartite[pull_from]->pull_to_ids[pull_to]);
@@ -87,14 +89,14 @@ void Slice::reorder(PartitionedLayer &l){\
     //     f.clear();
     //     f.insert(f.end(), t.begin() + start, t.begin() + end);
     //     dr->replace(f);
-    //   }
+      }
     }
     // nvtxRangePop();
   }
 
 
 
-  void Slice::fill_cache_hits_and_misses(PartitionedSample &ps, int gpuid, device_vector<long> &in_nodes){
+  void Slice::fill_cache_hits_and_misses(PartitionedSample &ps, int gpuid, device_vector<NDTYPE> &in_nodes){
   	cache_hit_mask.clear();
   	cache_miss_mask.clear();
   	cache_hit_mask.resize(in_nodes.size());
@@ -106,9 +108,9 @@ void Slice::reorder(PartitionedLayer &l){\
   		  cache_miss_mask.ptr());
     gpuErrchk(cudaDeviceSynchronize());
 
-    cuslicer::transform::self_inclusive_scan_int(cache_hit_mask);
+    cuslicer::transform<NDTYPE>::self_inclusive_scan(cache_hit_mask);
 
-    cuslicer::transform::self_inclusive_scan_int(cache_miss_mask);
+    cuslicer::transform<NDTYPE>::self_inclusive_scan(cache_miss_mask);
 
     //  thrust::inclusive_scan(cache_hit_mask.begin(), cache_hit_mask.end(), cache_hit_mask.begin());
   	//  thrust::inclusive_scan(cache_miss_mask.begin(), cache_miss_mask.end(), cache_miss_mask.begin());
@@ -166,7 +168,7 @@ void Slice::reorder(PartitionedLayer &l){\
            ps.cache_miss_to[i].clear();
            ps.cache_hit_to[i].clear();
            ps.last_layer_nodes[i].clear();
-           auto in_nodes = ps.layers[s.num_layers- 1].bipartite[i]->in_nodes;
+           auto in_nodes = ps.layers[s.num_layers- 1].bipartite[i]->in_nodes_local;
            if(in_nodes.size() > 0){
               fill_cache_hits_and_misses(ps, i, in_nodes);
           }

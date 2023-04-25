@@ -11,6 +11,12 @@
 
 namespace cuslicer{
 
+  __device__
+bool is_selected(long *id, size_t sz){
+   if(sz == 0)return id[0] != 0;
+   return id[sz] != id[sz-1];
+}
+
   // This wierd data structure is needed as 
   // all the edges for the local bipartite graphs are constructed in one pass.
   // The samples are read in one kernel and the following kernel constructs

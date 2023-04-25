@@ -113,11 +113,7 @@ void partition_edges_push(PARTITIONIDX *  sample_workload_map,\
   }
 }
 
-__device__
-bool is_selected(long *id, size_t sz){
-   if(sz == 0)return id[0] != 0;
-   return id[sz] != id[sz-1];
-}
+
 
 template<int BLOCKSIZE, int TILESIZE>
 __global__ void fill_indices_local(long *sample_indices,
