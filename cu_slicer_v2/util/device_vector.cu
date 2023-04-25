@@ -8,6 +8,7 @@
 #include <iostream>
 #include <string>
 #include "../util/device_vector.h"
+#include "../util/types.h"
 // #include <device_vector>
 
 
@@ -150,6 +151,6 @@ void device_vector<DATATYPE>::fill(DATATYPE data){
 }
 
 
-template class device_vector <long>;
-template class device_vector <int>;
+template class device_vector <NDTYPE>;
+template class device_vector <PARTITIONIDX>;
 }

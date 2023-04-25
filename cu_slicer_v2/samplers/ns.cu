@@ -156,7 +156,7 @@ void NeighbourSampler::layer_sample(device_vector<NDTYPE> &in,
         (in.ptr(), in.size(), offsets.ptr(),\
           in_degrees.ptr(), this->dataset->indptr_d.ptr(), this->dataset->num_nodes, fanout, self_edge);
       gpuErrchk(cudaDeviceSynchronize());
-      transform::inclusive_scan(offsets,offsets);
+      cuslicer::transform<NDTYPE>::inclusive_scan(offsets,offsets);
       gpuErrchk(cudaDeviceSynchronize());
       auto new_size = offsets[offsets.size() - 1];
       // thrust::inclusive_scan(thrust::device, offsets.begin(),\
@@ -183,7 +183,7 @@ void NeighbourSampler::sample(device_vector<NDTYPE> &target_nodes, Sample &s){
     layer_sample(s.block[i-1]->layer_nds, s.block[i]->in_degree,
             s.block[i]->offsets,  s.block[i]->indices, this->fanout[i-1]);
     _t.clear();
-    transform::remove_duplicates(s.block[i]->indices,_t);
+    cuslicer::transform<NDTYPE>::remove_duplicates(s.block[i]->indices,_t);
     dr->order(_t);
     // This line causes ptr copy and double destruction.
     // TODO: add a test for this and use shared ptr inside device vector

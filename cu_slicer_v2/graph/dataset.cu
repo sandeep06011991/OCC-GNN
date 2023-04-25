@@ -30,7 +30,7 @@ void Dataset::read_graph(){
   std::vector<NDTYPE> _t_indptr(_indptr, _indptr + this->num_nodes+ 1);
   indptr_d = (* new device_vector<NDTYPE>(_t_indptr));
 
-  NDTYPE sum = cuslicer::transform::reduce(indptr_d);
+  NDTYPE sum = cuslicer::transform<NDTYPE>::reduce(indptr_d);
 
   std::fstream file2(this->BIN_DIR + "/cindices.bin",std::ios::in|std::ios::binary);
   NDTYPE * _indices = (NDTYPE *)malloc ((this->num_edges) * sizeof(NDTYPE));
@@ -59,14 +59,14 @@ void Dataset::read_node_data(){
 	    std::cout << "reading random map \n" ;
 	assert(this->num_partitions == 4);
 	    std::fstream file2(this->BIN_DIR + "/partition_map_opt_random.bin", std::ios::in|std::ios::binary);
-    	file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
+    	file2.read((char *)_partition_map,this->num_nodes *  sizeof(PARTITIONIDX));
     }
-    std::vector<int> _t_partition_map(_partition_map, _partition_map + this->num_nodes);
+    std::vector<PARTITIONIDX> _t_partition_map(_partition_map, _partition_map + this->num_nodes);
     for(int i : _t_partition_map){
       std::cout << i <<"check\n";
       assert(i < n_gpu);
     }
-    partition_map_d = (* new device_vector<int>(_t_partition_map));
+    partition_map_d = (* new device_vector<PARTITIONIDX>(_t_partition_map));
     // gpuErrchk(cudaMalloc((void**)&this->partition_map, (this->num_nodes *  sizeof(int))));
     // gpuErrchk(cudaMemcpy(this->partition_map, _partition_map, (this->num_nodes *  sizeof(int)) , cudaMemcpyHostToDevice));
     free(_partition_map);

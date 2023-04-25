@@ -124,7 +124,7 @@ __global__ void fill_indices_local(long *sample_indices,
       long *index_edges, long num_edges,
       long * index_in_nodes, size_t num_in_nodes,
       long * index_out_nodes_local, size_t num_out_nodes,
-      PushSlicer::LocalGraphInfo *info, int num_gpus){
+      LocalGraphInfo *info, int num_gpus){
   int tileId = blockIdx.x;
   int last_tile = (((num_edges * num_gpus) - 1) / TILE_SIZE + 1);
   while(tileId < last_tile){
@@ -143,7 +143,7 @@ __global__ void fill_indices_local(long *sample_indices,
 
        }else{
          indice = info[gpu_id].num_out_local +\
-          index_in_nodes[num_in_nodes * gpu_id + sample_indices[tid % num_edges]] - info[gpu_id].in_nodes.offset - 1;
+          index_in_nodes[num_in_nodes * gpu_id + sample_indices[tid % num_edges]] - info[gpu_id].in_nodes_local.offset - 1;
         }
        info[gpu_id].indices_L.add_position_offset(indice, index_edges[tid]);
       }
@@ -157,7 +157,7 @@ template<int BLOCKSIZE, int TILESIZE>
 __global__ void fill_indices_remote(long * index_edge_remote, size_t num_edges, \
        long * index_in_nodes, size_t num_in_nodes,
            long * index_out_nodes_local, size_t num_out_nodes,
-              PushSlicer::LocalGraphInfo * info, int num_gpus, long *sample_indices){
+              LocalGraphInfo * info, int num_gpus, long *sample_indices){
     int tileId = blockIdx.x;
     int last_tile = (((num_edges * (num_gpus - 1) * (num_gpus)) - 1) / TILE_SIZE + 1);
     while(tileId < last_tile){
@@ -176,7 +176,7 @@ __global__ void fill_indices_remote(long * index_edge_remote, size_t num_edges, 
 
         }else{
           indice = info[gpu_id].num_out_local +\
-            index_in_nodes[num_in_nodes * gpu_id +sample_indices[tid % num_edges]] - info[gpu_id].in_nodes.offset - 1;
+            index_in_nodes[num_in_nodes * gpu_id +sample_indices[tid % num_edges]] - info[gpu_id].in_nodes_local.offset - 1;
         }
         info[gpu_id].indices_R.add_position_offset(indice, index_edge_remote[tid]);
       }
@@ -191,7 +191,7 @@ __global__
 void fill_out_nodes_local(long * index_out_nodes_local,\
       size_t index_out_nodes_local_size,\  // mask is set to where to write
         long * index_indptr_local, \
-        PushSlicer::LocalGraphInfo *info, int num_gpus,\ // Meta data
+        LocalGraphInfo *info, int num_gpus,\ // Meta data
         long *out_nodes, long * out_node_degree,\
         long num_out_nodes){
         int tileId = blockIdx.x;
@@ -228,7 +228,7 @@ template<int BLOCKSIZE, int TILESIZE>
 __global__ void fill_out_nodes_remote(long * index_out_nodes_remote, \
         size_t index_out_nodes_remote_sizes, \
         long * index_indptr_remote, \
-        PushSlicer::LocalGraphInfo *info, int num_gpus,\ // Meta data
+        LocalGraphInfo *info, int num_gpus,\ // Meta data
         long *out_nodes, long num_out_nodes ){
           int tileId = blockIdx.x;
           int last_tile = (( index_out_nodes_remote_sizes - 1) / TILE_SIZE + 1);
@@ -266,7 +266,7 @@ __global__ void fill_out_nodes_remote(long * index_out_nodes_remote, \
 template<int BLOCKSIZE, int TILESIZE>
 __global__ void fill_in_nodes(long * index_in_nodes, \
     long * index_out_nodes_local, \
-    PushSlicer::LocalGraphInfo *info, int num_gpus,\
+    LocalGraphInfo *info, int num_gpus,\
       long * in_nodes, size_t num_in_nodes,
       size_t num_out_nodes){
         int tileId = blockIdx.x;
@@ -283,7 +283,7 @@ __global__ void fill_in_nodes(long * index_in_nodes, \
                 long in_node = in_nodes[tid % num_in_nodes];
                 auto d = info[gpu_id].out_nodes_local;
                 auto write_index = index_out_nodes_local[num_out_nodes * gpu_id + in_node_idx] - d.offset - 1;
-                info[gpu_id].in_nodes.data[write_index] = in_node;
+                info[gpu_id].in_nodes_local.data[write_index] = in_node;
                 start += BLOCK_SIZE;
                 continue;
             }
@@ -291,7 +291,7 @@ __global__ void fill_in_nodes(long * index_in_nodes, \
           if(is_selected(index_in_nodes, tid)){
             long in_node = in_nodes[tid % num_in_nodes];
             auto write_index = index_in_nodes[tid] + info[gpu_id].num_out_local;
-            info[gpu_id].in_nodes.add_position_offset(in_node, write_index);
+            info[gpu_id].in_nodes_local.add_position_offset(in_node, write_index);
           }
           start += BLOCK_SIZE;
         }
@@ -346,10 +346,10 @@ void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes,
         offset = ps.index_in_nodes[num_in_nodes * i - 1];
       }
       size = size - offset;
-      bp.in_nodes.resize(size + info.num_out_local );
+      bp.in_nodes_local.resize(size + info.num_out_local );
       bp.num_in_nodes_local = size + info.num_out_local  ;
-      info.in_nodes.data = bp.in_nodes.ptr();
-      info.in_nodes.offset = offset;
+      info.in_nodes_local.data = bp.in_nodes_local.ptr();
+      info.in_nodes_local.offset = offset;
 
 
 
@@ -430,7 +430,7 @@ void PushSlicer::slice_layer(device_vector<long> &layer_nds,
 
     // gpuErrchk(cudaDeviceSynchronize());
     partition_edges_push<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()),BLOCK_SIZE>>>\
-        (this->workload_map.ptr(),\
+        (this->workload_map.ptr(),this->workload_map.ptr(),\
           layer_nds.ptr(), layer_nds.size(),\
           bs.layer_nds.ptr(), bs.layer_nds.size(),\
           bs.offsets.ptr(), bs.indices.ptr(), bs.indices.size(), \

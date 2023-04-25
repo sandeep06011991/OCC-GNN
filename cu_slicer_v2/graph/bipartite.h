@@ -132,7 +132,7 @@ public:
     indptr_R.clear();
     indices_R.clear();
     self_ids_offset = 0;
-    self_in_nodes.clear();
+    // self_in_nodes.clear();
   }
 
   void reorder_local(DuplicateRemover *dr);
@@ -141,7 +141,7 @@ public:
     // std::cout << "Not implemented\n";
     // std::ostream &out = std::cout ;
     // std::cout << "BiPartitie############" << gpu_id <<  "\n";
-    assert(!in_nodes.has_duplicates());
+    assert(!in_nodes_local.has_duplicates());
     assert(!out_nodes_local.has_duplicates());
     assert(!out_nodes_remote.has_duplicates());
     in_nodes_local.debug("In nodes");

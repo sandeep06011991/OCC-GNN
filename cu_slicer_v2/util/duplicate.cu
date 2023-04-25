@@ -94,7 +94,7 @@ void update_mask_with_unique(int *mask, NDTYPE mask_size,
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void clear_mask(int * mask, NDTYPEmask_size,\
+void clear_mask(int * mask, NDTYPE mask_size,\
       NDTYPE*used_nodes, size_t used_nodes_size){
   int tileId = blockIdx.x;
   int last_tile = ((used_nodes_size - 1) / TILE_SIZE + 1);
@@ -140,7 +140,7 @@ void update_nodes(NDTYPE * mask,NDTYPE mask_size, NDTYPE* nodes, size_t node_siz
 }
 
 
-ArrayMap::ArrayMap(NDTYPEnum_nodes){
+ArrayMap::ArrayMap(NDTYPE num_nodes){
     gpuErrchk(cudaMalloc((void**)&mask, sizeof(int) * num_nodes));
     gpuErrchk(cudaMemset(mask, 0, sizeof(int) * num_nodes));
     mask_size = num_nodes;
@@ -187,10 +187,10 @@ void ArrayMap::remove_nodes_seen(device_vector<NDTYPE> &nodes){
 }
 
 
-void ArrayMap::assert_no_duplicates(device_vector<long> &nodes){
+void ArrayMap::assert_no_duplicates(device_vector<NDTYPE> &nodes){
   #ifdef DEBUG
       // check no duplicates;
-      transform::unique(nodes, _tv);
+      transform<NDTYPE>::unique(nodes, _tv);
       // if(_tv.size()!= nodes.size()){
       //   _tv.debug("Unique");
       //   nodes.debug("Not Unique");
@@ -230,7 +230,7 @@ void ArrayMap::clear(){
 
 
 
-void ArrayMap::replace(device_vector<long> &nodes){
+void ArrayMap::replace(device_vector<NDTYPE> &nodes){
   if(nodes.size() == 0)return;
   update_nodes<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(nodes.size()), BLOCK_SIZE>>>\
       (mask, mask_size, (nodes.ptr()), nodes.size());
@@ -242,6 +242,6 @@ ArrayMap::~ArrayMap(){
     this->used_nodes.clear();
 }
 
-device_vector<long>& ArrayMap::get_used_nodes(){
+device_vector<NDTYPE>& ArrayMap::get_used_nodes(){
   return this->used_nodes;
 }

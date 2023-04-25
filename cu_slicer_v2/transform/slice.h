@@ -2,6 +2,7 @@
 #include "../util/device_vector.h"
 #include "../graph/sample.h"
 #include "../graph/sliced_sample.h"
+#include "../util/types.h"
 
 // Ogbn-products sample charectersitcs
 // Nodes [1705194, 684535, 76689, 4096] Edges [12975036, 1490753, 80134]
@@ -55,11 +56,11 @@ namespace cuslicer{
 
 class Slice{
 protected:
-  device_vector<int> sample_workload_map;
-  device_vector<int> workload_map;
-  device_vector<int> storage_map[8];
-  device_vector<int> storage[8];
-  device_vector<int> sample_partition;
+  device_vector<PARTITIONIDX> sample_workload_map;
+  device_vector<PARTITIONIDX> workload_map;
+  device_vector<NDTYPE> storage_map[8];
+  device_vector<NDTYPE> storage[8];
+  // device_vector<int> sample_partition;
   // Used for new node ordering
   void** storage_map_flattened;
   int gpu_capacity[8];
@@ -67,8 +68,8 @@ protected:
   DuplicateRemover *dr;
   // Use this for GAT
   bool pull_optimization = false;
-  device_vector<int> cache_hit_mask;
-  device_vector<int> cache_miss_mask;
+  device_vector<NDTYPE> cache_hit_mask;
+  device_vector<NDTYPE> cache_miss_mask;
   long num_nodes  = 0;
   cudaEvent_t event1;
   cudaEvent_t event2;
@@ -87,8 +88,8 @@ protected:
 
 public:
 // Are all these options really needed.
-  Slice(device_vector<int> workload_map,
-      std::vector<int> storage[8],
+  Slice(device_vector<PARTITIONIDX> workload_map,
+      std::vector<NDTYPE> storage[8],
         bool pull_optimization, int num_gpus){
     gpuErrchk(cudaEventCreate(&event1));
     gpuErrchk(cudaEventCreate(&event2));
@@ -104,8 +105,8 @@ public:
     long num_nodes = this->workload_map.size();
     this->num_nodes = num_nodes;
     assert(num_gpus <= 8);
-    std::vector<int> _t1;
-    std::vector<int> _t2;
+    std::vector<NDTYPE> _t1;
+    std::vector<NDTYPE> _t2;
     for(int i=0;i<num_gpus;i++){
       _t1.clear();
       _t2.clear();
@@ -119,9 +120,9 @@ public:
            count ++ ;
       }
       // Must be an lvalue
-      auto _s1 = device_vector<int>(_t1);
+      auto _s1 = device_vector<NDTYPE>(_t1);
       this->storage_map[i] = _s1;
-      auto s2 = device_vector<int>(_t2);
+      auto s2 = device_vector<NDTYPE>(_t2);
       this->storage[i] = s2;
       gpu_capacity[i] = count;
     }
@@ -165,8 +166,8 @@ class PushSlicer: public Slice{
     // Must have one to one mapping from every object in bipartite graph
     
 public:
-    PushSlicer(device_vector<int> workload_map,
-        std::vector<int> storage[8],
+    PushSlicer(device_vector<PARTITIONIDX> workload_map,
+        std::vector<NDTYPE> storage[8],
           bool pull_optimization, int num_gpus):Slice(workload_map,
             storage, pull_optimization, num_gpus){
               gpuErrchk(cudaMalloc(&device_graph_info, sizeof(LocalGraphInfo) * this->num_gpus ));
@@ -176,10 +177,10 @@ public:
       gpuErrchk(cudaMemcpy(device_graph_info, host_graph_info,  sizeof(LocalGraphInfo) * this->num_gpus, cudaMemcpyHostToDevice));
     }
 
-    void slice_layer(device_vector<long>& in, Block &bl, \
+    void slice_layer(device_vector<NDTYPE>& in, Block &bl, \
         PartitionedLayer& l, bool last_layer) ;
 
-    void slice_layer_per_gpu(device_vector<long>& in, Block &bl, \
+    void slice_layer_per_gpu(device_vector<NDTYPE>& in, Block &bl, \
         PartitionedLayer& l, bool last_layer, int gpu);
 
     void resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, int num_out_nodes,
@@ -190,14 +191,14 @@ class PullSlicer: public Slice{
 
     
 public:
-    PullSlicer(device_vector<int> workload_map,
-        std::vector<int>  storage[8],
+    PullSlicer(device_vector<PARTITIONIDX> workload_map,
+        std::vector<NDTYPE>  storage[8],
           bool pull_optimization, int num_gpus):Slice(workload_map,
             storage, pull_optimization, num_gpus){
               gpuErrchk(cudaMalloc(&device_graph_info, sizeof(LocalGraphInfo) * this->num_gpus ));
             }
 
-    void slice_layer(device_vector<long>& in, Block &bl, \
+    void slice_layer(device_vector<NDTYPE>& in, Block &bl, \
         PartitionedLayer& l, bool last_layer);
 
     void resize_bipartite_graphs(PartitionedLayer &ps,

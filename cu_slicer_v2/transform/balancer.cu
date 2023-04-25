@@ -8,6 +8,7 @@ namespace cuslicer{
     // Usually one partition is heavily loaded. 
     class LoadBalancer{
 
+        float probability_matrix[N_GPUS][N_GPUS];
         void balance(device_vector<int> &workload_map, 
             device_vector<int> &sample_in, 
                 device_vector<int> &sample_workload_map){

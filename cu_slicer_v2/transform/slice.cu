@@ -8,7 +8,7 @@ using namespace cuslicer;
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void calculate_cache_hit_mask(long * in_nodes, int * storage_map, size_t size, int * cache_hit_mask, int * cache_miss_mask){
+void calculate_cache_hit_mask(NDTYPE * in_nodes, NDTYPE * storage_map, size_t size, NDTYPE * cache_hit_mask, NDTYPE * cache_miss_mask){
   int tileId = blockIdx.x;
   int last_tile = ((size - 1) / TILE_SIZE + 1);
   while(tileId < last_tile){
