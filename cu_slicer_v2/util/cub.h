@@ -47,5 +47,6 @@ namespace cuslicer{
   };
 
   template class transform<NDTYPE>;
+  template class transform<PARTITIONIDX>;
   // temptransform<int>;
 }

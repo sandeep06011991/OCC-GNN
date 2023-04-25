@@ -63,13 +63,13 @@ void partition_edges_pull(PARTITIONIDX * partition_map, \
             auto pull_partition = 0;
             if(p_nd2 > p_nd1)pull_partition = p_nd2 - 1;
             ((NDTYPE *)&index_in_nodes_local[(p_nd1 * (NUM_GPUS) + pull_partition) * in_nodes_size])[nd2_idx] = 1;
-            if(!(nd2_idx < num_out_nodes)){
+            if(!(nd2_idx < out_nodes_size)){
               // If nd2 idx is less than num out, partition 2 out nodes will
               // mark it anyways
                 index_in_nodes_local[p_nd2 * in_nodes_size + nd2_idx] = 1;
             }
           }else{
-            if(!(nd2_idx < num_out_nodes)){
+            if(!(nd2_idx < out_nodes_size)){
               index_in_nodes_local[p_nd1 * (in_nodes_size * NUM_GPUS) + nd2_idx] = 1;
             }
           }
@@ -211,14 +211,14 @@ __global__ void fill_in_nodes(long * index_in_nodes, \
         while(start < end){
           int tid = start;
           int gpu_id = tid / (num_in_nodes * num_gpus);
-          int pull_from_gpu = (tid % (num_in_nodes * num_gpus))% num_gpus) 
+          int pull_from_gpu = (tid % (num_in_nodes * num_gpus))% num_gpus;
           auto in_node_idx = tid % num_in_nodes;
               // is a self node
             if(in_node_idx < num_out_nodes){
               if(is_selected(index_out_nodes_local,\
                (num_out_nodes * gpu_id + in_node_idx))){
                   long in_node = in_nodes[in_node_idx];
-                  info[gpu_id].in_nodes.add_position_offset\
+                  info[gpu_id].in_nodes_local.add_position_offset\
                     (tid, in_node);
                   start += BLOCK_SIZE;
                   continue;
@@ -233,6 +233,8 @@ __global__ void fill_in_nodes(long * index_in_nodes, \
               add_position_offset(in_node, write_index);
             }
             if(pull_from_gpu != 0){
+              long in_node = in_nodes[tid % num_in_nodes];
+              auto write_index = index_in_nodes[tid] ;
               if(pull_from_gpu >= gpu_id)pull_from_gpu ++;
               info[pull_from_gpu].pull_to_ids[gpu_id]\
                 .add_position_offset(in_node,write_index);
@@ -334,7 +336,7 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     // Replace pull indices correctly
     // 3 functions do everything.   
     // Out Nodes
-    fill_out_nodes_local<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(num_out_nodes), TILE_SIZE>>>(\
+    fill_out_nodes<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(num_out_nodes), TILE_SIZE>>>(\
         ps.index_out_nodes_local.ptr(),\
         ps.index_out_nodes_local.size(),\
         // masks set to where to write

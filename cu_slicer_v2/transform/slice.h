@@ -11,7 +11,7 @@
 
 namespace cuslicer{
 
-  __device__
+ __inline__ __device__
 bool is_selected(long *id, size_t sz){
    if(sz == 0)return id[0] != 0;
    return id[sz] != id[sz-1];

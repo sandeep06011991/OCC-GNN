@@ -141,6 +141,8 @@ void Slice::reorder(PartitionedLayer &l){\
     this->sample_workload_map.resize(nodes.size());
     cuslicer::index_in<long,int>(nodes, this->workload_map, this->sample_workload_map);
     // this->workload_map
+    std::cout << "Load balancer not stitched in\n";
+
     // Get partitioned layers.
     for(int i= 1; i< s.num_layers + 1;i++){
         bool last_layer = false;
