@@ -39,14 +39,12 @@ namespace cuslicer{
     // static void  self_inclusive_scan_int(cuslicer::device_vector<T> &in);
 
     static void cleanup(){
-        d_temp_storage.destroy();
-        d_temp_out.destroy();
-        temporary.destroy();
+        transform<T>::d_temp_storage.destroy();
+        transform<T>::d_temp_out.destroy();
+        transform<T>::temporary.destroy();
     }
 
   };
 
-  template class transform<NDTYPE>;
-  template class transform<PARTITIONIDX>;
   // temptransform<int>;
 }

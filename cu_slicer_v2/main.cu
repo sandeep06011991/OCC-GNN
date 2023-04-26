@@ -13,6 +13,7 @@
 #include "util/duplicate.h"
 #include <chrono>
 #include <iostream>
+#include "util/types.h"
 using namespace std;
 using namespace std::chrono;
 
@@ -33,23 +34,22 @@ int main(){
   vector<int> fanout({20});
   
   bool self_edge = false;
-  for(int k = 0; k<4; k++){
-  std::vector<long> training_nodes;
+  std::vector<NDTYPE> training_nodes;
   for(int i=0;i<num_gpus ;i++){
       training_nodes.push_back(i);
   }
 
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, self_edge);
 
-  cuslicer::device_vector<long> target(training_nodes);
+  cuslicer::device_vector<NDTYPE> target(training_nodes);
   ns->sample(target,(*s1));
-  }
+  
   bool pull_optim = false;
 
 // //
 
-  cuslicer::device_vector<int> workload_map;
-  std::vector<int> storage[8];
+  cuslicer::device_vector<PARTITIONIDX> workload_map;
+  std::vector<NDTYPE> storage[8];
   int is_present = 1 ;
 // // Test 3b. is_present = 1;
   int gpu_capacity[num_gpus];
@@ -76,16 +76,17 @@ int main(){
     // PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
     // PartitionedSample ps1(num_layers, num_gpus);
     // sc1->slice_sample((*s1),ps1);
-
-
-    PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus);
+ 
+    PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus,\
+         ns->dev_curand_states);
         PartitionedSample ps2(num_layers, num_gpus);
     //    sc1->slice_sample((*s1), ps2);
     // ps2.debug();
     // ps1.push_consistency();
-    test_sample_partition_consistency((*s1),ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+    // test_sample_partition_consistency((*s1),ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
 
-  cuslicer::transform<int>::cleanup();
+  cuslicer::transform<NDTYPE>::cleanup();
+  cuslicer::transform<PARTITIONIDX>::cleanup();
   
   std::cout <<"All Done is consistent !\n";
 

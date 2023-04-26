@@ -3,7 +3,10 @@
 #include "../graph/sample.h"
 #include "../graph/sliced_sample.h"
 #include "../util/types.h"
+#include <curand.h>
+#include <curand_kernel.h>
 
+#include "balancer.cuh"
 // Ogbn-products sample charectersitcs
 // Nodes [1705194, 684535, 76689, 4096] Edges [12975036, 1490753, 80134]
 // Reorder - map 
@@ -85,18 +88,18 @@ protected:
   cudaEvent_t event6;
   cudaEvent_t event7;
 
+  curandState * rand_states;
+  const int TOTAL_RAND_STATES = MAX_BLOCKS * BLOCK_SIZE;
 
+  LocalGraphInfo host_graph_info[MAX_GPUS];
+  LocalGraphInfo * device_graph_info;
 
-
-    LocalGraphInfo host_graph_info[MAX_GPUS];
-    LocalGraphInfo * device_graph_info;
-
-
+  LoadBalancer *loadbalancer;
 public:
 // Are all these options really needed.
   Slice(device_vector<PARTITIONIDX> workload_map,
       std::vector<NDTYPE> storage[8],
-        bool pull_optimization, int num_gpus){
+        bool pull_optimization, int num_gpus, curandState *s){
     gpuErrchk(cudaEventCreate(&event1));
     gpuErrchk(cudaEventCreate(&event2));
     gpuErrchk(cudaEventCreate(&event3));
@@ -104,8 +107,8 @@ public:
     gpuErrchk(cudaEventCreate(&event5));
     gpuErrchk(cudaEventCreate(&event6));
     gpuErrchk(cudaEventCreate(&event7));
-
-
+    this->loadbalancer = new LoadBalancer(num_gpus, s, TOTAL_RAND_STATES);
+    this->rand_states = s;
     this->workload_map = workload_map;
     this->num_gpus= num_gpus;
     long num_nodes = this->workload_map.size();
@@ -174,8 +177,8 @@ class PushSlicer: public Slice{
 public:
     PushSlicer(device_vector<PARTITIONIDX> workload_map,
         std::vector<NDTYPE> storage[8],
-          bool pull_optimization, int num_gpus):Slice(workload_map,
-            storage, pull_optimization, num_gpus){
+          bool pull_optimization, int num_gpus, curandState *state):Slice(workload_map,
+            storage, pull_optimization, num_gpus, state){
               gpuErrchk(cudaMalloc(&device_graph_info, sizeof(LocalGraphInfo) * this->num_gpus ));
     }
 
@@ -199,8 +202,8 @@ class PullSlicer: public Slice{
 public:
     PullSlicer(device_vector<PARTITIONIDX> workload_map,
         std::vector<NDTYPE>  storage[8],
-          bool pull_optimization, int num_gpus):Slice(workload_map,
-            storage, pull_optimization, num_gpus){
+          bool pull_optimization, int num_gpus, curandState *state):Slice(workload_map,
+            storage, pull_optimization, num_gpus, state){
               gpuErrchk(cudaMalloc(&device_graph_info, sizeof(LocalGraphInfo) * this->num_gpus ));
             }
 

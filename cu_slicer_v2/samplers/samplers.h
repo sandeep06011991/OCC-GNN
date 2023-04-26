@@ -26,10 +26,11 @@ class NeighbourSampler{
   bool deterministic = false;
   std::vector<int> fanout;
   bool self_edge = false;
-  curandState* dev_curand_states;
-  const int TOTAL_RAND_STATES = MAX_BLOCKS * BLOCK_SIZE;
+  
   cuslicer::device_vector<NDTYPE> _t1;
 public:
+  curandState*  dev_curand_states;
+  const int TOTAL_RAND_STATES = MAX_BLOCKS * BLOCK_SIZE;
 
   NeighbourSampler(std::shared_ptr<Dataset> dataset,
       vector<int> fanout, bool self_edge);

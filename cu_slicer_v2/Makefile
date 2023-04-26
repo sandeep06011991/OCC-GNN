@@ -33,10 +33,11 @@ OBJ := $(SRC:%.cu=build/%.o)
 
 all: build/main.o build/util/cub.o build/util/duplicate.o build/util/device_vector.o \
 			build/graph/dataset.o build/samplers/ns.o build/transform/push_slice.o build/transform/slice.o \
-				build/tests/gcn_test.o build/graph/bipartite.o build/transform/pull_slice.o
+				build/tests/gcn_test.o build/graph/bipartite.o build/transform/pull_slice.o\
+			build/util/array_utils.o 
 	nvcc -G $(FLAGS) build/main.o build/util/cub.o build/util/device_vector.o   build/samplers/ns.o \
 			build/graph/dataset.o  build/transform/slice.o build/transform/pull_slice.o   build/tests/gcn_test.o \
-	build/transform/push_slice.o build/util/duplicate.o build/graph/bipartite.o -o build/cuslicer
+	build/transform/push_slice.o  build/util/array_utils.o build/util/duplicate.o build/graph/bipartite.o -o build/cuslicer
 
 traverse: build/traverse_main.o build/util/cub.o build/util/duplicate.o build/util/device_vector.o \
 				build/graph/dataset.o build/samplers/ns.o

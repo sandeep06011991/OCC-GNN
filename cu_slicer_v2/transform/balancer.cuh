@@ -8,22 +8,27 @@
 
 namespace cuslicer{
 
-
+    __inline__  __device__ 
     PARTITIONIDX find_partition(float * prob_matrix, int num_gpus, float rand){
-        auto s = 0;
-        for(int i = 0; i <  num_gpus; i++){
+        float s = 0;
+        for(PARTITIONIDX i = 0; i <  num_gpus; i++){
             s += prob_matrix[i];
             if(rand < s) return i;
         }
+        assert(false);
     }
 
     template<int BLOCKSIZE, int TILESIZE>
     __global__
-    void rebalance_partitions(NDTYPE *original_map, \
+    void rebalance_partitions(PARTITIONIDX *original_map, \
             size_t num_nodes, \
-            NDTYPE * new_map, float ** prob_matrix,\
+            PARTITIONIDX * new_map, float * prob_matrix,\
             curandState *random_states,
-                 size_t num_random_states){
+                 size_t num_random_states, int num_gpus){
+
+    __shared__ unsigned char shRand[BLOCK_SIZE * sizeof(curandState)];
+
+
     const int intsInRandState = sizeof(curandState)/sizeof(int);
     int* shStateBuff = (int*)&shRand[0];
 
@@ -43,11 +48,13 @@ namespace cuslicer{
             while(start < end){
                 auto tid = start;
                 auto gpu = original_map[tid];
-                if(prob_matrix[gpu][gpu] == 1.0){
+                if(prob_matrix[num_gpus * gpu + gpu] == 1.0){
                     new_map[tid] = gpu;
                 }else{
                     float f = curand_uniform(curandSrcPtr ) ;
-                    new_map[tid] = find_partition(prob_matrix, num_gpus, rand);
+                    new_map[tid] = find_partition\
+                        (&prob_matrix[num_gpus * gpu], 
+                            num_gpus, f);
                 }
                 start += BLOCK_SIZE;
             }
@@ -58,9 +65,9 @@ namespace cuslicer{
     // Usually one partition is heavily loaded. 
     class LoadBalancer{
 
-        float probability_matrix[MAX_DEVICES][MAX_DEVICES];
+        float probability_matrix[MAX_DEVICES * MAX_DEVICES];
         // probabiliy after resampling marked from x to y 
-
+        float * probability_matrix_d;
         curandState * random_states;
         size_t num_random_states;
 
@@ -75,11 +82,12 @@ public:
             this->num_gpus = num_devices;
             this->num_random_states = num_random_states;
             this->random_states = random_states;
+            cudaMalloc(&probability_matrix_d, MAX_DEVICES * MAX_DEVICES * sizeof(float));
         }
 
-        void balance(device_vector<int> &workload_map, 
-            device_vector<int> &sample_in, 
-                device_vector<int> &sample_workload_map){
+        void balance(device_vector<PARTITIONIDX> &workload_map, 
+            device_vector<NDTYPE> &sample_in, 
+                device_vector<PARTITIONIDX> &sample_workload_map){
 
                     
                     std::vector<NDTYPE> load; 
@@ -92,7 +100,7 @@ public:
                     memset(probability_matrix, 0, sizeof(float) * this->num_gpus * this->num_gpus);
                     for(int gpu = 0; gpu < num_gpus; gpu ++ ){
                         if(load[gpu] < avg){
-                            probability_matrix[gpu][gpu] = 1;
+                            probability_matrix[gpu * num_gpus + gpu] = 1;
                         }else{
                             auto excess_nodes = load[gpu] - avg;
                             auto total_moved = 0;
@@ -101,18 +109,24 @@ public:
                                 if((move_to_gpu == gpu)  || (load[move_to_gpu] >= avg)) continue;
                                 auto space = avg - load[move_to_gpu];
                                 auto moved = min(space, excess_nodes);
-                                probability_matrix[gpu][move_to_gpu] = moved/load[gpu];
+                                probability_matrix[gpu * num_gpus  + move_to_gpu] = moved/load[gpu];
                                 excess_nodes -= moved;
                                 total_moved += moved;
                                 load[move_to_gpu] += moved;
                             }
-                            probability_matrix[gpu][gpu] = (load[gpu] - total_moved)/load[gpu];
+                            probability_matrix[gpu * num_gpus + gpu] = (load[gpu] - total_moved)/load[gpu];
                             // load[gpu] -= total_moved
                             // Not required as we dont want to move anything to these partitions.
 
                         }
                         
                     }
+                    cudaMemcpy(probability_matrix_d, probability_matrix, sizeof(float) * MAX_DEVICES * MAX_DEVICES, cudaMemcpyHostToDevice);
+                    rebalance_partitions<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(sample_in.size()),BLOCK_SIZE>>>\
+                            (sample_workload_map.ptr(), sample_in.size(), \
+                                sample_workload_map.ptr(), probability_matrix_d, \
+                                 random_states, num_random_states,  num_gpus);
+                                 
              }
 
     };

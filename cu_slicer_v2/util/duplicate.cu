@@ -13,7 +13,7 @@ using namespace cuslicer;
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
 void set_nodes_not_present(NDTYPE * nodes, size_t nodes_size,
-        int * mask, size_t mask_size, NDTYPE *_tv){
+        NDTYPE * mask, size_t mask_size, NDTYPE *_tv){
     int tileId = blockIdx.x;
     int last_tile = ((nodes_size - 1) / TILE_SIZE + 1);
     while(tileId < last_tile){
@@ -42,7 +42,7 @@ void set_nodes_not_present(NDTYPE * nodes, size_t nodes_size,
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
 void get_unique_nodes(NDTYPE*nodes, size_t nodes_size,
-      int *mask, size_t mask_size,
+      NDTYPE *mask, size_t mask_size,
         NDTYPE*_tv, NDTYPE*_tv1, size_t tv1_size){
           int tileId = blockIdx.x;
           int last_tile = ((nodes_size - 1) / TILE_SIZE + 1);
@@ -71,7 +71,7 @@ void get_unique_nodes(NDTYPE*nodes, size_t nodes_size,
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void update_mask_with_unique(int *mask, NDTYPE mask_size,
+void update_mask_with_unique(NDTYPE *mask, size_t mask_size,
       int current_unique_nodes, NDTYPE* _tv1, size_t sz){
     int tileId = blockIdx.x;
     int last_tile = ((sz - 1) / TILE_SIZE + 1);
@@ -94,7 +94,7 @@ void update_mask_with_unique(int *mask, NDTYPE mask_size,
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void clear_mask(int * mask, NDTYPE mask_size,\
+void clear_mask(NDTYPE * mask, size_t mask_size,\
       NDTYPE*used_nodes, size_t used_nodes_size){
   int tileId = blockIdx.x;
   int last_tile = ((used_nodes_size - 1) / TILE_SIZE + 1);
