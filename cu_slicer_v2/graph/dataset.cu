@@ -62,10 +62,7 @@ void Dataset::read_node_data(){
     	file2.read((char *)_partition_map,this->num_nodes *  sizeof(PARTITIONIDX));
     }
     std::vector<PARTITIONIDX> _t_partition_map(_partition_map, _partition_map + this->num_nodes);
-    for(int i : _t_partition_map){
-      std::cout << i <<"check\n";
-      assert(i < n_gpu);
-    }
+   
     partition_map_d = (* new device_vector<PARTITIONIDX>(_t_partition_map));
     // gpuErrchk(cudaMalloc((void**)&this->partition_map, (this->num_nodes *  sizeof(int))));
     // gpuErrchk(cudaMemcpy(this->partition_map, _partition_map, (this->num_nodes *  sizeof(int)) , cudaMemcpyHostToDevice));

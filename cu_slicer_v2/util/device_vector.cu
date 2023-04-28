@@ -85,7 +85,7 @@ template<typename DATATYPE>
    std::cout << current_size <<":";
    for(int i = 0; i < current_size; i ++){
      std::cout << host[i] << " ";
-     if((i + 1) % 10 == 0) std::cout <<"\n";
+     if((i + 1) % 8 == 0) std::cout <<"\n";
    }
    std::cout << "\n";
 

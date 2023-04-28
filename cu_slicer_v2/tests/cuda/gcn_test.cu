@@ -31,7 +31,7 @@ void aggregate_gcn(std::vector<long> layer_out_nds, \
 	       std::cout << "Found self node which is never the case\n";
         self = in[indices[j]];
       }else{
-        // std::cout << "(" << indices[j] <<":"<< in[indices[j]]<<")";
+        std::cout << "(" << indices[j] <<":"<< in[indices[j]]<<")";
 	      nbs += in[indices[j]];
       }
     }
@@ -60,7 +60,9 @@ std::vector<int> naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
           s.block[i+1]->offsets.to_std_vector(), s.block[i+1]->indices.to_std_vector(), \
           s.block[i+1]->in_degree.to_std_vector(), in_f, out_f);
 	   in_f.swap(out_f);
-   }
+
+   std::cout <<"##\n"; 
+   } 
    int sd = 0;
    for(int nd: in_f){
 	   sd += ((nd) );
@@ -86,7 +88,7 @@ void aggregate(std::vector<int> &out, std::vector<int> &in,
           if(in[indices[off]] < 0){
             std::cout <<"Incorrect read "<<  indices[off] << " " << in[indices[off]] <<"\n";
           }
-          // std::cout << "(" << in[indices[off]]<<":"<<indices[off]<<")";
+          std::cout << "(" << in[indices[off]]<<":"<<indices[off]<<")";
           assert(in[indices[off]] >= 0);
       }
 
@@ -131,6 +133,8 @@ void pull_own_node(BiPartite *bp,
   std::vector<long> cache_miss_to[8];
   for(int i=0;i<num_gpus; i++ ){
      in[i].clear();
+     s.cache_hit_to[i].debug("DEBUG cache hit to");
+     s.cache_hit_from[i].debug("DEBUG cache hit from");
      int cache_hit = s.cache_hit_to[i].size();
      int cache_miss = s.cache_miss_to[i].size();
      in[i].resize(cache_hit + cache_miss);
@@ -193,6 +197,8 @@ void pull_own_node(BiPartite *bp,
         }
         aggregate(out[j], in[j], bp->indptr_L.to_std_vector(), bp->indices_L.to_std_vector());
         aggregate(remote_out[j], in[j], bp->indptr_R.to_std_vector(), bp->indices_R.to_std_vector());
+        std::cout << "aggregate " << j <<"\n";
+        bp->indices_L.debug("Indices ");
     }
     // PUSH
     for(int from = 0; from < num_gpus; from ++) {

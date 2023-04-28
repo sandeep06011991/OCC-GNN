@@ -82,7 +82,7 @@ int main(){
          ns->dev_curand_states);
       PartitionedSample ps2(num_layers, num_gpus);
        sc2->slice_sample((*s1), ps2);
-    // ps2.debug();
+    ps2.debug();
     // ps1.push_consistency();
     test_sample_partition_consistency((*s1),ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
   gpuErrchk(cudaDeviceSynchronize());
