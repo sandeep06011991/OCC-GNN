@@ -191,10 +191,10 @@ void ArrayMap::assert_no_duplicates(device_vector<NDTYPE> &nodes){
   #ifdef DEBUG
       // check no duplicates;
       transform<NDTYPE>::unique(nodes, _tv);
-      // if(_tv.size()!= nodes.size()){
-      //   _tv.debug("Unique");
-      //   nodes.debug("Not Unique");
-      // }
+      if(_tv.size()!= nodes.size()){
+        _tv.debug("Unique");
+        nodes.debug("Not Unique");
+      }
       assert(_tv.size()  == nodes.size());
   #endif
 }
@@ -231,7 +231,9 @@ void ArrayMap::clear(){
 
 
 void ArrayMap::replace(device_vector<NDTYPE> &nodes){
-  if(nodes.size() == 0)return;
+  
+  if(nodes.size() == 0){std::cout << "0 replace" <<"\n"; return;}
+  nodes.debug("Replacing");
   update_nodes<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(nodes.size()), BLOCK_SIZE>>>\
       (mask, mask_size, (nodes.ptr()), nodes.size());
 

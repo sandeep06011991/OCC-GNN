@@ -3,12 +3,13 @@
 #include "../../graph/sample.h"
 #include "../../graph/sliced_sample.h"
 #include "../../util/device_vector.h"
+#include "../../util/types.h"
 
 using namespace cuslicer;
 
 void test_sample_partition_consistency(Sample &s,
     PartitionedSample &p,
-   std::vector<int> storage_map[8], int gpu_capacity[8], int num_nodes, int num_gpus);
+   std::vector<NDTYPE> storage_map[8], int gpu_capacity[8], int num_nodes, int num_gpus);
 
 void aggregate(device_vector<int> &out, device_vector<int> &in,
         device_vector<long> &indptr, device_vector<long> &indices);

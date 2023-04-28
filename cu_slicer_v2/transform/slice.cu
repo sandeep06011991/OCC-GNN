@@ -16,7 +16,7 @@ void calculate_cache_hit_mask(NDTYPE * in_nodes, NDTYPE * storage_map, size_t si
   int start = threadIdx.x + (tileId * TILE_SIZE);
   int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), size);
   while(start < end){
-        int tid = start;
+        int tid = start; 
 
    	long nd = in_nodes[tid];
   if(storage_map[nd] == -1){
@@ -78,9 +78,12 @@ void Slice::reorder(PartitionedLayer &l){\
 
     for(int pull_from = 0;pull_from < this->num_gpus; pull_from++){
       dr->clear();
+
+      l.bipartite[pull_from]->in_nodes_local.debug("order");
       dr->order(l.bipartite[pull_from]->in_nodes_local);
       for(int pull_to = 0; pull_to < this->num_gpus; pull_to ++ ){
         if(pull_from == pull_to)continue;
+        l.bipartite[pull_from]->pull_to_ids[pull_to].debug("pull to replace");
         dr->replace(l.bipartite[pull_from]->pull_to_ids[pull_to]);
     //     int start = l.bipartite[pull_to]->pull_from_offsets[pull_from];
     //     int end = l.bipartite[pull_to]->pull_from_offsets[pull_from + 1];
@@ -92,6 +95,7 @@ void Slice::reorder(PartitionedLayer &l){\
     //     dr->replace(f);
       }
     }
+    std::cout << "finished replacement\n";
     // nvtxRangePop();
   }
 
@@ -143,8 +147,9 @@ void Slice::reorder(PartitionedLayer &l){\
     cuslicer::index_in<NDTYPE, PARTITIONIDX>(nodes, this->workload_map, this->sample_workload_map);
     // this->workload_map
     std::cout << "Load balancer not stitched in\n";
-
-    this->loadbalancer->balance(this->workload_map, nodes, this->sample_workload_map);
+    nodes.debug("In nodes");
+    this->sample_workload_map.debug("sample workload map");
+    // this->loadbalancer->balance(this->workload_map, nodes, this->sample_workload_map);
 
     // Get partitioned layers.
     for(int i= 1; i< s.num_layers + 1;i++){

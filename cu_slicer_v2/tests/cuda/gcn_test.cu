@@ -105,6 +105,9 @@ void shuffle(std::vector<long> from_ids,  std::vector<int> &to,
 
 void pull_own_node(BiPartite *bp,
       std::vector<int> &out, std::vector<int> &in){
+        if(bp->self_ids_offset != bp->out_degree_local.size()){
+          std::cout << "Check se" << bp->self_ids_offset << " " << bp->out_degree_local.size() <<"\n";
+        }
   assert(bp->self_ids_offset == bp->out_degree_local.size());
   for(int i=0; i < bp->self_ids_offset; i++){
     if (i == 41){
@@ -117,7 +120,7 @@ void pull_own_node(BiPartite *bp,
 
 // Partitioned flow must have same output.
   std::vector<std::tuple<int, int>>  sample_flow_up_ps(PartitionedSample &s,
-    std::vector<int> storage_map[8], int num_gpus){
+    std::vector<NDTYPE> storage_map[8], int num_gpus){
   // refresh storage map with local_ids.
   std::vector<int> in[8];
   std::vector<int> out[8];
@@ -149,6 +152,7 @@ void pull_own_node(BiPartite *bp,
     // PULL
     for(int j=0;j < num_gpus;j ++){
       BiPartite *bp = layer.bipartite[j];
+      std:cout << "error" << in[j].size() << " " << bp->in_nodes_local.size() <<" " << bp->num_in_nodes_pulled <<"\n";
       assert(in[j].size() == bp->in_nodes_local.size());
       int new_size = bp->num_in_nodes_local + bp->num_in_nodes_pulled;
 
@@ -236,7 +240,7 @@ void pull_own_node(BiPartite *bp,
 }
 
 void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
-  std::vector<int> local_storage[8], int gpu_capacity[8],
+  std::vector<NDTYPE> local_storage[8], int gpu_capacity[8],
     int num_nodes, int num_gpus){
     auto correct = naive_flow_up_sample_gcn(s, num_nodes);
     // std::cout << "Correct answer is " << correct << "\n";

@@ -89,12 +89,14 @@ public:
             device_vector<NDTYPE> &sample_in, 
                 device_vector<PARTITIONIDX> &sample_workload_map){
 
-                    
                     std::vector<NDTYPE> load; 
                     NDTYPE avg = 0;
+                    workload_map.debug("workload map");
                     for(int gpu = 0;gpu < this->num_gpus; gpu ++){
                         auto v =  count_if(workload_map,  this->temp, gpu);
                         avg += v;
+                        std::cout << "gpu" << gpu << ":" << v <<"\n";
+                        load.push_back(v);
                     }
                     avg = avg/load.size();
                     memset(probability_matrix, 0, sizeof(float) * this->num_gpus * this->num_gpus);
@@ -127,6 +129,7 @@ public:
                                 sample_workload_map.ptr(), probability_matrix_d, \
                                  random_states, num_random_states,  num_gpus);
                                  
+                    std::cout << "Rebalancing done\n";
              }
 
     };

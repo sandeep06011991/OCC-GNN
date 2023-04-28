@@ -24,12 +24,14 @@ void partition_edges_pull(PARTITIONIDX * partition_map, \
             // Last layer use storage map
     int tileId = blockIdx.x;
     int last_tile = ((out_nodes_size - 1) / TILE_SIZE + 1);
+
     while(tileId < last_tile){
         int start = threadIdx.x + (tileId * TILE_SIZE);
         int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE),\
             out_nodes_size);
         while(start < end){
             int tid = start;
+            printf("Rnning %d", tid);
             auto nd1 = out_nodes[tid];
             auto nbs = indptr[tid+1] - indptr[tid];
             #ifdef DEBUG
@@ -38,6 +40,7 @@ void partition_edges_pull(PARTITIONIDX * partition_map, \
             // Sample tid 
             auto p_nd1 = workload_map[tid];
             auto offset_edge_start = indptr[tid];
+            printf("out node set  %ld \n", out_nodes_size * p_nd1 + tid);
             index_out_nodes[out_nodes_size * p_nd1 + tid] = 1;
             index_indptr_local[out_nodes_size * p_nd1 + tid] = nbs;
 
@@ -66,7 +69,7 @@ void partition_edges_pull(PARTITIONIDX * partition_map, \
             if(!(nd2_idx < out_nodes_size)){
               // If nd2 idx is less than num out, partition 2 out nodes will
               // mark it anyways
-                index_in_nodes_local[p_nd2 * in_nodes_size + nd2_idx] = 1;
+                index_in_nodes_local[p_nd2 * (in_nodes_size * NUM_GPUS) + nd2_idx] = 1;
             }
           }else{
             if(!(nd2_idx < out_nodes_size)){
@@ -93,6 +96,7 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
       LocalGraphInfo &info = this->host_graph_info[i];
 
       // Out Nodes Local
+      std::cout << "out nodes \n";
       size = ps.index_out_nodes_local[num_out_nodes * (i + 1) - 1];
       offset = 0;
       auto offset_indptr  = 0;
@@ -103,6 +107,7 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
       size = size - offset;
       bp.out_nodes_local.resize(size);
       bp.num_out_local = size;
+      bp.self_ids_offset = size;
       bp.indptr_L.resize(0);
       if(size != 0)bp.indptr_L.resize(size + 1);
       bp.out_degree_local.resize(size);
@@ -112,8 +117,12 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
       info.out_nodes_local.offset = offset;
       info.out_degree_local.data = bp.out_degree_local.ptr();
       info.out_degree_local.offset = offset;
-      
+      info.num_out_local= size;
+
       // Local in nodes
+
+      std::cout << "local in nodes \n";
+      ps.index_in_nodes.debug("In nodes local");
       size = ps.index_in_nodes[num_in_nodes * this->num_gpus *  (i + 1) - 1];
       offset = 0;
       if(i != 0){
@@ -128,6 +137,7 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
       // Local pull nodes
       // Add pull offsets. 
       //  Review not clean 
+      std::cout << "pull nodes local\n";
        bp.pull_from_offsets[0] = 0;
        auto in_not_pulled = ps.index_in_nodes[(num_in_nodes * this->num_gpus * i) + num_in_nodes - 1];
        for(int from = 0; from < this->num_gpus; from ++){
@@ -136,14 +146,21 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
         if (from > i) l_from = from - 1;
         bp.pull_from_offsets[from + 1 ] \
         = ps.index_in_nodes[(num_in_nodes  * this-> num_gpus ) * i + num_in_nodes + num_in_nodes * (l_from + 1) - 1]\
-                - in_not_pulled;
+                - in_not_pulled + bp.pull_from_offsets[i];
+        std::cout << "pulling " << bp.pull_from_offsets[from + 1 ] <<"\n";
         this->host_graph_info[from].pull_to_ids[i].data = ps.bipartite[from]->pull_to_ids[i].ptr();
         this->host_graph_info[from].pull_to_ids[i].offset = \
-                ps.index_in_nodes[(num_in_nodes  * this-> num_gpus * i ) + num_in_nodes +  num_in_nodes * l_from - 1];
+                ps.index_in_nodes[(num_in_nodes  * this-> num_gpus * i ) + num_in_nodes +  (num_in_nodes * l_from) - 1];
+                std::cout << "resize offset " << this->host_graph_info[from].pull_to_ids[i].offset <<"\n";  
        }  
        bp.num_in_nodes_pulled  = bp.pull_from_offsets[this-> num_gpus] ;
-
+       std::cout << "PUlled node !!!!!!" ;
+       for(int ii = 0; ii < this->num_gpus + 1; ii++){
+          std::cout << bp.pull_from_offsets[ii] << " ";
+       }
+       std::cout <<"\n";
       // Edges Local 
+      std::cout << "edges local\n";
       offset = 0;
       if(i !=0 ){
         offset = ps.index_edge_local[num_edges * i - 1];
@@ -197,44 +214,49 @@ void fill_out_nodes(long * index_out_nodes_local,\
 }
 
 template<int BLOCKSIZE, int TILESIZE>
-__global__ void fill_in_nodes(long * index_in_nodes, \
+__global__ void fill_in_nodes_pull(long * index_in_nodes, \
     long * index_out_nodes_local, \
     LocalGraphInfo *info, int num_gpus,\
       long * in_nodes, size_t num_in_nodes,
       size_t num_out_nodes){
         int tileId = blockIdx.x;
-        int lastTile = ( num_in_nodes * num_in_nodes * num_gpus- 1)/TILE_SIZE + 1;
+        int lastTile = ( num_in_nodes * num_gpus * num_gpus- 1)/TILE_SIZE + 1;
         while(tileId < lastTile){
+        
         int start = threadIdx.x + (tileId * TILE_SIZE);
         int end = min(static_cast<int64_t>(threadIdx.x +\
-         (tileId + 1) * TILE_SIZE), num_in_nodes * num_gpus * num_in_nodes);
+         (tileId + 1) * TILE_SIZE), num_in_nodes * num_gpus * num_gpus);
         while(start < end){
           int tid = start;
           int gpu_id = tid / (num_in_nodes * num_gpus);
-          int pull_from_gpu = (tid % (num_in_nodes * num_gpus))% num_gpus;
+          int pull_from_gpu = (tid / num_in_nodes ) % num_gpus;
           auto in_node_idx = tid % num_in_nodes;
               // is a self node
             if(in_node_idx < num_out_nodes){
               if(is_selected(index_out_nodes_local,\
                (num_out_nodes * gpu_id + in_node_idx))){
-                  long in_node = in_nodes[in_node_idx];
-                  info[gpu_id].in_nodes_local.add_position_offset\
-                    (tid, in_node);
+                  long in_node = in_nodes[tid % num_in_nodes];
+                  auto d = info[gpu_id].out_nodes_local;
+                  auto write_index = index_out_nodes_local[num_out_nodes * gpu_id + in_node_idx] - d.offset - 1;
+                  info[gpu_id].in_nodes_local.data[write_index] = in_node;
                   start += BLOCK_SIZE;
                   continue;
               }
             }
-            if(is_selected(index_in_nodes, tid)){
+            if(is_selected(index_in_nodes, tid)  && (pull_from_gpu == 0)){
               long in_node = in_nodes[tid % num_in_nodes];
               // num out local nodes are not marked in in nodes
               auto write_index = index_in_nodes[tid] \
               + info[gpu_id].num_out_local;
               info[gpu_id].in_nodes_local.\
               add_position_offset(in_node, write_index);
+              printf("Adding Node to %d %ld %d\n", gpu_id, in_node, write_index);
             }
-            if(pull_from_gpu != 0){
+            if(is_selected(index_in_nodes, tid) && (pull_from_gpu != 0)){
               long in_node = in_nodes[tid % num_in_nodes];
               auto write_index = index_in_nodes[tid] ;
+              pull_from_gpu --;
+              // because pull from gpu is always > 1 
               if(pull_from_gpu >= gpu_id)pull_from_gpu ++;
               info[pull_from_gpu].pull_to_ids[gpu_id]\
                 .add_position_offset(in_node,write_index);
@@ -294,7 +316,8 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     auto num_out_nodes = layer_nds.size();
     auto num_edges = bs.indices.size();
     auto num_in_nodes = bs.layer_nds.size();
-    std::cout << "Note workload map is repeated twice \n";
+    std::cout << "Note workload map is repeated twice \n" << layer_nds.size() << "\n";
+    std::cout << "Launch configuration " << GRID_SIZE(layer_nds.size()) << " " << TILE_SIZE <<"\n";
     partition_edges_pull<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()), TILE_SIZE>>>\
         (this->workload_map.ptr(), this->workload_map.ptr(),\
           layer_nds.ptr(), layer_nds.size(),\
@@ -305,10 +328,12 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
           ps.index_out_nodes_local.ptr(), ps.index_indptr_local.ptr(),
           ps.index_edge_local.ptr(),\
           last_layer, this->storage_map_flattened,this->num_gpus);
-
+    gpuErrchk(cudaDeviceSynchronize());
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());
     #endif
+    ps.index_in_nodes.debug("Index in nodes local !!!!!!!!");
+    ps.index_out_nodes_local.debug("Out nodes local check");
     // Stage 2 get sizes of Offsets for all graphs
     // Inclusive Scan
     this->resize_bipartite_graphs(ps,\
@@ -316,13 +341,15 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     
     // Stage 3 Populate local and remote edges.
     // Populate graph local in nodes
-     fill_in_nodes<BLOCK_SIZE, TILE_SIZE>\
+     fill_in_nodes_pull<BLOCK_SIZE, TILE_SIZE>\
         <<<GRID_SIZE( ps.index_in_nodes.size()),BLOCK_SIZE>>>(ps.index_in_nodes.ptr(), \
         ps.index_out_nodes_local.ptr(), \
        this->device_graph_info, num_gpus, bs.layer_nds.ptr(), num_in_nodes, num_out_nodes);
 
     // Populate pulled in nodes 
-
+    std::cout << "num edges" << num_edges <<":"<< ps.index_edge_local.size() << "\n";
+    ps.index_edge_local.debug("edge local check ");
+    
     // populate edges
     fill_indices_local<BLOCK_SIZE, TILE_SIZE>\
     <<<GRID_SIZE( ps.index_edge_local.size()),BLOCK_SIZE>>>(bs.indices.ptr(),
@@ -336,6 +363,9 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     // Replace pull indices correctly
     // 3 functions do everything.   
     // Out Nodes
+    std::cout << "Check till here\n";
+    ps.index_out_nodes_local.debug("out nodes local");
+
     fill_out_nodes<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(num_out_nodes), TILE_SIZE>>>(\
         ps.index_out_nodes_local.ptr(),\
         ps.index_out_nodes_local.size(),\
@@ -347,4 +377,6 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());
     #endif    
+
+    std::cout << "slice successful !!\n";
 }

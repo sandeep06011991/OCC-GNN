@@ -76,13 +76,13 @@ template<typename DATATYPE>
  void device_vector<DATATYPE>::debug(std::string str){
   std::cout << str <<":" ;
    if(d == nullptr){
-     std::cout <<"\n";
+     std::cout <<"Found null pointer \n";
      return;
    }
-   cudaSetDevice(0);
    DATATYPE * host = (DATATYPE *)malloc(sizeof(DATATYPE) * current_size);
    gpuErrchk(cudaDeviceSynchronize());
    gpuErrchk(cudaMemcpy(host, d->ptr(), sizeof(DATATYPE) * current_size, cudaMemcpyDeviceToHost));
+   std::cout << current_size <<":";
    for(int i = 0; i < current_size; i ++){
      std::cout << host[i] << " ";
      if((i + 1) % 10 == 0) std::cout <<"\n";

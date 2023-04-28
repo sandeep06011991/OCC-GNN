@@ -32,6 +32,9 @@ bool is_selected(long *id, size_t sz){
 
       __device__
       inline void  add_position_offset(long val, long pos){
+          if((pos - 1 -offset < 0)){
+            printf("assert fail pos offset %ld %ld %ld\n", pos, offset,val);
+          }
           assert(pos - 1 -offset >= 0);
           // -1 because positions are caclulated from inclusie sum
           data[pos - 1 - offset ] = val;

@@ -5,9 +5,10 @@
 GTEST_INCLUDE=-I/home/spolisetty_umass_edu/googletest/googletest/include
 LGTEST=/home/spolisetty_umass_edu/googletest/build/lib/libgtest.a
 
-INCLUDE= -I/home/spolisetty/3rdparty/thrust/dependencies/cub $(GTEST_INCLUDE)
+INCLUDE= -I/home/ubuntu/3rdparty/thrust/dependencies/cub $(GTEST_INCLUDE)
 DEBUG=-DDEBUG  --extended-lambda
-FLAGS=-lstdc++
+FLAGS=-lstdc++  -G  -g  --maxrregcount=64 --compiler-options -Wall 
+#-Xcompiler=-fno-gnu-unique -code=sm_52 -arch=compute_35
 # -g -G
 # EXTRAFLAGS = -01
 # everything:
@@ -35,10 +36,10 @@ all: build/main.o build/util/cub.o build/util/duplicate.o build/util/device_vect
 			build/graph/dataset.o build/samplers/ns.o build/transform/push_slice.o build/transform/slice.o \
 				build/tests/gcn_test.o build/graph/bipartite.o build/transform/pull_slice.o\
 			build/util/array_utils.o 
-	nvcc -G $(FLAGS) build/main.o build/util/cub.o build/util/device_vector.o   build/samplers/ns.o \
+	nvcc -G $(FLAGS) $(DEBUG) build/main.o build/util/cub.o build/util/device_vector.o   build/samplers/ns.o \
 			build/graph/dataset.o  build/transform/slice.o build/transform/pull_slice.o   build/tests/gcn_test.o \
 	build/transform/push_slice.o  build/util/array_utils.o build/util/duplicate.o build/graph/bipartite.o -o build/cuslicer
-
+	./build/cuslicer
 traverse: build/traverse_main.o build/util/cub.o build/util/duplicate.o build/util/device_vector.o \
 				build/graph/dataset.o build/samplers/ns.o
 	nvcc -G build/traverse_main.o build/util/cub.o build/util/device_vector.o   build/samplers/ns.o \
