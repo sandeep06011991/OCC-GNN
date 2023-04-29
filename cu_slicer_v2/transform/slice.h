@@ -35,7 +35,12 @@ bool is_selected(long *id, size_t sz){
           if((pos - 1 -offset < 0)){
             printf("assert fail pos offset %ld %ld %ld\n", pos, offset,val);
           }
+          if (val < 0){
+            printf("adding 0 at position  %ld offset %ld val %ld\n", pos, offset, val);
+          }
           assert(pos - 1 -offset >= 0);
+          assert(val != -1);
+          
           // -1 because positions are caclulated from inclusie sum
           data[pos - 1 - offset ] = val;
       }

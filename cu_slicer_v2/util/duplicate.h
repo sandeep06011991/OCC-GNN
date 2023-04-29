@@ -31,6 +31,8 @@ namespace cuslicer{
 
     virtual void clear() = 0;
 
+    virtual void debug() = 0;
+
     virtual void replace(device_vector<NDTYPE>& v) = 0;
 
     virtual void remove_nodes_seen(device_vector<NDTYPE> &nodes) = 0;
@@ -51,6 +53,15 @@ namespace cuslicer{
 
   public:
 
+    void debug(){
+      NDTYPE *d = (NDTYPE *)malloc(sizeof(NDTYPE) * mask_size);
+      cudaMemcpy(d, mask, sizeof(NDTYPE) * mask_size, cudaMemcpyDeviceToHost);
+      for(int i = 0; i < mask_size; i++){
+        std::cout <<"(" << i <<":"<<d[i] <<")";
+      }
+      std::cout <<"\n";
+      free(d);
+    }
 
     ArrayMap(NDTYPE num_nodes);
 

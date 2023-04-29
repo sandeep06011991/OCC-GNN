@@ -31,12 +31,12 @@ void aggregate_gcn(std::vector<long> layer_out_nds, \
 	       std::cout << "Found self node which is never the case\n";
         self = in[indices[j]];
       }else{
-        std::cout << "(" << indices[j] <<":"<< in[indices[j]]<<")";
+        // std::cout << "(" << indices[j] <<":"<< in[indices[j]]<<")";
 	      nbs += in[indices[j]];
       }
     }
     out.push_back((nbs/degree[i]) + in[i]);
-    // std::cout << "(" << i <<":" <<out[i] <<")";
+    std::cout << "(" << i << ":" <<((nbs/degree[i]) + in[i]) <<")";
     //out.push_back((nbs/degree[i]) + self);
 
   }
@@ -86,13 +86,12 @@ void aggregate(std::vector<int> &out, std::vector<int> &in,
           t += in[indices[off]];
 
           if(in[indices[off]] < 0){
-            std::cout <<"Incorrect read "<<  indices[off] << " " << in[indices[off]] <<"\n";
+            // std::cout <<"Incorrect read "<<  indices[off] << " " << in[indices[off]] <<"\n";
           }
-          std::cout << "(" << in[indices[off]]<<":"<<indices[off]<<")";
+          // std::cout << "(" << in[indices[off]]<<":"<<indices[off]<<")";
           assert(in[indices[off]] >= 0);
       }
-
-      out[i] = t;
+     out[i] = t;
     }
 }
 // A Bit Confusing here.
@@ -112,9 +111,10 @@ void pull_own_node(BiPartite *bp,
         }
   assert(bp->self_ids_offset == bp->out_degree_local.size());
   for(int i=0; i < bp->self_ids_offset; i++){
-    if (i == 41){
-      std::cout <<"local compute" << out[i] << ":" << bp->out_degree_local[i] <<":" << in[i] <<"\n";
-    }
+    // if (i == 41){
+      // std::cout <<"(" << out[i] << ":" << in[i] <<")";
+      std::cout <<"(" << i  << ":" << (out[i] /bp->out_degree_local[i]) + in[i]  <<")";
+    // }
       out[i] = (out[i] /bp->out_degree_local[i]) + in[i];
     }
 }
@@ -167,15 +167,23 @@ void pull_own_node(BiPartite *bp,
         int end = bp->pull_from_offsets[pull_from + 1];
         if(end - start == 0)continue;
         std::vector<long> push_to = layer.bipartite[pull_from]->pull_to_ids[j].to_std_vector();
+        std::cout <<"push to";
         for(int k=0;k<push_to.size() ; k++){
+            std::cout <<push_to[k] <<" ";
             in[j][bp->num_in_nodes_local + start + k] = in[pull_from][push_to[k]];
+            
         }
       }
+      std::cout <<"In";
+      for(auto jj : in[j]){
+        std::cout << jj <<" ";
+      }
+      std::cout <<"\n";
       // std::cout << "Input nodes" << j <<"\n";
-      // for(int i = 0;i < bp->in_nodes.size() ; i++){
-      //   std::cout << bp->in_nodes[i] << ":" << in[j][i] <<"\n";
+      // for(int i = 0;i < bp->in_nodes_local.size() ; i++){
+      //   std::cout << bp->in_nodes_local[i] << ":" << in[j][i] <<"\n";
       // }
-      //
+      
       // for(int i = 0;i < bp->num_in_nodes_pulled ; i++){
       //   std::cout << bp->pulled_in_nodes[i] << ":" << in[j][bp->num_in_nodes_local + i] <<"\n";
       // }

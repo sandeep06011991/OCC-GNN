@@ -20,27 +20,34 @@ using namespace std::chrono;
 int main(){
 
   cudaSetDevice(0);
-  std::string graph_name = "synth_8_2";
+  // std::string graph_name = "synth_8_2";
   
-  // std::string graph_name = "ogbn-arxiv";
+  std::string graph_name = "ogbn-arxiv";
 
   std::string file = get_dataset_dir() + graph_name;
   
-  int num_gpus = 2;
+  int num_gpus = 4;
   bool random = false;
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_gpus, random);
 
   // Sample datastructure.
-  int num_layers =2;
+  int num_layers =1;
   Sample *s1  = new Sample(num_layers);
-  vector<int> fanout({20, 20});
+  vector<int> fanout({1});
   
   bool self_edge = false;
   std::vector<NDTYPE> training_nodes;
   for(int i=0;i<num_gpus ;i++){
       training_nodes.push_back(i);
   }
-
+  // std::vector<long> a = {0,2,4,6};
+  // device_vector<long> a_d(a);
+  // device_vector<long> b_d(a);
+  // ArrayMap *dr =  new ArrayMap(8);
+  // dr->order(a_d);
+  // dr->replace(b_d);
+  // b_d.debug("Print");
+  // return 0;
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, self_edge);
 
   cuslicer::device_vector<NDTYPE> target(training_nodes);
@@ -54,7 +61,6 @@ int main(){
 // // Test 3b. is_present = 1;
   int gpu_capacity[num_gpus];
   workload_map = dataset->partition_map_d;
-  workload_map.debug("workload map");
   for(int i=0;i < num_gpus; i++)gpu_capacity[i] = 0;
 // // Write a better version of this.
 

@@ -162,6 +162,16 @@ public:
         std::cout <<i <<":";
         push_from_ids[i].debug("push_from");
     }
+    std::cout << "pull offsets\n";
+    for(int i=0; i <num_gpus ;i++){
+        std::cout << pull_from_offsets[i + 1] <<" : ";
+    }
+    std::cout <<"\n";
+    std::cout << "pull_ to\n";
+    for(int i=0; i <num_gpus ;i++){
+        std::cout <<i <<":";
+        pull_to_ids[i].debug("pull to");
+    }
     std::cout <<"\n";
 
 
