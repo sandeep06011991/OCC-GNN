@@ -31,13 +31,13 @@ int main(){
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_gpus, random);
 
   // Sample datastructure.
-  int num_layers =1;
+  int num_layers =2;
   Sample *s1  = new Sample(num_layers);
-  vector<int> fanout({1});
+  vector<int> fanout({10,10});
   
   bool self_edge = false;
   std::vector<NDTYPE> training_nodes;
-  for(int i=0;i<num_gpus ;i++){
+  for(int i=0;i<num_gpus * 10 ;i++){
       training_nodes.push_back(i);
   }
   // std::vector<long> a = {0,2,4,6};
@@ -57,7 +57,7 @@ int main(){
 
   cuslicer::device_vector<PARTITIONIDX> workload_map;
   std::vector<NDTYPE> storage[8];
-  int is_present = 1 ;
+  int is_present = 0 ;
 // // Test 3b. is_present = 1;
   int gpu_capacity[num_gpus];
   workload_map = dataset->partition_map_d;

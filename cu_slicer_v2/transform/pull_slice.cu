@@ -63,6 +63,7 @@ void partition_edges_pull(PARTITIONIDX * partition_map, \
             }
             auto pull_partition = p_nd2;
             if(p_nd2 > p_nd1)pull_partition = p_nd2 - 1;
+            printf("Partition pull node %ld from %d to %d\n", nd2, p_nd2, p_nd1);   
             // 1->0,2,3 = 0,1,2 pull_partition ++
             pull_partition ++;
             ((NDTYPE *)&index_in_nodes_local[(p_nd1 * (NUM_GPUS) + pull_partition) * in_nodes_size])[nd2_idx] = 1;
@@ -144,8 +145,8 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
         bp.pull_from_offsets[from + 1 ] \
         = ps.index_in_nodes[(num_in_nodes  * this-> num_gpus ) * i + num_in_nodes + num_in_nodes * (l_from + 1) - 1]\
                 - in_not_pulled ;
-        ps.bipartite[from]->pull_to_ids[i].resize(bp.pull_from_offsets[from+1]);
-        bp.pull_from_offsets[from + 1] +=bp.pull_from_offsets[from];
+        ps.bipartite[from]->pull_to_ids[i].resize(bp.pull_from_offsets[from+1] - bp.pull_from_offsets[from]);
+        // bp.pull_from_offsets[from + 1] +=bp.pull_from_offsets[from];
         this->host_graph_info[from].pull_to_ids[i].data = ps.bipartite[from]->pull_to_ids[i].ptr();
         this->host_graph_info[from].pull_to_ids[i].offset = \
                 ps.index_in_nodes[(num_in_nodes  * this-> num_gpus * i ) + num_in_nodes +  (num_in_nodes * l_from) - 1];
@@ -254,6 +255,7 @@ __global__ void fill_in_nodes_pull(long * index_in_nodes, \
               auto write_index = index_in_nodes[tid] ;
               //1,2,3 = 0,1,2 for for all gpu. 
               // because pull from gpu is always > 1 
+              printf("Pulled node %ld\n ", in_node);
               if(pull_from_gpu <= gpu_id)pull_from_gpu --;
               info[pull_from_gpu].pull_to_ids[gpu_id]\
                 .add_position_offset(in_node,write_index);
