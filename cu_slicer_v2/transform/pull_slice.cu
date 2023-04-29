@@ -332,7 +332,7 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     std::cout << "Note workload map is repeated twice \n" << layer_nds.size() << "\n";
     std::cout << "Launch configuration " << GRID_SIZE(layer_nds.size()) << " " << TILE_SIZE <<"\n";
     partition_edges_pull<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()), TILE_SIZE>>>\
-        (this->workload_map.ptr(), this->workload_map.ptr(),\
+        (this->workload_map.ptr(), this->sample_workload_map.ptr(),\
           layer_nds.ptr(), layer_nds.size(),\
           bs.layer_nds.ptr(), bs.layer_nds.size(),\
           bs.offsets.ptr(),bs.indices.ptr(), bs.indices.size(),\
@@ -354,7 +354,7 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     
     // Stage 3 Populate local and remote edges.
     // Populate graph local in nodes
-     fill_in_nodes_pull<BLOCK_SIZE, TILE_SIZE>\
+     fill_in_nodes_pull<BLOCK_SIZE, TILE_SIZE>\      
         <<<GRID_SIZE( ps.index_in_nodes.size()),BLOCK_SIZE>>>(ps.index_in_nodes.ptr(), \
         ps.index_out_nodes_local.ptr(), \
        this->device_graph_info, num_gpus, bs.layer_nds.ptr(), num_in_nodes, num_out_nodes);

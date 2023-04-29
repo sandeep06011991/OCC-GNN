@@ -150,7 +150,7 @@ void Slice::reorder(PartitionedLayer &l){\
     std::cout << "Load balancer not stitched in\n";
     nodes.debug("In nodes");
     this->sample_workload_map.debug("sample workload map");
-    // this->loadbalancer->balance(this->workload_map, nodes, this->sample_workload_map);
+    this->loadbalancer->balance(this->workload_map, nodes, this->sample_workload_map);
 
     // Get partitioned layers.
     for(int i= 1; i< s.num_layers + 1;i++){

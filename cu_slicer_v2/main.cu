@@ -37,7 +37,7 @@ int main(){
   
   bool self_edge = false;
   std::vector<NDTYPE> training_nodes;
-  for(int i=0;i<num_gpus * 10 ;i++){
+  for(int i=0;i<num_gpus * 100 ;i++){
       training_nodes.push_back(i);
   }
   // std::vector<long> a = {0,2,4,6};
@@ -57,7 +57,7 @@ int main(){
 
   cuslicer::device_vector<PARTITIONIDX> workload_map;
   std::vector<NDTYPE> storage[8];
-  int is_present = 0 ;
+  int is_present = 1 ;
 // // Test 3b. is_present = 1;
   int gpu_capacity[num_gpus];
   workload_map = dataset->partition_map_d;
