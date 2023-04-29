@@ -80,12 +80,12 @@ int main(){
   }
 
     // std::cout << "basic population done \n";
-    // PushSlicer * sc1 = new PushSlicer(workload_map, storage, pull_optim, num_gpus);
+    PushSlicer * sc2 = new PushSlicer(workload_map, storage, pull_optim, num_gpus, ns->dev_curand_states);
     // PartitionedSample ps1(num_layers, num_gpus);
     // sc1->slice_sample((*s1),ps1);
  
-    PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus,\
-         ns->dev_curand_states);
+    // PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus,\
+    //      ns->dev_curand_states);
       PartitionedSample ps2(num_layers, num_gpus);
       bool loadbalancing = true;
        sc2->slice_sample((*s1), ps2, loadbalancing);
