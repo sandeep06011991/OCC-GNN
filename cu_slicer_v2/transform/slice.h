@@ -158,7 +158,7 @@ public:
     this->pull_optimization = pull_optimization;
   }
 
-  void slice_sample(Sample &s, PartitionedSample &ps);
+  void slice_sample(Sample &s, PartitionedSample &ps, bool loadbalancing);
 
   virtual void slice_layer(device_vector<long>& in, Block &bl, \
       PartitionedLayer& l, bool last_layer) = 0;

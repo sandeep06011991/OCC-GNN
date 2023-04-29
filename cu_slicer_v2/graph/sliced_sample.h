@@ -161,6 +161,17 @@ public:
       }
     }
   }
+
+  void check_imbalance(){
+    for(int i=0; i < num_layers ; i++){
+      for (int j=0; j < num_gpus; j++){
+          auto edges = layers[i].bipartite[j]->indices_L.size() + layers[i].bipartite[j]->indices_R.size();
+          auto nodes = layers[i].bipartite[j]->num_out_local;
+           std::cout << "Layer" << i << " gpu " << j << " nodes" << nodes <<"\n"; 
+       
+      }
+    }
+  }
 };
 
 }

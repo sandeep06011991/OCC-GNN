@@ -63,7 +63,6 @@ void partition_edges_pull(PARTITIONIDX * partition_map, \
             }
             auto pull_partition = p_nd2;
             if(p_nd2 > p_nd1)pull_partition = p_nd2 - 1;
-            printf("Partition pull node %ld from %d to %d\n", nd2, p_nd2, p_nd1);   
             // 1->0,2,3 = 0,1,2 pull_partition ++
             pull_partition ++;
             ((NDTYPE *)&index_in_nodes_local[(p_nd1 * (NUM_GPUS) + pull_partition) * in_nodes_size])[nd2_idx] = 1;
@@ -255,7 +254,6 @@ __global__ void fill_in_nodes_pull(long * index_in_nodes, \
               auto write_index = index_in_nodes[tid] ;
               //1,2,3 = 0,1,2 for for all gpu. 
               // because pull from gpu is always > 1 
-              printf("Pulled node %ld\n ", in_node);
               if(pull_from_gpu <= gpu_id)pull_from_gpu --;
               info[pull_from_gpu].pull_to_ids[gpu_id]\
                 .add_position_offset(in_node,write_index);
@@ -345,8 +343,8 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());
     #endif
-    ps.index_in_nodes.debug("Index in nodes local !!!!!!!!");
-    ps.index_out_nodes_local.debug("Out nodes local check");
+    // ps.index_in_nodes.debug("Index in nodes local !!!!!!!!");
+    // ps.index_out_nodes_local.debug("Out nodes local check");
     // Stage 2 get sizes of Offsets for all graphs
     // Inclusive Scan
     this->resize_bipartite_graphs(ps,\
@@ -360,12 +358,11 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
        this->device_graph_info, num_gpus, bs.layer_nds.ptr(), num_in_nodes, num_out_nodes);
 
     // Populate pulled in nodes 
-    std::cout << "num edges" << num_edges <<":"<< ps.index_edge_local.size() << "\n";
-    ps.index_edge_local.debug("edge local check ");
-    
-    ps.index_edge_local.debug("Edge local");
-    ps.index_in_nodes.debug("In node local");
-    ps.index_out_nodes_local.debug("Out node local");
+    // std::cout << "num edges" << num_edges <<":"<< ps.index_edge_local.size() << "\n";
+    // ps.index_edge_local.debug("edge local check ");
+    // ps.index_edge_local.debug("Edge local");
+    // ps.index_in_nodes.debug("In node local");
+    // ps.index_out_nodes_local.debug("Out node local");
     
     // populate edges
     gpuErrchk(cudaDeviceSynchronize());
@@ -382,9 +379,9 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     // Replace pull indices correctly
     // 3 functions do everything.   
     // Out Nodes
-    std::cout << "Check till here\n";
-    ps.index_out_nodes_local.debug("out nodes local");
-    ps.index_indptr_local.debug("indptr loca");
+    // std::cout << "Check till here\n";
+    // ps.index_out_nodes_local.debug("out nodes local");
+    // ps.index_indptr_local.debug("indptr loca");
     fill_out_nodes_pull<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(num_out_nodes), TILE_SIZE>>>(\
         ps.index_out_nodes_local.ptr(),\
         ps.index_out_nodes_local.size(),\

@@ -22,7 +22,7 @@ int main(){
   cudaSetDevice(0);
   // std::string graph_name = "synth_8_2";
   
-  std::string graph_name = "ogbn-arxiv";
+  std::string graph_name = "ogbn-products";
 
   std::string file = get_dataset_dir() + graph_name;
   
@@ -31,13 +31,13 @@ int main(){
   std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_gpus, random);
 
   // Sample datastructure.
-  int num_layers =2;
+  int num_layers =3;
   Sample *s1  = new Sample(num_layers);
-  vector<int> fanout({10,10});
+  vector<int> fanout({20,20,20});
   
   bool self_edge = false;
   std::vector<NDTYPE> training_nodes;
-  for(int i=0;i<num_gpus * 100 ;i++){
+  for(int i=0;i<num_gpus * 1000 ;i++){
       training_nodes.push_back(i);
   }
   // std::vector<long> a = {0,2,4,6};
@@ -52,7 +52,7 @@ int main(){
 
   cuslicer::device_vector<NDTYPE> target(training_nodes);
   ns->sample(target,(*s1));
-  s1->debug();
+  // s1->debug();
   bool pull_optim = false;
 
   cuslicer::device_vector<PARTITIONIDX> workload_map;
@@ -87,10 +87,15 @@ int main(){
     PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus,\
          ns->dev_curand_states);
       PartitionedSample ps2(num_layers, num_gpus);
-       sc2->slice_sample((*s1), ps2);
-    ps2.debug();
+      bool loadbalancing = true;
+       sc2->slice_sample((*s1), ps2, loadbalancing);
+    // ps2.debug();
     // ps1.push_consistency();
-    test_sample_partition_consistency((*s1),ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+    // test_sample_partition_consistency((*s1),ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+    ps2.check_imbalance();
+        loadbalancing = false;
+        sc2->slice_sample((*s1), ps2, loadbalancing);
+        ps2.check_imbalance();
   gpuErrchk(cudaDeviceSynchronize());
   cuslicer::transform<NDTYPE>::cleanup();
   cuslicer::transform<PARTITIONIDX>::cleanup();

@@ -236,7 +236,7 @@ void ArrayMap::clear(){
 
 void ArrayMap::replace(device_vector<NDTYPE> &nodes){
   
-  if(nodes.size() == 0){std::cout << "0 replace" <<"\n"; return;}
+  if(nodes.size() == 0){ return;}
   update_nodes<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(nodes.size()), BLOCK_SIZE>>>\
       (mask, mask_size, (nodes.ptr()), nodes.size());
 
