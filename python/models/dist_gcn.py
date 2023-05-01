@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from layers.dist_sageconv import DistSageConv
 # from layers.dist_gatconv import DistGATConv
+from layers.pull import *
 # Move this function to seperate file after first forward and back pass
 class DistSAGEModel(torch.nn.Module):
 
@@ -38,6 +39,7 @@ class DistSAGEModel(torch.nn.Module):
         self.activation = activation
         self.deterministic = deterministic
         self.num_gpus = num_gpus
+        self.gpu_id = gpu_id
         self.fp_end = torch.cuda.Event(enable_timing=True)
         self.bp_end = torch.cuda.Event(enable_timing=True)
 
@@ -56,6 +58,7 @@ class DistSAGEModel(torch.nn.Module):
             # assert(not torch.any(torch.sum(x,1)==0))
             #self.fp_end.record()
             # print("in layer ", l)
+            x = pull(bipartite_graph, x, self.gpu_id, self.num_gpus,  l)
             y = layer(bipartite_graph, x, l)
             # print("layer done", l)
             #self.bp_end.record()

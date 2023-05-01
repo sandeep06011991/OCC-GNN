@@ -13,7 +13,6 @@ namespace cuslicer{
 template<typename T>
 T transform<T>::reduce(cuslicer::device_vector<T> & data_d){
     assert(data_d.size() != 0);
-    cudaSetDevice(0);
     transform::d_temp_out.resize(1);
 
     int num_elements = data_d.size();

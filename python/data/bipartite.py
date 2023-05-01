@@ -164,6 +164,7 @@ class Bipartite:
         with self.graph_local.local_scope():
             # FixME Todo: Fix this inconsistency in number of nodes
             # print(f_in.shape[0], self.graph_local.number_of_nodes('_U'))
+            print("Local failure" , f_in.shape[0], self.graph_local.number_of_nodes('_U'))
             assert(f_in.shape[0] == self.graph_local.number_of_nodes('_U'))
             self.graph_local.nodes['_U'].data['in'] = f_in
             f = self.graph_local.formats()

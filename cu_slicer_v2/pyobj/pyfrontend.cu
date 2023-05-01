@@ -15,6 +15,7 @@
 #include <chrono>
 #include "../util/cuda_utils.h"
 #include "../util/cub.h"
+#include "../util/types.h"
 
 #include <memory>
 using namespace std::chrono;
@@ -41,8 +42,8 @@ class CUSlicer{
     int samples_generated = 0;
     long num_nodes;
 
-    std::vector<int> storage_map[MAX_DEVICES];
-    std::vector<int> workload_map;
+    std::vector<NDTYPE> storage_map[MAX_DEVICES];
+    std::vector<PARTITIONIDX> workload_map;
     int gpu_capacity[MAX_DEVICES];
     NeighbourSampler *neighbour_sampler;
     Slice *slicer;
@@ -57,7 +58,7 @@ class CUSlicer{
 public:
     // py::list v;
     CUSlicer(const std::string &name,
-      std::vector<std::vector<long>> gpu_map,
+      std::vector<std::vector<NDTYPE>> gpu_map,
       vector<int> fanout,
        bool deterministic, bool testing,
           bool self_edge, int rounds, bool pull_optimization,
@@ -78,12 +79,12 @@ public:
 
         workload_map = dataset->partition_map_d.to_std_vector();
 
-        std::vector<int> _t;
+        std::vector<NDTYPE> _t;
         std::cout << "begin data populatiopn\n";
         for(int i=0;i<num_gpus;i++){
           int order =0;
           _t.clear();
-          for(long nd: gpu_map[i]){
+          for(auto nd: gpu_map[i]){
              _t.push_back(nd);
              order ++;
           }
@@ -94,11 +95,13 @@ public:
       	this->sample = new Sample(num_layers);
         std::cout << "Sampling Layers \n";
       	this->p_sample = new PartitionedSample(num_layers, num_gpus);
-
+        bool load = false;
         std::cout << "Sampling Layers Cross \n";
-        this->slicer = new PushSlicer((workload_map), storage_map,  pull_optimization, num_gpus);
-        std::cout << "Checl again \n";
+
         this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout,  self_edge);
+        this->slicer = new PullSlicer((workload_map), storage_map,  pull_optimization, num_gpus, \
+              this->neighbour_sampler->dev_curand_states);
+        std::cout << "Checl again \n";
     }
 
     // bool test_correctness(vector<long> sample_nodes){
@@ -125,7 +128,8 @@ public:
 
       // spdlog::info("slice begin");
       std::cout << "attempting slicing \n";
-      this->slicer->slice_sample(*sample, *p_sample);
+      bool balance = true;
+      this->slicer->slice_sample(*sample, *p_sample, balance);
   	  cudaDeviceSynchronize();
       auto start3 = high_resolution_clock::now();
       auto duration1 = duration_cast<milliseconds>(start2 - start1);
@@ -153,7 +157,7 @@ public:
         auto v = device_vector<long>(data);
         testKernel<<<1,1>>>(v.ptr());
         gpuErrchk(cudaDeviceSynchronize());
-        auto sum = cuslicer::transform::reduce(v);
+        auto sum = cuslicer::transform<long>::reduce(v);
 
         std::cout << sum <<"sum \n";
         auto opts = torch::TensorOptions().dtype(torch::kInt64)\

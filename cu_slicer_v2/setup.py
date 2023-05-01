@@ -25,7 +25,7 @@ ext_modules = [
         "cuslicer",
         sources = [\
             "transform/slice.cu", \
-                # "transform/pull_slice.cu",
+                "transform/pull_slice.cu",
                 "transform/push_slice.cu",\
              "graph/bipartite.cu", "graph/dataset.cu",\
               "samplers/ns.cu", \
@@ -42,7 +42,7 @@ ext_modules = [
                 # "check.cu"
                         ],
         depends = ["util/environment.h","bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
-            ,"util/conqueue.h"]  ,
+            ,"util/conqueue.h", "transform/load_balancer.cuh"]  ,
         include_dirs=[pybind11.get_include(),".",ROOT,\
             "/home/spolisetty/thirdparty/thrust/dependencies/cub","/home/spolisetty/3rdparty/thrust/dependencies/libcubxx" ],
         language='c++',

@@ -43,7 +43,8 @@ class DistGATModel(torch.nn.Module):
             enumerate(zip(self.layers,bipartite_graphs.layers)):
             t1 = time.time()
             if(self.is_pulled):
-                x = pull(bipartite_graph, x, self.gpu_id, self.num_gpus,  l)
+                pass
+            x = pull(bipartite_graph, x, self.gpu_id, self.num_gpus,  l)
 
             x = layer(bipartite_graph, x,l, testing )
             t2 = time.time()
