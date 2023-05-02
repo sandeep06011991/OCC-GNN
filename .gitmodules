@@ -1,3 +1,6 @@
 [submodule "3rdparty/thrust"]
 	path = 3rdparty/thrust
 	url = https://github.com/NVIDIA/thrust.git
+[submodule "3rdparty/torch-quiver"]
+	path = 3rdparty/torch-quiver
+	url = https://github.com/quiver-team/torch-quiver.git
