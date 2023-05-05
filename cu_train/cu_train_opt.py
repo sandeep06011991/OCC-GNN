@@ -49,7 +49,8 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                         ,num_classes, batch_in, labels,\
                              deterministic,\
                           cached_feature_size, cache_percentage, file_id, epochs_required,\
-                            storage_vector, fanout, exchange_queue, graph_name, num_layers, num_gpus):
+                            storage_vector, fanout, exchange_queue,\
+                            graph_name, num_layers, num_gpus, shbuffs, mpbarrier):
     print("Trainer process starts!!!")
     torch.cuda.set_device(proc_id)
     gpu_local_storage = GpuLocalStorage(cache_percentage, features, batch_in, proc_id)
@@ -78,7 +79,8 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     current_gpu = proc_id
     if args.model == "gcn":
         model = get_sage_distributed(args.num_hidden, features, num_classes,
-            proc_id, args.deterministic, args.model, gpus,  args.num_layers, args.skip_shuffle)
+            proc_id, args.deterministic, args.model, gpus,\
+                    args.num_layers, args.skip_shuffle, args.barrier, shbuffs, mpbarrier)
         self_edge = False
         attention = False
         pull_optimization = False
@@ -107,7 +109,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         print("using GPU Sampler")
         from cuslicer import cuslicer
         sampler = cuslicer(graph_name, storage_vector,
-                fanout ,deterministic, testing, self_edge, rounds, pull_optimization, num_layers, num_gpus, proc_id)
+                fanout ,deterministic, testing, self_edge, rounds, pull_optimization, num_layers, num_gpus, proc_id, args.random_partition)
     device = proc_id
     if proc_id ==0:
         print(args.test_graph_dir)
@@ -216,6 +218,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         for gpu_id in range(num_gpus):
             # Read my own exchange_queue
             if(gpu_id) == proc_id:
+                recv_dict[gpu_id] = torch.empty([0], device = proc_id, dtype = torch.int64)
                 continue
             
             sample_id, for_worker_id, shape = exchange_queue[proc_id].get()
@@ -223,9 +226,12 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             if shape != "EMPTY":
                 recv_dict[sample_id] = torch.empty(shape, device = proc_id, dtype = torch.int64)
             else:
-                recv_dict[sample_id] = torch.empty([0], device= proc_id)
+                recv_dict[sample_id] = torch.empty([0], device= proc_id, dtype = torch.int64)
         shuffle_functional(proc_id, send_dict, recv_dict, gpus)
+        torch.cuda.synchronize()
+
         for i in range(num_gpus):
+            optimizer.zero_grad()
             if i == proc_id:
                 gpu_local_sample = my_gpu_local_sample
                 if type(gpu_local_sample) is type(torch.tensor([])):
@@ -255,20 +261,22 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             classes = labels[gpu_local_sample.out_nodes].to(torch.device(proc_id))
 #         # print("Last layer nodes",gpu_local_sample.last_layer_nodes)
             torch.cuda.set_device(proc_id)
-            optimizer.zero_grad()
+            #optimizer.zero_grad()
             m_t1 = time.time()
             torch.cuda.nvtx.range_push("storage")
             input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cache_hit_from, \
                     gpu_local_sample.cache_hit_to, gpu_local_sample.cache_miss_from, gpu_local_sample.cache_miss_to)
             movement_feat = time.time() - m_t1
             torch.cuda.nvtx.range_pop()
-            edges, nodes = gpu_local_sample.get_edges_and_send_data()
+            edges, nodes, edge_split, node_split = gpu_local_sample.get_edges_and_send_data()
+            print(device, edge_split, node_split)
             edges_per_gpu += edges
             data_moved_per_gpu += ((gpu_local_sample.cache_miss_from.shape[0] * features.shape[1] * 4)/(1024 * 1024)) +\
                                 ((nodes * args.num_hidden * 4)/(1024 * 1024))
             data_moved_inter_gpu  += ((nodes * args.num_hidden *4)/(1024 * 1024))
+            torch.distributed.barrier()
             fp_start.record()
-            torch.cuda.nvtx.range_push("training")
+            torch.cuda.nvtx.range_push("training {}:{}".format(edge_split, node_split))
             output = model.forward(gpu_local_sample, input_features, None)
             torch.cuda.synchronize()
             loss = loss_fn(output,classes)/args.batch_size
@@ -277,6 +285,10 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             torch.cuda.nvtx.range_pop()
             bp_end.record()
             optimizer.step()
+            if(current_minibatch == 10):
+                torch.cuda.profiler.start()
+            if(current_minibatch == 30):
+                torch.cuda.profiler.stop()
 
             # print(proc_id, "Does both forward and backward!!", current_minibatch)
             current_minibatch += 1

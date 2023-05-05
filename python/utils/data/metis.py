@@ -6,7 +6,7 @@ from dgl import DGLGraph
 import dgl
 
 def create_metis_file(graphname):
-    DATA_DIR = "/data/sandeep"
+    DATA_DIR = "/home/ubuntu/data"
     # graphname = "ogbn-products"
     # graphname = "ogbn-arxiv"
     print("read file beging")
@@ -45,7 +45,7 @@ def create_metis_file(graphname):
     return dg_graph
 
 def read_partition_file(graphname,num_partitions):
-    DATA_DIR = "/data/sandeep"
+    DATA_DIR = "/home/ubuntu/data"
     # graphname = "ogbn-products"
     # graphname = "ogbn-arxiv"
     TARGET_DIR = "{}/{}".format(DATA_DIR,graphname)
@@ -60,14 +60,14 @@ def read_partition_file(graphname,num_partitions):
 
 def run_metis(graphname, num_partitions):
     # graphname = "ogbn-arxiv"
-    DATA_DIR = "/data/sandeep"
+    DATA_DIR = "/home/ubuntu/data"
     # dg_graph = create_metis_file(graphname)
     import subprocess
     # Dont forget to set bit width to 64
-    output = subprocess.run(["/home/spolisetty/metis-5.1.0\
-/build/Linux-x86_64/programs/gpmetis",\
+    output = subprocess.run(["/home/ubuntu/metis-5.1.0/build/Linux-x86_64/programs/gpmetis",\
                     "{}/{}/metis.graph".format(DATA_DIR,graphname),str(num_partitions),"-objtype=vol"],
                     capture_output = True)
+    print(output.stderr)
     assert(len(output.stderr.strip()) == 0)
     output = str(output.stdout)
     print("metis", output)
@@ -75,7 +75,7 @@ def run_metis(graphname, num_partitions):
 
 def create_random_partition(graphname):
     # Only for 4
-    DATA_DIR = "/data/sandeep"
+    DATA_DIR = "/home/ubuntu/data"
     # graphname = "ogbn-products"
     # graphname = "ogbn-arxiv"
     TARGET_DIR = "{}/{}".format(DATA_DIR,graphname)
@@ -101,9 +101,10 @@ def generate_partition_file(DATA_DIR,graphname):
     read_partition_file(graphname)
 
 if __name__=="__main__":
-    filename = "ogbn-products"
+    filename = "reorder-mag240M"
     create_metis_file(filename)
-    for num_partitions in range(8,9):
-        run_metis(filename, num_partitions)
-        read_partition_file(filename, num_partitions)
-    create_random_partition(filename)    
+    # for num_partitions in range(4):
+    num_partitions = 4
+    run_metis(filename, num_partitions)
+    read_partition_file(filename, num_partitions)
+    # create_random_partition(filename)    

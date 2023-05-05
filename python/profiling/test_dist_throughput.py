@@ -1,4 +1,4 @@
-gr# What is the best format for communication between processes
+# What is the best format for communication between processes
 # Torch distributed sending which can potentially speed up using nvlink
 import torch as th
 import torch.multiprocessing as mp
@@ -33,6 +33,7 @@ def using_dist_send_sync_co_ordinated(proc_id, n_gpus):
         for i in range(3):
             peer_id = comm_map[device_id][i]
             if(peer_id < device_id):
+                
                 torch.distributed.send(data[device_id], peer_id)
                 torch.distributed.recv(data[peer_id], src = peer_id)
             else:
@@ -55,8 +56,6 @@ def using_dist_send_buffer_blocked(proc_id, n_gpus):
     j = 0
     device_id = proc_id
     data = [torch.rand(((int)(GB / 4) ,),device = proc_id) for i in range(4)]
-
-
     num_tries = 10
     for _ in range(num_tries):
         t1 = time.time()
@@ -89,26 +88,37 @@ def using_dist_send_p2p(proc_id, n_gpus):
     num_tries = 10
     for _ in range(num_tries):
         t1 = time.time()
+        torch.cuda.nvtx.range_push("p2p {}".format(proc_id))
         if device_id == 0:
-            #o1 = torch.distributed.isend(data[device_id], 1)
-            #o2 = torch.distributed.isend(data[device_id], 2)
-            o3 = torch.distributed.isend(data[device_id], 3)
             o1 = torch.distributed.isend(data[device_id], 1)
             o2 = torch.distributed.isend(data[device_id], 2)
+            o3 = torch.distributed.isend(data[device_id], 3)
+            #o1 = torch.distributed.isend(data[device_id], 1)
+            #o2 = torch.distributed.isend(data[device_id], 2)
             o1.wait()
             o2.wait()
             o3.wait()
+            #pass
+            torch.cuda.synchronize()
+            #print(o1)
         if device_id == 1:
-            torch.distributed.irecv(data[0], src = 0)
+            f1 = torch.distributed.irecv(data[0], src = 0)
+            print("Blocked before wait", device_id)
+            f1.wait()
+            print("Blocked after wait", device_id)
+            torch.cuda.synchronize()
         if device_id == 2 or device_id == 3:
-            torch.distributed.irecv(data[0], src = 0)
-        if device_id == 3:
-            torch.distributed.irecv(data[0], src = 0)
-        torch.distributed.barrier()
+            print("Blocked before wait", device_id)
+            f2 = torch.distributed.irecv(data[0], src = 0)
+            f2.wait()
+            print("Blocked after wait", device_id)
+            torch.cuda.synchronize()
+        torch.cuda.nvtx.range_pop()
+        #torch.distributed.barrier()
         t2 = time.time()
-        if device_id == 0:
-            print("Check Time ", t2-t1, "GBps",  1/(t2-t1))
-
+        #if device_id == 0:
+        print("Check Time ", device_id, t2-t1, "GBps",  1/(t2-t1))
+        torch.distributed.barrier()
 
 def using_dist_async(proc_id, n_gpus):
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
@@ -116,36 +126,49 @@ def using_dist_async(proc_id, n_gpus):
     world_size = n_gpus
     th.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
-    GB  = 1024 * 1024 * 1024
-    GB =  1024 * 1024 * 1024
+    GB  = 1024 * 1024 * 512
+    GB =  1024 * 1024 * 512
     j = 0
     device_id = proc_id
     data = [torch.rand(((int)(GB / 4) ,),device = proc_id) for i in range(4)]
+    torch.cuda.set_device(proc_id)
+    for i in range(4):
+        print(torch.sum(data[i]))
+    num_tries = 20
+    send_data = [torch.rand(((int)(GB / 4) ,),device = proc_id) for i in range(4)]
+    recv_data = [torch.rand(((int)(GB / 4) ,),device = proc_id) for i in range(4)]
 
-
-    num_tries = 10
     for _ in range(num_tries):
+        import gc
+        gc.collect()
         t1 = time.time()
         send = []
         recv = []
+        send_data = [torch.rand(((int)(GB / 4) ,),device = proc_id) for i in range(4)]
+        recv_data = [torch.rand(((int)(GB / 4) ,),device = proc_id) for i in range(4)]
+
+        torch.cuda.nvtx.range_push("shuffles {}".format(proc_id))
         for i in range(3):
             peer_id = comm_map[device_id][i]
             if(peer_id < device_id):
-                send.append(torch.distributed.isend(data[device_id], peer_id))
-                recv.append(torch.distributed.irecv(data[peer_id], src = peer_id))
+                send.append(torch.distributed.isend(send_data[device_id], peer_id))
+                recv.append(torch.distributed.irecv(recv_data[peer_id], src = peer_id))
             else:
-                recv.append(torch.distributed.irecv(data[peer_id], src = peer_id))
-                send.append(torch.distributed.isend(data[device_id], peer_id))
-        torch.distributed.barrier()
-        t2 = time.time()
+                recv.append(torch.distributed.irecv(recv_data[peer_id], src = peer_id))
+                send.append(torch.distributed.isend(send_data[device_id], peer_id))
         for s in send:
             s.wait()
         for r in recv:
             r.wait()
-        torch.distributed.barrier()
         t2 = time.time()
+        torch.cuda.nvtx.range_pop()
+        torch.cuda.nvtx.range_push("sum {}".format(proc_id))
+        for i in range(4):
+            if i != proc_id:
+                torch.sum(recv_data[peer_id])
+        torch.cuda.nvtx.range_pop()
         if device_id == 0:
-            print("Time ", t2-t1, "Bandwidth", 12 * 1/(t2-t1))
+            print("Time ", t2-t1, "Bandwidth", 12 * (GB/(1024 * 1024 * 1024))/(t2-t1), data[device_id].shape)
 
 
 def pcie_data_transfer(proc_id, n_gpus):
@@ -211,9 +234,10 @@ if __name__ == "__main__":
     procs = []
     # assert(False)
     test_functions = [using_dist_send_p2p]
-    test_functions = [using_dist_send_buffer_blocked]
+    #test_functions = [using_dist_send_buffer_blocked]
     #test_functions = [using_dist_async]
     #test_functions = [using_dist_send_sync_co_ordinated]
+    mp.set_start_method('spawn')
     for f in test_functions:
         for proc_id in range(n_gpus):
             p = mp.Process(target=(f),

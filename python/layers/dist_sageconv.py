@@ -18,7 +18,7 @@ class DistSageConv(nn.Module):
             print("grad input", i.shape)
     # Not exactly matching SageConv as normalization and activation as removed.
     def __init__(self, in_feats, out_feats, gpu_id,  num_gpus,\
-        feat_drop=0.1, bias=True, deterministic = False, skip_shuffle = False):
+        feat_drop=0.1, bias=True, deterministic = False, skip_shuffle = False, barrier = False, shbuffs = None, mpBarrier = None):
         super( DistSageConv, self).__init__()
         self.device_ids = [0,1,2,3]
         self._in_src_feats = in_feats
@@ -36,18 +36,20 @@ class DistSageConv(nn.Module):
         self.fc1 = nn.Linear(self._in_src_feats, out_feats, bias = False)
         self.fc2 = nn.Linear(self._in_src_feats, out_feats, bias = False)
         # self.deterministic = deterministic
-        
+        self.barrier = barrier        
         self.deterministic = deterministic
         self.reset_parameters()
         self.shuffle_time = 0
         self.num_gpus = num_gpus
         self.debug = False
-        # self.local_stream = torch.cuda.default_stream()
-        # self.remote_stream = torch.cuda.default_stream()
+        self.shbuffs = shbuffs
+        self.mpBarrier = mpBarrier
+        self.local_stream = torch.cuda.default_stream()
+        self.remote_stream = torch.cuda.default_stream()
         # Not parallelizing in htis variation
 
-        # self.local_stream = torch.cuda.Stream()
-        # self.remote_stream = torch.cuda.Stream()
+        self.local_stream = torch.cuda.Stream()
+        self.remote_stream = torch.cuda.Stream()
 
         # self.e1 = torch.cuda.Event(enable_timing = True)
         # self.e2 = torch.cuda.Event(enable_timing = True)
@@ -66,8 +68,7 @@ class DistSageConv(nn.Module):
             nn.init.xavier_uniform_(self.fc2.weight,gain = gain)
             nn.init.xavier_uniform_(self.fc1.weight,gain = gain)
 
-
-    def print_grad(self,l):
+        return 
         if self.gpu_id != 0:
             return
         print("layer neigh ",l,self.fc1.weight[:3,0], torch.sum(self.fc1.weight))
@@ -85,6 +86,7 @@ class DistSageConv(nn.Module):
 
     def forward(self, bipartite_graph, in_features, layer_id):
         t1 = time.time()
+        torch.cuda.nvtx.range_push("push {}".format(layer_id))
         if self.fc1.in_features > self.fc1.out_features:
             # Could incur more communication potentially
             # Makes backward pass mode complaceted
@@ -99,21 +101,45 @@ class DistSageConv(nn.Module):
         # self.local_stream.wait_stream(torch.cuda.current_stream())
         # self.remote_stream.wait_stream(torch.cuda.current_stream())
         # with torch.cuda.stream(self.remote_stream):
-        torch.cuda.nvtx.range_push("gather_remote {}".format(self.gpu_id))
-        out1 = bipartite_graph.gather_remote(out)
-        torch.cuda.nvtx.range_pop()
-        t1 = time.time()
+        with torch.cuda.stream(self.remote_stream):
         
-        merge_tensors = Shuffle.apply(out1, self.gpu_id,self.num_gpus,  layer_id, bipartite_graph.get_from_nds_size(), \
-                            bipartite_graph.to_offsets)
+            out1 = bipartite_graph.gather_remote(out)
+            
+        #torch.cuda.nvtx.range_push("try remote")
+        #with torch.no_grad():
+        #    _ = bipartite_graph.gather_remote(out)
+        #torch.cuda.nvtx.range_pop()
+        if self.barrier:
+            torch.distributed.barrier()
+        if not self.skip_shuffle:
+            with torch.cuda.stream(self.remote_stream):
+                if self.shbuffs is None:
+                    async_dict = {}
+                    merge_tensors = Shuffle.apply(out1, self.gpu_id,self.num_gpus,  layer_id, bipartite_graph.get_from_nds_size(), \
+                            bipartite_graph.to_offsets, None, None, async_dict)
+                else:
+                    merge_tensors = Shuffle.apply(out1, self.gpu_id,self.num_gpus,  layer_id, bipartite_graph.get_from_nds_size(), \
+                            bipartite_graph.to_offsets,  self.shbuffs, self.mpBarrier)
+
+
                     # Work on this signature later.
         # with torch.cuda.stream(self.local_stream):
-        t2 = time.time()
-        self.shuffle_time += (t2-t1)
-        torch.cuda.nvtx.range_push("Gater local{}".format(self.gpu_id))
-        out3 = bipartite_graph.gather_local(out).clone()
-        torch.cuda.nvtx.range_pop()
-
+        #self.shuffle_time += (t2-t1)
+        with torch.cuda.stream(self.local_stream):
+            out3 = bipartite_graph.gather_local(out)
+            
+        #selif.local_stream.synchronize()
+        #self.remote_stream.synchronize()
+            out3 = out3.clone()
+            async_dict['async_op'].wait()
+            
+        #torch.cuda.nvtx.range_push("Gater local{}".format(self.gpu_id))
+        #out3 = bipartite_graph.gather_local_gcn(out).clone()
+        #torch.cuda.nvtx.range_pop()
+        #with torch.no_grad():
+        #    torch.cuda.nvtx.range_push("check")
+        #    _ = bipartite_graph.gather_local(out)
+        #    torch.cuda.nvtx.range_pop()
         # torch.cuda.current_stream().wait_stream(self.local_stream)
         # torch.cuda.current_stream().wait_stream(self.remote_stream)
         # good practice, ensures caching allocator safety of memory created
@@ -137,16 +163,75 @@ class DistSageConv(nn.Module):
         out4 = (out3/degree)
         if self.debug:
             assert(not torch.any(torch.isnan(out4)))
-
         if not self.fc1.in_features > self.fc1.out_features:
             out4 = self.fc1(out4)
         # t22 = time.time()
         out5 = bipartite_graph.self_gather(in_features)
         out6 = self.fc2(out5)
         final = out4 + out6
+        torch.cuda.nvtx.range_pop()
+        print("Forward pass")
         # print("reamining", c-b)
         return final
 
+    def get_statistics(self, bipartite_graph,in_features, layer_id):
+        graph_local = []
+        graph_remote = []
+        fully_connected = []
+        fully_connected_self = []
+        e1 = torch.cuda.Event(enable_timing = True)
+        e2 = torch.cuda.Event(enable_timing = True)
+    
+        t1 = time.time()
+            
+        for i in range(4):
+            e1.record()
+            out = self.fc1(in_features)
+            e2.record()
+            e2.synchronize()
+            fully_connected.append(e1.elapsed_time(e2)/1000)
+
+        # Note to self. These can be easily overlapped
+        # However launching gather local and remote on different streams is easy in fp
+        # Will break in the backawrd pass
+
+        # self.local_stream.wait_stream(torch.cuda.current_stream())
+        # self.remote_stream.wait_stream(torch.cuda.current_stream())
+        # with torch.cuda.stream(self.remote_stream):
+        for i in range(4):
+            e1.record()
+            out1 = bipartite_graph.gather_remote(out)
+            e2.record()
+            e2.synchronize()
+            graph_remote.append(e1.elapsed_time(e2)/1000)
+         
+        for i in range(4):
+            e1.record()
+            out1 = bipartite_graph.gather_local(out)
+            e2.record()
+            e2.synchronize()
+            graph_local.append(e1.elapsed_time(e2)/1000)
+
+        for i in range(4):
+            e1.record()
+            out5 = bipartite_graph.self_gather(in_features)
+            out6 = self.fc2(out5)
+            e2.record()
+            e2.synchronize()
+            fully_connected_self.append(e1.elapsed_time(e2)/1000)
+        shuffle_cost = 0
+        shuffle_cost += bipartite_graph.to_offsets[4]
+        data_size = shuffle_cost * out.shape[1] * 4/ (1024 * 1024 * 1024)
+        print("Bipartie", bipartite_graph.num_out_local, bipartite_graph.num_out_remote)
+        print("Expected shuffle time", data_size/20)
+        print("graph_local",bipartite_graph.indices_L.shape[0], graph_local)
+        print("fully_connected", fully_connected)
+        print("fully_connected_self", fully_connected_self)
+        print("graph_remote", bipartite_graph.indices_R.shape[0], graph_remote)
+        print("done")
+        total_time = data_size/20 + graph_local[3] + fully_connected[3] + \
+                fully_connected_self[3] + graph_remote[3]
+        return total_time
 
 def test_base():
     src_ids = []
@@ -226,3 +311,4 @@ def test_dist_bipartite():
 if __name__ == "__main__":
     test_dist_bipartite()
     # test_base()
+

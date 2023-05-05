@@ -12,10 +12,11 @@
 
 using namespace cuslicer;
 
-Dataset::Dataset(std::string dir, bool testing, int num_partitions){
+Dataset::Dataset(std::string dir, bool testing, int num_partitions, bool random){
   this->BIN_DIR = dir;
   this->testing = testing;
   this->num_partitions = num_partitions;
+  this->random = random;
   read_meta_file();
   read_graph();
   read_node_data();
@@ -48,13 +49,16 @@ void Dataset::read_node_data(){
     // Make shared pointernaj
 
     int * _partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
-    int n_gpu = 4;
-    if (this->num_partitions != -1){
+    int n_gpu = this->num_partitions;
+    if (! this->random){
+	std::cout << "read partition " << n_gpu << "\n";
     	std::fstream file2(this->BIN_DIR + "/partition_map_opt_" + std::to_string(this->num_partitions) +".bin",std::ios::in|std::ios::binary);
     	file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
       n_gpu = this->num_partitions;
     }else{
-  	std::fstream file2(this->BIN_DIR + "/partition_map_opt_random.bin", std::ios::in|std::ios::binary);
+	    std::cout << "reading random map \n" ;
+	assert(this->num_partitions == 4);
+	    std::fstream file2(this->BIN_DIR + "/partition_map_opt_random.bin", std::ios::in|std::ios::binary);
     	file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
     }
     std::vector<int> _t_partition_map(_partition_map, _partition_map + this->num_nodes);

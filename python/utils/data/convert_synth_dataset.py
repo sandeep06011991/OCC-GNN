@@ -17,6 +17,8 @@ def get_data_dir():
         DATA_DIR = "/data/sandeep"
     if username == "q91":
         DATA_DIR = "/mnt/bigdata/sandeep"
+    if username == "ubuntu":
+        DATA_DIR = "/home/ubuntu/data"
     return DATA_DIR
 
 ROOT_DIR = get_data_dir()
@@ -104,7 +106,7 @@ def write_synth_dataset(num_nodes, num_partitions , TARGET_DIR):
         fp.write(val_idx.numpy().astype('int64').tobytes())
     with open(TARGET_DIR+'/test_idx.bin', 'wb') as fp:
         fp.write(test_idx.numpy().astype('int64').tobytes())
-    with open(TARGET_DIR+'/partition_map_opt.bin','wb') as fp:
+    with open(TARGET_DIR+'/partition_map_opt_{}.bin'.format(num_partitions),'wb') as fp:
         fp.write(torch.tensor(p_map).numpy().astype('int32').tobytes())
     csum_train = torch.sum(train_idx).item()
     csum_test = torch.sum(val_idx).item()

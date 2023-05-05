@@ -113,6 +113,7 @@ if __name__ == "__main__":
             run_use_single_queues_per_process,\
             using_dist_send]
     test_functions = [sync_cost]
+    mp.set_start_method('spawn')
     for f in test_functions:
         for proc_id in range(n_gpus):
             p  = mp.Process(target=(f),

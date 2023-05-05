@@ -149,6 +149,7 @@ class GpuLocalStorage():
         total_features[cache_hit_to,:] = self.batch_in[cache_hit_from,:]
         total_features[cache_miss_to,:] = self.features[cache_miss_from.to('cpu'), :].to(self.proc_id)
         # No caching
+        print("Size of Cache Miss", cache_miss_to.shape)
         # total_features = self.features[node_ids,:].to(self.proc_id)
         return total_features
 

@@ -21,3 +21,4 @@ slurm-log-occ/
 *.sqlite
 *.nsys-rep
 .ipynb_checkpoints/
+*.qdstrm

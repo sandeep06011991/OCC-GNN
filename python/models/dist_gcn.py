@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from layers.dist_sageconv import DistSageConv
 # from layers.dist_gatconv import DistGATConv
+from layers.pull import *
 # Move this function to seperate file after first forward and back pass
 class DistSAGEModel(torch.nn.Module):
 
@@ -20,21 +21,25 @@ class DistSAGEModel(torch.nn.Module):
                  activation,
                  dropout,
                  gpu_id, num_gpus,
-                 queues = None, deterministic = False, skip_shuffle = False):
+                 queues = None, deterministic = False, skip_shuffle = False, barrier = False, shbuffs = None, mpBarrier = None):
         super().__init__()
         self.n_layers = n_layers
         self.n_hidden = n_hidden
         self.n_classes = n_classes
         self.layers = nn.ModuleList()
         self.queues = queues
-        self.layers.append(DistSageConv(in_feats, n_hidden, gpu_id,  num_gpus, deterministic = deterministic, skip_shuffle = skip_shuffle))
+        self.layers.append(DistSageConv(in_feats, n_hidden, gpu_id,  num_gpus,\
+                    deterministic = deterministic, skip_shuffle = skip_shuffle, barrier = barrier, shbuffs = shbuffs, mpBarrier = mpBarrier))
         for i in range(1, n_layers - 1):
-            self.layers.append(DistSageConv(n_hidden, n_hidden,  gpu_id,  num_gpus, deterministic = deterministic, skip_shuffle = skip_shuffle))
-        self.layers.append(DistSageConv(n_hidden, n_classes, gpu_id,  num_gpus, deterministic = deterministic, skip_shuffle = skip_shuffle))
+            self.layers.append(DistSageConv(n_hidden, n_hidden,  gpu_id,  num_gpus,\
+                    deterministic = deterministic, skip_shuffle = skip_shuffle, barrier = barrier, shbuffs = shbuffs, mpBarrier = mpBarrier))
+        self.layers.append(DistSageConv(n_hidden, n_classes, gpu_id,  num_gpus,\
+                deterministic = deterministic, skip_shuffle = skip_shuffle, barrier = barrier, shbuffs = shbuffs, mpBarrier = mpBarrier))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
         self.deterministic = deterministic
         self.num_gpus = num_gpus
+        self.gpu_id = gpu_id
         self.fp_end = torch.cuda.Event(enable_timing=True)
         self.bp_end = torch.cuda.Event(enable_timing=True)
 
@@ -48,16 +53,22 @@ class DistSAGEModel(torch.nn.Module):
         x = in_features
         for l,(layer, bipartite_graph) in  \
             enumerate(zip(self.layers,bipartite_graphs.layers)):
-            import time
-            t1 = time.time()
+            #import time
+            #t1 = time.time()
             # assert(not torch.any(torch.sum(x,1)==0))
-            # self.fp_end.record()
+            #self.fp_end.record()
             # print("in layer ", l)
-            x = layer(bipartite_graph, x, l)
+            x = pull(bipartite_graph, x, self.gpu_id, self.num_gpus,  l)
+            y = layer(bipartite_graph, x, l)
             # print("layer done", l)
-            # self.bp_end.record()
-            # torch.cuda.synchronize(self.bp_end)
-            t2 = time.time()
+            #self.bp_end.record()
+            #torch.cuda.synchronize(self.bp_end)
+            #with torch.no_grad():
+            #    predicted_time = layer.get_statistics(bipartite_graph, x, l)
+            #print("layer time", l, self.fp_end.elapsed_time(self.bp_end)/1000)
+            #predicted_time)
+            x = y
+            #t2 = time.time()
             if l != len(self.layers)-1:
                 x = self.dropout(self.activation(x))
         return x
@@ -69,7 +80,8 @@ class DistSAGEModel(torch.nn.Module):
 
 
 
-def get_sage_distributed(hidden, features, num_classes, gpu_id, deterministic, model, num_gpus, n_layers, skip_shuffle):
+def get_sage_distributed(hidden, features, num_classes, gpu_id, deterministic,\
+        model, num_gpus, n_layers, skip_shuffle, barrier, shbuffs, mpBarrier):
     dropout = 0
     in_feats = features.shape[1]
     n_hidden = hidden
@@ -81,4 +93,5 @@ def get_sage_distributed(hidden, features, num_classes, gpu_id, deterministic, m
     activation = torch.nn.ReLU()
     assert(model==  "gcn")
     return DistSAGEModel(in_feats, n_hidden, n_classes, n_layers, activation, \
-            dropout, gpu_id, num_gpus, deterministic = deterministic, skip_shuffle = skip_shuffle )
+            dropout, gpu_id, num_gpus, deterministic = deterministic,\
+            skip_shuffle = skip_shuffle, barrier = barrier, shbuffs = shbuffs, mpBarrier = mpBarrier  )

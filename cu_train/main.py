@@ -107,7 +107,7 @@ def main(args):
     else:
         dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize, args.num_gpus)
     partition_map = partition_map.type(torch.LongTensor)
-
+    
     if not args.deterministic:
         features = dg_graph.ndata["features"]
         features = features.pin_memory()
@@ -147,7 +147,9 @@ def main(args):
     exchange_queue = [mp.Queue(num_workers) for _ in range(num_workers)]
     train_mask = dg_graph.ndata['train_mask']
     train_nid = train_mask.nonzero().squeeze()
-
+    for i in range(args.num_gpus):
+        print("Nodes per partition", torch.sum(partition_map[train_nid]  == i))
+        print("Total degree", torch.sum(dg_graph.in_degrees(torch.where(partition_map[train_nid] == i)[0])))
     print("Training nodes", train_nid.shape[0])
     if args.deterministic:
         train_nid = torch.arange(dg_graph.num_nodes())
@@ -164,6 +166,17 @@ def main(args):
         pull_optimization = True
         rounds = 4
 
+    shm = None
+    if args.reusable_buffers:
+        shm = []
+        for i in range(num_gpus):
+            i_shm = []
+            for j in range(num_gpus):
+                t = torch.ones((10000*1000), device = i)
+                t.share_memory_()
+                i_shm.append(t)
+            shm.append(i_shm)
+
 
 
     work_producer_process = mp.Process(target=(work_producer), \
@@ -175,6 +188,7 @@ def main(args):
     procs = []
     labels = dg_graph.ndata["labels"]
     labels.share_memory_()
+    barrier = mp.Barrier(num_gpus)
     if args.optimization1 :
         from cu_train_opt import run_trainer_process
     else:
@@ -186,7 +200,7 @@ def main(args):
                        num_classes, mm.batch_in[proc_id], labels, \
                          args.deterministic,\
                          mm.local_sizes[proc_id],cache_percentage, file_id, args.num_epochs,\
-                            storage_vector, fanout, exchange_queue, args.graph, args.num_layers, num_gpus))
+                            storage_vector, fanout, exchange_queue, args.graph, args.num_layers, num_gpus, shm, barrier))
         p.start()
         procs.append(p)
     for proc in procs:
@@ -221,9 +235,9 @@ if __name__=="__main__":
     argparser.add_argument('--cache-per', type =float, default = .25, required = True)
     argparser.add_argument('--model',help="gcn|gat", required = True)
     argparser.add_argument('--num-epochs', type=int, default=6)
-    argparser.add_argument('--num-hidden', type=int, default=16)
+    argparser.add_argument('--num-hidden', type=int, default=256)
     argparser.add_argument('--num-layers', type=int, default=3)
-    argparser.add_argument("--num-heads", type=int, default=3,
+    argparser.add_argument("--num-heads", type=int, default=4,
                         help="number of hidden attention heads if gat")
     argparser.add_argument('--fan-out', type=str, default='20,20,20')
     argparser.add_argument('--batch-size', type=int, default=(4096), required = True)
@@ -235,7 +249,10 @@ if __name__=="__main__":
     argparser.add_argument('--random-partition', action = "store_true", default = False)
     argparser.add_argument('--optimization1', action = "store_true", default = False)
     argparser.add_argument('--skip-shuffle', action = "store_true", default = False)
+    argparser.add_argument('--barrier', action = "store_true", default = False)
+    argparser.add_argument('--reusable-buffers', action = "store_true", default = False)
     # We perform only transductive training
+
     # argparser.add_argument('--inductive', action='store_false',
     #                        help="Inductive learning setting")
     args = argparser.parse_args()

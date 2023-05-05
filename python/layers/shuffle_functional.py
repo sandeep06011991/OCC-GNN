@@ -27,11 +27,25 @@ comm_map = {
 
 # All data over here should not have any gradients
 # They are handled seperately.
-def shuffle_functional(device_id, send_dict, recv_dict, num_devices):
+def shuffle_functional_all(device_id, send_dict, recv_dict, num_devices):
     t1 = time.time()
     send = []
     recv = []
-    torch.cuda.nvtx.range_push("shuffle {}".format(device_id))
+    add = 0
+    for i in range(7):
+        if i >= num_devices:
+            continue
+        if i == device_id:
+            continue
+        print("Measurement wrong")
+        if send_dict[i].shape[0] != 0 and len(send_dict[i].shape) > 1:
+        #    add += send_dict[i].shape[0] * send_dict[i].shape[1]
+            pass
+        if recv_dict[i].shape[0] != 0 and len(recv_dict[i].shape) > 1:
+            add += recv_dict[i].shape[0] * recv_dict[i].shape[1]
+
+    add = add * 4 / (1024 * 1024)         
+    torch.cuda.nvtx.range_push("shuffle {}:{}MB".format(device_id, add))
     for i in range(7):
         peer_id = comm_map[device_id][i]
         if peer_id >= num_devices:
@@ -52,13 +66,64 @@ def shuffle_functional(device_id, send_dict, recv_dict, num_devices):
         s.wait()
     torch.cuda.nvtx.range_pop()     
 
+# All data over here should not have any gradients
+# They are handled seperately.
+def shuffle_functional_buffers(device_id, send_dict, recv_dict, num_devices, buffers, barrier):
+    t1 = time.time()
+    send = []
+    recv = []
+    add = 0
+    send_shapes = {}
+    recv_shapes = {}
+    '''
+    for i in range(7):
+        peer_id = comm_map[device_id][i]
+        if peer_id >= num_devices:
+            continue
+        send_shapes[peer_id] = send_dict[peer_id].shape
+        recv_shapes[peer_id] = recv_dict[peer_id].shape
+        if send_dict[peer_id].shape[0] != 0 and len(send_dict[peer_id].shape) > 1:
+        #    add += send_dict[i].shape[0] * send_dict[i].shape[1]
+            pass
+        if recv_dict[peer_id].shape[0] != 0 and len(recv_dict[peer_id].shape) > 1:
+            add += recv_dict[peer_id].shape[0] * recv_dict[peer_id].shape[1]
+    add = add * 4 / (1024 * 1024)
+    torch.cuda.nvtx.range_push("shuffle {}:{}MB".format(device_id, add))
+    '''
+    for i in range(7):
+        peer_id = comm_map[device_id][i]
+        if peer_id >= num_devices:
+            continue
+        if(send_dict[peer_id].shape[0] != 0):
+            to_write = send_dict[peer_id].flatten()
+            assert(to_write.shape[0] < buffers[device_id][peer_id].shape[0])
+            buffers[peer_id][device_id][:to_write.shape[0]] = to_write[:].to(peer_id,non_blocking = True)
+    torch.cuda.current_stream().synchronize()
+    barrier.wait()
+    
+     
+    for i in range(7):
+        peer_id = comm_map[device_id][i]
+        if peer_id >= num_devices:
+            continue
+        if(recv_dict[peer_id].shape[0] != 0):
+            read = recv_dict[peer_id].flatten()
+            recv_dict[peer_id] = buffers[device_id][peer_id][:read.shape[0]].reshape(recv_dict[peer_id].shape)
+    torch.cuda.current_stream().synchronize()
 
-def shuffle_functional_try(device_id, send_dict, recv_dict, num_devices):
+    #torch.cuda.nvtx.range_pop()
+
+
+
+
+    
+
+def shuffle_functional(device_id, send_dict, recv_dict, num_devices):
     input_splits = []
     input_tensors = []
     output_tensors = []
     output_splits = []
-    
+    torch.cuda.nvtx.range_push("all to all {}".format(device_id)) 
     for i in range(num_devices):
         if i== device_id:
             send_dict[i] = recv_dict[i].clone()
@@ -68,12 +133,16 @@ def shuffle_functional_try(device_id, send_dict, recv_dict, num_devices):
         output_tensors.append(recv_dict[i])
     send = torch.cat(input_tensors)
     recv = torch.cat(output_tensors)
-    torch.distributed.all_to_all_single(recv, send, output_splits, input_splits)
+    async_all = torch.distributed.all_to_all_single(recv, send, output_splits, input_splits, async_op = True)
+    async_all.wait( )
+    torch.cuda.nvtx.range_pop()
     s = 0
+    torch.cuda.nvtx.range_push("merge")
     for i in range(num_devices):
         recv_dict[i] = recv[s : s + output_splits[i]]
         s = s + output_splits[i]
-
+    torch.cuda.nvtx.range_pop()
+    return async_all 
 
 def using_dist_send_sync_co_ordinated(proc_id, n_gpus):
     dist_init_method = 'tcp://{master_ip}:{master_port}'.format(

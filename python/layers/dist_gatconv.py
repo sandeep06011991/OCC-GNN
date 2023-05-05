@@ -66,7 +66,7 @@ class DistGATConv(nn.Module):
     def forward(self, bipartite_graph, in_feats, l, testing = False):
         # Refactor this increase readability.
         # Go for a cleanr convention. Feels very bad.
-        print(self.skip_shuffle)
+        # print(self.skip_shuffle)
         src_prefix_shape = in_feats.shape[:-1]
         in_feats = self.fc(in_feats).view(
             *src_prefix_shape, self.num_heads, self.out_feats)
@@ -83,7 +83,7 @@ class DistGATConv(nn.Module):
         if not testing and not self.skip_shuffle:
             t1 = time.time()
             er_remote = ShuffleRev.apply(er, self.gpu_id,  self.num_gpus,  l, bipartite_graph.from_ids, \
-                                bipartite_graph.to_offsets)
+                                bipartite_graph.to_offsets )
             t2 = time.time()
             self.shuffle_time += (t2-t1)
 

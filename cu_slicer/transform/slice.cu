@@ -130,6 +130,7 @@ void Slice::reorder(PartitionedLayer &l){\
   }
 
   void Slice::slice_sample(Sample &s, PartitionedSample &ps){
+    
     for(int i= 1; i< s.num_layers + 1;i++){
         bool last_layer = false;
         if (i == s.num_layers) last_layer = true;

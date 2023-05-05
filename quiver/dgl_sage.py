@@ -25,6 +25,8 @@ class SAGE(nn.Module):
         self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, 'mean'))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
+        self.fp = torch.cuda.Event(enable_timing = True)
+        self.bp = torch.cuda.Event(enable_timing = True)
 
     def forward(self, blocks, x):
         h = x
@@ -36,7 +38,11 @@ class SAGE(nn.Module):
             h_dst = h[:block.num_dst_nodes()]
             # Then we compute the updated representation on the RHS.
             # The shape of h now becomes (num_nodes_RHS, D)
+            #self.fp.record()
             h = layer(block, (h, h_dst))
+            #self.bp.record()
+            #self.bp.synchronize()
+            #print("self elapsed_time", self.fp.elapsed_time(self.bp)/1000, l, x.device)
             if l != len(self.layers) - 1:
                 h = self.activation(h)
                 h = self.dropout(h)

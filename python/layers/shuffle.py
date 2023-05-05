@@ -11,10 +11,15 @@ class Shuffle(torch.autograd.Function):
     # To offsets that iwll be shuffled.
     @staticmethod
     def forward(ctx, remote_t, device_id, num_gpus, layer_id ,from_nds_size,\
-                to_tensor_offset):
+                to_tensor_offset, shbuffs, barrier, async_dict):
+        
         recv = []
         recv_g = []
         send_dict = []
+        #new_remote = torch.empty((remote_t.shape), device = device_id)
+        #remote_t.detach().copy_(new_remote, non_blocking = True)
+        #remote_t  = new_remote
+        remote_t = remote_t.detach()
         for i in range(num_gpus):
             # Do I do work allocation here ?
             if i == device_id:
@@ -27,12 +32,18 @@ class Shuffle(torch.autograd.Function):
                     , device = device_id))
                 recv_g.append(torch.empty((to_tensor_offset[i+1] - to_tensor_offset[i], *remote_t.shape[1:]) \
                     , device = device_id))
-                send_dict.append(remote_t[to_tensor_offset[i]:to_tensor_offset[i+1]].detach())
-        shuffle_functional(device_id, send_dict, recv,num_gpus)
+                send_dict.append(remote_t[to_tensor_offset[i]:to_tensor_offset[i+1]])
+        if shbuffs is None:
+            async_op = shuffle_functional(device_id, send_dict, recv,num_gpus)
+        else:
+            shuffle_functional_buffers(device_id, send_dict, recv, num_gpus, shbuffs, barrier)
         ctx.device_id = device_id
         ctx.layer_id = layer_id
         ctx.recv_g = recv_g
         ctx.num_gpus = num_gpus
+        ctx.shbuffs = shbuffs
+        ctx.barrier = barrier
+        async_dict['async_op'] = async_op
         # torch.cuda.current_stream().synchronize()
         return tuple(recv)
 
@@ -43,14 +54,19 @@ class Shuffle(torch.autograd.Function):
         recv_g = ctx.recv_g
         layer_id = ctx.layer_id
         num_gpus = ctx.num_gpus
-        shuffle_functional(device_id,send_grads, recv_g,num_gpus)
+        shbuffs = ctx.shbuffs
+        barriers = ctx.barrier
+        if shbuffs is None:
+            shuffle_functional(device_id,send_grads, recv_g,num_gpus)
+        else:
+            shuffle_functional_buffers(device_id, send_grads, recv_g, num_gpus, shbuffs, barriers)
         grads = []
         for i in range(num_gpus):
             if i!= device_id:
                 grads.append(recv_g[i])
         remote_g = torch.cat(grads, dim = 0)
         # torch.cuda.current_stream().synchronize()
-        return  remote_g, None, None, None, None, None
+        return  remote_g, None, None, None, None, None, None, None, None
 
 
 class ToySingle(torch.nn.Module):

@@ -292,7 +292,7 @@ if __name__ == '__main__':
     argparser.add_argument('--gpu', type=int, default=0,
                            help="GPU device ID. Use -1 for CPU training")
     argparser.add_argument('--num-epochs', type=int, default=6)
-    argparser.add_argument('--num-hidden', type=int, default=16)
+    argparser.add_argument('--num-hidden', type=int, default=512)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='20,20,20')
     argparser.add_argument('--batch-size', type=int, default=1024)
