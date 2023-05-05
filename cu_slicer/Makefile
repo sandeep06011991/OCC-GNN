@@ -54,7 +54,13 @@ tests: build/tests/gtest_entry.o  build/tests/cub_tests.o  build/tests/device_ve
 		build/util/device_vector.o build/tests/sampling.o build/graph/dataset.o\
 		$(LGTEST)  -o gtests
 	# ./gtests --gtest_filter=CUB.exclusive_sum
-	# ./gtests --gtest_filter=ARRAYMAP.memory
+	./gtests --gtest_filter=ARRAYMAP.memory
+	./gtests --gtest_filter=ARRAYMAP.initial
+	./gtests --gtest_filter=ARRAYMAP.basic
+	./gtests --gtest_filter=ARRAYMAP.order_test1
+	./gtests --gtest_filter=ARRAYMAP.order_test2
+	./gtests --gtest_filter=ARRAYMAP.order_test3
+	./gtests --gtest_filter=ARRAYMAP.memory_test1
 
 build/main.o : main.cu
 	mkdir -p build/
