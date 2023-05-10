@@ -145,7 +145,8 @@ void Slice::reorder(PartitionedLayer &l){\
     // nodes.debug("In nodes");
     // this->sample_workload_map.debug("sample workload map");
     if(loadbalancing){
-      this->loadbalancer->balance(this->workload_map, nodes, this->sample_workload_map);
+      this->loadbalancer->balance(this->workload_map, nodes, this->sample_workload_map, \
+            s.block[s.num_layers]->layer_nds.size());
     }
     // Get partitioned layers.
     for(int i= 1; i< s.num_layers + 1;i++){

@@ -13,6 +13,7 @@ class GAT(torch.nn.Module):
         super(GAT,self).__init__()
         self.num_layers = num_layers
         self.convs = torch.nn.ModuleList()
+        hidden_channels = (int) (hidden_channels/heads)
         self.convs.append(dglnn.GATConv(in_channels, hidden_channels, num_heads = heads))
         for _ in range(num_layers -2):
             self.convs.append(dglnn.GATConv(hidden_channels *heads, hidden_channels,num_heads = heads))

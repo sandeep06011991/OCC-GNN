@@ -1,6 +1,4 @@
 
-def hello():
-    print("World !!!!!!!!!")
 
 import subprocess
 import re
@@ -43,12 +41,10 @@ def check_single(ls):
     return ls[0]
 
 def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
-        num_layers, num_partition, fanout, skip_shuffle = False):
+        num_layers, num_partition, fanout, skip_shuffle , load_balance):
     print(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         num_layers, num_partition, fanout, skip_shuffle)
-    if False:
-    #if not skip_shuffle:
-        output = subprocess.run(["python3",\
+    cmd = ["python3",\
             "{}/cu_train/main.py".format(ROOT_DIR),\
         "--graph",graphname,  \
         "--model", model , \
@@ -58,24 +54,13 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         "--num-epochs", "6",\
         "--num-layers", str(num_layers), \
         "--num-gpus", str(num_partition),\
-        "--fan-out", fanout, 
-        ] \
-            , capture_output = True)
-        print("not using optimiztion 1")
-    else:
-        output = subprocess.run(["python3",\
-            "{}/cu_train/main.py".format(ROOT_DIR),\
-        "--graph",graphname,  \
-        "--model", model , \
-        "--cache-per" , str(cache_per),\
-        "--num-hidden",  str(hidden_size), \
-        "--batch-size", str(minibatch_size) ,\
-        "--num-epochs", "6",\
-        "--num-layers", str(num_layers), \
-        "--num-gpus", str(num_partition),\
-        "--fan-out", fanout, "--optimization1",\
-        "--skip-shuffle"] \
-            , capture_output = True)
+        "--fan-out", fanout, "--optimization1"
+        ]
+    if skip_shuffle:
+        cmd.append("--skip-shuffle")
+    if load_balance:
+        cmd.append("--load-balance")
+    output = subprocess.run(cmd, capture_output= True)
 
     # print(out,error)
     out = str(output.stdout)
@@ -88,7 +73,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
 
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
     try:
-    #if True:
+    # if True:
         accuracy  = check_single(re.findall("accuracy:(\d+\.\d+)",out))
         epoch = check_single(re.findall("epoch_time:(\d+\.\d+)",out))
         sample_get  = check_single(re.findall("sample_time:(\d+\.\d+)",out))
@@ -98,12 +83,14 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         backward_time = check_single(re.findall("backward time:(\d+\.\d+)",out))
         data_moved = check_single(re.findall("data movement:(\d+\.\d+)MB",out))
         edges_moved = re.findall("edges per epoch:(\d+\.\d+)",out)
-        s = 0
+        s = []
         if(num_partition == -1):
             num_partition = 4
         for i in range(num_partition):
-            s = s + float(edges_moved[i])
-        edges_moved = s / num_partition
+            s.append(float(edges_moved[i]))
+        edges_moved_avg = sum(s) / num_partition
+        edge_moved_max = max(s)
+        edge_moved_skew = (max(s) - min(s)) /min(s)
         sample_get = "{:.2f}".format(float(sample_get))
         movement_graph = "{:.2f}".format(float(movement_graph))
         movement_feat = "{:.2f}".format(float(movement_feat))
@@ -112,7 +99,7 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         epoch = "{:.2f}".format(float(epoch))
         backward_time = "{:.2f}".format(float(backward_time))
         data_moved = int(float(data_moved))
-        edges_moved = int(float(edges_moved))
+        # edges_moved = int(float(edges_moved))
 
     except Exception as e:
         with open('exception_occ.txt','w') as fp:
@@ -129,4 +116,5 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         edges_moved = "error"
     return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
             "movement_graph":movement_graph, "movement_feat": movement_feat, "epoch":epoch,
-                "accuracy": accuracy, "data_moved":data_moved, "edges_moved":edges_moved}
+                "accuracy": accuracy, "data_moved":data_moved, "edge_moved_avg":edges_moved_avg,\
+                    "edge_moved_max": edge_moved_max, "edge_moved_skew":edge_moved_skew}

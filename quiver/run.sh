@@ -1,4 +1,8 @@
-python3 dgl_gcn.py --model GAT  --batch-size 1024 --cache-per .25 --graph ogbn-products --num-hidden 64 --sample-gpu
+#python3 dgl_gcn.py --model GAT  --batch-size 1024 --cache-per 0 --graph reorder-papers100M --num-hidden 256 --sample-gpu
 
-#nsys profile --trace-fork-before-exec true -o qv_pr-gat.nsys-rep --force-overwrite true -c cudaProfilerApi \
-#	python3 dgl_gcn.py --model GAT --batch-size 1024 --cache-per .25 --graph ogbn-products --num-hidden 64 --sample-gpu
+python3 gpu_sample_naive_dgl_gcn.py --model GAT --batch-size 256  --graph papers100M --num-hidden 32
+#nsys profile --trace-fork-before-exec true -o qv_pa-gat.nsys-rep --force-overwrite true -c cudaProfilerApi \
+#	python3 dgl_gcn.py --model GAT --batch-size 1024 --cache-per .25 --graph reorder-papers100M --num-hidden 512 --sample-gpu
+
+# python3 naive_dgl_gcn.py --model GAT --batch-size 1024 --graph reorder-papers100M --num-hidden 256 --sample-gpu 
+    

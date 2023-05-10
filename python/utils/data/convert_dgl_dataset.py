@@ -4,21 +4,12 @@ from ogb.nodeproppred import DglNodePropPredDataset
 import os
 from os.path import exists
 from metis import *
-
+from env import *
+import dgl
 # Since this is the easiest dataset to generateself.
 # Allow overwriting.
 # file_exists = exists(path_to_file)
 
-def get_data_dir():
-    import os
-    username = os.environ['USER']
-    if username == 'spolisetty_umass_edu':
-        DATA_DIR = "/work/spolisetty_umass_edu/data"
-    if username == "spolisetty":
-        DATA_DIR = "/data/sandeep"
-    if username == "q91":
-        DATA_DIR = "/mnt/bigdata/sandeep"
-    return DATA_DIR
 
 ROOT_DIR = get_data_dir()
 
@@ -50,9 +41,14 @@ def write_dataset_dataset(name, TARGET_DIR):
 
     num_edges = graph.num_edges()
     num_nodes = graph.num_nodes()
-    nan_lab = torch.where(torch.isnan(labels.flatten()))[0]
     labels = labels.flatten()
+    for labels in [train_idx, test_idx, val_idx]:
+        nan_lab = torch.where(torch.isnan(labels))[0]
+        neg_lab = torch.where(labels < 0))[0]
+    assert(not torch.any(torch.isnan(labels)))
+    assert(not )
     labels[nan_lab] = 0
+
 
     print("Lables", torch.max(labels))
 
@@ -77,26 +73,31 @@ def write_dataset_dataset(name, TARGET_DIR):
         print("Val", val_idx)
         print("Test", test_idx)
 
-    # with open(TARGET_DIR + '/partition_map.bin','wb') as fp:
-    #     fp.write(p_map.numpy().astype(np.int32).tobytes())
+    graphs = dgl.metis_partition(graph, 4)    
+    p_map = np.zeros(graph.num_nodes(), dtype = np.int32)
+    for p in range(4):
+        p_map[graphs[p].ndata['_ID']] = p
+    
+    with open(TARGET_DIR + '/partition_map.bin','wb') as fp:
+        fp.write(p_map.numpy().astype(np.int32).tobytes())
     with open(TARGET_DIR+'/cindptr.bin', 'wb') as fp:
-        fp.write(c_indptr.astype(np.int64).tobytes())
+        fp.write(c_indptr.astype(np.int32).tobytes())
     with open(TARGET_DIR+'/cindices.bin', 'wb') as fp:
-        fp.write(c_indices.astype(np.int64).tobytes())
+        fp.write(c_indices.astype(np.int32).tobytes())
     with open(TARGET_DIR+'/indptr.bin', 'wb') as fp:
-        fp.write(indptr.astype(np.int64).tobytes())
+        fp.write(indptr.astype(np.int32).tobytes())
     with open(TARGET_DIR+'/indices.bin', 'wb') as fp:
-        fp.write(indices.astype(np.int64).tobytes())
+        fp.write(indices.astype(np.int32).tobytes())
     with open(TARGET_DIR+'/features.bin', 'wb') as fp:
         fp.write(features.numpy().astype('float32').tobytes())
     with open(TARGET_DIR+'/labels.bin', 'wb') as fp:
         fp.write(labels.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/train_idx.bin', 'wb') as fp:
-        fp.write(train_idx.numpy().astype('int64').tobytes())
+        fp.write(train_idx.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/val_idx.bin', 'wb') as fp:
-        fp.write(val_idx.numpy().astype('int64').tobytes())
+        fp.write(val_idx.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/test_idx.bin', 'wb') as fp:
-        fp.write(test_idx.numpy().astype('int64').tobytes())
+        fp.write(test_idx.numpy().astype('int32').tobytes())
     csum_train = torch.sum(train_idx).item()
     csum_test = torch.sum(val_idx).item()
 
@@ -114,10 +115,10 @@ def write_dataset_dataset(name, TARGET_DIR):
     with open(TARGET_DIR+'/meta.txt', 'w') as fp:
         for k in meta_structure.keys():
             fp.write("{}={}\n".format(k, meta_structure[k]))
-    import os
-    username = os.environ['USER']
-    if username == "spolisetty" :
-        generate_partition_file(ROOT_DIR, name)
+    # import os
+    # username = os.environ['USER']
+    # if username == "spolisetty" :
+    #     generate_partition_file(ROOT_DIR, name)
 
 
 # arg0 = dgl dataset name

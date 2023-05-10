@@ -88,9 +88,11 @@ class Gpu_Local_Sample:
         edges_remote = 0
         edges = []
         nodes = []
+        nodes.append(self.layers[0].num_in_nodes_local+ self.layers[0].num_in_nodes_pulled)
         for  graph in self.layers:
             edges_total += graph.indices_L.shape[0] + graph.indices_R.shape[0]
-            edges_remote += graph.indices_R.shape[0]
+            edges_remote += graph.indptr_R.shape[0] + graph.pull_from_offsets[-1] 
+            # nodes_pulled += graph.pull_from_offsets[-1]
             edges.append( graph.indices_L.shape[0] + graph.indices_R.shape[0])
             nodes.append(graph.indptr_L.shape[0] + graph.indptr_R.shape[0])
         return (edges_total, edges_remote, edges, nodes)

@@ -327,7 +327,6 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     auto num_out_nodes = layer_nds.size();
     auto num_edges = bs.indices.size();
     auto num_in_nodes = bs.layer_nds.size();
-    std::cout << "Note workload map is repeated twice \n" << layer_nds.size() << "\n";
     std::cout << "Launch configuration " << GRID_SIZE(layer_nds.size()) << " " << TILE_SIZE <<"\n";
     partition_edges_pull<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()), TILE_SIZE>>>\
         (this->workload_map.ptr(), this->sample_workload_map.ptr(),\
@@ -365,8 +364,7 @@ void PullSlicer::slice_layer(device_vector<long> &layer_nds,
     // ps.index_out_nodes_local.debug("Out node local");
     
     // populate edges
-    gpuErrchk(cudaDeviceSynchronize());
-    std::cout << "HELLO ALL DONE !!!!!!!!!!!!!!!!!!!1111\n";
+    // gpuErrchk(cudaDeviceSynchronize());
     fill_indices_local_pull<BLOCK_SIZE, TILE_SIZE>\
     <<<GRID_SIZE( ps.index_edge_local.size()),BLOCK_SIZE>>>(bs.indices.ptr(),
          ps.index_edge_local.ptr(), num_edges, \

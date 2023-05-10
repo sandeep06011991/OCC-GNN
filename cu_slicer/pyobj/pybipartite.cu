@@ -38,7 +38,7 @@ PyBipartite::PyBipartite(BiPartite *bp, int local_gpu_id, int num_gpus){
 }
 
 PyBipartite::~PyBipartite(){
-  std::cout << "destroy bipartite\n";
+  // std::cout << "destroy bipartite\n";
 }
 
 PySample::PySample(PartitionedSample &s, int current_gpu, int num_gpus){
@@ -61,7 +61,6 @@ PySample::PySample(PartitionedSample &s, int current_gpu, int num_gpus){
 }
 
 PySample::~PySample(){
-    std::cout << "Deleting CSample \n";
     for(auto l:layers){
       for(auto ll:*l){
         delete ll;

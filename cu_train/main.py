@@ -78,10 +78,10 @@ def work_producer(trainer_queues,training_nodes, batch_size,
             for j in range(num_workers):
                 if current_offset + batch_size < num_nodes:
                     trainer_queues[j].put(training_nodes[current_offset:current_offset + batch_size])
-                    current_offset = current_offset + batch_size
+                   
                 else:
                     trainer_queues[j].put("DUMMY")
-
+                current_offset = current_offset + batch_size
     print("All samples generated")
     # for j in range(num_workers):
     #     trainer_queues[j].put("END")
@@ -249,6 +249,7 @@ if __name__=="__main__":
     argparser.add_argument('--random-partition', action = "store_true", default = False)
     argparser.add_argument('--optimization1', action = "store_true", default = False)
     argparser.add_argument('--skip-shuffle', action = "store_true", default = False)
+    argparser.add_argument('--load-balance', action = "store_true", default = False)
     argparser.add_argument('--barrier', action = "store_true", default = False)
     argparser.add_argument('--reusable-buffers', action = "store_true", default = False)
     # We perform only transductive training

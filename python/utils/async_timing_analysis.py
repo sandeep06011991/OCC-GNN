@@ -68,7 +68,7 @@ def compute_stats_for_minibatch(eventlist_for_gpus):
     all_load_time = sum([e[DATALOAD_ELAPSED_EVENT_TIME] for e in eventlist_for_gpus])/4
     #all_load_time = max((max_load_end - min_graph_start), load_elapsed_time)
     max_epoch_time = max_end_backward - min_graph_start
-    print("Sample", batch_sample,"L", all_load_time,  "F", batch_forward, "B", batch_backward)
+    #print("Sample", batch_sample,"L", all_load_time,  "F", batch_forward, "B", batch_backward)
     return batch_sample, batch_graph, batch_load_time, batch_forward, batch_backward, all_load_time, max_epoch_time
 
 def compute_metrics(recieved_metrics):

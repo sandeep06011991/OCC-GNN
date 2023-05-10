@@ -15,6 +15,9 @@ class Pull(torch.autograd.Function):
         recv = []
         recv_g = []
         send_dict = []
+        # e1 = torch.cuda.Event(enable_timing= True)
+        # e2 = torch.cuda.Event(enable_timing= True)
+        # e1.record()
         for i in range(num_gpus):
             # Do I do work allocation here ?
             if i == device_id:
@@ -29,6 +32,9 @@ class Pull(torch.autograd.Function):
                     , device = device_id))
                 send_dict.append(local_t[push_to_ids[i]].detach())
         shuffle_functional(device_id, send_dict, recv, num_gpus)
+        # e2.record()
+        # e2.synchronize()
+        # print("Bandwidth Pull", ((pull_from_offsets[4] * local_t.shape[1] * 4)/ (e1.elapsed_time(e2)/1000))/(1024 ** 3))  
         ctx.device_id = device_id
         ctx.layer_id = layer_id
         ctx.recv_g = recv_g
@@ -42,7 +48,7 @@ class Pull(torch.autograd.Function):
             if i != device_id:
                 ret.append(recv[i])
                 s = s + recv[i].shape[0]
-        print("recieved", s, layer_id)
+        # print("recieved", s, layer_id)
         return  torch.cat(ret, dim = 0)
         # torch.cuda.current_stream().synchronize()
         # return recv[0],recv[1],recv[2], recv[3]

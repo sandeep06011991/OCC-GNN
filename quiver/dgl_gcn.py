@@ -105,6 +105,8 @@ def run(rank, args,  data):
         g = g.formats(['csc'])
         g = g.to(device)
     labels = labels.to(device)
+    labels[torch.where(labels == -1)[0]] = 0
+    print("Corrupting labels")
     print("Cross check edges moved !")
     # Create PyTorch DataLoader for constructing blocks
     sampler = dgl.dataloading.MultiLayerNeighborSampler(
@@ -112,7 +114,6 @@ def run(rank, args,  data):
     world_size = 4
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
     print("nubmer of batches", train_nid.shape[0]/args.batch_size)
-    print(torch.sum(g.in_degrees(train_nid)), device)
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nid,
@@ -153,6 +154,7 @@ def run(rank, args,  data):
     e3 = torch.cuda.Event(enable_timing = True)
     e4 = torch.cuda.Event(enable_timing = True)
     e5 = torch.cuda.Event(enable_timing = True)
+    epoch_available_memory = []
     for epoch in range(args.num_epochs):
         tic = time.time()
 
@@ -237,7 +239,8 @@ def run(rank, args,  data):
                 with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
                     e3.record()
                     batch_pred = model(blocks, batch_inputs)
-                    #print(batch_pred.shape, torch.max(batch_labels))
+                    print(batch_pred.shape, torch.max(batch_labels), torch.min(batch_labels))
+                    
                     loss = loss_fcn(batch_pred, batch_labels)
                     
                     e4.record()
@@ -250,7 +253,7 @@ def run(rank, args,  data):
                 optimizer.step()
                 r = torch.cuda.memory.max_memory_allocated()
                 t = torch.cuda.get_device_properties(0).total_memory
-                print("Total avalable memory", (t-r)/(1024 ** 3), "GB")
+                print("Total used  memory", (r)/(1024 ** 3), "GB")
  
                 batch_time[FORWARD_ELAPSED_EVENT_TIME] = e3.elapsed_time(e4)/1000
                 batch_time[DATALOAD_ELAPSED_EVENT_TIME] = e0.elapsed_time(e1)/1000
@@ -271,6 +274,7 @@ def run(rank, args,  data):
             torch.cuda.nvtx.range_pop()
             pass
         print("EPOCH TIME",time.time() - epoch_start)
+        epoch_available_memory.append(torch.cuda.max_memory_allocated())
         epoch_metrics.append(minibatch_metrics)
         epoch_time.append(time.time()-epoch_start)
         edges_per_epoch.append(edges_computed)
@@ -299,6 +303,7 @@ def run(rank, args,  data):
     print(edges_per_epoch)
     print("edges_per_epoch:{}".format(average(edges_per_epoch)))
     print("data moved :{}MB".format(average(data_movement_epoch)))
+    print("Memory used :{}GB".format(max(epoch_available_memory)/(1024 ** 3)))
     dist.destroy_process_group()
 
     return final_test_acc
@@ -342,7 +347,11 @@ if __name__ == '__main__':
     test_idx = torch.where(data.ndata.pop('test_mask'))[0]
     graph = dg_graph
     labels = dg_graph.ndata.pop('labels')
+    assert(torch.max(labels[train_idx]) + 1 <= num_classes)
+    
+    n_classes = num_classes
     feat = dg_graph.ndata.pop('features')
+    feat.share_memory_()
     print("Feature shape ", feat.shape) 
     graph = graph.add_self_loop()
     ###################################
@@ -354,6 +363,7 @@ if __name__ == '__main__':
     #labels = labels[:, 0].to(device)
 
     # feat = graph.ndata.pop('feat')
+    feat = feat.pin_memory()
     #year = graph.ndata.pop('year')
     if args.data == 'cpu':
         nfeat = feat
@@ -413,7 +423,7 @@ if __name__ == '__main__':
         raise ValueError(f'Unsupported feature storage location {args.data}.')
 
     in_feats = nfeat.shape[1]
-    n_classes = (labels.max() + 1).item()
+    #n_classes = (labels.max() + 1).item()
     # Create csr/coo/csc formats before launching sampling processes
     # This avoids creating certain formats in each data loader process, which saves momory and CPU.
     graph.create_formats_()

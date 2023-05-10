@@ -1,13 +1,13 @@
-from baselines.quiver import *
+from baselines.naive_gpu import run_naive
 
 
-def run_experiment_quiver( model, cache, sample_gpu):
+def run_naive( model):
     # graph, hidden_size, fsize, minibatch_size
     settings = [
-                #("ogbn-arxiv", 128,  1024), \
+                ("ogbn-arxiv", 128,  1024), \
                 #("ogbn-products", 100, 1024 ), \
                 #("reorder-papers100M", 128, 1024),\
-                ("reorder-mag240M", 768, 1024),\
+                #("reorder-mag240M", 768, 1024),\
                 #("amazon", 200, 1024),\
                # ("ogbn-products", 100, 256), \
                # ("reorder-papers100M", 128, 256),\
@@ -24,19 +24,19 @@ def run_experiment_quiver( model, cache, sample_gpu):
     layers = 3
 
     hidden_sizes = [ 256]
-    with open('{}/hidden/quiver_upgrade.txt'.format(OUT_DIR),'a') as fp:
+    with open('{}/hidden/naive.txt'.format(OUT_DIR),'a') as fp:
         #fp.write("sha:{}, dirty:{}\n".format(sha,dirty))
-        fp.write("graph,system,cache,hidden-size,fsize," + \
-            "batch-size,model,layers,fanout,sample_GPU,sample_get,move-data,forward," +\
+        fp.write("graph,system,hidden-size,fsize," + \
+            "batch-size,model,layers,fanout,sample_GPU,move-data,forward," +\
               "backward,epoch_time,accuracy,data_movement,edges,memory(GB) \n")
     for graphname, fsize, batch_size in settings:
         for hidden_size in hidden_sizes:
             out = run_quiver(graphname, model ,no_epochs, cache, hidden_size, fsize, batch_size, layers, fanout, sample_gpu)
-            with open('{}/hidden/quiver_upgrade.txt'.format(OUT_DIR),'a') as fp:
+            with open('{}/hidden/naive.txt'.format(OUT_DIR),'a') as fp:
                 fp.write(("{},{},{},{},{},{},{},"+\
                        "{},{},{},{},{},{},{},{},"+\
-                       "{},{},{},{}\n").format(graphname , "quiver", cache, hidden_size, fsize,\
-                        4 * batch_size, model, layers, fanout.replace(",","-"), sample_gpu, out["sample_get"], out["movement_data"], \
+                       "{},{}\n").format(graphname , "quiver",  hidden_size, fsize,\
+                        4 * batch_size, model, layers, fanout.replace(",","-"),  out["sample_get"], out["movement_data"], \
                          out["forward"], out["backward"],  out["epoch"], out["accuracy"],
                         out["data_moved"], out["edges"], out["memory_used"]))
 

@@ -14,8 +14,11 @@
 
 
 namespace cuslicer{
+template<typename D>
+long device_vector<D>::TOTAL_USED = 0;
 
-
+// template<typename D>
+// device_vector<D>::cuda_memory::TOTAL_ALLOCATED = 0;
 
 template<int BLOCKSIZE, int TILESIZE, typename DATATYPE>
 __global__
@@ -53,8 +56,10 @@ device_vector<DATATYPE>::device_vector(std::vector<DATATYPE> &host){
 template<typename DATATYPE>
  void device_vector<DATATYPE>::resize(size_t new_size){
    if(new_size == 0)return clear();
+  TOTAL_USED -= current_size;
    if(d ==nullptr){
      // First allocation
+     TOTAL_USED += current_size;
      d = cuda_memory::alloc(new_size);
      current_size = new_size;
      allocated = new_size;
@@ -67,8 +72,11 @@ template<typename DATATYPE>
   }else{
     // std::cout <<"skipping allocation\n";
   }
+  TOTAL_USED += new_size;
   current_size = new_size;
   free_size = allocated-current_size;
+  TOTAL_USED += current_size;
+  
 }
 
 

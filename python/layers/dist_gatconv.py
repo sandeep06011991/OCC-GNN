@@ -78,7 +78,7 @@ class DistGATConv(nn.Module):
             *out_feats.shape[:-1], self.num_heads, self.out_feats)
 
         er = (out_feats * self.attn_r).sum(dim=-1).unsqueeze(-1)
-
+        async_op = {}
         # Apply Edge here
         if not testing and not self.skip_shuffle:
             t1 = time.time()
@@ -89,6 +89,7 @@ class DistGATConv(nn.Module):
 
         e = bipartite_graph.apply_edge_local(el, er)
         e = self.leaky_relu(e)
+        print("Till here is perfectly non blockign !!!!")
         if not testing and not self.skip_shuffle:
             e_r = bipartite_graph.apply_edge_remote(el,er_remote)
             e_r = self.leaky_relu(e_r)
@@ -101,7 +102,7 @@ class DistGATConv(nn.Module):
                 remote_max = bipartite_graph.gather_remote_max(e_r)
                 t1 = time.time()
                 merge_maxes = Shuffle.apply(
-                    remote_max, self.gpu_id, self.num_gpus,  l,  bipartite_graph.get_from_nds_size(),  bipartite_graph.to_offsets)
+                    remote_max, self.gpu_id, self.num_gpus,  l,  bipartite_graph.get_from_nds_size(),  bipartite_graph.to_offsets, None, None, async_op)
                 t2 = time.time()
                 self.shuffle_time += (t2-t1)
                 for i in range(self.num_gpus):
@@ -122,6 +123,7 @@ class DistGATConv(nn.Module):
                 remote_max = bipartite_graph.copy_from_out_nodes_remote(remote_max)
 
         # m = 0
+
         exponent_l = e - local_max
         exponent_l = torch.exp(exponent_l)
         sum_exponent_local = bipartite_graph.apply_node_local(exponent_l)
@@ -133,7 +135,7 @@ class DistGATConv(nn.Module):
         if not testing and not self.skip_shuffle:
             t1 = time.time()
             merge_sum = Shuffle.apply(
-                sum_exponent_remote_r,self.gpu_id,  self.num_gpus, l,  bipartite_graph.get_from_nds_size(), bipartite_graph.to_offsets)
+                sum_exponent_remote_r,self.gpu_id,  self.num_gpus, l,  bipartite_graph.get_from_nds_size(), bipartite_graph.to_offsets, None, None, async_op)
             t2 = time.time()
             self.shuffle_time += (t2-t1)
             sum_exponent_local = sum_exponent_local.clone()
@@ -158,7 +160,7 @@ class DistGATConv(nn.Module):
             out_remote = bipartite_graph.attention_gather_remote(attention_r, in_feats)
             t1 = time.time()
             merge_out = Shuffle.apply(
-                out_remote, self.gpu_id, self.num_gpus,  l, bipartite_graph.get_from_nds_size(),bipartite_graph.to_offsets)
+                out_remote, self.gpu_id, self.num_gpus,  l, bipartite_graph.get_from_nds_size(),bipartite_graph.to_offsets, None, None,async_op)
             t2 = time.time()
             self.shuffle_time += (t2-t1)
 

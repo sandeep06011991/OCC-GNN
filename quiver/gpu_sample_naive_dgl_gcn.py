@@ -25,7 +25,8 @@ from dgl_gat import GAT
 from utils.utils import *
 import pickle
 import torch.autograd.profiler as profiler
-from torch.profiler import profile, record_function, ProfilerActivity
+# from torch.profiler import record_function, ProfilerActivity
+
 def average(ls):
     if(len(ls) == 1):
         return ls[0]
@@ -66,8 +67,8 @@ def load_subtensor(nfeat, labels, seeds, input_nodes, device):
     """
     assert(nfeat.device == torch.device('cpu'))
     assert(labels.device == torch.device('cpu'))
-    batch_inputs = nfeat[input_nodes].to(device)
-    batch_labels = labels[seeds].to(device)
+    batch_inputs = nfeat[input_nodes.to(dtype = torch.int64).to('cpu')].to(device)
+    batch_labels = labels[seeds.to(dtype = torch.int64).to('cpu')].to(device)
     return batch_inputs, batch_labels
 
 
@@ -97,18 +98,21 @@ def run(rank, args,  data):
     print(metrics_queue)
 
     # Create PyTorch DataLoader for constructing blocks
+    print("Fanout", args.fan_out)
     sampler = dgl.dataloading.MultiLayerNeighborSampler(
-            [int(fanout) for fanout in args.fan_out.split(',')], replace = True)
+            [int(fanout) for fanout in args.fan_out.split(',')], replace = False)
     #sampler = dgl.dataloading.MultiLayerNeighborSampler([-1,-1,-1])
 
     world_size = 4
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank].to(rank)
 
     number_of_minibatches = train_nid.shape[0]/args.batch_size
-
+    
+    g = g.formats('csc')
+    print("Starting to create loader")
     dataloader = dgl.dataloading.NodeDataLoader(
         g.to(rank),
-        train_nid,
+        train_nid.to(dtype = torch.int32),
         sampler,
         device='cuda',
         batch_size=args.batch_size,
@@ -123,10 +127,10 @@ def run(rank, args,  data):
                  args.num_layers, F.relu, args.dropout)
     else:
         assert(args.model == "GAT")
-        heads = 3
+        heads = 4
         model = GAT(in_feats, args.num_hidden, \
                 n_classes , heads, args.num_layers, F.relu, args.dropout)
-
+    
     model = model.to(device)
     model = DistributedDataParallel(model, device_ids=[device])
     loss_fcn = nn.CrossEntropyLoss()
@@ -135,8 +139,7 @@ def run(rank, args,  data):
 
     # Training loop
     best_val_acc = final_test_acc = 0
-    print("start training")
-
+    
     epoch_time = []
     epoch_sampling_time = []
     epoch_forward_time = []
@@ -149,15 +152,14 @@ def run(rank, args,  data):
     data_movement_time = 0
     accuracy = []
     edges_per_epoch = []
+    epoch_available_memory = []
     data_movement_epoch = []
     e1 = torch.cuda.Event(enable_timing = True)
     e2 = torch.cuda.Event(enable_timing = True)
     e3 = torch.cuda.Event(enable_timing = True)
     test_accuracy_list = []
-    #with profile(enabled = False, activities = [ProfilerActivity.CUDA, ProfilerActivity.CPU],\
-    #            use_cuda = True, \
-    #            schedule = torch.profiler.schedule(wait = 2, warmup = 1, active = 1000)) as prof:
-    if True:
+    with profiler.profile(enabled = False,\
+               use_cuda = True ) as prof:
         for epoch in range(args.num_epochs):
             tic = time.time()
 
@@ -184,12 +186,12 @@ def run(rank, args,  data):
                     batch_time = {}
                     optimizer.zero_grad()
                     t1 = time.time()
-                    with profiler.record_function("sampling"):
-                        input_nodes, seeds, blocks = next(dataloader_i)
+                    # with profiler.record_function("sampling"):
+                    input_nodes, seeds, blocks = next(dataloader_i)
                     t2 = time.time()
                     sampling_time += (t2-t1)
                     print("Sampling time", t2-t1)
-                    blocks = [blk.to(device) for blk in blocks]
+                    # blocks = [blk.to(device) for blk in blocks]
                 #t2 = time.time()
                 # blocks = [blk.formats(['coo','csr','csc']) for blk in blocks]
                     for blk in blocks:
@@ -198,8 +200,8 @@ def run(rank, args,  data):
                 #print(edges_computed)
                     t3 = time.time()
                 # Load the input features as well as output labels
-                    with profiler.record_function("movement"):
-                        batch_inputs, batch_labels = load_subtensor(
+                    # with profiler.record_function("movement"):
+                    batch_inputs, batch_labels = load_subtensor(
                         nfeat, labels, seeds, input_nodes, device)
                     t4 = time.time()
                     data_movement_time += (t4-t3)
@@ -207,19 +209,20 @@ def run(rank, args,  data):
                 #with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
                 #if True:
                     e1.record()
-                    with profiler.record_function("training"):
-                        batch_pred = model(blocks, batch_inputs)
-                        loss = loss_fcn(batch_pred, batch_labels)
-                        e2.record()
+                    # with profiler.record_function("training"):
+                    batch_pred = model(blocks, batch_inputs)
+                    loss = loss_fcn(batch_pred, batch_labels)
+                    e2.record()
                     #e3.record()
-                        loss.backward()
-                        e3.record()
-                        e3.synchronize()
+                    loss.backward()
+                    e3.record()
+                    e3.synchronize()
 
                     optimizer.step()
                 #print("sample time", t2-t1, t3-t2)
                     forward_time += e1.elapsed_time(e2)/1000
                     backward_time += e2.elapsed_time(e3)/1000
+                    print("memory", torch.cuda.max_memory_allocated()/(1024 **3), "GB")
                     print("training time",e1.elapsed_time(e3)/1000)
                 #print("Time feature", device, e1.elapsed_time(e2)/1000)
                 #print("Expected bandwidth", missed * nfeat.shape[1] * 4/ ((e1.elapsed_time(e2)/1000) * 1024 * 1024 * 1024), "GB device", rank, "cache rate", hit/(hit + missed))
@@ -244,7 +247,8 @@ def run(rank, args,  data):
                 print("Test Accuracy:{} Epoch:{}".format(test_accuracy, epoch))
                 #print("Accuracy: {}, device:{}, epoch:{}".format(test_accuracy, device, epoch))
             #prof.step()
-
+            epoch_available_memory.append(torch.cuda.max_memory_allocated())
+        
             epoch_time.append(time.time() - epoch_start)
         #pbar.close()
             data_movement_epoch.append(data_movement)
@@ -284,6 +288,9 @@ def run(rank, args,  data):
         print("backward time:{}".format(average(epoch_backward_time)))
         print("edges_per_epoch:{}".format(average(edges_per_epoch)))
         print("data moved:{}MB".format(average(data_movement_epoch)))
+    print("data moved :{}MB".format(average(data_movement_epoch)))
+    print("Memory used :{}GB".format(max(epoch_available_memory)/(1024 ** 3)))
+        
     #torch.distributed.barrier()
     # print(prof.key_averages(group_by_stack_n=5).table(sort_by='self_gpu_time_total', row_limit=5))
 
@@ -298,7 +305,7 @@ if __name__ == '__main__':
     argparser.add_argument('--gpu', type=int, default=0,
                            help="GPU device ID. Use -1 for CPU training")
     argparser.add_argument('--num-epochs', type=int, default=6)
-    argparser.add_argument('--num-hidden', type=int, default=16)
+    argparser.add_argument('--num-hidden', type=int, default=256)
     argparser.add_argument('--num-layers', type=int, default=3)
     argparser.add_argument('--fan-out', type=str, default='20,20,20')
     argparser.add_argument('--batch-size', type=int, default=1024)
@@ -349,7 +356,7 @@ if __name__ == '__main__':
     #year = graph.ndata.pop('year')
 
     in_feats = nfeat.shape[1]
-    nfeat = nfeat.pin_memory()
+    nfeat.share_memory_()
     n_classes = (labels.max() + 1).item()
     # Create csr/coo/csc formats before launching sampling processes
     # This avoids creating certain formats in each data loader process, which saves momory and CPU.

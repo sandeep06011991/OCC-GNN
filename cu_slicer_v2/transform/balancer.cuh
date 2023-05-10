@@ -13,7 +13,7 @@ namespace cuslicer{
         float s = 0;
         for(PARTITIONIDX i = 0; i <  num_gpus; i++){
             s += prob_matrix[i];
-            if(rand < s) return i;
+            if(rand <= s) return i;
         }
         printf("prob found %f %f\n", rand, s);
         assert(false);
@@ -89,14 +89,14 @@ public:
 
         void balance(device_vector<PARTITIONIDX> &workload_map, 
             device_vector<NDTYPE> &sample_in, 
-                device_vector<PARTITIONIDX> &sample_workload_map){
+                device_vector<PARTITIONIDX> &sample_workload_map, size_t last_layer_dst_nodes){
 
                     std::vector<NDTYPE> load; 
                     NDTYPE avg = 0;
                     for(int gpu = 0;gpu < this->num_gpus; gpu ++){
-                        auto v =  count_if(sample_workload_map,  this->temp, gpu);
+                        auto v =  count_if(sample_workload_map,  this->temp, gpu, last_layer_dst_nodes);
                         avg += v;
-                        std::cout << "gpu" << gpu << ":" << v <<"\n";
+                        std::cout << "gpu " << gpu << ":" << v <<"\n";
                         load.push_back(v);
                     }
                     avg = avg/load.size();
@@ -133,15 +133,15 @@ public:
                         std::cout << "\n";
                     }    
                     cudaMemcpy(probability_matrix_d, probability_matrix, sizeof(float) * MAX_DEVICES * MAX_DEVICES, cudaMemcpyHostToDevice);
-                    rebalance_partitions<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(sample_in.size()),BLOCK_SIZE>>>\
-                            (sample_workload_map.ptr(), sample_in.size(), \
+                    rebalance_partitions<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(last_layer_dst_nodes),BLOCK_SIZE>>>\
+                            (sample_workload_map.ptr(), last_layer_dst_nodes, \
                                 sample_workload_map.ptr(), probability_matrix_d, \
                                  random_states, num_random_states,  num_gpus);
                     cudaDeviceSynchronize();
                     for(int gpu = 0;gpu < this->num_gpus; gpu ++){
-                        auto v =  count_if(sample_workload_map,  this->temp, gpu);
+                        auto v =  count_if(sample_workload_map,  this->temp, gpu, last_layer_dst_nodes);
                         avg += v;
-                        std::cout << "gpu" << gpu << ":" << v <<"\n";
+                        std::cout << "gpu " << gpu << ":" << v <<"\n";
                         load.push_back(v);
                     }
                     // assert(false);             

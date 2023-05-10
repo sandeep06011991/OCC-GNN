@@ -3,7 +3,7 @@ import dgl
 import time
 import nvtx
 from models.dist_gcn import get_sage_distributed
-from models.dist_gat import get_gat_distributed
+from models.dist_gat_v2 import get_gat_distributed
 from utils.utils import get_process_graph
 from utils.memory_manager import MemoryManager, GpuLocalStorage
 import torch.optim as optim
@@ -172,7 +172,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         recv_dict = {}
         my_gpu_local_sample = None
         if(type(training_node) != type("")):
-            csample = sampler.getSample(training_node)
+            
+            # args.load_balance    
+            csample = sampler.getSample(training_node, args.load_balance)
             tensorized_sample = Sample(csample)
             sample_id = tensorized_sample.randid
             for gpu_id in range(num_gpus):
@@ -266,10 +268,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             torch.cuda.nvtx.range_push("storage")
             input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cache_hit_from, \
                     gpu_local_sample.cache_hit_to, gpu_local_sample.cache_miss_from, gpu_local_sample.cache_miss_to)
-            movement_feat = time.time() - m_t1
+            movement_feat += time.time() - m_t1
             torch.cuda.nvtx.range_pop()
             edges, nodes, edge_split, node_split = gpu_local_sample.get_edges_and_send_data()
-            print(device, edge_split, node_split)
             edges_per_gpu += edges
             data_moved_per_gpu += ((gpu_local_sample.cache_miss_from.shape[0] * features.shape[1] * 4)/(1024 * 1024)) +\
                                 ((nodes * args.num_hidden * 4)/(1024 * 1024))
@@ -278,12 +279,13 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             fp_start.record()
             torch.cuda.nvtx.range_push("training {}:{}".format(edge_split, node_split))
             output = model.forward(gpu_local_sample, input_features, None)
-            torch.cuda.synchronize()
             loss = loss_fn(output,classes)/args.batch_size
             fp_end.record()
             loss.backward()
+            torch.cuda.synchronize()
             torch.cuda.nvtx.range_pop()
             bp_end.record()
+
             optimizer.step()
             if(current_minibatch == 10):
                 torch.cuda.profiler.start()
@@ -328,7 +330,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             torch.cuda.nvtx.range_pop()
             forward_time += fp_start.elapsed_time(fp_end)/1000
             backward_time += fp_end.elapsed_time(bp_end)/1000
-            print("Training time", fp_start.elapsed_time(fp_end)/1000, fp_end.elapsed_time(bp_end)/1000)
+            # print("Training time", fp_start.elapsed_time(fp_end)/1000, fp_end.elapsed_time(bp_end)/1000)
             #assert(False)
     print("Exiting main training loop",sample_queue.qsize())
 #     dev_id = proc_id
@@ -348,6 +350,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         print("data movement:{}MB".format(avg(data_moved_per_gpu_epoch)))
         #print("Inter gpu data movement:{}MB".format(avg(data_moved_inter_gpu_epoch)))
         print("Shuffle time:{}".format(avg(movement_partials_epoch)))
+        print("Memory Used:{} GB".format(torch.cuda.max_memory_allocated()/(1024 ** 3)))
 #     print("Trainer returns")
 #         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
      # print("Thread running")

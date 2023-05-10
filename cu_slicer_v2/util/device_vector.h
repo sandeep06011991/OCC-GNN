@@ -25,6 +25,7 @@ namespace cuslicer{
 
     size_t free_size= 0;
 
+    static long TOTAL_USED;
 
     class cuda_memory{
 
@@ -40,11 +41,11 @@ namespace cuslicer{
         cuda_memory(DATATYPE *d, size_t sz){
             this->data = d;
             this->sz = sz;
-            TOTAL_ALLOCATED += sz * sizeof(DATATYPE);
+            TOTAL_ALLOCATED += sz ;
           }
 
           ~cuda_memory(){
-            TOTAL_ALLOCATED -= sz * sizeof(DATATYPE);
+            TOTAL_ALLOCATED -= sz ;
             // std::cout << "Freeing " << sz <<"\n";
             gpuErrchk(cudaFree(data));
           }
@@ -68,6 +69,12 @@ namespace cuslicer{
     float getAllocatedMemory(){
       return (cuda_memory::TOTAL_ALLOCATED  * 1.0) / (1032 * 1032 * 1032);
     }
+    
+    static void printMemoryStats(){
+      std::cout << "Allocated:";
+      std::cout << (cuda_memory::TOTAL_ALLOCATED  * 1.0 * sizeof(DATATYPE) ) / (1032 * 1032 * 1032)<< "GB\n";
+      std::cout << "Used:"<< (sizeof(DATATYPE) * TOTAL_USED * 1.0) / (1032 * 1032 * 1032) << "GB\n";
+    }
     // Todo instead of raw pointer in data use shared memory
     // This is a local change, add more tests to testfile testss/device_vector.cu
 
@@ -90,6 +97,7 @@ namespace cuslicer{
      return current_size;
    }
    inline void clear(){
+    TOTAL_USED -= current_size;
      current_size = 0;
      free_size = allocated-current_size;
    }
@@ -117,6 +125,7 @@ namespace cuslicer{
   }
 
   inline void destroy(){
+    TOTAL_USED -= current_size;
     current_size = 0;
     allocated = 0;
     free_size = 0;

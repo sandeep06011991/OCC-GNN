@@ -16,6 +16,7 @@
 #include "../util/cuda_utils.h"
 #include "../util/cub.h"
 #include "../util/types.h"
+#include "../util/device_vector.h"
 
 #include <memory>
 using namespace std::chrono;
@@ -113,7 +114,7 @@ public:
     //   PySample *sample = new PySample(*p_sample);
     // }
 
-    unique_ptr<PySample> getSample(vector<long> sample_nodes){
+    unique_ptr<PySample> getSample(vector<long> sample_nodes, bool balance){
       std::cout << "try to get a sample \n";
       sample->clear();
       p_sample->clear();
@@ -128,7 +129,6 @@ public:
 
       // spdlog::info("slice begin");
       std::cout << "attempting slicing \n";
-      bool balance = true;
       this->slicer->slice_sample(*sample, *p_sample, balance);
   	  cudaDeviceSynchronize();
       auto start3 = high_resolution_clock::now();
@@ -136,7 +136,8 @@ public:
       auto duration2 = duration_cast<milliseconds>(start3 -start2);
 
      std::cout << "sample " << (double)duration1.count()/1000 << "slice"<< (double)duration2.count()/1000 <<"\n";
-
+      device_vector<int>::printMemoryStats();
+      device_vector<long>::printMemoryStats();
       // spdlog::info("covert to torch");
       auto sample = std::make_unique<PySample>(*p_sample, current_gpu, num_gpus);
       return sample;

@@ -202,6 +202,9 @@ void ArrayMap::assert_no_duplicates(device_vector<NDTYPE> &nodes){
 // nodes has no duplicates
 void ArrayMap::order(device_vector<NDTYPE> &nodes){
   if(nodes.size() == 0)return;
+  #ifdef DEBUG
+    assert_no_duplicates(nodes);  
+  #endif
   _tv2 = nodes;
 
   remove_nodes_seen(_tv2);

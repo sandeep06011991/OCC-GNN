@@ -56,12 +56,13 @@ void  mark_if(T1 * in, size_t sz,
 
     template<typename T1>
     T1 count_if(device_vector<T1>& input,\
-         device_vector<T1>& temp, T1 eq){
+         device_vector<T1>& temp, T1 eq, size_t sz){
         // Set value if eq
-        temp.resize(input.size());
+        assert(input.size() >= sz);
+        temp.resize(sz);
 
-        mark_if<BLOCK_SIZE, TILE_SIZE, T1><<<GRID_SIZE(input.size()), BLOCK_SIZE>>>(
-            input.ptr(), input.size(), temp.ptr(), eq
+        mark_if<BLOCK_SIZE, TILE_SIZE, T1><<<GRID_SIZE(sz), BLOCK_SIZE>>>(
+            input.ptr(), sz, temp.ptr(), eq
         );
         return transform<T1>::reduce(temp);
     }

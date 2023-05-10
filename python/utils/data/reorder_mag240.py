@@ -10,7 +10,7 @@ from env import get_data_dir
 from os.path import exists
 ROOT_DIR = get_data_dir()
 # Target dir is root dir + filename
-TARGET_DIR = "{}/{}".format(ROOT_DIR, "mag240M")
+TARGET_DIR = "{}/{}".format(ROOT_DIR, "reorder_mag240M")
 os.makedirs(TARGET_DIR, exist_ok=True)
 
 if not exists(TARGET_DIR+'/cindptr.bin'):
@@ -23,28 +23,21 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
     dataset = ogb.lsc.mag240m.MAG240MDataset(root=ROOT_DIR)
 
     edge_index= dataset.edge_index('paper', 'paper')
-    features = dataset.all_paper_feat
+    features = dataset.paper_feat
     split = dataset.get_idx_split()
     for k in split.keys():
         print(split[k].shape, k)
-    graph = dgl.graph((edge_index[0], edge_index[1]), num_nodes = dataset.num_papers)
-    if not exists(TARGET_DIR + '/partition_map_opt_4.bin'):
-        graphs = dgl.metis_partition(graph, 4)
-        p_map = np.zeros(graph.num_nodes(), dtype = np.int32)
-        for p in range(4):
-            p_map[graphs[p].ndata['_ID']] = p
-        with open(TARGET_DIR+'/partition_map_opt_4.bin', 'wb') as fp:
-            fp.write(p_map.astype('int32').tobytes())
-    else:
-        print("Skip graph partition")
+    graphs = dgl.metis_partition(graph, 4)
+    p_map = np.zeros(graph.num_nodes(), dtype = np.int32)
+    for p in range(4):
+        p_map[graphs[p].ndata['_ID']] = p
 
     train_idx = split['train']
-    labels = dataset.all_paper_label
+    labels = dataset.paper_label
 
     num_nodes = dataset.num_papers
-
     print("Num of nodes", num_nodes)
-    '''dg_graph = dgl.graph((edge_index[0], edge_index[1]), num_nodes = num_nodes)
+    dg_graph = dgl.graph((edge_index[0], edge_index[1]), num_nodes = num_nodes)
     print(dg_graph)
     rev_graph = dg_graph.reverse()
     in_t = torch.zeros(num_nodes)
@@ -73,8 +66,7 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
     selected_edges = torch.where(is_selected[src] & is_selected[dest])[0]
     src_c = new_order[src[selected_edges]]
     dest_c = new_order[dest[selected_edges]]
-    labels = labels[selected]
-    graph = dgl.graph((src_c,dest_c))'''
+    graph = dgl.graph((src_c,dest_c))
     print("New dgl graph constructed")
 
     sparse_mat = graph.adj(scipy_fmt='csr')
@@ -92,13 +84,16 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
 
     num_edges = graph.num_edges()
     num_nodes = graph.num_nodes()
-    labels = torch.from_numpy(labels)
+    labels = labels[selected]
+    labels = torch.from_numpy(labels, dtype = torch.int32)
     nan_lab = torch.where(torch.isnan(labels.flatten()))[0]
     labels = labels.flatten()
     labels[nan_lab] = 0
+    features = features[selected]
     print("Feature Required Size ", features.shape)
     features = torch.from_numpy(features)
     print("Lables", torch.max(labels))
+    num_nodes = selected.shape[0]
     num_classes = int(torch.max(labels) + 1)
     assert features.shape[0] == num_nodes
     assert labels.shape[0] == num_nodes
@@ -114,23 +109,24 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
     assert indices.shape == (num_edges,)
     # if('train_idx' not in graph.ndata.keys()):
     #     split_idx = dataset.get_idx_split()
+    train_idx =  new_order[train_idx]
 
     with open(TARGET_DIR+'/cindptr.bin', 'wb') as fp:
-        fp.write(c_indptr.astype(np.int32).tobytes())
+        fp.write(c_indptr.astype(np.int64).tobytes())
     with open(TARGET_DIR+'/cindices.bin', 'wb') as fp:
-        fp.write(c_indices.astype(np.int32).tobytes())
+        fp.write(c_indices.astype(np.int64).tobytes())
     with open(TARGET_DIR+'/indptr.bin', 'wb') as fp:
-        fp.write(indptr.astype(np.int32).tobytes())
+        fp.write(indptr.astype(np.int64).tobytes())
     with open(TARGET_DIR+'/indices.bin', 'wb') as fp:
-        fp.write(indices.astype(np.int32).tobytes())
+        fp.write(indices.astype(np.int64).tobytes())
     with open(TARGET_DIR+'/features.bin', 'wb') as fp:
         fp.write(features.numpy().astype('float32').tobytes())
     with open(TARGET_DIR+'/labels.bin', 'wb') as fp:
         fp.write(labels.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/test_idx.bin', 'wb') as fp:
-        fp.write(train_idx.numpy().astype('int32').tobytes())
-    #with open(TARGET_DIR+'/partition_map_opt_4.bin', 'wb') as fp:
-    #    fp.write(p_map.astype('int32').tobytes())
+        fp.write(train_idx.numpy().astype('int64').tobytes())
+    with open(TARGET_DIR+'/partition_map_opt_4.bin', 'wb') as fp:
+        fp.write(p_map.astype('int32').tobytes())
 
     csum_train = torch.sum(train_idx).item()
     # csum_test = torch.sum(val_idx).item()

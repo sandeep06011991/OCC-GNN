@@ -90,6 +90,8 @@ class Bipartite:
             graph_local = heterograph_index.create_heterograph_from_relations( \
                     metagraph_index_local[0], [hg_local], Index([in_nodes ,self.num_out_local]))
             self.graph_local = dgl.DGLHeteroGraph(graph_local,['_U','_V_local'],['_E'])
+            self.block_local = dgl.create_block(("csc",(self.indptr_L, self.indices_L,torch.tensor([]))),\
+                                                  num_src_nodes=in_nodes, num_dst_nodes=self.num_out_local)
             if attention:
                 self.graph_local = self.graph_local.formats(['csr','csc','coo'])
                 self.graph_local.create_formats_()

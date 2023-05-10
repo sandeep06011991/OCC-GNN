@@ -89,7 +89,8 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size,\
         edges = [float(edge) for edge in edges]
         assert(len(edges) == 4)
         edges = sum(edges)/4
-
+        memory_used = re.findall("Memory used :(\d+\.\d+)GB", out)
+        memory_used = max(memory_used)
         data_moved = re.findall("data moved :(\d+\.\d+)MB",out)
         data_moved = [float(d) for d in data_moved]
         assert(len(data_moved) == 4)
@@ -111,10 +112,11 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size,\
         accuracy = "error"
         epoch = "error"
         data_moved = "error"
+        memory_used = "error"
     return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
             "movement_graph":movement_graph, "movement_data": movement_data, \
                 "movement_feat": movement_feat, "epoch":epoch,
-                "accuracy": accuracy,"data_moved":data_moved, "edges":edges}
+                "accuracy": accuracy,"data_moved":data_moved, "edges":edges, "memory_used": memory_used}
 
 
 

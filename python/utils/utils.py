@@ -93,7 +93,6 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
     indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.int64)
     num_nodes = indptr.shape[0] - 1
     num_edges = indices.shape[0]
-    print(num_nodes, num_edges)
     if graphname not in synthetic_graphs and not graphname.startswith("synth"):
         assert(fsize == -1)
         results = read_meta_file(filename)
@@ -112,11 +111,16 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
         features = torch.rand(num_nodes,fsize)
         num_classes = 48
         labels = torch.randint(0,num_classes,(num_nodes,))
+    print(num_nodes, num_edges, num_classes, "CLASS")
 
     assert(features.shape == (num_nodes,fsize))
     # features = torch.rand(num_nodes,fsize)
+    indptr = indptr.astype(np.int32)
+    indices = indices.astype(np.int32)
+    print("Using 32")
     sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
         shape = (num_nodes,num_nodes))
+    
     dg_graph = dgl.from_scipy(sp)
     dg_graph = dgl.to_homogeneous(dg_graph)
     # features = features.pin_memory()
@@ -146,6 +150,7 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
     else:
         partition_map = None
     # assert(False)
+    dg_graph = dg_graph.astype(torch.int32)
     return dg_graph, partition_map, num_classes
     # , features, num_nodes, num_edges
 
