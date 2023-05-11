@@ -15,10 +15,13 @@ ROOT_DIR = get_data_dir()
 
 def write_dataset_dataset(name, TARGET_DIR):
     # DGL graphs area always direction src to edges
+    print("Get DGL Graph", name, TARGET_DIR)
     dataset = DglNodePropPredDataset(name, root=ROOT_DIR)
     graph, labels = dataset[0]
     edges = graph.edges()
+    print(edges[0].dtype)
     # dgl graph edges are always src to destination.
+    print("Read edges")
     graph.remove_edges(torch.where(edges[0] == edges[1])[0])
     sparse_mat = graph.adj(scipy_fmt='csr')
     sparse_mat.sort_indices()
@@ -30,6 +33,7 @@ def write_dataset_dataset(name, TARGET_DIR):
     # indptr is for srcs
     # However sampling must start from dest
     # Thus reverse this.
+    print("Construct Sparse")
     c_spmat = graph.adj(scipy_fmt = 'csr', transpose = True)
     c_indptr = c_spmat.indptr
     c_indices = c_spmat.indices
@@ -41,24 +45,13 @@ def write_dataset_dataset(name, TARGET_DIR):
 
     num_edges = graph.num_edges()
     num_nodes = graph.num_nodes()
-    labels = labels.flatten()
-    for labels in [train_idx, test_idx, val_idx]:
-        nan_lab = torch.where(torch.isnan(labels))[0]
-        neg_lab = torch.where(labels < 0))[0]
-    assert(not torch.any(torch.isnan(labels)))
-    assert(not )
-    labels[nan_lab] = 0
-
-
-    print("Lables", torch.max(labels))
-
-    num_classes = int(torch.max(labels) + 1)
+    
     features = graph.ndata['feat']
     assert features.shape[0] == num_nodes
-    assert labels.shape[0] == num_nodes
+
     feature_dim = features.shape[1]
     csum_features = torch.sum(features).item()
-    csum_labels = torch.sum(labels).item()
+ 
     csum_offsets = indptr.sum()
     csum_edges = indices.sum()
 
@@ -69,17 +62,27 @@ def write_dataset_dataset(name, TARGET_DIR):
         train_idx = split_idx['train']
         val_idx = split_idx['valid']
         test_idx = split_idx['test']
-        print("Train", train_idx)
-        print("Val", val_idx)
-        print("Test", test_idx)
+        print("Train", train_idx.shape)
+        print("Val", val_idx.shape)
+        print("Test", test_idx.shape)
 
-    graphs = dgl.metis_partition(graph, 4)    
-    p_map = np.zeros(graph.num_nodes(), dtype = np.int32)
-    for p in range(4):
-        p_map[graphs[p].ndata['_ID']] = p
-    
-    with open(TARGET_DIR + '/partition_map.bin','wb') as fp:
-        fp.write(p_map.numpy().astype(np.int32).tobytes())
+    labels = labels.flatten()
+    for idx in [train_idx, test_idx, val_idx]:
+        assert(not torch.any(torch.isnan(labels[idx])))
+        assert(not torch.any(labels[idx] < 0))
+    nan_lab = torch.where(torch.isnan(labels))
+    labels[nan_lab] = 0
+    assert labels.shape[0] == num_nodes
+    print("Lables", torch.max(labels))
+    csum_labels = torch.sum(labels).item()
+    num_classes = int(torch.max(labels) + 1)
+    if not exists(TARGET_DIR + '/partition_map_opt_4.bin'):
+        graphs = dgl.metis_partition(graph, 4)    
+        p_map = np.zeros(graph.num_nodes(), dtype = np.int32)
+        for p in range(4):
+            p_map[graphs[p].ndata['_ID']] = p
+        with open(TARGET_DIR + '/partition_map_opt_4.bin','wb') as fp:
+            fp.write(p_map.astype(np.int32).tobytes())
     with open(TARGET_DIR+'/cindptr.bin', 'wb') as fp:
         fp.write(c_indptr.astype(np.int32).tobytes())
     with open(TARGET_DIR+'/cindices.bin', 'wb') as fp:
@@ -125,7 +128,8 @@ def write_dataset_dataset(name, TARGET_DIR):
 # arg1 = full target directory
 if __name__=="__main__":
     # assert(len(sys.argv) == 3)
-    nname = ["ogbn-products","ogbn-arxiv"]
+    nname = ["ogbn-papers100M","ogbn-products","ogbn-arxiv"]
+    nname = ["ogbn-papers100M"]
     # Note papers 100M must be reordered
     for name in nname:
         target = ROOT_DIR + "/" + name

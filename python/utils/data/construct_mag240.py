@@ -23,11 +23,10 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
     dataset = ogb.lsc.mag240m.MAG240MDataset(root=ROOT_DIR)
 
     edge_index= dataset.edge_index('paper', 'paper')
-    features = dataset.all_paper_feat
     split = dataset.get_idx_split()
-    for k in split.keys():
-        print(split[k].shape, k)
+    print(split)
     graph = dgl.graph((edge_index[0], edge_index[1]), num_nodes = dataset.num_papers)
+
     if not exists(TARGET_DIR + '/partition_map_opt_4.bin'):
         graphs = dgl.metis_partition(graph, 4)
         p_map = np.zeros(graph.num_nodes(), dtype = np.int32)
@@ -38,44 +37,11 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
     else:
         print("Skip graph partition")
 
-    train_idx = split['train']
     labels = dataset.all_paper_label
+    labels = torch.from_numpy(labels)
 
     num_nodes = dataset.num_papers
 
-    print("Num of nodes", num_nodes)
-    '''dg_graph = dgl.graph((edge_index[0], edge_index[1]), num_nodes = num_nodes)
-    print(dg_graph)
-    rev_graph = dg_graph.reverse()
-    in_t = torch.zeros(num_nodes)
-    in_t[train_idx] = 1
-    in_t = in_t.reshape(num_nodes,1)
-    rev_graph.ndata['in'] = in_t
-    total = in_t.clone()
-    num_hops  = 3
-
-    for i in range(num_hops):
-        rev_graph.update_all(fn.copy_u('in', 'm'), fn.sum('m', 'out'))
-        rev_graph.ndata['in'] = rev_graph.ndata['out']
-        total += rev_graph.ndata['out']
-        # Get all nodes that will be touched
-
-    print("selected vertices", torch.where(total !=0)[0].shape, "total", num_nodes)
-    selected = torch.where(total != 0)[0]
-    is_selected = torch.zeros(num_nodes, dtype = torch.bool)
-    new_order = torch.zeros(num_nodes, dtype = torch.long)
-    is_selected[selected] = True
-    new_order[selected] = torch.arange(selected.shape[0],dtype = torch.long)
-    print("reorder complete !")
-    # Reorder all nodes that have been touched with new orders
-
-    src,dest = edge_index
-    selected_edges = torch.where(is_selected[src] & is_selected[dest])[0]
-    src_c = new_order[src[selected_edges]]
-    dest_c = new_order[dest[selected_edges]]
-    labels = labels[selected]
-    graph = dgl.graph((src_c,dest_c))'''
-    print("New dgl graph constructed")
 
     sparse_mat = graph.adj(scipy_fmt='csr')
     sparse_mat.sort_indices()
@@ -92,20 +58,50 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
 
     num_edges = graph.num_edges()
     num_nodes = graph.num_nodes()
-    labels = torch.from_numpy(labels)
+    print(graph.ndata.keys())
+    if('train_idx' not in graph.ndata.keys()):
+        split_idx = dataset.get_idx_split()
+        train_idx = split_idx['train']
+        val_idx = split_idx['valid']
+        test_idx = split_idx['test-dev']
+        print("Train", train_idx.shape)
+        print("Val", val_idx.shape)
+        print("Test", test_idx.shape)
+
+    labels = labels.flatten()
+    for idx in [train_idx, test_idx, val_idx]:
+        if torch.any(torch.isnan(labels[idx])):
+            print(idx.shape , "Has NAN")
+        if torch.any(labels[idx] < 0):
+            print(idx.shape, "HASH neg")
+    
+    nan_lab = torch.where(torch.isnan(labels))
     nan_lab = torch.where(torch.isnan(labels.flatten()))[0]
+    neg_lab = torch.where(labels < 0)[0]
+    
     labels = labels.flatten()
     labels[nan_lab] = 0
-    print("Feature Required Size ", features.shape)
-    features = torch.from_numpy(features)
+    labels[neg_lab] = 0
+
+    # Skip preprocessing features vector 
+    # torch.from_numpy and followed by ppinned and share
+    # if not exists(TARGET_DIR + '/features.bin'):
+    # print("Attempt to get features")
+    # features = dataset.all_paper_feat
+    # print("Feature Required Size ", features.shape, features.dtype)
+    # features = torch.from_numpy(features)
+    # assert features.shape[0] == num_nodes
+    assert labels.shape[0] == num_nodes
+    # feature_dim = features.shape[1]
+    # with open(TARGET_DIR+'/features.bin', 'wb') as fp:
+    # # This is an exception
+    #     fp.write(features.numpy().astype('float16').tobytes())
+    #     print("Features written")
     print("Lables", torch.max(labels))
     num_classes = int(torch.max(labels) + 1)
-    assert features.shape[0] == num_nodes
-    assert labels.shape[0] == num_nodes
-    feature_dim = features.shape[1]
-
+        
     # Check sum !
-    csum_features = torch.sum(features).item()
+    # csum_features = torch.sum(features).item()
     csum_labels = torch.sum(labels).item()
     csum_offsets = indptr.sum()
     csum_edges = indices.sum()
@@ -123,23 +119,25 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
         fp.write(indptr.astype(np.int32).tobytes())
     with open(TARGET_DIR+'/indices.bin', 'wb') as fp:
         fp.write(indices.astype(np.int32).tobytes())
-    with open(TARGET_DIR+'/features.bin', 'wb') as fp:
-        fp.write(features.numpy().astype('float32').tobytes())
+    
     with open(TARGET_DIR+'/labels.bin', 'wb') as fp:
         fp.write(labels.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/test_idx.bin', 'wb') as fp:
-        fp.write(train_idx.numpy().astype('int32').tobytes())
+        fp.write(test_idx.astype('int32').tobytes())
+    with open(TARGET_DIR+'/train_idx.bin', 'wb') as fp:
+        fp.write(train_idx.astype('int32').tobytes())
     #with open(TARGET_DIR+'/partition_map_opt_4.bin', 'wb') as fp:
     #    fp.write(p_map.astype('int32').tobytes())
 
-    csum_train = torch.sum(train_idx).item()
-    # csum_test = torch.sum(val_idx).item()
+    csum_train = np.sum(train_idx)
+    csum_test = np.sum(val_idx)
 
     meta_structure = {}
     meta_structure["num_nodes"] = num_nodes
     meta_structure["num_edges"] = num_edges
-    meta_structure["feature_dim"] = feature_dim
-    meta_structure["csum_features"] = csum_features
+    # Because this file is too big to process
+    meta_structure["feature_dim"] = 768
+    meta_structure["csum_features"] = 0
     meta_structure["csum_labels"] = csum_labels
     meta_structure["csum_train"] = csum_train
     # meta_structure["csum_test"] = csum_test
@@ -149,7 +147,7 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
     with open(TARGET_DIR+'/meta.txt', 'w') as fp:
         for k in meta_structure.keys():
             fp.write("{}={}\n".format(k, meta_structure[k]))
-    print("All data written!")
+    print("All data written! to ", TARGET_DIR)
 
 # import os
 # username = os.environ['USER']

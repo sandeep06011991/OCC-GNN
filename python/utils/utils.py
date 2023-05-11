@@ -19,6 +19,8 @@ import dgl
 from os.path import exists
 
 def get_data_dir():
+    # Todo: Repeated code, 
+    # Remove this and use the same function in data/env.py
     import os
     username = os.environ['USER']
     if username == 'spolisetty_umass_edu':
@@ -86,11 +88,9 @@ def read_meta_file(filename):
     return results
 
 def get_process_graph(filename, fsize,  num_gpus, testing = False,):
-    # DATA_DIR = "/data/sandeep"
-    # graphname = "ogbn-products"
     graphname = filename
-    indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.int64)
-    indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.int64)
+    indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.int32)
+    indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.int32)
     num_nodes = indptr.shape[0] - 1
     num_edges = indices.shape[0]
     if graphname not in synthetic_graphs and not graphname.startswith("synth"):
@@ -98,8 +98,12 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
         results = read_meta_file(filename)
         fsize = results["feature_dim"]
         num_classes = results["num_classes"]
-        features = torch.from_numpy(np.fromfile(("{}/{}/features.bin").format(DATA_DIR,graphname)\
-                                                        ,dtype = np.float32))
+        if graphname == "mag240M":
+            features = torch.from_numpy(np.fromfile(("{}/{}/features.bin").format(DATA_DIR,graphname)\
+                                                            ,dtype = np.float16))
+        else: 
+            features = torch.from_numpy(np.fromfile(("{}/{}/features.bin").format(DATA_DIR,graphname)\
+                                                            ,dtype = np.float32))
         features = features.reshape(num_nodes,fsize)
         labels = torch.from_numpy(\
                 np.fromfile(("{}/{}/labels.bin".format(DATA_DIR, graphname)), dtype = np.intc)).to(\
@@ -124,6 +128,7 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
     dg_graph = dgl.from_scipy(sp)
     dg_graph = dgl.to_homogeneous(dg_graph)
     # features = features.pin_memory()
+    features = features.share_memory_()
     dg_graph.ndata["features"] = features
     dg_graph.ndata["labels"] = labels
 
@@ -133,9 +138,10 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
         mask = torch.zeros((num_nodes,), dtype=torch.bool)
         if exists("{}/{}/{}_idx.bin".format(DATA_DIR, graphname, idx)):
             idx_mask = np.fromfile(
-                "{}/{}/{}_idx.bin".format(DATA_DIR, graphname, idx), dtype=np.int64)
+                "{}/{}/{}_idx.bin".format(DATA_DIR, graphname, idx), dtype=np.int32)
             mask[idx_mask] = True
         else:
+            print("Generating random masks")
             mask  = torch.rand(num_nodes,) <  .8
         dg_graph.ndata["{}_mask".format(idx)] = mask
     if not testing:
@@ -144,7 +150,10 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
         else:
             p_map_file = "{}/{}/partition_map_opt_{}.bin".format(DATA_DIR,graphname, num_gpus)
         p_map = np.fromfile(p_map_file,dtype = np.int32)
+        p_map.shape[0] == num_nodes
+        assert(np.all(p_map < num_gpus))
         # edges = dg_graph.edges()
+
         partition_map = torch.from_numpy(p_map)
         print(partition_map.dtype)
     else:
@@ -157,8 +166,9 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
 # a,b = get_dgl_graph('ogbn-arxiv')
 if __name__ == "__main__":
     # get_process_graph("amazon", -1)
-    get_process_graph("ogbn-arxiv", -1)
-    get_process_graph("ogbn-products", -1)
+    get_process_graph("ogbn-arxiv", -1, 4)
+    get_process_graph("ogbn-products", -1, 4)
+    get_process_graph("ogbn-papers100M", -1, 4)
     # get_process_graph("reordered-papers100M", -1)
     # get_process_graph("com-orkut", 128)
     print("Unit test get all process datasets !!! ")
