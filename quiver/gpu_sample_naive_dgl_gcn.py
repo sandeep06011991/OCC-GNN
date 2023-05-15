@@ -20,7 +20,7 @@ import torch.autograd.profiler as profiler
 
 from dgl_sage import SAGE
 from dgl_gat import GAT
-#from utils.timing_analysis import *
+from utils.timing_analysis import *
 #from utils.env import *
 from utils.utils import *
 import pickle
@@ -65,7 +65,7 @@ def load_subtensor(nfeat, labels, seeds, input_nodes, device):
     """
     Extracts features and labels for a set of nodes.
     """
-    assert(nfeat.device == torch.device('cpu'))
+    # assert(nfeat.device == torch.device('cpu'))
     assert(labels.device == torch.device('cpu'))
     batch_inputs = nfeat[input_nodes.to(dtype = torch.int64).to('cpu')].to(device)
     batch_labels = labels[seeds.to(dtype = torch.int64).to('cpu')].to(device)
@@ -110,17 +110,29 @@ def run(rank, args,  data):
     
     g = g.formats('csc')
     print("Starting to create loader")
-    dataloader = dgl.dataloading.NodeDataLoader(
-        g.to(rank),
-        train_nid.to(dtype = torch.int32),
-        sampler,
-        device='cuda',
-        batch_size=args.batch_size,
-        shuffle=True,
-        drop_last=True,
-        num_workers = 0,
-        persistent_workers=0)
-
+    if args.sample_gpu:
+        dataloader = dgl.dataloading.DataLoader(
+            g.to(device),
+            train_nid.to(dtype = torch.int32),
+            sampler,
+            device='cuda',
+            batch_size=args.batch_size,
+            shuffle=True,
+            drop_last=True,
+            num_workers = 0,
+            persistent_workers=0)
+    else:    
+        dataloader = dgl.dataloading.DataLoader(
+            g,
+            train_nid.to(dtype = torch.int32),
+            sampler,
+            device='cuda',
+            batch_size=args.batch_size,
+            shuffle=True,
+            drop_last=True,
+            num_workers = 0,
+            persistent_workers=0, use_uva = True)
+        # nfeat = dgl.contrib.UnifiedTensor(nfeat, device)    
     # Define model and optimizer
     if args.model == "GCN":
         model = SAGE(in_feats, args.num_hidden, n_classes,
@@ -131,7 +143,8 @@ def run(rank, args,  data):
         model = GAT(in_feats, args.num_hidden, \
                 n_classes , heads, args.num_layers, F.relu, args.dropout)
     
-    model = model.to(device)
+    model = model.to(nfeat.dtype).to(device)
+    
     model = DistributedDataParallel(model, device_ids=[device])
     loss_fcn = nn.CrossEntropyLoss()
     optimizer = optim.Adam(
@@ -191,6 +204,8 @@ def run(rank, args,  data):
                     t2 = time.time()
                     sampling_time += (t2-t1)
                     print("Sampling time", t2-t1)
+                    batch_time[SAMPLE_START_TIME] = t1
+                    batch_time[GRAPH_LOAD_START_TIME] = t2
                     # blocks = [blk.to(device) for blk in blocks]
                 #t2 = time.time()
                 # blocks = [blk.formats(['coo','csr','csc']) for blk in blocks]
@@ -201,9 +216,12 @@ def run(rank, args,  data):
                     t3 = time.time()
                 # Load the input features as well as output labels
                     # with profiler.record_function("movement"):
+
+                    batch_time[DATALOAD_START_TIME] = t3
                     batch_inputs, batch_labels = load_subtensor(
                         nfeat, labels, seeds, input_nodes, device)
                     t4 = time.time()
+                    batch_time[DATALOAD_END_TIME] = t4
                     data_movement_time += (t4-t3)
                 # Compute loss and prediction
                 #with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
@@ -218,10 +236,13 @@ def run(rank, args,  data):
                     e3.record()
                     e3.synchronize()
 
+                    batch_time[END_BACKWARD] = time.time()
                     optimizer.step()
                 #print("sample time", t2-t1, t3-t2)
                     forward_time += e1.elapsed_time(e2)/1000
                     backward_time += e2.elapsed_time(e3)/1000
+
+                    batch_time[FORWARD_ELAPSED_EVENT_TIME] = e1.elapsed_time(e2)/1000
                     print("memory", torch.cuda.max_memory_allocated()/(1024 **3), "GB")
                     print("training time",e1.elapsed_time(e3)/1000)
                 #print("Time feature", device, e1.elapsed_time(e2)/1000)
@@ -248,7 +269,7 @@ def run(rank, args,  data):
                 #print("Accuracy: {}, device:{}, epoch:{}".format(test_accuracy, device, epoch))
             #prof.step()
             epoch_available_memory.append(torch.cuda.max_memory_allocated())
-        
+            epoch_metrics.append(minibatch_metrics)
             epoch_time.append(time.time() - epoch_start)
         #pbar.close()
             data_movement_epoch.append(data_movement)
@@ -275,20 +296,21 @@ def run(rank, args,  data):
         #         final_test_acc = test_acc
     # print("edges per epoch:{}".format(average(edges_per_epoch)))
     # print("movement", device, data_movement_epoch)
+    with open('metrics{}.pkl'.format(rank), 'wb') as outp:  # Overwrites any existing file.
+        pickle.dump(epoch_metrics, outp, pickle.HIGHEST_PROTOCOL)
 
 
     if rank == 0:
-        print("Epoch", epoch_time)
+        # print("Epoch", epoch_time)
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch_time:{}".format(average(epoch_time)))
-        print("sample_time:{}".format(average(epoch_sampling_time)))
-        print("movement graph:{}".format(0.0))
-        print("movement feature:{}".format(average(epoch_data_movement_time)))
-        print("forward time:{}".format(average(epoch_forward_time)))
-        print("backward time:{}".format(average(epoch_backward_time)))
+        # print("sample_time:{}".format(average(epoch_sampling_time)))
+        # print("movement graph:{}".format(0.0))
+        # print("movement feature:{}".format(average(epoch_data_movement_time)))
+        # print("forward time:{}".format(average(epoch_forward_time)))
+        # print("backward time:{}".format(average(epoch_backward_time)))
         print("edges_per_epoch:{}".format(average(edges_per_epoch)))
         print("data moved:{}MB".format(average(data_movement_epoch)))
-    print("data moved :{}MB".format(average(data_movement_epoch)))
     print("Memory used :{}GB".format(max(epoch_available_memory)/(1024 ** 3)))
         
     #torch.distributed.barrier()
@@ -317,6 +339,8 @@ if __name__ == '__main__':
     argparser.add_argument('--wd', type=float, default=0)
     argparser.add_argument('--early-stopping', action = 'store_true')
     argparser.add_argument('--test-graph',type = str)
+    argparser.add_argument('--sample-gpu', action = 'store_true')
+    
     args = argparser.parse_args()
     assert args.model in ["GCN","GAT"]
     if args.gpu >= 0:
@@ -380,11 +404,10 @@ if __name__ == '__main__':
         nprocs=world_size,
         join=True
     )
-    '''collected_metrics = []
+    collected_metrics = []
     for i in range(4):
         with open("metrics{}.pkl".format(i), "rb") as input_file:
             cm = pickle.load(input_file)
-
         collected_metrics.append(cm)
     epoch_batch_sample, epoch_batch_graph, epoch_batch_feat_time, \
             epoch_batch_forward, epoch_batch_backward, \
@@ -396,4 +419,4 @@ if __name__ == '__main__':
     print("movement feature:{}".format(epoch_batch_feat_time))
     print("forward time:{}".format(epoch_batch_forward))
     print("data movement time:{}".format(epoch_batch_loadtime))
-    print("backward time:{}".format(epoch_batch_backward))'''
+    print("backward time:{}".format(epoch_batch_backward))

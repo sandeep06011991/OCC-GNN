@@ -39,6 +39,7 @@ def get_data_dir():
         PATH_DIR = "/home/q91/OCC-GNN/python"
     if username == "ubuntu":
         DATA_DIR = "/home/ubuntu/data"
+        DATA_DIR = "/data"
         SYSTEM = "P4"
         PATH_DIR = "/home/ubuntu/OCC-GNN/python"
         ROOT_DIR = "/home/ubuntu/OCC-GNN"
@@ -89,8 +90,10 @@ def read_meta_file(filename):
 
 def get_process_graph(filename, fsize,  num_gpus, testing = False,):
     graphname = filename
+
     indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.int32)
     indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.int32)
+    print("Read indptr")
     num_nodes = indptr.shape[0] - 1
     num_edges = indices.shape[0]
     if graphname not in synthetic_graphs and not graphname.startswith("synth"):
@@ -99,8 +102,9 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
         fsize = results["feature_dim"]
         num_classes = results["num_classes"]
         if graphname == "mag240M":
-            features = torch.from_numpy(np.fromfile(("{}/{}/features.bin").format(DATA_DIR,graphname)\
-                                                            ,dtype = np.float16))
+            f_np = np.load("/home/ubuntu/data/mag240m_kddcup2021/processed/paper/node_feat.npy") 
+            features = torch.from_numpy(f_np)
+            print("Features read")
         else: 
             features = torch.from_numpy(np.fromfile(("{}/{}/features.bin").format(DATA_DIR,graphname)\
                                                             ,dtype = np.float32))
@@ -124,11 +128,13 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
     print("Using 32")
     sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
         shape = (num_nodes,num_nodes))
-    
+    print("Scipy created")
     dg_graph = dgl.from_scipy(sp)
+    print("DG Graph")
     dg_graph = dgl.to_homogeneous(dg_graph)
     # features = features.pin_memory()
     features = features.share_memory_()
+    
     dg_graph.ndata["features"] = features
     dg_graph.ndata["labels"] = labels
 
@@ -142,8 +148,12 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
             mask[idx_mask] = True
         else:
             print("Generating random masks")
+            if graphname == "mag240M" :
+                continue
             mask  = torch.rand(num_nodes,) <  .8
+          
         dg_graph.ndata["{}_mask".format(idx)] = mask
+            
     if not testing:
         if num_gpus == -1:
             p_map_file = "{}/{}/partition_map_opt_random.bin".format(DATA_DIR,graphname)

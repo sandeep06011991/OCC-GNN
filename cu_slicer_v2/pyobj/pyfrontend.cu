@@ -23,7 +23,7 @@ using namespace std::chrono;
 namespace py = pybind11;
 
 __global__
-void testKernel(long  *t){
+void testKernel(NDTYPE *t){
   t[0] = 0;
 }
 int sample_flow_up_sample(Sample &s, int number_of_nodes);
@@ -114,14 +114,15 @@ public:
     //   PySample *sample = new PySample(*p_sample);
     // }
 
-    unique_ptr<PySample> getSample(vector<long> sample_nodes, bool balance){
+    unique_ptr<PySample> getSample(vector<NDTYPE> sample_nodes, 
+      bool balance){
       std::cout << "try to get a sample \n";
       sample->clear();
       p_sample->clear();
       cudaSetDevice(current_gpu);
       auto start1 = high_resolution_clock::now();
 
-      cuslicer::device_vector<long> sample_nodes_d(sample_nodes);
+      cuslicer::device_vector<NDTYPE> sample_nodes_d(sample_nodes);
       this->neighbour_sampler->sample(sample_nodes_d, *sample);
       cudaDeviceSynchronize();
       auto start2 = high_resolution_clock::now();
@@ -136,8 +137,8 @@ public:
       auto duration2 = duration_cast<milliseconds>(start3 -start2);
 
      std::cout << "sample " << (double)duration1.count()/1000 << "slice"<< (double)duration2.count()/1000 <<"\n";
-      device_vector<int>::printMemoryStats();
-      device_vector<long>::printMemoryStats();
+      device_vector<NDTYPE>::printMemoryStats();
+      // device_vector<long>::printMemoryStats();
       // spdlog::info("covert to torch");
       auto sample = std::make_unique<PySample>(*p_sample, current_gpu, num_gpus);
       return sample;
@@ -151,17 +152,17 @@ public:
 
     torch::Tensor getDummyTensor(){
         cudaSetDevice(0);
-        std::vector<long> data;
+        std::vector<NDTYPE> data;
         for(int i = 0;i < 1000; i++){
           data.push_back(i);
         }
-        auto v = device_vector<long>(data);
+        auto v = device_vector<NDTYPE>(data);
         testKernel<<<1,1>>>(v.ptr());
         gpuErrchk(cudaDeviceSynchronize());
-        auto sum = cuslicer::transform<long>::reduce(v);
+        auto sum = cuslicer::transform<NDTYPE>::reduce(v);
 
         std::cout << sum <<"sum \n";
-        auto opts = torch::TensorOptions().dtype(torch::kInt64)\
+        auto opts = torch::TensorOptions().dtype(torch::kInt32)\
         .device(torch::kCUDA, 0);
         return torch::from_blob(v.ptr(), {(long)v.size()}, opts).clone();
     }
@@ -172,7 +173,7 @@ PYBIND11_MODULE(cuslicer, m) {
     m.doc() = "pybind11 example plugin"; // optional module docstring
     py::class_<CUSlicer>(m,"cuslicer")
          .def(py::init<const std::string &,
-               std::vector<std::vector<long>>, vector<int>,\
+               std::vector<std::vector<NDTYPE>>, vector<int>,\
                 bool, bool, bool, int, bool,int,\
                   int, int, bool>())
         .def("getTensor", &CUSlicer::getDummyTensor)

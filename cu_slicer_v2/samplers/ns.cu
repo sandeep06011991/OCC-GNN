@@ -72,7 +72,7 @@ void sample_offsets(NDTYPE *in, size_t in_size, \
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void neigh_sample_based_on_offsets(NDTYPE * in, NDTYPE size,\
+void neigh_sample_based_on_offsets(NDTYPE * in, size_t size,\
     NDTYPE * offsets, NDTYPE * indices,\
       NDTYPE * graph_indptr, NDTYPE * graph_indices, NDTYPE num_nodes,\
          curandState *random_states, size_t num_random_states, int fanout,\

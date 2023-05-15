@@ -66,13 +66,7 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size,\
 
     out = str(output.stdout)
     error = str(output.stderr)
-    print(out,error)
-    if "out of memory" in error:
-        return {"forward":"OOM", "sample_get":"OOM", "backward":"OOM", \
-                "movement_graph":"OOM", "movement_data": "OOM", \
-                "movement_feat": "OOM", "epoch":"OOM",
-                "accuracy": "OOM","data_moved":"OOM", "edges":"OOM"}
-
+    
 
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
     try:
@@ -103,16 +97,24 @@ def run_quiver(graphname, model, epochs,cache_per, hidden_size,\
     except Exception as e:
         with open('exception_quiver.txt','a') as fp:
             fp.write(error)
-        sample_get = "error"
-        movement_graph = "error"
-        movement_feat = "error"
-        movement_data = "error"
-        forward_time = "error"
-        backward_time = "error"
-        accuracy = "error"
-        epoch = "error"
-        data_moved = "error"
-        memory_used = "error"
+        if "OutOfMemoryError" in error or "OutOfMemoryError" in out \
+                or "out of memory" in error or "out of memory" in out:
+            msg = "OOM"
+        else:
+            print("Out of memory not found")
+            print(error, out)
+            msg = "error"    
+        sample_get = msg
+        movement_graph = msg
+        movement_feat = msg
+        movement_data = msg
+        forward_time = msg
+        backward_time = msg
+        edges = msg
+        accuracy = msg
+        epoch = msg
+        data_moved = msg
+        memory_used = msg
     return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
             "movement_graph":movement_graph, "movement_data": movement_data, \
                 "movement_feat": movement_feat, "epoch":epoch,

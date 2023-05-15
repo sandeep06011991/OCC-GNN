@@ -44,8 +44,14 @@ storage_map_part = [torch.where(p_map == i)[0].tolist() for i in range(4)]
 #   bool self_edge, int rounds, bool pull_optimization,
 #     int num_layers, int num_gpus, int current_gpu
 print("check 1")
+# (const std::string &name,
+#       std::vector<std::vector<NDTYPE>> gpu_map,
+#       vector<int> fanout,
+#        bool deterministic, bool testing,
+#           bool self_edge, int rounds, bool pull_optimization,
+#             int num_layers, int num_gpus, int current_gpu, bool random){
 csl3 = cuslicer(graphname, storage_map_part,
-        [20,20,20], False , False, True, 4, False, num_layers, num_gpus,0)
+        [20,20,20], False , False, True, 4, False, num_layers, num_gpus,0,False)
 print("Ask for Sample")
 batch_size = 4096
 i = 0
@@ -56,7 +62,7 @@ while(i < len(training_nodes)):
     in_nodes = training_nodes[i:i+batch_size]
     t1 = time.time()
     with nvtx.annotate("Sample",color = 'red'):
-        s3= csl3.getSample(in_nodes)
+        s3= csl3.getSample(in_nodes, False)
     t2 = time.time()
     print("minibatch time", t2-t1)
     # break

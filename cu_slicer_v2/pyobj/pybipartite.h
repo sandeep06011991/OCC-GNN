@@ -63,11 +63,11 @@ public:
 };
 
 
-inline torch::Tensor getTensor(cuslicer::device_vector<long> &v, c10::TensorOptions opts){
+inline torch::Tensor getTensor(cuslicer::device_vector<NDTYPE> &v, c10::TensorOptions opts){
     if(v.size() == 0){
       return torch::empty(v.size(),opts);
     }else{
-      return torch::from_blob(v.ptr(), {(long)v.size()}, opts).clone();
+      return torch::from_blob(v.ptr(), {(NDTYPE)v.size()}, opts).clone();
 
     }
 

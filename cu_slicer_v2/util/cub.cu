@@ -129,5 +129,5 @@ void transform<T>::exclusive_scan(cuslicer::device_vector<T> &in, cuslicer::devi
       //   }
  
   template class transform<NDTYPE>;
-  template class transform<PARTITIONIDX>;
+  // template class transform<PARTITIONIDX>;
 }

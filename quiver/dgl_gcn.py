@@ -20,7 +20,7 @@ import torch.autograd.profiler as profiler
 from dgl_sage import SAGE
 from dgl_gat import GAT
 from utils.async_timing_analysis import *
-from utils.env import *
+from utils.data.env import *
 from utils.utils import *
 import pickle
 import nvtx
@@ -77,8 +77,8 @@ def load_subtensor(nfeat, labels, seeds, input_nodes, device):
     """
     Extracts features and labels for a set of nodes.
     """
-    batch_inputs = nfeat[input_nodes].to(device)
-    batch_labels = labels[seeds].to(device)
+    batch_inputs = nfeat[input_nodes.to(torch.int64)].to(device)
+    batch_labels = labels[seeds.to(torch.int64)].to(device)
     return batch_inputs, batch_labels
 
 # Entry point
@@ -92,18 +92,16 @@ def run(rank, args,  data):
     os.environ['MASTER_PORT'] = '11112'
     dist.init_process_group('nccl', rank=rank, world_size=4)
     device = rank
-    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets, metrics_queue = data
+    train_nid, val_nid, test_nid, in_feats, labels, n_classes, nfeat, g, offsets, metrics_queue, feat_dtype= data
     nfeat.lazy_init_from_ipc_handle()
     #print("Feature order", nfeat.feature_order.shape)
     #print("Max", torch.max(nfeat.feature_order), offsets)
     #print("Total nodes", g.num_nodes())
     if args.data == 'gpu':
         nfeat = nfeat.to(rank)
-    if args.sample_gpu:
-        train_nid = train_nid.to(device)
-        # copy only the csc to the GPU
-        g = g.formats(['csc'])
-        g = g.to(device)
+    
+        #g = g.to(device)
+
     labels = labels.to(device)
     labels[torch.where(labels == -1)[0]] = 0
     print("Corrupting labels")
@@ -112,19 +110,36 @@ def run(rank, args,  data):
     sampler = dgl.dataloading.MultiLayerNeighborSampler(
             [int(fanout) for fanout in args.fan_out.split(',')], replace = False)
     world_size = 4
+    print(train_nid.dtype)
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
     print("nubmer of batches", train_nid.shape[0]/args.batch_size)
-    dataloader = dgl.dataloading.NodeDataLoader(
-        g,
-        train_nid,
-        sampler,
-        device=device,
-        batch_size=args.batch_size,
-        shuffle=True,
-        drop_last=True,
-        num_workers= 0,
-        persistent_workers=False)
-
+    train_nid = train_nid.to(device)
+    g = g.formats(['csc'])
+        
+    if args.sample_gpu:
+        # copy only the csc to the GPU
+        dataloader = dgl.dataloading.DataLoader(
+            g.to(device),
+            train_nid.to(torch.int32),
+            sampler,
+            device=device,
+            batch_size=args.batch_size,
+            shuffle=True,
+            drop_last=True,
+            num_workers= 0,
+            persistent_workers=False)
+    else:
+        print("Use UVA True")
+        dataloader = dgl.dataloading.DataLoader(
+            g,
+            train_nid.to(torch.int32),
+            sampler,
+            device=device,
+            batch_size=args.batch_size,
+            shuffle=True,
+            drop_last=True,
+            num_workers= 0,
+            persistent_workers=False, use_uva = True)
     # Define model and optimizer
     if args.model == "GCN":
         model = SAGE(in_feats, args.num_hidden, n_classes,
@@ -134,7 +149,7 @@ def run(rank, args,  data):
         heads = 4
         model = GAT(in_feats, args.num_hidden, \
                 n_classes , heads, args.num_layers, F.relu, args.dropout)
-    model = model.to(device)
+    model = model.to(feat_dtype).to(device)
     model = DistributedDataParallel(model, device_ids=[device])
     loss_fcn = nn.CrossEntropyLoss()
     optimizer = optim.Adam(
@@ -145,7 +160,12 @@ def run(rank, args,  data):
     print("start training")
 
     epoch_time = []
-    data_movement_epoch = []
+    data_movement_cpu_epoch = []
+    data_movement_gpu_epoch = []
+    sample_time_epoch = []
+    data_fetch_epoch = []
+    forward_time_epoch = []
+    backward_time_epoch = []
     epoch_metrics = []
     accuracy = []
     edges_per_epoch = []
@@ -166,8 +186,13 @@ def run(rank, args,  data):
         # blocks.
         epoch_start = time.time()
         dataloader_i = iter(dataloader)
+        sample_time = 0
+        data_fetch = 0
+        forward_time = 0
+        backward_time = 0
         edges_computed = 0
-        data_movement = 0
+        data_movement_cpu = 0
+        data_movement_gpu = 0
         global_cache_misses = 0
         step = 0
         minibatch_metrics = []
@@ -181,10 +206,15 @@ def run(rank, args,  data):
                 torch.cuda.nvtx.range_push("minibatch")
                 batch_time = {}
                 optimizer.zero_grad()
+
                 t1 = time.time()
+                e0.record()
                 input_nodes, seeds, blocks = next(dataloader_i)
                 torch.cuda.nvtx.range_pop()
+                e1.record()
+                e1.synchronize()
                 t2 = time.time()
+                sample_time += t2-t1
                 batch_time[SAMPLE_START_TIME] = t1
                 batch_time[GRAPH_LOAD_START_TIME] = t2
                 # copy block to gpu
@@ -209,8 +239,11 @@ def run(rank, args,  data):
                 #start = offsets[device][0]
                 #end = offsets[device][1]
                 #hit = torch.where((input_nodes > start) & (input_nodes < end))[0].shape[0]
-                if False:
-                    hit = torch.where(input_nodes < offsets[3])[0].shape[0]
+                if True:
+                    if (3 in offsets):
+                        hit = torch.where(input_nodes < offsets[3])[0].shape[0]
+                    else: 
+                        hit = 0
                     missed = input_nodes.shape[0] - hit
                 else:
                     hit = 0
@@ -260,7 +293,8 @@ def run(rank, args,  data):
                 #print("sample time", t2-t1, t3-t2)
                 #print("Time feature", device, e1.elapsed_time(e2)/1000)
                 #print("Expected bandwidth", missed * nfeat.shape[1] * 4/ ((e1.elapsed_time(e2)/1000) * 1024 * 1024 * 1024), "GB device", rank, "cache rate", hit/(hit + missed))
-                data_movement += (missed * nfeat.shape[1] * 4/(1024 * 1024))
+                data_movement_cpu += ((missed * nfeat.shape[1] * 4)/(1024 * 1024))
+                data_movement_gpu += ((hit * nfeat.shape[1] * 4)/ (1024 ** 2))
                 minibatch_metrics.append(batch_time)
                 if args.early_stopping and step ==5:
                     break
@@ -278,7 +312,9 @@ def run(rank, args,  data):
         epoch_metrics.append(minibatch_metrics)
         epoch_time.append(time.time()-epoch_start)
         edges_per_epoch.append(edges_computed)
-        data_movement_epoch.append(data_movement)
+        data_movement_cpu_epoch.append(data_movement_cpu)
+        data_movement_gpu_epoch.append(data_movement_gpu)
+        sample_time_epoch.append(sample_time)
         #pbar.close()
 
         loss = total_loss / len(dataloader)
@@ -300,9 +336,10 @@ def run(rank, args,  data):
     if rank == 0:
         print("accuracy:{}".format(accuracy[-1]))
         print("epoch_time:{}".format(average(epoch_time)))
-    print(edges_per_epoch)
     print("edges_per_epoch:{}".format(average(edges_per_epoch)))
-    print("data moved :{}MB".format(average(data_movement_epoch)))
+    print("data moved :{}MB".format(average(data_movement_cpu_epoch)))
+    print("Alt Sample time:{}s".format(average(sample_time_epoch)))
+    # print("data moved GPU:{}MB".format(average(data_movement_gpu_epoch)))
     print("Memory used :{}GB".format(max(epoch_available_memory)/(1024 ** 3)))
     dist.destroy_process_group()
 
@@ -343,8 +380,13 @@ if __name__ == '__main__':
     dg_graph, partition_map, num_classes = get_process_graph(args.graph, -1, 4)
     data = dg_graph
     train_idx = torch.where(data.ndata.pop('train_mask'))[0]
-    val_idx = torch.where(data.ndata.pop('val_mask'))[0]
-    test_idx = torch.where(data.ndata.pop('test_mask'))[0]
+    if args.graph != "mag240M":
+        val_idx = torch.where(data.ndata.pop('val_mask'))[0]
+        test_idx = torch.where(data.ndata.pop('test_mask'))[0]
+    else: 
+        val_idx = None
+        test_idx = None    
+    print("Train IDx mask", train_idx.dtype)
     graph = dg_graph
     labels = dg_graph.ndata.pop('labels')
     assert(torch.max(labels[train_idx]) + 1 <= num_classes)
@@ -363,7 +405,11 @@ if __name__ == '__main__':
     #labels = labels[:, 0].to(device)
 
     # feat = graph.ndata.pop('feat')
-    feat = feat.pin_memory()
+    print("Attempting to pin memory")
+    if args.graph != "mag240M":
+        # Pinning memory doubles up for mag causing an out of memory 
+        feat = feat.pin_memory()
+    print("memory pinn successful  ")
     #year = graph.ndata.pop('year')
     if args.data == 'cpu':
         nfeat = feat
@@ -375,7 +421,10 @@ if __name__ == '__main__':
         quiver.init_p2p(device_list = [0,1,2,3])
         csr_topo = quiver.CSRTopo(th.stack(graph.edges('uv')))
         #csr_topo = None
-        cache_size = int((float(args.cache_per) * feat.shape[0] * feat.shape[1] * 4))
+        if feat.dtype == torch.float32:
+            cache_size = int((float(args.cache_per) * feat.shape[0] * feat.shape[1] * 4))
+        if feat.dtype == torch.float16:
+            cache_size = int((float(args.cache_per) * feat.shape[0] * feat.shape[1] * 2))
         device_cache_size = cache_size
         print("calculated cache_size ", cache_size)
         if float(args.cache_per) > .25:
@@ -395,6 +444,7 @@ if __name__ == '__main__':
                                csr_topo=csr_topo)
         #feat = dg_graph.in_degrees().unflatten(0, (dg_graph.num_nodes(), 1)) * torch.ones(dg_graph.num_nodes(), 10, dtype = torch.float32)
         #print(feat.shape)
+        print("Get quiver feature")
         nfeat.from_cpu_tensor(feat)
         if float(args.cache_per) == .25 :
             if len(nfeat.clique_tensor_list) != 0:
@@ -431,7 +481,7 @@ if __name__ == '__main__':
     metrics_queue = mp.Queue(4)
     train_idx = train_idx[torch.randperm(train_idx.shape[0])]
 
-    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, metrics_queue
+    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, metrics_queue, feat.dtype
 
 
     #test_accs = []

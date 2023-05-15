@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <iterator>
+#include <torch/torch.h>
 #include <algorithm>
 namespace cuslicer{
 
@@ -42,13 +43,13 @@ namespace cuslicer{
     size_t current_size= 0;
 
     float getAllocatedMemory(){
-      return (cuda_memory::TOTAL_ALLOCATED  * 1.0) / (1032 * 1032 * 1032);
+      // return (cuda_memory::TOTAL_ALLOCATED  * 1.0) / (1032 * 1032 * 1032);
     }
     
     static void printMemoryStats(){
-      std::cout << "Allocated:";
-      std::cout << (cuda_memory::TOTAL_ALLOCATED  * 1.0) / (1032 * 1032 * 1032)<< "GB\n";
-      std::cout << "Used:"<< (sizeof(DATATYPE) * TOTAL_USED * 1.0) / (1032 * 1032 * 1032) << "GB\n";
+      // std::cout << "Allocated:";
+      // std::cout << (cuda_memory::TOTAL_ALLOCATED  * 1.0) / (1032 * 1032 * 1032)<< "GB\n";
+      // std::cout << "Used:"<< (sizeof(DATATYPE) * TOTAL_USED * 1.0) / (1032 * 1032 * 1032) << "GB\n";
     }
     // Todo instead of raw pointer in data use shared memory
     // This is a local change, add more tests to testfile testss/device_vector.cu

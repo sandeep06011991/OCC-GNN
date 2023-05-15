@@ -15,7 +15,7 @@
 namespace cuslicer{
 
  __inline__ __device__
-bool is_selected(long *id, size_t sz){
+bool is_selected(NDTYPE  *id, size_t sz){
    if(sz == 0)return id[0] != 0;
    return id[sz] != id[sz-1];
 }
@@ -27,11 +27,11 @@ bool is_selected(long *id, size_t sz){
   // We do this by maintaining index for all gpu specfic data in one long 
   // array where each gpu data is stacked next to each other
   struct Vector_From_Index{
-      long * data;
+      NDTYPE * data;
       long offset;
 
       __device__
-      inline void  add_position_offset(long val, long pos){
+      inline void  add_position_offset(NDTYPE val, long pos){
           if((pos - 1 -offset < 0)){
             printf("assert fail pos offset %ld %ld %ld\n", pos, offset,val);
           }
@@ -47,7 +47,7 @@ bool is_selected(long *id, size_t sz){
       // Used mostly by indptr. 
       
       __device__
-      inline void  add_value_offset(long val, long pos){
+      inline void  add_value_offset(NDTYPE val, long pos){
         assert(pos >= 0);
         data[pos] = val - offset;
       }
@@ -160,7 +160,7 @@ public:
 
   void slice_sample(Sample &s, PartitionedSample &ps, bool loadbalancing);
 
-  virtual void slice_layer(device_vector<long>& in, Block &bl, \
+  virtual void slice_layer(device_vector<NDTYPE>& in, Block &bl, \
       PartitionedLayer& l, bool last_layer) = 0;
 
 
@@ -168,8 +168,8 @@ public:
 
   void  reorder(PartitionedLayer &l) ;
 
-  void fill_cache_hits_and_misses(PartitionedSample &ps, int gpu, device_vector<long> &in_nodes);
-
+  void fill_cache_hits_and_misses(PartitionedSample &ps, \
+        int gpu, device_vector<NDTYPE> &in_nodes);
   virtual void resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes, int num_out_nodes,\
     int num_edges) = 0;
 

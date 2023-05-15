@@ -122,6 +122,8 @@ if not exists(TARGET_DIR+'/cindptr.bin'):
     
     with open(TARGET_DIR+'/labels.bin', 'wb') as fp:
         fp.write(labels.numpy().astype('int32').tobytes())
+    with open(TARGET_DIR+'/val_idx.bin', 'wb') as fp:
+        fp.write(val_idx.astype('int32').tobytes())    
     with open(TARGET_DIR+'/test_idx.bin', 'wb') as fp:
         fp.write(test_idx.astype('int32').tobytes())
     with open(TARGET_DIR+'/train_idx.bin', 'wb') as fp:

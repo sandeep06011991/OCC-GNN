@@ -116,10 +116,10 @@ void partition_edges_push(PARTITIONIDX *  sample_workload_map,\
 
 
 template<int BLOCKSIZE, int TILESIZE>
-__global__ void fill_indices_local(long *sample_indices,
-      long *index_edges, long num_edges,
-      long * index_in_nodes, size_t num_in_nodes,
-      long * index_out_nodes_local, size_t num_out_nodes,
+__global__ void fill_indices_local(NDTYPE *sample_indices,
+      NDTYPE * index_edges, long num_edges,
+      NDTYPE  * index_in_nodes, size_t num_in_nodes,
+      NDTYPE  * index_out_nodes_local, size_t num_out_nodes,
       LocalGraphInfo *info, int num_gpus){
   int tileId = blockIdx.x;
   int last_tile = (((num_edges * num_gpus) - 1) / TILE_SIZE + 1);
@@ -150,10 +150,10 @@ __global__ void fill_indices_local(long *sample_indices,
 }
 
 template<int BLOCKSIZE, int TILESIZE>
-__global__ void fill_indices_remote(long * index_edge_remote, size_t num_edges, \
-       long * index_in_nodes, size_t num_in_nodes,
-           long * index_out_nodes_local, size_t num_out_nodes,
-              LocalGraphInfo * info, int num_gpus, long *sample_indices){
+__global__ void fill_indices_remote(NDTYPE * index_edge_remote, size_t num_edges, \
+       NDTYPE * index_in_nodes, size_t num_in_nodes,
+           NDTYPE* index_out_nodes_local, size_t num_out_nodes,
+              LocalGraphInfo * info, int num_gpus, NDTYPE *sample_indices){
     int tileId = blockIdx.x;
     int last_tile = (((num_edges * (num_gpus - 1) * (num_gpus)) - 1) / TILE_SIZE + 1);
     while(tileId < last_tile){
@@ -184,11 +184,11 @@ __global__ void fill_indices_remote(long * index_edge_remote, size_t num_edges, 
 
 template<int BLOCKSIZE, int TILESIZE>
 __global__
-void fill_out_nodes_local(long * index_out_nodes_local,\
+void fill_out_nodes_local(NDTYPE * index_out_nodes_local,\
       size_t index_out_nodes_local_size,\  // mask is set to where to write
-        long * index_indptr_local, \
+       NDTYPE * index_indptr_local, \
         LocalGraphInfo *info, int num_gpus,\ // Meta data
-        long *out_nodes, long * out_node_degree,\
+        NDTYPE  *out_nodes,NDTYPE * out_node_degree,\
         long num_out_nodes){
         int tileId = blockIdx.x;
         int last_tile = (( index_out_nodes_local_size - 1) / TILE_SIZE + 1);
@@ -221,11 +221,11 @@ void fill_out_nodes_local(long * index_out_nodes_local,\
 }
 
 template<int BLOCKSIZE, int TILESIZE>
-__global__ void fill_out_nodes_remote(long * index_out_nodes_remote, \
+__global__ void fill_out_nodes_remote(NDTYPE * index_out_nodes_remote, \
         size_t index_out_nodes_remote_sizes, \
-        long * index_indptr_remote, \
+        NDTYPE  * index_indptr_remote, \
         LocalGraphInfo *info, int num_gpus,\ // Meta data
-        long *out_nodes, long num_out_nodes ){
+        NDTYPE *out_nodes, long num_out_nodes ){
           int tileId = blockIdx.x;
           int last_tile = (( index_out_nodes_remote_sizes - 1) / TILE_SIZE + 1);
           while(tileId < last_tile){
@@ -260,10 +260,10 @@ __global__ void fill_out_nodes_remote(long * index_out_nodes_remote, \
 }
 
 template<int BLOCKSIZE, int TILESIZE>
-__global__ void fill_in_nodes(long * index_in_nodes, \
-    long * index_out_nodes_local, \
+__global__ void fill_in_nodes(NDTYPE * index_in_nodes, \
+    NDTYPE * index_out_nodes_local, \
     LocalGraphInfo *info, int num_gpus,\
-      long * in_nodes, size_t num_in_nodes,
+      NDTYPE  * in_nodes, size_t num_in_nodes,
       size_t num_out_nodes){
         int tileId = blockIdx.x;
         int lastTile = ( num_in_nodes * num_gpus- 1)/TILE_SIZE + 1;
@@ -409,7 +409,7 @@ void PushSlicer::resize_bipartite_graphs(PartitionedLayer &ps,int num_in_nodes,
     copy_graph_info();
 }
 
-void PushSlicer::slice_layer(device_vector<long> &layer_nds,
+void PushSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
       Block &bs, PartitionedLayer &ps, bool last_layer){
 
     // Stage 1 Edge Partitioning

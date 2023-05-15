@@ -9,9 +9,14 @@ using namespace cuslicer;
 PyBipartite::PyBipartite(BiPartite *bp, int local_gpu_id, int num_gpus){
     // std::cout << bp->gpu_id <<"\n";
     // std::cout << bp->in_nodes.size() <<"\n";
-    auto opts = torch::TensorOptions().dtype(torch::kInt64)\
+    c10::TensorOptions opts; opts;
+    if(sizeof(NDTYPE)== 4){
+    opts = torch::TensorOptions().dtype(torch::kInt32)\
     .device(torch::kCUDA, local_gpu_id);
-
+    }else{
+     opts = torch::TensorOptions().dtype(torch::kInt64)\
+    .device(torch::kCUDA, local_gpu_id);
+    }
     this->gpu_id = bp->gpu_id;
     num_in_nodes_local = bp->num_in_nodes_local;
     num_in_nodes_pulled = bp->num_in_nodes_pulled;
@@ -49,8 +54,17 @@ PySample::PySample(PartitionedSample &s, int current_gpu, int num_gpus){
           all_bipartites->push_back(bipartite);
           }
         layers.push_back(all_bipartites);
+
     }
-    auto opts = torch::TensorOptions().dtype(torch::kInt64).device(torch::kCUDA, current_gpu);
+    c10::TensorOptions opts; opts;
+
+    if(sizeof(NDTYPE)== 4){
+    opts = torch::TensorOptions().dtype(torch::kInt32)\
+    .device(torch::kCUDA, current_gpu);
+    }else{
+     opts = torch::TensorOptions().dtype(torch::kInt64)\
+    .device(torch::kCUDA, current_gpu);
+    }
     for(int i=0;i<num_gpus;i++){
       cache_hit_from.push_back(getTensor(s.cache_hit_from[i], opts));
       cache_hit_to.push_back(getTensor(s.cache_hit_to[i], opts));

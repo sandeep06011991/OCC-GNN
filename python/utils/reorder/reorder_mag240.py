@@ -30,7 +30,7 @@ def mode(is_test):
     split = dataset.get_idx_split()
     for k in split.keys():
         print(split[k].shape, k)
-    if is_test:
+    if not is_test:
         idx = split['train']
     else:
         idx = split['test-dev' ]

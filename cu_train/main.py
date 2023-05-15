@@ -3,9 +3,9 @@ import argparse
 import torch
 import dgl
 # Ensures all enviroments are running on the correct version
-assert(dgl.__version__ == '0.9.1post1' or\
-        dgl.__version__ == '0.8.2' or dgl.__version__ == '0.8.2post1' or dgl.__version__=='0.9.1')
-
+# assert(dgl.__version__ == '0.9.1post1' or\
+#         dgl.__version__ == '0.8.2' or dgl.__version__ == '0.8.2post1' or dgl.__version__=='0.9.1')
+assert(dgl.__version__ == '1.1.0+cu118')
 import time
 import nvtx
 from models.dist_gcn import get_sage_distributed

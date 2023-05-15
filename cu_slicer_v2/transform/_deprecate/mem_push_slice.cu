@@ -112,7 +112,7 @@ void partition_edges_push(int*  partition_map,\ // partition_map assigning each 
 }
 
 __device__
-bool is_selected(long *id, size_t sz){
+bool is_selected(NDTYPE *id, size_t sz){
    if(sz == 0)return id[0] != 0;
    return id[sz] != id[sz-1];
 }

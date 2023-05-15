@@ -52,10 +52,10 @@ def compute_stats_for_minibatch(eventlist_for_gpus):
         batch_forward.append(e[FORWARD_ELAPSED_EVENT_TIME])
         all_load_time.append(e[DATALOAD_END_TIME] - e[GRAPH_LOAD_START_TIME])
         batch_backward.append(e[END_BACKWARD] - max_end)
-    print(batch_forward,"Forward")
-    print(batch_sample, "Sample")
-    print(batch_backward, "Backward")
-    print(all_load_time, "all load time")
+    # print(batch_forward,"Forward")
+    # print(batch_sample, "Sample")
+    # print(batch_backward, "Backward")
+    # print(all_load_time, "all load time")
     batch_graph = sum(batch_graph)/4
     batch_sample = (sum(batch_sample) - max(batch_sample) - min(batch_sample)) /2
     #print(batch_forward)

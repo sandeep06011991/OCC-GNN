@@ -22,7 +22,7 @@ def check_path():
 import os, pwd
 
 from utils.utils import *
-from normalize import *
+
 
 def average_string(ls):
     print(ls)
@@ -37,20 +37,31 @@ def parse_float(string, output):
 
 
 # measures cost of memory transfer of dataset
-def run_naive(graphname, model, epochs, hidden_size, fsize, minibatch_size):
-    output = subprocess.run(["python3",\
-            "{}/quiver/gpu_sample_naive_dgl_gcn.py".format(ROOT_DIR),\
-            "--graph",graphname,  \
-            "--model", model , \
-            "--num-hidden",  str(hidden_size), \
-            "--batch-size", str(minibatch_size), \
-                 "--num-epochs", str(epochs)] \
-                , capture_output = True)
+def run_naive(graphname, model, epochs, hidden_size, fsize, minibatch_size, sample_gpu):
+    if sample_gpu:
+        output = subprocess.run(["python3",\
+                "{}/quiver/gpu_sample_naive_dgl_gcn.py".format(ROOT_DIR),\
+                "--graph",graphname,  \
+                "--model", model , \
+                "--num-hidden",  str(hidden_size), \
+                "--batch-size", str(minibatch_size), \
+                    "--num-epochs", str(epochs), "--sample-gpu"] \
+                    , capture_output = True )
+    else:
+        output = subprocess.run(["python3",\
+                "{}/quiver/gpu_sample_naive_dgl_gcn.py".format(ROOT_DIR),\
+                "--graph",graphname,  \
+                "--model", model , \
+                "--num-hidden",  str(hidden_size), \
+                "--batch-size", str(minibatch_size), \
+                    "--num-epochs", str(epochs)] \
+                    , capture_output = True )    
 
     out = str(output.stdout)
     error = str(output.stderr)
     print(out,error)
     #print("Start Capture !!!!!!!", graphname, minibatch_size)
+    #if True:
     try:
         accuracy  = parse_float("accuracy:(\d+\.\d+)",out)
         epoch = parse_float("epoch_time:(\d+\.\d+)",out)
@@ -65,22 +76,31 @@ def run_naive(graphname, model, epochs, hidden_size, fsize, minibatch_size):
         data_moved = parse_float("data moved:(\d+\.\d+)MB",out)
         edges = int(float(edges))
         data_moved = int(float(data_moved))
+        memory_used = re.findall("Memory used :(\d+\.\d+)GB", out)
+        memory_used = max(memory_used)
+        
         #print("accuracy",accuracy)
         #print("edges", edges)
         #sample_get, movement_data_time, forward_time, backward_time = normalize(epoch, sample_get, movement_data_time, forward_time, backward_time)
     except Exception as e:
         with open('exception_naive.txt','a') as fp:
             fp.write(error)
-        sample_get = "error"
-        movement_graph = "error"
-        movement_feat = "error"
-        forward_time = "error"
-        backward_time = "error"
-        accuracy = "error"
-        epoch = "error"
-        movement_data_time = "error"
-        data_moved = "error"
-        edges = "error"
+        if "OutOfMemoryError" in error or "OutOfMemoryError" in out:
+            msg = "OOM"
+        else:
+            print("Out of memory not found")
+            msg = "error"
+        sample_get = msg
+        movement_graph = msg
+        movement_feat = msg
+        forward_time = msg
+        backward_time = msg
+        accuracy = msg
+        epoch = msg
+        movement_data_time = msg
+        data_moved = msg
+        memory_used = msg
+        edges = msg
     return {"forward":forward_time, "sample_get":sample_get, "backward":backward_time, \
             "movement_graph":movement_graph, "movement_feat": movement_feat, "epoch":epoch,
-            "accuracy": accuracy, "movement_data_time":movement_data_time, "data_moved":data_moved, "edges":edges}
+            "accuracy": accuracy, "movement_data_time":movement_data_time, "data_moved":data_moved, "edges":edges, "memory_used": memory_used}

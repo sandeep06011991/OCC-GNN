@@ -10,11 +10,11 @@
 // Test gcn and gat
 using namespace std;
 
-void aggregate_gcn(std::vector<long> layer_out_nds, \
-	       		std::vector<long>  layer_in_nds, \
-        			std::vector<long> offsets,
-			       std::vector<long> indices, \
-         			std::vector<long> degree,  \
+void aggregate_gcn(std::vector<NDTYPE> layer_out_nds, \
+	       		std::vector<NDTYPE>  layer_in_nds, \
+        			std::vector<NDTYPE> offsets,
+			       std::vector<NDTYPE> indices, \
+         			std::vector<NDTYPE> degree,  \
         			std::vector<int> &in, \
 			       	std::vector<int> &out){
   out.clear();
@@ -23,7 +23,7 @@ void aggregate_gcn(std::vector<long> layer_out_nds, \
     int end = offsets[i+1];
     int nbs = 0;
     int self = 0;
-    long dest_nd = layer_out_nds[i];
+    NDTYPE dest_nd = layer_out_nds[i];
 
     for(int j = start; j < end; j++){
       int src_nd = layer_in_nds[indices[j]];
@@ -72,7 +72,7 @@ std::vector<int> naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
 }
 
 void aggregate(std::vector<int> &out, std::vector<int> &in,
-        std::vector<long> indptr, std::vector<long> indices){
+        std::vector<NDTYPE> indptr, std::vector<NDTYPE> indices){
     if(indptr.size()<2)return;
     if(indptr.size()>1){
         assert(out.size() == indptr.size()-1);
@@ -96,7 +96,7 @@ void aggregate(std::vector<int> &out, std::vector<int> &in,
 }
 // A Bit Confusing here.
 
-void shuffle(std::vector<long> from_ids,  std::vector<int> &to,
+void shuffle(std::vector<NDTYPE> from_ids,  std::vector<int> &to,
          std::vector<int> from,  int start, int end){
   assert(from_ids.size() == (end - start));
   for(int i=0; i< (int) from_ids.size(); i++){
@@ -127,10 +127,10 @@ void pull_own_node(BiPartite *bp,
   std::vector<int> in[8];
   std::vector<int> out[8];
   std::vector<int> remote_out[8];
-  std::vector<long> cache_hit_from[8];
-  std::vector<long> cache_hit_to[8];
-  std::vector<long> cache_miss_from[8];
-  std::vector<long> cache_miss_to[8];
+  std::vector<NDTYPE> cache_hit_from[8];
+  std::vector<NDTYPE> cache_hit_to[8];
+  std::vector<NDTYPE> cache_miss_from[8];
+  std::vector<NDTYPE> cache_miss_to[8];
   for(int i=0;i<num_gpus; i++ ){
      in[i].clear();
      s.cache_hit_to[i].debug("DEBUG cache hit to");
@@ -166,7 +166,7 @@ void pull_own_node(BiPartite *bp,
         int start = bp->pull_from_offsets[pull_from];
         int end = bp->pull_from_offsets[pull_from + 1];
         if(end - start == 0)continue;
-        std::vector<long> push_to = layer.bipartite[pull_from]->pull_to_ids[j].to_std_vector();
+        std::vector<NDTYPE> push_to = layer.bipartite[pull_from]->pull_to_ids[j].to_std_vector();
         std::cout <<"push to";
         for(int k=0;k<push_to.size() ; k++){
             std::cout <<push_to[k] <<" ";

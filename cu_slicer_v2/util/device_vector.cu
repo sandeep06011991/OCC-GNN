@@ -17,8 +17,11 @@ namespace cuslicer{
 template<typename D>
 long device_vector<D>::TOTAL_USED = 0;
 
-// template<typename D>
-// device_vector<D>::cuda_memory::TOTAL_ALLOCATED = 0;
+
+template<typename DATATYPE>
+long device_vector<DATATYPE>::cuda_memory::TOTAL_ALLOCATED = 0;
+
+
 
 template<int BLOCKSIZE, int TILESIZE, typename DATATYPE>
 __global__
@@ -110,9 +113,6 @@ device_vector<DATATYPE>::~device_vector(){
 }
 
 template<typename DATATYPE>
-long device_vector<DATATYPE>::cuda_memory::TOTAL_ALLOCATED = 0;
-
-template<typename DATATYPE>
 device_vector<DATATYPE>& device_vector<DATATYPE>::operator=(device_vector<DATATYPE> &in){
    if(in.size()==0){
      this->resize(0);
@@ -160,5 +160,5 @@ void device_vector<DATATYPE>::fill(DATATYPE data){
 
 
 template class device_vector <NDTYPE>;
-template class device_vector <PARTITIONIDX>;
+// template class device_vector <PARTITIONIDX>;
 }

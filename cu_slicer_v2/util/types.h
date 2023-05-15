@@ -11,6 +11,6 @@
 // Nodes [753565, 226407, 36803, 4096] Edges [1743108, 308245, 33447]
 // typedef short PARTITIONIDX ;
 typedef int PARTITIONIDX;
-typedef long NDTYPE;
+typedef int NDTYPE;
 // typedef  int NDTYPE;
 // All graphs have less than 2 billion edges

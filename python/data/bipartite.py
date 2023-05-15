@@ -6,7 +6,7 @@ import time
 import random
 from dgl import heterograph_index
 from dgl.utils  import Index
-from utils.log import *
+
 dummy_local_graph = dgl.heterograph({('_U', '_E', '_V_local'): ([],[])}, \
                              {'_U': 1, '_V_local': 1})
 dummy_remote_graph = dgl.heterograph({('_U', '_E', '_V_remote'): ([],[])}, \

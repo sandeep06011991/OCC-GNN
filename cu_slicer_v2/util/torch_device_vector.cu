@@ -10,6 +10,7 @@
 #include "../util/torch_device_vector.h"
 #include "../util/types.h"
 // #include <device_vector>
+#include <type_traits>
 
 
 
@@ -41,36 +42,51 @@ device_vector<DATATYPE>::device_vector(){
     allocated = 0;
     current_size = 0;
     free_size = 0;
-    d = nullptr;
+    // Ideally empty torch tensor
 }
 
 
 template<typename DATATYPE>
 device_vector<DATATYPE>::device_vector(std::vector<DATATYPE> &host){
     device_vector();
+    std::cout << "Start resize";
     resize(host.size());
+    std::cout << "REsize ok \n";
     if(host.size() == 0)return;
-    gpuErrchk(cudaMemcpy(d->ptr(), host.data(), sizeof(DATATYPE) * current_size, cudaMemcpyHostToDevice));
+    std::cout <<"check\n";
+    std::cout << data.data_ptr() <<"\n";
+    gpuErrchk(cudaMemcpy(data.data_ptr(), host.data(), sizeof(DATATYPE) * current_size, cudaMemcpyHostToDevice));
 }
 
 template<typename DATATYPE>
  void device_vector<DATATYPE>::resize(size_t new_size){
     c10::TensorOptions opts;
-    if(type(DATAYTYPE) == type(long)){
+    std::cout << "Change to correct device IbD\n";
+    std::cout << "Change to size v"  << new_size <<"\n";
+    if(sizeof(DATATYPE) == 8){
+    // if(typeid(DATATYPE) == typeid(long)){
       opts = torch::TensorOptions().dtype(torch::kInt64)\
       .device(torch::kCUDA, 0);
-    if(type(DATATYPE) == type(int)){
-        opts = torch::TensorOptions().dtype(torch::kInt64)\
+    }
+    if(sizeof(DATATYPE) == 4){
+        opts = torch::TensorOptions().dtype(torch::kInt32)\
       .device(torch::kCUDA, 0);
     }
-    this->data = torch::empty({new_size}, opts );
+      // opts = torch::TensorOptions().dtype(torch::kInt32)\
+      //   .device(torch::kCUDA, 0);
+      std::cout << "REARARAR\n";
+      auto v1 = torch::empty({100,}, opts );
+      std::cout << "another creation ok!\n";
+      this->data = torch::empty({100,}, opts );
+      std::cout << "created space\n";
+    }
   // inline torch::Tensor getTensor(cuslicer::device_vector<long> &v, c10::TensorOptions opts){
 //     if(v.size() == 0){
 //       return torch::empty(v.size(),opts);
 //     }else{
 //       return torch::from_blob(v.ptr(), {(long)v.size()}, opts).clone();
 
-//     }
+    // }
 // auto opts = torch::TensorOptions().dtype(torch::kInt64)\
 //     .device(torch::kCUDA, local_gpu_id);
   //  if(new_size == 0)return clear();
@@ -94,19 +110,19 @@ template<typename DATATYPE>
   // free_size = allocated-current_size;
   // TOTAL_USED += current_size;
   
-}
+// }
 
 
 template<typename DATATYPE>
  void device_vector<DATATYPE>::debug(std::string str){
-  std::cout << str <<":" ;
-   if(d == nullptr){
-     std::cout <<"Found null pointer \n";
-     return;
-   }
+  std::cout << str <<":\n" ;
+  //  if(d == nullptr){
+  //    std::cout <<"Found null pointer \n";
+  //    return;
+  //  }
    DATATYPE * host = (DATATYPE *)malloc(sizeof(DATATYPE) * current_size);
    gpuErrchk(cudaDeviceSynchronize());
-   gpuErrchk(cudaMemcpy(host, d->ptr(), sizeof(DATATYPE) * current_size, cudaMemcpyDeviceToHost));
+   gpuErrchk(cudaMemcpy(host, data.data_ptr(), sizeof(DATATYPE) * current_size, cudaMemcpyDeviceToHost));
    std::cout << current_size <<":";
    for(int i = 0; i < current_size; i ++){
      std::cout << host[i] << " ";
@@ -126,8 +142,8 @@ device_vector<DATATYPE>::~device_vector(){
    // }
 }
 
-template<typename DATATYPE>
-long device_vector<DATATYPE>::cuda_memory::TOTAL_ALLOCATED = 0;
+// template<typename DATATYPE>
+// long device_vector<DATATYPE>::cuda_memory::TOTAL_ALLOCATED = 0;
 
 // template<typename DATATYPE>
 // device_vector<DATATYPE>& device_vector<DATATYPE>::operator=(device_vector<DATATYPE> &in){

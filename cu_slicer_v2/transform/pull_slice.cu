@@ -173,13 +173,13 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
 
 template<int BLOCKSIZE, int TILESIZE>
 __global__
-void fill_out_nodes_pull(long * index_out_nodes_local,\
+void fill_out_nodes_pull(NDTYPE * index_out_nodes_local,\
         size_t index_out_nodes_local_size,\
        // mask is set to where to write
-        long * index_indptr_local, \
+        NDTYPE * index_indptr_local, \
         LocalGraphInfo *info, int num_gpus,\
         // Meta data
-        long *out_nodes, long * out_node_degree,\
+        NDTYPE *out_nodes, NDTYPE * out_node_degree,\
         long num_out_nodes){
         int tileId = blockIdx.x;
         int last_tile = (( index_out_nodes_local_size - 1) / TILE_SIZE + 1);
@@ -212,10 +212,10 @@ void fill_out_nodes_pull(long * index_out_nodes_local,\
 }
 
 template<int BLOCKSIZE, int TILESIZE>
-__global__ void fill_in_nodes_pull(long * index_in_nodes, \
-    long * index_out_nodes_local, \
+__global__ void fill_in_nodes_pull(NDTYPE * index_in_nodes, \
+    NDTYPE * index_out_nodes_local, \
     LocalGraphInfo *info, int num_gpus,\
-      long * in_nodes, size_t num_in_nodes,
+      NDTYPE * in_nodes, size_t num_in_nodes,
       size_t num_out_nodes){
         int tileId = blockIdx.x;
         int lastTile = ( num_in_nodes * num_gpus * num_gpus- 1)/TILE_SIZE + 1;
@@ -265,10 +265,10 @@ __global__ void fill_in_nodes_pull(long * index_in_nodes, \
 }
 
 template<int BLOCKSIZE, int TILESIZE>
-__global__ void fill_indices_local_pull(long *sample_indices,
-      long *index_edges, long num_edges,
-      long * index_in_nodes, size_t num_in_nodes,
-      long * index_out_nodes_local, size_t num_out_nodes,
+__global__ void fill_indices_local_pull(NDTYPE *sample_indices,
+      NDTYPE *index_edges, size_t num_edges,
+      NDTYPE * index_in_nodes, size_t num_in_nodes,
+      NDTYPE * index_out_nodes_local, size_t num_out_nodes,
       LocalGraphInfo *info, int num_gpus){
   int tileId = blockIdx.x;
   int last_tile = (((num_edges * num_gpus) - 1) / TILE_SIZE + 1);
@@ -316,7 +316,7 @@ __global__ void fill_indices_local_pull(long *sample_indices,
   }
 }
 
-void PullSlicer::slice_layer(device_vector<long> &layer_nds,
+void PullSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
       Block &bs, PartitionedLayer &ps, bool last_layer){
     
     // Stage 1 Edge Partitioning
