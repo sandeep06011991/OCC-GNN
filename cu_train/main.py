@@ -106,16 +106,20 @@ def main(args):
         dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize, -1)
     else:
         dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize, args.num_gpus)
-    partition_map = partition_map.type(torch.LongTensor)
-    
+    assert(partition_map.dtype == torch.int32)
+    print("Read all data")
+    features = dg_graph.ndata.pop('features')
     if not args.deterministic:
-        features = dg_graph.ndata["features"]
-        features = features.pin_memory()
+        print("Taking in features")
+        if graph_name != "mag240M":
+            print("Pin memory")
+            assert(features.is_shared())
+            features = features.share_memory_()
+            
     else:
         features = dg_graph.ndata["features"]
         num_nodes = features.shape[0]
         features = torch.arange(0,num_nodes).reshape(num_nodes,1)
-    features.share_memory_()
     cache_percentage = args.cache_per
     batch_size = args.batch_size
     no_epochs = args.num_epochs
@@ -125,10 +129,10 @@ def main(args):
     fanout = [(int(f)) for f in fanout]
 
     total_minibatches = int(features.shape[0]/batch_size) * no_epochs
-
+    assert(features.is_shared())
     import random
-    file_id = random.randint(0,10000)
-    sm_manager = SharedMemManager(num_gpus, file_id)
+    # file_id = random.randint(0,10000)
+    # sm_manager = SharedMemManager(num_gpus, file_id)
 
     #Not applicable as some nodes have zero features in ogbn-products
     #assert(not torch.any(torch.sum(features,1)==0))
@@ -149,7 +153,7 @@ def main(args):
     train_nid = train_mask.nonzero().squeeze()
     for i in range(args.num_gpus):
         print("Nodes per partition", torch.sum(partition_map[train_nid]  == i))
-        print("Total degree", torch.sum(dg_graph.in_degrees(torch.where(partition_map[train_nid] == i)[0])))
+        print("Total degree", torch.sum(dg_graph.in_degrees(torch.where(partition_map[train_nid] == i)[0].to(torch.int32))))
     print("Training nodes", train_nid.shape[0])
     if args.deterministic:
         train_nid = torch.arange(dg_graph.num_nodes())
@@ -167,16 +171,6 @@ def main(args):
         rounds = 4
 
     shm = None
-    if args.reusable_buffers:
-        shm = []
-        for i in range(num_gpus):
-            i_shm = []
-            for j in range(num_gpus):
-                t = torch.ones((10000*1000), device = i)
-                t.share_memory_()
-                i_shm.append(t)
-            shm.append(i_shm)
-
 
 
     work_producer_process = mp.Process(target=(work_producer), \
@@ -194,12 +188,14 @@ def main(args):
     else:
         from cu_train import run_trainer_process
     for proc_id in range(num_gpus):
+        print("Starting ", proc_id)
+        assert(features.is_shared())
         p = mp.Process(target=(run_trainer_process), \
                       args=(proc_id, num_gpus, work_queues[proc_id], minibatches_per_epoch \
                        , features, args, \
                        num_classes, mm.batch_in[proc_id], labels, \
                          args.deterministic,\
-                         mm.local_sizes[proc_id],cache_percentage, file_id, args.num_epochs,\
+                         mm.local_sizes[proc_id],cache_percentage, args.num_epochs,\
                             storage_vector, fanout, exchange_queue, args.graph, args.num_layers, num_gpus, shm, barrier))
         p.start()
         procs.append(p)
@@ -252,6 +248,7 @@ if __name__=="__main__":
     argparser.add_argument('--load-balance', action = "store_true", default = False)
     argparser.add_argument('--barrier', action = "store_true", default = False)
     argparser.add_argument('--reusable-buffers', action = "store_true", default = False)
+    argparser.add_argument('--use-uva', action = "store_true", default = False)
     # We perform only transductive training
 
     # argparser.add_argument('--inductive', action='store_false',

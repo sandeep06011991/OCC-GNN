@@ -23,6 +23,22 @@ T transform<T>::reduce(cuslicer::device_vector<T> & data_d){
     gpuErrchk(cub::DeviceReduce::Sum(d_temp_storage.ptr(), temp_storage_bytes, data_d.ptr(), transform<T>::d_temp_out.ptr(), num_elements));
     return d_temp_out[0];
 }
+
+template<typename T>
+T transform<T>::reduce_d(T * data_d, int numel){
+    assert(numel != 0);
+    transform::d_temp_out.resize(1);
+
+    int num_elements = numel;
+    // Determine temporary device storage requirements
+    size_t temp_storage_bytes;
+    gpuErrchk(cub::DeviceReduce::Sum(NULL, temp_storage_bytes, data_d, transform<T>::d_temp_out.ptr(), num_elements));
+    d_temp_storage.resize(temp_storage_bytes/(sizeof(T)) + 1);
+    gpuErrchk(cub::DeviceReduce::Sum(d_temp_storage.ptr(), temp_storage_bytes, data_d, transform<T>::d_temp_out.ptr(), num_elements));
+    return d_temp_out[0];
+}
+
+
 template<typename T>
 void transform<T>::sort(cuslicer::device_vector<T> &in, cuslicer::device_vector<T> &out){
         assert(in.size() != 0  );

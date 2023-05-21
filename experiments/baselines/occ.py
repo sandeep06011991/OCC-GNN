@@ -41,7 +41,7 @@ def check_single(ls):
     return ls[0]
 
 def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
-        num_layers, num_partition, fanout, skip_shuffle , load_balance):
+        num_layers, num_partition, fanout, skip_shuffle , load_balance, use_uva):
     print(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         num_layers, num_partition, fanout, skip_shuffle)
     cmd = ["python3",\
@@ -60,6 +60,9 @@ def run_occ(graphname, model, cache_per, hidden_size, fsize, minibatch_size, \
         cmd.append("--skip-shuffle")
     if load_balance:
         cmd.append("--load-balance")
+    if use_uva:
+        cmd.append("--use-uva")
+    print("Running cmd" , cmd)            
     output = subprocess.run(cmd, capture_output= True)
 
     # print(out,error)

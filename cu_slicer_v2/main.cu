@@ -28,7 +28,7 @@ int main(){
   
   int num_gpus = 4;
   bool random = false;
-  std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, false, num_gpus, random);
+  std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, num_gpus, random, true);
 
   // Sample datastructure.
   int num_layers =2;
@@ -37,7 +37,7 @@ int main(){
   
   bool self_edge = false;
   std::vector<NDTYPE> training_nodes;
-  for(int i=0;i<num_gpus * 1000 ;i++){
+  for(int i=0;i<num_gpus * 10 ;i++){
       training_nodes.push_back(i);
   }
   // std::vector<long> a = {0,2,4,6};
@@ -51,7 +51,9 @@ int main(){
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, self_edge);
 
   cuslicer::device_vector<NDTYPE> target(training_nodes);
+  std::cout << "Start sampling \n";
   ns->sample(target,(*s1));
+  std::cout << "Sampling done\n";
   // s1->debug();
   bool pull_optim = false;
 

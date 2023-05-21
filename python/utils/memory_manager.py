@@ -1,5 +1,4 @@
 import torch
-from utils.log import *
 '''
 GNN has 2 sources of data. Graph Structure and Graph feature data.
 Memory manager manages the gpu memory on all devices with graph features.
@@ -50,7 +49,6 @@ class MemoryManager():
         self.batch_size = batch_size
         self.clean_up = {}
         self.deterministic = deterministic
-        self.log = LogFile("Storage", 0)
         self.num_gpus = num_gpus
         self.initialize()
 
@@ -77,9 +75,10 @@ class MemoryManager():
         self.local_sizes = []
         self.check_missing = torch.zeros((self.num_nodes), dtype = torch.bool)
         self.node_gpu_mask = torch.zeros((self.num_nodes,self.num_gpus),dtype=torch.bool)
-        self.global_to_local = torch.ones((self.num_nodes,self.num_gpus),dtype = torch.long) * -1
+        self.global_to_local = torch.ones((self.num_nodes,self.num_gpus),dtype = torch.int32) * -1
         for i in range(self.num_gpus):
             self.batch_in.append(None)
+            print("working on range")
             if self.cache_percentage <= .25:
                 if(self.cache_percentage == .25):
                     # fixme: this rounding error should not happen
@@ -93,7 +92,7 @@ class MemoryManager():
                     # fixme: batch_in has different size to total number of nodes
                     # Be aware of this when constructing graphs
                     subgraph_nds = torch.where(self.partition_map == i)[0]
-                    subgraph_deg = self.graph.out_degree(subgraph_nds)
+                    subgraph_deg = self.graph.out_degrees(subgraph_nds.to(torch.int32   ))
                     _, indices = torch.sort(subgraph_deg,descending = True)
                     node_ids_cached = subgraph_nds[indices[:self.num_nodes_cached]]
             else:
@@ -111,7 +110,7 @@ class MemoryManager():
             self.local_to_global_id.append(node_ids_cached)
             self.local_sizes.append(node_ids_cached.shape[0])
             self.node_gpu_mask[node_ids_cached,i] = True
-            self.global_to_local[node_ids_cached,i] = torch.arange(node_ids_cached.shape[0],dtype=torch.long)
+            self.global_to_local[node_ids_cached,i] = torch.arange(node_ids_cached.shape[0],dtype=torch.int32)
             if False:
                 print("DUMMY FEATURES FOR DEBUGGING")
                 self.batch_in[i][:self.local_sizes[i]] = torch.ones(self.features[node_ids_cached].shape) * node_ids_cached
@@ -131,10 +130,11 @@ class GpuLocalStorage():
     def __init__(self, cache_percentage, features, batch_in, \
                  proc_id):
         self.cache_percentage = cache_percentage
+        # print(features.is_pinned(), "Features pin status")
+        # self.features = features.pin_memory()
         self.features = features
         # Batch_in tensor with space for extra
         self.batch_in = batch_in.to(proc_id)
-        self.log = LogFile("Trainer", proc_id)
         self.proc_id = proc_id
 
 

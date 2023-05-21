@@ -59,11 +59,11 @@ class Bipartite:
         self.self_ids_offset = 0
 
         self.gpu_id = torch.device(0)
-        self.indptr_L = torch.tensor([],dtype = torch.int64)
-        self.indices_L = torch.tensor([],dtype = torch.int64)
-        self.indptr_R = torch.tensor([],dtype = torch.int64)
-        self.indices_R = torch.tensor([],dtype = torch.int64)
-        self.out_degrees = torch.tensor([],dtype = torch.int64)
+        self.indptr_L = torch.tensor([],dtype = torch.int32)
+        self.indices_L = torch.tensor([],dtype = torch.int32)
+        self.indptr_R = torch.tensor([],dtype = torch.int32)
+        self.indices_R = torch.tensor([],dtype = torch.int32)
+        self.out_degrees = torch.tensor([],dtype = torch.int32)
 
         self.from_ids = {}
         self.push_to_ids = {}
@@ -75,8 +75,8 @@ class Bipartite:
 
 
     def reconstruct_graph(self,attention = False):
-        edge_ids_local= torch.arange(self.indices_L.shape[0], device = self.gpu_id)
-        edge_ids_remote = torch.arange(self.indices_R.shape[0], device = self.gpu_id)
+        edge_ids_local= torch.arange(self.indices_L.shape[0], device = self.gpu_id, dtype = torch.int32)
+        edge_ids_remote = torch.arange(self.indices_R.shape[0], device = self.gpu_id, dtype = torch.int32)
         formats = "csc"
         in_nodes = self.num_in_nodes_local + self.num_in_nodes_pulled
 

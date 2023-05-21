@@ -36,9 +36,11 @@ public:
   cuslicer::device_vector<PARTITIONIDX> partition_map_d;
 
   // graph data.
+  NDTYPE * indptr_h;
+  NDTYPE * indices_h;
   // Assume in node range same as out node range.
-  cuslicer::device_vector<NDTYPE> indptr_d; // size = num_nodes + 1
-  cuslicer::device_vector<NDTYPE> indices_d; // size = num_edges
+  NDTYPE * indptr_d; // size = num_nodes + 1
+  NDTYPE * indices_d; // size = num_edges
 
 
   // check sum
@@ -49,9 +51,17 @@ public:
   bool testing = true;
   int num_partitions;
   bool random = false;
-  Dataset(std::string dir, bool testing,  int num_partitions, bool random);
+  bool UVA = false;
+  Dataset(std::string dir, int num_partitions, bool random, bool UVA);
 
   ~Dataset(){
+    if(this->UVA){
+      gpuErrchk(cudaFreeHost(indptr_h));
+      gpuErrchk(cudaFreeHost(indices_h));
+    }else{
+      gpuErrchk(cudaFree(indptr_d));
+      gpuErrchk(cudaFree(indices_d));
+    }
     // gpuErrchk(cudaFree(indptr_d));
     // gpuErrchk(cudaFree(indices_d));
   }

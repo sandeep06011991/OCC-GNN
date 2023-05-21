@@ -63,15 +63,15 @@ public:
       vector<int> fanout,
        bool deterministic, bool testing,
           bool self_edge, int rounds, bool pull_optimization,
-            int num_layers, int num_gpus, int current_gpu, bool random){
+            int num_layers, int num_gpus, int current_gpu, bool random, bool UVA){
         this->num_gpus = num_gpus;
         this->current_gpu = current_gpu;
         cudaSetDevice(current_gpu);
         this->name = get_dataset_dir() + name;
         std::cout << "Got dataset" << this->name << "\n";
-
+        std::cout << "Use UVA" << UVA <<"\n";
         this->deterministic = deterministic;
-        this->dataset = std::make_shared<Dataset>(this->name, testing, num_gpus, random);
+        this->dataset = std::make_shared<Dataset>(this->name,  num_gpus, random, UVA);
 
         num_nodes = dataset->num_nodes;
 
@@ -175,7 +175,7 @@ PYBIND11_MODULE(cuslicer, m) {
          .def(py::init<const std::string &,
                std::vector<std::vector<NDTYPE>>, vector<int>,\
                 bool, bool, bool, int, bool,int,\
-                  int, int, bool>())
+                  int, int, bool,bool>())
         .def("getTensor", &CUSlicer::getDummyTensor)
          .def("getSample", &CUSlicer::getSample, py::return_value_policy::take_ownership);
          // .def("sampleAndVerify",&CSlicer::test_correctness);

@@ -52,7 +52,7 @@ namespace cuslicer{
 
           static std::shared_ptr<cuda_memory> alloc(int size_t){
               DATATYPE *d;
-              // std::cout << "Allocating " << size_t<<"\n";
+              std::cout << "Allocating " << size_t<<"\n";
               gpuErrchk(cudaMalloc((void**)&d, (sizeof(DATATYPE) * size_t)));
               return std::make_shared<cuda_memory>(d, size_t);
           }

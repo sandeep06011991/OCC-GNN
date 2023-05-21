@@ -23,15 +23,15 @@ class Shuffle(torch.autograd.Function):
         for i in range(num_gpus):
             # Do I do work allocation here ?
             if i == device_id:
-                recv.append(torch.empty([0,*remote_t.shape[1:]], device = device_id))
-                recv_g.append(torch.empty([0,*remote_t.shape[1:]], device = device_id))
+                recv.append(torch.empty([0,*remote_t.shape[1:]], device = device_id, dtype = torch.int32))
+                recv_g.append(torch.empty([0,*remote_t.shape[1:]], device = device_id, dtype = torch.int32))
                 send_dict.append(None)
             else:
                 # remote has the same shape as local
                 recv.append(torch.empty((from_nds_size[i], *remote_t.shape[1:]) \
-                    , device = device_id))
+                    , device = device_id, dtype = torch.int32))
                 recv_g.append(torch.empty((to_tensor_offset[i+1] - to_tensor_offset[i], *remote_t.shape[1:]) \
-                    , device = device_id))
+                    , device = device_id, dtype = torch.int32))
                 send_dict.append(remote_t[to_tensor_offset[i]:to_tensor_offset[i+1]])
         if shbuffs is None:
             async_op = shuffle_functional(device_id, send_dict, recv,num_gpus)

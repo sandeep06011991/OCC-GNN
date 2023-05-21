@@ -19,6 +19,9 @@ namespace cuslicer{
 
     static T reduce(cuslicer::device_vector<T>& data_d);
 
+
+    static T reduce_d(T * data_d, int numel);
+
     static void sort(cuslicer::device_vector<T> &in,\
            cuslicer::device_vector<T> &out);
 

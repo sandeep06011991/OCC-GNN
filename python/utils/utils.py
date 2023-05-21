@@ -39,7 +39,7 @@ def get_data_dir():
         PATH_DIR = "/home/q91/OCC-GNN/python"
     if username == "ubuntu":
         DATA_DIR = "/home/ubuntu/data"
-        DATA_DIR = "/data"
+        # DATA_DIR = "/data"
         SYSTEM = "P4"
         PATH_DIR = "/home/ubuntu/OCC-GNN/python"
         ROOT_DIR = "/home/ubuntu/OCC-GNN"
@@ -106,8 +106,10 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
             features = torch.from_numpy(f_np)
             print("Features read")
         else: 
-            features = torch.from_numpy(np.fromfile(("{}/{}/features.bin").format(DATA_DIR,graphname)\
-                                                            ,dtype = np.float32))
+            # features = torch.from_numpy(np.fromfile(("{}/{}/features.bin").format(DATA_DIR,graphname)\
+            #                                                 ,dtype = np.float32))
+            print("Reading synthetic graphs !!! ")
+            features = torch.ones((num_nodes, fsize),dtype = torch.float32)
         features = features.reshape(num_nodes,fsize)
         labels = torch.from_numpy(\
                 np.fromfile(("{}/{}/labels.bin".format(DATA_DIR, graphname)), dtype = np.intc)).to(\
@@ -125,19 +127,23 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
     # features = torch.rand(num_nodes,fsize)
     indptr = indptr.astype(np.int32)
     indices = indices.astype(np.int32)
+    dg_graph = dgl.graph(('csr',(indptr, indices, torch.empty(indices.shape[0], dtype = torch.int32))))
+
     print("Using 32")
-    sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
-        shape = (num_nodes,num_nodes))
+    # sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
+    #     shape = (num_nodes,num_nodes))
     print("Scipy created")
-    dg_graph = dgl.from_scipy(sp)
-    print("DG Graph")
-    dg_graph = dgl.to_homogeneous(dg_graph)
-    # features = features.pin_memory()
-    features = features.share_memory_()
+    # dg_graph = dgl.from_scipy(sp)
+    # dg_graph = dgl.to_homogeneous(dg_graph)
+    dg_graph = dg_graph.astype(torch.int32).shared_memory('s')
+    print("DG Graph Created")
+    if graphname != "mag240M":
+        # features = features.pin_memory()
+        features = features.share_memory_()
     
     dg_graph.ndata["features"] = features
     dg_graph.ndata["labels"] = labels
-
+    assert(dg_graph.ndata['features'].is_shared())
     idxs = ['train', 'val', 'test']
     ratio = {'train':.80,'val':.10,'test':.10}
     for idx in idxs:
@@ -169,7 +175,12 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
     else:
         partition_map = None
     # assert(False)
-    dg_graph = dg_graph.astype(torch.int32)
+    partition_map = partition_map.share_memory_()
+    assert(partition_map.is_shared())
+    assert(dg_graph.ndata['features'].is_shared())
+    print("All data created")
+
+    # dg_graph = dg_graph.astype(torch.int32)
     return dg_graph, partition_map, num_classes
     # , features, num_nodes, num_edges
 

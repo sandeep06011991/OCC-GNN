@@ -6,7 +6,7 @@ def run_naive_experiment( model, sample_gpu):
                 #("ogbn-arxiv", 128,  1024), \
                 #("ogbn-products", 100, 1024 ), \
                 #("train_reorder_papers100M", 128, 1024),\
-                ("ogbn-papers100M", 128 , 1024),\
+                #("ogbn-papers100M", 128 , 1024),\
                 # ("train_reorder_mag240M", 768, 1024),\
                  ("mag240M", 768, 1024),\
                 # ("reorder-mag240M", 768, 1024),\
@@ -46,6 +46,6 @@ def run_naive_experiment( model, sample_gpu):
                         out["data_moved"], out["edges"], out["memory_used"]))
 
 if __name__=="__main__":
-    for sample_gpu in [False, True]:
+    for sample_gpu in [False]:
         run_naive_experiment("GCN",sample_gpu)
         run_naive_experiment("GAT", sample_gpu) 

@@ -48,7 +48,7 @@ def compute_acc(pred, labels):
 def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, features, args\
                         ,num_classes, batch_in, labels,\
                              deterministic,\
-                          cached_feature_size, cache_percentage, file_id, epochs_required,\
+                          cached_feature_size, cache_percentage,  epochs_required,\
                             storage_vector, fanout, exchange_queue,\
                             graph_name, num_layers, num_gpus, shbuffs, mpbarrier):
     print("Trainer process starts!!!")
@@ -75,7 +75,6 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     torch.distributed.init_process_group(backend="nccl",\
              init_method=dist_init_method,  world_size=world_size,rank=proc_id)
     # print("SEED",torch.seed())
-    sm_client = SharedMemClient( proc_id, gpus ,file_id)
     current_gpu = proc_id
     if args.model == "gcn":
         model = get_sage_distributed(args.num_hidden, features, num_classes,
@@ -84,7 +83,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         self_edge = False
         attention = False
         pull_optimization = False
-    else:
+    else:   
         assert(args.model == "gat" or args.model == "gat-pull")
         if(args.model == "gat"):
             pull_optimization = False
@@ -106,10 +105,10 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         #             deterministic, testing , self_edge, rounds, \
         #             pull_optimization, num_layers, num_gpus)
     else:
-        print("using GPU Sampler")
+        print("using GPU Sampler", args.use_uva)
         from cuslicer import cuslicer
         sampler = cuslicer(graph_name, storage_vector,
-                fanout ,deterministic, testing, self_edge, rounds, pull_optimization, num_layers, num_gpus, proc_id, args.random_partition)
+                fanout ,deterministic, testing, self_edge, rounds, pull_optimization, num_layers, num_gpus, proc_id, args.random_partition, args.use_uva)
     device = proc_id
     if proc_id ==0:
         print(args.test_graph_dir)
@@ -206,11 +205,11 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         else:
             for gpu_id in range(num_gpus):
                 if gpu_id == proc_id:
-                   my_gpu_local_sample = torch.tensor([], device = proc_id)
+                   my_gpu_local_sample = torch.tensor([], device = proc_id,dtype = torch.int32)
                    continue
                 sample_id = proc_id
                 for_worker_id = gpu_id
-                send_dict[gpu_id] = torch.empty([0], device = proc_id, dtype = torch.int64)
+                send_dict[gpu_id] = torch.empty([0], device = proc_id, dtype = torch.int32)
                 ref = (sample_id, for_worker_id, "EMPTY")
                 exchange_queue[for_worker_id].put(ref)
         
@@ -220,15 +219,15 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         for gpu_id in range(num_gpus):
             # Read my own exchange_queue
             if(gpu_id) == proc_id:
-                recv_dict[gpu_id] = torch.empty([0], device = proc_id, dtype = torch.int64)
+                recv_dict[gpu_id] = torch.empty([0], device = proc_id, dtype = torch.int32)
                 continue
             
             sample_id, for_worker_id, shape = exchange_queue[proc_id].get()
             assert(for_worker_id == proc_id)
             if shape != "EMPTY":
-                recv_dict[sample_id] = torch.empty(shape, device = proc_id, dtype = torch.int64)
+                recv_dict[sample_id] = torch.empty(shape, device = proc_id, dtype = torch.int32)
             else:
-                recv_dict[sample_id] = torch.empty([0], device= proc_id, dtype = torch.int64)
+                recv_dict[sample_id] = torch.empty([0], device= proc_id, dtype = torch.int32)
         shuffle_functional(proc_id, send_dict, recv_dict, gpus)
         torch.cuda.synchronize()
 

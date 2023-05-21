@@ -154,7 +154,7 @@ void NeighbourSampler::layer_sample(device_vector<NDTYPE> &in,
       in_degrees.resize(in.size());
       sample_offsets<BLOCK_SIZE,TILE_SIZE><<<GRID_SIZE(in.size()), BLOCK_SIZE>>>
         (in.ptr(), in.size(), offsets.ptr(),\
-          in_degrees.ptr(), this->dataset->indptr_d.ptr(), this->dataset->num_nodes, fanout, self_edge);
+          in_degrees.ptr(), this->dataset->indptr_d, this->dataset->num_nodes, fanout, self_edge);
       gpuErrchk(cudaDeviceSynchronize());
       cuslicer::transform<NDTYPE>::inclusive_scan(offsets,offsets);
       gpuErrchk(cudaDeviceSynchronize());
@@ -166,7 +166,7 @@ void NeighbourSampler::layer_sample(device_vector<NDTYPE> &in,
       (in.ptr(), in.size(), \
             offsets.ptr(), \
              indices.ptr(), \
-              this->dataset->indptr_d.ptr(), this->dataset->indices_d.ptr(), this->dataset->num_nodes,\
+              this->dataset->indptr_d, this->dataset->indices_d, this->dataset->num_nodes,\
                   dev_curand_states, TOTAL_RAND_STATES, fanout, this->self_edge);
         gpuErrchk(cudaDeviceSynchronize());
 }

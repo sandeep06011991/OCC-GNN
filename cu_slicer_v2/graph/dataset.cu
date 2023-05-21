@@ -8,15 +8,15 @@
 #include "../util/cub.h"
 #include "../util/cuda_utils.h"
 #include "../graph/dataset.cuh"
-#include "../util/device_vector.h"
+#include "../util/device_vector.h" 
 
 using namespace cuslicer;
 
-Dataset::Dataset(std::string dir, bool testing, int num_partitions, bool random){
+Dataset::Dataset(std::string dir, int num_partitions, bool random, bool UVA){
   this->BIN_DIR = dir;
-  this->testing = testing;
   this->num_partitions = num_partitions;
   this->random = random;
+  this->UVA = UVA;
   read_meta_file();
   read_graph();
   read_node_data();
@@ -25,21 +25,35 @@ Dataset::Dataset(std::string dir, bool testing, int num_partitions, bool random)
 void Dataset::read_graph(){
   // Different file format as sampling needs csc format or indegree graph
   std::fstream file1(this->BIN_DIR + "/cindptr.bin",std::ios::in|std::ios::binary);
-  NDTYPE  * _indptr = (NDTYPE *)malloc ((this->num_nodes + 1) * sizeof(NDTYPE));
-  file1.read((char *)_indptr,(this->num_nodes + 1) * sizeof(NDTYPE));
-  std::vector<NDTYPE> _t_indptr(_indptr, _indptr + this->num_nodes+ 1);
-  indptr_d = (* new device_vector<NDTYPE>(_t_indptr));
+  if (UVA){
+    gpuErrchk(cudaHostAlloc(&indptr_h,(this->num_nodes + 1) * sizeof(NDTYPE), cudaHostAllocMapped | cudaHostAllocWriteCombined ));
+    file1.read((char *)indptr_h,(this->num_nodes + 1) * sizeof(NDTYPE));
+    gpuErrchk(cudaHostGetDevicePointer(&indptr_d, indptr_h, 0));
+  }else{
+    NDTYPE  * _indptr = (NDTYPE *)malloc ((this->num_nodes + 1) * sizeof(NDTYPE));
+    file1.read((char *)_indptr,(this->num_nodes + 1) * sizeof(NDTYPE));
+    gpuErrchk(cudaMalloc(&indptr_d, (this->num_nodes + 1)* sizeof(NDTYPE)));
+    gpuErrchk(cudaMemcpy(indptr_d, _indptr,(this->num_nodes + 1)* sizeof(NDTYPE), cudaMemcpyHostToDevice )); 
+    free(_indptr);
+  }
 
-  NDTYPE sum = cuslicer::transform<NDTYPE>::reduce(indptr_d);
-
+  NDTYPE sum = cuslicer::transform<NDTYPE>::reduce_d(indptr_d, this->num_nodes+1);
+  std::cout << "Read sum " << sum <<"\n";
+    
   std::fstream file2(this->BIN_DIR + "/cindices.bin",std::ios::in|std::ios::binary);
-  NDTYPE * _indices = (NDTYPE *)malloc ((this->num_edges) * sizeof(NDTYPE));
-  file2.read((char *)_indices,(this->num_edges) * sizeof(NDTYPE));
-  std::vector<NDTYPE> _t_indices(_indices, _indices + this->num_edges);
-  indices_d = ( * new device_vector<NDTYPE>(_t_indices));
+  if (UVA){
+    gpuErrchk(cudaHostAlloc(&indices_h,(this->num_edges) * sizeof(NDTYPE), cudaHostAllocMapped | cudaHostAllocWriteCombined  ));
+    file2.read((char *)indices_h,(this->num_edges) * sizeof(NDTYPE));
+    gpuErrchk(cudaHostGetDevicePointer(&indices_d, indices_h, 0));
+  }else{
+    NDTYPE * _indices = (NDTYPE *)malloc ((this->num_edges) * sizeof(NDTYPE));
+    file2.read((char *)_indices,(this->num_edges) * sizeof(NDTYPE));
+    gpuErrchk(cudaMalloc(&indices_d, (this->num_edges)* sizeof(NDTYPE)));
+    gpuErrchk(cudaMemcpy(indices_d, _indices,(this->num_edges)* sizeof(NDTYPE), cudaMemcpyHostToDevice )); 
+    gpuErrchk(cudaMemcpy(_indices, indices_d, 10 * sizeof(NDTYPE), cudaMemcpyDeviceToHost));
+    free(_indices);
+  };
 
-  free(_indptr);
-  free(_indices);
   // Fixme: ADD corect checksums
   // assert(s ==  csum_edges );
 }
@@ -51,13 +65,13 @@ void Dataset::read_node_data(){
     int * _partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
     int n_gpu = this->num_partitions;
     if (! this->random){
-	std::cout << "read partition " << n_gpu << "\n";
+	    std::cout << "read partition " << n_gpu << "\n";
     	std::fstream file2(this->BIN_DIR + "/partition_map_opt_" + std::to_string(this->num_partitions) +".bin",std::ios::in|std::ios::binary);
     	file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
       n_gpu = this->num_partitions;
     }else{
 	    std::cout << "reading random map \n" ;
-	assert(this->num_partitions == 4);
+	    assert(this->num_partitions == 4);
 	    std::fstream file2(this->BIN_DIR + "/partition_map_opt_random.bin", std::ios::in|std::ios::binary);
     	file2.read((char *)_partition_map,this->num_nodes *  sizeof(PARTITIONIDX));
     }

@@ -64,6 +64,7 @@ def construct_from_tensor_on_gpu(tensor, device, object, num_gpus = 4):
     # assert(offset_size == global_order_dict[type(object)][1])
     # assert(len(order) == len(global_order_dict[type(object)][0]))
     assert(tensor.device == device)
+    
     # header Compute
     offsets = tensor[:offset_size].tolist()
     data = tensor[offset_size:]
@@ -195,6 +196,6 @@ def serialize_to_tensor(object, device = torch.device('cpu'), num_gpus = 4):
     final_data = []
     final_data.append(meta)
     final_data.extend(data)
-    res = torch.cat(final_data, dim = 0)
-    assert(res.dtype == torch.long)
+    res = torch.cat(final_data, dim = 0).to(torch.int32)
+    assert(res.dtype == torch.int)
     return res
