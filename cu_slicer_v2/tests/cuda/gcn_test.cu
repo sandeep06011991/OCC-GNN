@@ -50,15 +50,15 @@ std::vector<int> naive_flow_up_sample_gcn(Sample &s, int number_of_nodes){
    std::vector<int> out_f;
    // num lyaers = 3
    // since tehre is null layer iinitially ()
-   for(auto nd : s.block[s.num_layers]->layer_nds.to_std_vector()){
+   for(auto nd : s.block[s.num_layers].layer_nds.to_std_vector()){
      // in_f.push_back(nd);
      in_f.push_back(nd % 10);
    }
 
    for(int i=s.num_layers - 1; i >=0; i--){
-     aggregate_gcn(s.block[i]->layer_nds.to_std_vector(), s.block[i+1]->layer_nds.to_std_vector(), \
-          s.block[i+1]->offsets.to_std_vector(), s.block[i+1]->indices.to_std_vector(), \
-          s.block[i+1]->in_degree.to_std_vector(), in_f, out_f);
+     aggregate_gcn(s.block[i].layer_nds.to_std_vector(), s.block[i+1].layer_nds.to_std_vector(), \
+          s.block[i+1].offsets.to_std_vector(), s.block[i+1].indices.to_std_vector(), \
+          s.block[i+1].in_degree.to_std_vector(), in_f, out_f);
 	   in_f.swap(out_f);
 
    std::cout <<"##\n"; 

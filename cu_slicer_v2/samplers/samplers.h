@@ -19,7 +19,6 @@ class NeighbourSampler{
   std::shared_ptr<Dataset> dataset;
 
   DuplicateRemover *dr;
-  cuslicer::device_vector<NDTYPE> _t;
   std::mt19937 random_number_engine;
   // Use constant fan out for all layers.
 
@@ -27,7 +26,6 @@ class NeighbourSampler{
   std::vector<int> fanout;
   bool self_edge = false;
   
-  cuslicer::device_vector<NDTYPE> _t1;
 public:
   curandState*  dev_curand_states;
   const int TOTAL_RAND_STATES = MAX_BLOCKS * BLOCK_SIZE;

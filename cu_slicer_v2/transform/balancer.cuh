@@ -93,6 +93,7 @@ public:
 
                     std::vector<NDTYPE> load; 
                     NDTYPE avg = 0;
+                    std::cout << "attempt count \n";
                     for(int gpu = 0;gpu < this->num_gpus; gpu ++){
                         auto v =  count_if(sample_workload_map,  this->temp, gpu, last_layer_dst_nodes);
                         avg += v;

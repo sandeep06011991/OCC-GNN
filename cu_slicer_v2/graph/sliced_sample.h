@@ -26,6 +26,7 @@ class PartitionedLayer{
     int num_gpus = -1;
     PartitionedLayer(){}
 
+
     void set_number_of_gpus(int num_gpus){
       this->num_gpus = num_gpus;
       // this->bipartite = (BiPartite **)malloc(sizeof(BiPartite *) * 4);
@@ -74,12 +75,12 @@ class PartitionedLayer{
 
 
 
-    void clear(){
-      for(int i=0;i<this->num_gpus;i++){
-        this->bipartite[i]->refresh();
-      }
-      std::cout << "edge size " << index_edge_remote.size() <<"\n";
-    }
+    // void clear(){
+    //   for(int i=0;i<this->num_gpus;i++){
+    //     this->bipartite[i]->refresh();
+    //   }
+    //   std::cout << "edge size " << index_edge_remote.size() <<"\n";
+    // }
 
     void debug(){
         for(int i=0;i<this->num_gpus;i++){
@@ -121,17 +122,17 @@ public:
 
   }
 
-  void clear(){
-    for(int i=0;i<num_layers;i++){
-      layers[i].clear();
-    }
-    for(int i=0;i<num_gpus;i++){
-      cache_hit_from[i].clear();
-      cache_hit_to[i].clear();
-      cache_miss_from[i].clear();
-      cache_miss_to[i].clear();
-    }
-  }
+  // void clear(){
+  //   for(int i=0;i<num_layers;i++){
+  //     layers[i].clear();
+  //   }
+  //   for(int i=0;i<num_gpus;i++){
+  //     cache_hit_from[i].clear();
+  //     cache_hit_to[i].clear();
+  //     cache_miss_from[i].clear();
+  //     cache_miss_to[i].clear();
+  //   }
+  // }
 
   void debug(){
     for(int i=0;i < num_layers; i++){

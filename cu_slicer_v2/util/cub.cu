@@ -1,5 +1,6 @@
 #include "cub.h"
-
+#include <tuple>
+#include <torch/torch.h>
 
 namespace cuslicer{
  
@@ -12,16 +13,19 @@ namespace cuslicer{
 
 template<typename T>
 T transform<T>::reduce(cuslicer::device_vector<T> & data_d){
-    assert(data_d.size() != 0);
-    transform::d_temp_out.resize(1);
+    torch::Tensor x = torch::sum(data_d.data);
+    T out =  x.item<T>();;
+    return out;
+    // assert(data_d.size() != 0);
+    // transform::d_temp_out.resize(1);
 
-    int num_elements = data_d.size();
-    // Determine temporary device storage requirements
-    size_t temp_storage_bytes;
-    gpuErrchk(cub::DeviceReduce::Sum(NULL, temp_storage_bytes, data_d.ptr(), transform<T>::d_temp_out.ptr(), num_elements));
-    d_temp_storage.resize(temp_storage_bytes/(sizeof(T)) + 1);
-    gpuErrchk(cub::DeviceReduce::Sum(d_temp_storage.ptr(), temp_storage_bytes, data_d.ptr(), transform<T>::d_temp_out.ptr(), num_elements));
-    return d_temp_out[0];
+    // int num_elements = data_d.size();
+    // // Determine temporary device storage requirements
+    // size_t temp_storage_bytes;
+    // gpuErrchk(cub::DeviceReduce::Sum(NULL, temp_storage_bytes, data_d.ptr(), transform<T>::d_temp_out.ptr(), num_elements));
+    // d_temp_storage.resize(temp_storage_bytes/(sizeof(T)) + 1);
+    // gpuErrchk(cub::DeviceReduce::Sum(d_temp_storage.ptr(), temp_storage_bytes, data_d.ptr(), transform<T>::d_temp_out.ptr(), num_elements));
+    // return d_temp_out[0];
 }
 
 template<typename T>
@@ -77,9 +81,10 @@ void transform<T>::unique(cuslicer::device_vector<T>& sorted_in, cuslicer::devic
   }
 template<typename T>
 void transform<T>::remove_duplicates(cuslicer::device_vector<T> &in, cuslicer::device_vector<T>& out){
-      sort(in, temporary);
-      unique(temporary, out);
-  }
+      auto tensor = std::get<0>(torch::_unique(in.data)) ;
+      out.data = tensor;
+      out.current_size = tensor.sizes()[0];
+}
 
 template<typename T>
 void transform<T>::exclusive_scan(cuslicer::device_vector<T> &in, cuslicer::device_vector<T>& out){

@@ -64,12 +64,12 @@ public:
 
 
 inline torch::Tensor getTensor(cuslicer::device_vector<NDTYPE> &v, c10::TensorOptions opts){
-    if(v.size() == 0){
-      return torch::empty(v.size(),opts);
-    }else{
-      return torch::from_blob(v.ptr(), {(NDTYPE)v.size()}, opts).clone();
-
-    }
+    return v.data;
+    // if(v.size() == 0){
+    //   return torch::empty(v.size(),opts);
+    // }else{
+    //   return torch::from_blob(v.ptr(), {(NDTYPE)v.size()}, opts).clone();
+    // }
 
 }
 }

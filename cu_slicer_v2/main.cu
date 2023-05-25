@@ -20,6 +20,9 @@ using namespace std::chrono;
 int main(){
 
   cudaSetDevice(0);
+  device_vector<PARTITIONIDX>::setLocalDevice(0);
+  device_vector<NDTYPE>::setLocalDevice(0);
+  
   // std::string graph_name = "synth_8_2";
   
   std::string graph_name = "ogbn-arxiv";
@@ -28,11 +31,13 @@ int main(){
   
   int num_gpus = 4;
   bool random = false;
-  std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(file, num_gpus, random, true);
+  std::shared_ptr<Dataset> dataset =\
+      std::make_shared<Dataset>(file, num_gpus, random, true);
 
   // Sample datastructure.
   int num_layers =2;
-  Sample *s1  = new Sample(num_layers);
+  Sample s1(num_layers);
+  
   vector<int> fanout({10,10});
   
   bool self_edge = false;
@@ -40,34 +45,28 @@ int main(){
   for(int i=0;i<num_gpus * 10 ;i++){
       training_nodes.push_back(i);
   }
-  // std::vector<long> a = {0,2,4,6};
-  // device_vector<long> a_d(a);
-  // device_vector<long> b_d(a);
-  // ArrayMap *dr =  new ArrayMap(8);
-  // dr->order(a_d);
-  // dr->replace(b_d);
-  // b_d.debug("Print");
-  // return 0;
+
   NeighbourSampler *ns  =  new NeighbourSampler(dataset, fanout, self_edge);
 
   cuslicer::device_vector<NDTYPE> target(training_nodes);
-  std::cout << "Start sampling \n";
-  ns->sample(target,(*s1));
-  std::cout << "Sampling done\n";
-  // s1->debug();
+  ns->sample(target,s1);
+  
   bool pull_optim = false;
 
-  cuslicer::device_vector<PARTITIONIDX> workload_map;
+  std::vector<PARTITIONIDX> workload_map;
+  workload_map.resize(dataset->num_nodes);
+  std::fstream file2(file + "/partition_map_opt_4.bin", std::ios::in|std::ios::binary);
+  file2.read((char *)workload_map.data(),dataset->num_nodes *  sizeof(PARTITIONIDX));
+
   std::vector<NDTYPE> storage[8];
   int is_present = 1 ;
-// // Test 3b. is_present = 1;
+  // // // Test 3b. is_present = 1;
   int gpu_capacity[num_gpus];
-  workload_map = dataset->partition_map_d;
+  // workload_map = dataset->partition_map_d;
   for(int i=0;i < num_gpus; i++)gpu_capacity[i] = 0;
-// // Write a better version of this.
-
+  // // Write a better version of this.
   for(int i=0;i<dataset->num_nodes;i++){
-   #pragma unroll
+    #pragma unroll
     for(int j=0;j<num_gpus;j++){
       if(is_present == 1){
         gpu_capacity[j]++;
@@ -81,26 +80,28 @@ int main(){
     }
   }
 
-    // std::cout << "basic population done \n";
-    // PushSlicer * sc2 = new PushSlicer(workload_map, storage, pull_optim, num_gpus, ns->dev_curand_states);
-    // PartitionedSample ps1(num_layers, num_gpus);
-    // sc1->slice_sample((*s1),ps1);
+  //   // std::cout << "basic population done \n";
+  //   // PushSlicer * sc2 = new PushSlicer(workload_map, storage, pull_optim, num_gpus, ns->dev_curand_states);
+  //   // PartitionedSample ps1(num_layers, num_gpus);
+  //   // sc1->slice_sample((*s1),ps1);
  
     PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus,\
          ns->dev_curand_states);
-      PartitionedSample ps2(num_layers, num_gpus);
-      bool loadbalancing = true;
-       sc2->slice_sample((*s1), ps2, loadbalancing);
-    // ps2.debug();
-    // ps1.push_consistency();
-    test_sample_partition_consistency((*s1),ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
-    ps2.check_imbalance();
-        loadbalancing = false;
-        sc2->slice_sample((*s1), ps2, loadbalancing);
-        ps2.check_imbalance();
-  gpuErrchk(cudaDeviceSynchronize());
-  cuslicer::transform<NDTYPE>::cleanup();
-  cuslicer::transform<PARTITIONIDX>::cleanup();
+    PartitionedSample ps2(num_layers, num_gpus);
+    bool loadbalancing = true;
+    std::cout << "Sample \n";
+    sc2->slice_sample(s1, ps2, loadbalancing);
+    std::cout << "Slice \n";
+  // ps2.debug();
+  // ps1.push_consistency();
+    test_sample_partition_consistency(s1,ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+  //   ps2.check_imbalance();
+  //       loadbalancing = false;
+  //       sc2->slice_sample(s1, ps2, loadbalancing);
+  //       ps2.check_imbalance();
+  // gpuErrchk(cudaDeviceSynchronize());
+  // cuslicer::transform<NDTYPE>::cleanup();
+  // cuslicer::transform<PARTITIONIDX>::cleanup();
   
   std::cout <<"All Done is consistent !\n";
 

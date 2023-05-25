@@ -43,7 +43,6 @@ void sample_offsets(NDTYPE *in, size_t in_size, \
       while(tileId < last_tile){
       int start = threadIdx.x + (tileId * TILE_SIZE);
       int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), in_size);
-
         while(start < end){
           int id = start;
           NDTYPE nd = in[id];
@@ -149,12 +148,13 @@ void NeighbourSampler::layer_sample(device_vector<NDTYPE> &in,
       offsets.clear();
       indices.clear();
       in_degrees.clear();
-      offsets.resize(in.size() + 1);
-      offsets.set_value(0,0);
+      offsets.resize_and_zero(in.size() + 1);
       in_degrees.resize(in.size());
+      
       sample_offsets<BLOCK_SIZE,TILE_SIZE><<<GRID_SIZE(in.size()), BLOCK_SIZE>>>
         (in.ptr(), in.size(), offsets.ptr(),\
           in_degrees.ptr(), this->dataset->indptr_d, this->dataset->num_nodes, fanout, self_edge);
+      
       gpuErrchk(cudaDeviceSynchronize());
       cuslicer::transform<NDTYPE>::inclusive_scan(offsets,offsets);
       gpuErrchk(cudaDeviceSynchronize());
@@ -173,23 +173,28 @@ void NeighbourSampler::layer_sample(device_vector<NDTYPE> &in,
 
 void NeighbourSampler::sample(device_vector<NDTYPE> &target_nodes, Sample &s){
   nvtxRangePush("sample");
-  s.block[0]->clear();
+  s.block[0].clear();
   dr->clear();
   dr->order(target_nodes);
-  s.block[0]->layer_nds = target_nodes;
+  s.block[0].layer_nds = target_nodes;
   assert(s.num_layers == this->fanout.size());
+  
   for(int i=1;i<s.num_layers+1;i++){
-    s.block[i]->clear();
-    layer_sample(s.block[i-1]->layer_nds, s.block[i]->in_degree,
-            s.block[i]->offsets,  s.block[i]->indices, this->fanout[i-1]);
-    _t.clear();
-    cuslicer::transform<NDTYPE>::remove_duplicates(s.block[i]->indices,_t);
-    dr->order(_t);
+    s.block[i].clear();
+    layer_sample(s.block[i-1].layer_nds, s.block[i].in_degree,
+            s.block[i].offsets,  s.block[i].indices,\
+               this->fanout[i-1]);
+    
+    device_vector<NDTYPE> temp;
+    cuslicer::transform<NDTYPE>::remove_duplicates(s.block[i].indices, temp);
+    gpuErrchk(cudaDeviceSynchronize());
+    dr->order(temp);
     // This line causes ptr copy and double destruction.
-    // TODO: add a test for this and use shared ptr inside device vector
+    // TODO: add a test for this and usne shared ptr inside device vector
+    
     device_vector<NDTYPE> us =   dr->get_used_nodes();
-    s.block[i]->layer_nds.append(dr->get_used_nodes());
-    dr->replace(s.block[i]->indices);
+    s.block[i].layer_nds.append(dr->get_used_nodes());
+    dr->replace(s.block[i].indices);
     gpuErrchk(cudaDeviceSynchronize());
   }
   // dr->clear();

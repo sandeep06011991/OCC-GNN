@@ -136,8 +136,10 @@ void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
       // Add pull offsets. 
       //  Review not clean 
        bp.pull_from_offsets[0] = 0;
+       bp.to_offsets[0] = 0;
        auto in_not_pulled = ps.index_in_nodes[(num_in_nodes * this->num_gpus * i) + num_in_nodes - 1];
        for(int from = 0; from < this->num_gpus; from ++){
+        bp.to_offsets[from + 1] = 0;
         if(i == from ){bp.pull_from_offsets[from + 1] = bp.pull_from_offsets[i]; continue;}
         auto l_from = from;
         if (from > i) l_from = from - 1;
@@ -348,7 +350,7 @@ void PullSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
     // Inclusive Scan
     this->resize_bipartite_graphs(ps,\
        num_in_nodes, num_out_nodes, num_edges);
-    
+    std::cout << "Mark \n";
     // Stage 3 Populate local and remote edges.
     // Populate graph local in nodes
      fill_in_nodes_pull<BLOCK_SIZE, TILE_SIZE>\      

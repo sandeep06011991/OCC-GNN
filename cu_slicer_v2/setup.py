@@ -27,7 +27,7 @@ ext_modules = [
             "transform/slice.cu", \
                 "transform/pull_slice.cu",
                 "transform/push_slice.cu",\
-             "graph/bipartite.cu", "graph/dataset.cu",\
+              "graph/dataset.cu",\
               "samplers/ns.cu", \
               "util/duplicate.cu",\
               "pyobj/pybipartite.cu", "pyobj/pyfrontend.cu",\

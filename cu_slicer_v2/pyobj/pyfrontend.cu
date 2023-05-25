@@ -49,13 +49,12 @@ class CUSlicer{
     NeighbourSampler *neighbour_sampler;
     Slice *slicer;
     std::shared_ptr<Dataset> dataset;
-    PartitionedSample *p_sample;
-    Sample *sample;
+    
     bool deterministic;
     bool self_edge;
     int num_gpus = -1;
     int current_gpu = -1;
-
+    int num_layers = -1;
 public:
     // py::list v;
     CUSlicer(const std::string &name,
@@ -66,9 +65,14 @@ public:
             int num_layers, int num_gpus, int current_gpu, bool random, bool UVA){
         this->num_gpus = num_gpus;
         this->current_gpu = current_gpu;
+        this->num_layers = num_layers;
         cudaSetDevice(current_gpu);
+        device_vector<PARTITIONIDX>::setLocalDevice(current_gpu);
+        device_vector<NDTYPE>::setLocalDevice(current_gpu);
+  
         this->name = get_dataset_dir() + name;
-        std::cout << "Got dataset" << this->name << "\n";
+	std::cout << "Current Device is" << current_gpu <<"\n";
+	std::cout << "Got dataset" << this->name << "\n";
         std::cout << "Use UVA" << UVA <<"\n";
         this->deterministic = deterministic;
         this->dataset = std::make_shared<Dataset>(this->name,  num_gpus, random, UVA);
@@ -76,12 +80,11 @@ public:
         num_nodes = dataset->num_nodes;
 
         this->self_edge = self_edge;
-        std::cout << "Start popilation\n";
-
-        workload_map = dataset->partition_map_d.to_std_vector();
-
+    
+        workload_map =  dataset->partition_map_h;
+        
         std::vector<NDTYPE> _t;
-        std::cout << "begin data populatiopn\n";
+        std::cout << "begin data population\n";
         for(int i=0;i<num_gpus;i++){
           int order =0;
           _t.clear();
@@ -92,17 +95,10 @@ public:
           storage_map[i] = _t;
           gpu_capacity[i] = gpu_map[i].size();
         }
-        std::cout << "data opulated\n";
-      	this->sample = new Sample(num_layers);
-        std::cout << "Sampling Layers \n";
-      	this->p_sample = new PartitionedSample(num_layers, num_gpus);
-        bool load = false;
-        std::cout << "Sampling Layers Cross \n";
-
+        
         this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout,  self_edge);
         this->slicer = new PullSlicer((workload_map), storage_map,  pull_optimization, num_gpus, \
               this->neighbour_sampler->dev_curand_states);
-        std::cout << "Checl again \n";
     }
 
     // bool test_correctness(vector<long> sample_nodes){
@@ -116,21 +112,21 @@ public:
 
     unique_ptr<PySample> getSample(vector<NDTYPE> sample_nodes, 
       bool balance){
-      std::cout << "try to get a sample \n";
-      sample->clear();
-      p_sample->clear();
+      Sample sample(this->num_layers);
+      PartitionedSample p_sample (this->num_layers, this->num_gpus);
+
       cudaSetDevice(current_gpu);
       auto start1 = high_resolution_clock::now();
 
       cuslicer::device_vector<NDTYPE> sample_nodes_d(sample_nodes);
-      this->neighbour_sampler->sample(sample_nodes_d, *sample);
+      this->neighbour_sampler->sample(sample_nodes_d, sample);
       cudaDeviceSynchronize();
       auto start2 = high_resolution_clock::now();
 
 
       // spdlog::info("slice begin");
       std::cout << "attempting slicing \n";
-      this->slicer->slice_sample(*sample, *p_sample, balance);
+      this->slicer->slice_sample(sample, p_sample, balance);
   	  cudaDeviceSynchronize();
       auto start3 = high_resolution_clock::now();
       auto duration1 = duration_cast<milliseconds>(start2 - start1);
@@ -140,8 +136,8 @@ public:
       device_vector<NDTYPE>::printMemoryStats();
       // device_vector<long>::printMemoryStats();
       // spdlog::info("covert to torch");
-      auto sample = std::make_unique<PySample>(*p_sample, current_gpu, num_gpus);
-      return sample;
+      auto fsample = std::make_unique<PySample>(p_sample, current_gpu, num_gpus);
+      return fsample;
     }
 
     ~CUSlicer(){

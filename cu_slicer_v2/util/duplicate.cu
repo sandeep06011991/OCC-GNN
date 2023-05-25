@@ -150,7 +150,11 @@ ArrayMap::ArrayMap(NDTYPE num_nodes){
 // Function changes the elements of nodes
 void ArrayMap::remove_nodes_seen(device_vector<NDTYPE> &nodes){
   if(nodes.size() == 0)return;
-  assert_no_duplicates(nodes);
+  
+  #ifdef DEBUG
+    assert_no_duplicates(nodes);
+  #endif
+
   _tv.resize(nodes.size());
   _tv1.resize(nodes.size());
   int i = nodes.size();
@@ -206,9 +210,10 @@ void ArrayMap::order(device_vector<NDTYPE> &nodes){
     assert_no_duplicates(nodes);  
   #endif
   _tv2 = nodes;
-
+  std::cout << "Check 1\n";
   remove_nodes_seen(_tv2);
   
+  std::cout << "Check 2\n";
   if(_tv2.size()== 0)return;
   // sort and get unique nodes
   // Step 3
@@ -218,9 +223,13 @@ void ArrayMap::order(device_vector<NDTYPE> &nodes){
       (mask, mask_size , current_unique_nodes,\
       (_tv2.ptr()),\
           _tv2.size());
+
+  std::cout << "Check 3\n";
   // Step 5
   this->used_nodes.append(_tv2);
 
+
+  std::cout << "Check 4\n";
   _tv2.clear();
 
 }

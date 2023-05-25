@@ -97,43 +97,39 @@ public:
   BiPartite(int gpu_id, int num_gpus){
     this->gpu_id = gpu_id;
     this->num_gpus = num_gpus;
-    refresh();
+    // refresh();
   }
 
 
-
-
-
-
-  void refresh(){
-    in_nodes_local.clear();
-    pulled_in_nodes.clear();
-    out_nodes_remote.clear();
-    out_nodes_local.clear();
-    out_degree_local.clear();
-    num_in_nodes_local = 0;
-    num_in_nodes_pulled = 0;
-    num_out_local = 0;
-    num_out_remote = 0;
-    to_offsets[0] = 0;
-    pull_from_offsets[0] = 0;
-    for(int i=0;i<this->num_gpus;i++){
-      push_from_ids[i].clear();
-      push_to_ids_[i].clear();
-      // indptr_[i].clear();
-      // indices_[i].clear();
-      to_offsets[i + 1] = 0;
-      pull_from_offsets[i + 1] = 0;
-      pull_to_ids[i].clear();
-      pull_from_ids_[i].clear();
-    }
-    indptr_L.clear();
-    indices_L.clear();
-    indptr_R.clear();
-    indices_R.clear();
-    self_ids_offset = 0;
-    // self_in_nodes.clear();
-  }
+  // void refresh(){
+  //   in_nodes_local.clear();
+  //   pulled_in_nodes.clear();
+  //   out_nodes_remote.clear();
+  //   out_nodes_local.clear();
+  //   out_degree_local.clear();
+  //   num_in_nodes_local = 0;
+  //   num_in_nodes_pulled = 0;
+  //   num_out_local = 0;
+  //   num_out_remote = 0;
+  //   to_offsets[0] = 0;
+  //   pull_from_offsets[0] = 0;
+  //   for(int i=0;i<this->num_gpus;i++){
+  //     push_from_ids[i].clear();
+  //     push_to_ids_[i].clear();
+  //     // indptr_[i].clear();
+  //     // indices_[i].clear();
+  //     to_offsets[i + 1] = 0;
+  //     pull_from_offsets[i + 1] = 0;
+  //     pull_to_ids[i].clear();
+  //     pull_from_ids_[i].clear();
+  //   }
+  //   indptr_L.clear();
+  //   indices_L.clear();
+  //   indptr_R.clear();
+  //   indices_R.clear();
+  //   self_ids_offset = 0;
+  //   // self_in_nodes.clear();
+  // }
 
   void reorder_local(DuplicateRemover *dr);
 
@@ -173,8 +169,6 @@ public:
         pull_to_ids[i].debug("pull to");
     }
     std::cout <<"\n";
-
-
 
   }
 };

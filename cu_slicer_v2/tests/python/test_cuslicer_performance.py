@@ -20,7 +20,7 @@ def get_total_comm(s):
 # // Get this from data
 storage_map_empty = [[],[],[],[]]
 graphnames = ["ogbn-arxiv","ogbn-products"]
-graphname = "ogbn-products"
+graphname = "ogbn-arxiv"
 # graphname = "reorder-papers100M"
 # csl1 = cslicer(graphname, storage_map_empty, 10, True, False)
 # import numpy as np
@@ -50,14 +50,17 @@ print("check 1")
 #        bool deterministic, bool testing,
 #           bool self_edge, int rounds, bool pull_optimization,
 #             int num_layers, int num_gpus, int current_gpu, bool random){
+uva = True
 csl3 = cuslicer(graphname, storage_map_part,
-        [20,20,20], False , False, True, 4, False, num_layers, num_gpus,0,False)
+        [20,20,20], False , False, True, 4, False, num_layers, num_gpus,0,False, uva)
+
 print("Ask for Sample")
 batch_size = 4096
 i = 0
 t= 0
 s_time = time.time()
-
+torch.cuda.empty_cache()
+print("Just setup size is 5 GB")
 while(i < len(training_nodes)):
     in_nodes = training_nodes[i:i+batch_size]
     t1 = time.time()

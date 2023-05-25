@@ -138,23 +138,28 @@ void Slice::reorder(PartitionedLayer &l){\
     // Get local partitioning Map 
     // Todo: 
     // 1. Partition last layer of sample nodes into local partition ids. 
-    auto nodes = s.block[s.num_layers]->layer_nds;
+    auto nodes = s.block[s.num_layers].layer_nds;
     this->sample_workload_map.resize(nodes.size());
+    std::cout << "Check 1\n";
     cuslicer::index_in<NDTYPE, PARTITIONIDX>(nodes, this->workload_map, this->sample_workload_map);
     // this->workload_map
     // nodes.debug("In nodes");
+    std::cout << "Check 2\n";
+    
     // this->sample_workload_map.debug("sample workload map");
     if(loadbalancing){
       this->loadbalancer->balance(this->workload_map, nodes, this->sample_workload_map, \
-            s.block[s.num_layers]->layer_nds.size());
+            s.block[s.num_layers].layer_nds.size());
     }
+    std::cout << "Check 3\n";
+    
     // Get partitioned layers.
     for(int i= 1; i< s.num_layers + 1;i++){
         bool last_layer = false;
         if (i == s.num_layers) last_layer = true;
     	  PartitionedLayer& l = ps.layers[i-1];
-        this->slice_layer(s.block[i-1]->layer_nds, \
-            (* s.block[i]), l, last_layer);
+        this->slice_layer(s.block[i-1].layer_nds, \
+            s.block[i], l, last_layer);
         this->reorder(l);
         //consistency check
         for(int j = 0; j< this->num_gpus; j++){
@@ -164,6 +169,8 @@ void Slice::reorder(PartitionedLayer &l){\
           }
         }
       }
+      std::cout << "Check  4\n";
+    
       std::cout << "All clear\n";
       #ifdef DEBUG
         gpuErrchk(cudaDeviceSynchronize());
@@ -181,6 +188,7 @@ void Slice::reorder(PartitionedLayer &l){\
           }
           ps.last_layer_nodes[i] = ps.layers[0].bipartite[i]->out_nodes_local;
       }
-
+      std::cout << "Check 5 \n";
+    
       std::cout << "All clear\n";
 }

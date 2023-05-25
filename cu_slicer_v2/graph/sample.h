@@ -39,28 +39,21 @@ public:
 
 class Sample{
 public:
-  Block ** block;
+  // Assuming max of 5 layers
+  Block block[5];
   // num layers is +1 as the zero the layer is the training nodes.
   // Iterate over this from [1, layer + 1)
   int num_layers;
   Sample(int num_layers){
-    block = (Block **) malloc(sizeof(Block) * num_layers + 1);
-    for(int i=0;i<num_layers+1;i++){
-      block[i] = new Block();
-    }
+    assert(num_layers < 5 );
     this->num_layers = num_layers;
   }
-  void clear(){
-    for(int i=0;i<num_layers;i++){
-      block[i]->clear();
-    }
-  }
-
+  
   void debug(){
     std::cout << "Sample:\n";
     for(int i=0;i<num_layers + 1;i++){
       std::cout << "Block:" << i <<"\n";
-      block[i]->debug();
+      block[i].debug();
     }
   }
 };

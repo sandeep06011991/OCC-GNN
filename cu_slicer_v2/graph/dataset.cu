@@ -61,13 +61,13 @@ void Dataset::read_graph(){
 void Dataset::read_node_data(){
     // Add feature for flexible partition
     // Make shared pointernaj
-
-    int * _partition_map = (int *)malloc (this->num_nodes *  sizeof(int));
+    partition_map_h.resize(num_nodes);
+    PARTITIONIDX * _partition_map = partition_map_h.data();
     int n_gpu = this->num_partitions;
     if (! this->random){
 	    std::cout << "read partition " << n_gpu << "\n";
     	std::fstream file2(this->BIN_DIR + "/partition_map_opt_" + std::to_string(this->num_partitions) +".bin",std::ios::in|std::ios::binary);
-    	file2.read((char *)_partition_map,this->num_nodes *  sizeof(int));
+    	file2.read((char *)_partition_map,this->num_nodes *  sizeof(PARTITIONIDX));
       n_gpu = this->num_partitions;
     }else{
 	    std::cout << "reading random map \n" ;
@@ -75,12 +75,11 @@ void Dataset::read_node_data(){
 	    std::fstream file2(this->BIN_DIR + "/partition_map_opt_random.bin", std::ios::in|std::ios::binary);
     	file2.read((char *)_partition_map,this->num_nodes *  sizeof(PARTITIONIDX));
     }
-    std::vector<PARTITIONIDX> _t_partition_map(_partition_map, _partition_map + this->num_nodes);
-   
-    partition_map_d = (* new device_vector<PARTITIONIDX>(_t_partition_map));
+    gpuErrchk(cudaMalloc(&partition_map_d,sizeof(PARTITIONIDX) * num_nodes ));
+    gpuErrchk(cudaMemcpy(partition_map_d, _partition_map, sizeof(PARTITIONIDX) * num_nodes, cudaMemcpyHostToDevice));
+    
     // gpuErrchk(cudaMalloc((void**)&this->partition_map, (this->num_nodes *  sizeof(int))));
     // gpuErrchk(cudaMemcpy(this->partition_map, _partition_map, (this->num_nodes *  sizeof(int)) , cudaMemcpyHostToDevice));
-    free(_partition_map);
 }
 
 void Dataset::read_meta_file(){

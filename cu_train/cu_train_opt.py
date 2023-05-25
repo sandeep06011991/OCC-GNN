@@ -51,7 +51,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                           cached_feature_size, cache_percentage,  epochs_required,\
                             storage_vector, fanout, exchange_queue,\
                             graph_name, num_layers, num_gpus, shbuffs, mpbarrier):
-    print("Trainer process starts!!!")
+    print("Trainer process starts!!!, ",proc_id)
     torch.cuda.set_device(proc_id)
     gpu_local_storage = GpuLocalStorage(cache_percentage, features, batch_in, proc_id)
     if proc_id == 0:
@@ -172,7 +172,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         my_gpu_local_sample = None
         if(type(training_node) != type("")):
             
-            # args.load_balance    
+            # args.load_balance   
             csample = sampler.getSample(training_node, args.load_balance)
             tensorized_sample = Sample(csample)
             sample_id = tensorized_sample.randid
