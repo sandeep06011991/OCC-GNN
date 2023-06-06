@@ -4,13 +4,13 @@
 #include "../util/cub.h"
 #include "../util/cuda_utils.h"
 #include "../util/types.h"
+#include "../graph/order_book.h"
 using namespace cuslicer;
 
 // Elaborate as many cases as possible.
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void partition_edges_pull(PARTITIONIDX * partition_map, \
-      PARTITIONIDX * workload_map, \
+void partition_edges_pull(PARTITIONIDX * workload_map, \
       NDTYPE * out_nodes, size_t out_nodes_size, \
     // Sample layer out nodes indexed into the graph
       NDTYPE *in_nodes, size_t in_nodes_size, \
@@ -20,7 +20,7 @@ void partition_edges_pull(PARTITIONIDX * partition_map, \
         NDTYPE * index_out_nodes, NDTYPE * index_indptr_local,\
          NDTYPE * index_edge_local,\
       // Partitioned graphs such that indptr_map[dest, src]
-       		bool last_layer, void ** storage_map, int NUM_GPUS){
+       		bool last_layer, OrderBook * book, int NUM_GPUS){
             // Last layer use storage map
     int tileId = blockIdx.x;
     int last_tile = ((out_nodes_size - 1) / TILE_SIZE + 1);
@@ -54,13 +54,12 @@ void partition_edges_pull(PARTITIONIDX * partition_map, \
           ((NDTYPE *)&index_edge_local[p_nd1* num_edges])\
                 [offset_edge_start + nb_idx] = 1;
           if(p_nd1 != p_nd2){
-
-            if(last_layer){
-              if(((NDTYPE *)storage_map[p_nd1])[nd2]!= -1){
-                    index_in_nodes_local[p_nd1 * (in_nodes_size) * NUM_GPUS + nd2_idx] = 1;
-                  continue;
-              }
-            }
+                  if(last_layer){
+                    if(book->gpuContains(p_nd1, nd2)){
+                        index_in_nodes_local[p_nd1 * (in_nodes_size) * NUM_GPUS + nd2_idx] = 1;
+                        continue;
+                    }
+                  }
             auto pull_partition = p_nd2;
             if(p_nd2 > p_nd1)pull_partition = p_nd2 - 1;
             // 1->0,2,3 = 0,1,2 pull_partition ++
@@ -331,7 +330,7 @@ void PullSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
     auto num_in_nodes = bs.layer_nds.size();
     std::cout << "Launch configuration " << GRID_SIZE(layer_nds.size()) << " " << TILE_SIZE <<"\n";
     partition_edges_pull<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()), TILE_SIZE>>>\
-        (this->workload_map.ptr(), this->sample_workload_map.ptr(),\
+        ( this->sample_workload_map.ptr(),\
           layer_nds.ptr(), layer_nds.size(),\
           bs.layer_nds.ptr(), bs.layer_nds.size(),\
           bs.offsets.ptr(),bs.indices.ptr(), bs.indices.size(),\
@@ -339,7 +338,7 @@ void PullSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
           ps.index_in_nodes.ptr(),\
           ps.index_out_nodes_local.ptr(), ps.index_indptr_local.ptr(),
           ps.index_edge_local.ptr(),\
-          last_layer, this->storage_map_flattened,this->num_gpus);
+          last_layer, this->orderbook->getDevicePtr(),this->num_gpus);
     gpuErrchk(cudaDeviceSynchronize());
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());
@@ -350,7 +349,6 @@ void PullSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
     // Inclusive Scan
     this->resize_bipartite_graphs(ps,\
        num_in_nodes, num_out_nodes, num_edges);
-    std::cout << "Mark \n";
     // Stage 3 Populate local and remote edges.
     // Populate graph local in nodes
      fill_in_nodes_pull<BLOCK_SIZE, TILE_SIZE>\      
@@ -383,16 +381,19 @@ void PullSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
     // ps.index_out_nodes_local.debug("out nodes local");
     // ps.index_indptr_local.debug("indptr loca");
     fill_out_nodes_pull<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(num_out_nodes), TILE_SIZE>>>(\
-        ps.index_out_nodes_local.ptr(),\
+        ps.index_out_nodes_local.ptr(),\   
         ps.index_out_nodes_local.size(),\
         // masks set to where to write
         ps.index_indptr_local.ptr(), \
-        this->device_graph_info,  num_gpus,
+        this->device_graph_info,  num_gpus, 
         layer_nds.ptr(), bs.in_degree.ptr(),num_out_nodes);
     
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());
     #endif    
+
+    ps.resize_selected_pull\
+        (0,0,0);
 
     std::cout << "slice successful !!\n";
 }

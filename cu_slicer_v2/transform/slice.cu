@@ -9,35 +9,35 @@ using namespace cuslicer;
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void calculate_cache_hit_mask(NDTYPE * in_nodes, NDTYPE * storage_map, size_t size, NDTYPE * cache_hit_mask, NDTYPE * cache_miss_mask){
+void calculate_cache_hit_mask(NDTYPE * in_nodes, OrderBook * orderbook,\
+       size_t size, NDTYPE * cache_hit_mask, NDTYPE * cache_miss_mask, int partitionId){
   int tileId = blockIdx.x;
   int last_tile = ((size - 1) / TILE_SIZE + 1);
   while(tileId < last_tile){
   int start = threadIdx.x + (tileId * TILE_SIZE);
   int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), size);
   while(start < end){
-        int tid = start; 
-
-   	long nd = in_nodes[tid];
-  if(storage_map[nd] == -1){
-		cache_hit_mask[tid] = 0;
-		cache_miss_mask[tid] = 1;
-	}else{
-		cache_hit_mask[tid] = 1;
-		cache_miss_mask[tid] = 0;
-	 }
-	 start = start + BLOCK_SIZE;
- }
- tileId += gridDim.x;
+      int tid = start; 
+      long nd = in_nodes[tid];
+      if(!orderbook->gpuContains(partitionId, nd)){
+        cache_hit_mask[tid] = 0;
+        cache_miss_mask[tid] = 1;
+      }else{
+        cache_hit_mask[tid] = 1;
+        cache_miss_mask[tid] = 0;
+      }
+      start = start + BLOCK_SIZE;
+    }
+    tileId += gridDim.x;
   }
 }
 
 // Dont change this due to load balancing. 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void  fill_cache_nodes(NDTYPE * in_nodes, NDTYPE * storage_map, size_t size,\
+void  fill_cache_nodes(NDTYPE * in_nodes,OrderBook * orderbook, size_t size,\
        NDTYPE * cache_hit_mask, NDTYPE * cache_miss_mask, \
-			  NDTYPE * miss_from , NDTYPE * miss_to, NDTYPE  * hit_from, NDTYPE *hit_to){
+			  NDTYPE * miss_from , NDTYPE * miss_to, NDTYPE  * hit_from, NDTYPE *hit_to, int partitionId){
         int tileId = blockIdx.x;
         int last_tile = ((size - 1) / TILE_SIZE + 1);
         while(tileId < last_tile){
@@ -46,11 +46,11 @@ void  fill_cache_nodes(NDTYPE * in_nodes, NDTYPE * storage_map, size_t size,\
   while(start < end){
         int tid = start;
         long nd = in_nodes[tid];
-        if(storage_map[nd] == -1){
+        if(!orderbook->gpuContains(partitionId, nd)){
                 miss_from[cache_miss_mask[tid]-1] = nd;
 		            miss_to[cache_miss_mask[tid]-1] = tid;
         }else{
-                hit_from[cache_hit_mask[tid]-1] = storage_map[nd];
+                hit_from[cache_hit_mask[tid]-1] = orderbook->getLocalId(partitionId, nd);
                 hit_to[cache_hit_mask[tid]-1] = tid;
         }
         start = start + BLOCK_SIZE;;
@@ -103,10 +103,10 @@ void Slice::reorder(PartitionedLayer &l){\
   	cache_hit_mask.resize(in_nodes.size());
   	cache_miss_mask.resize(in_nodes.size());
     calculate_cache_hit_mask<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(in_nodes.size()), BLOCK_SIZE >>>(in_nodes.ptr(),\
-  		       storage_map[gpuid].ptr(),\
+  		       orderbook->getDevicePtr(),\
   			in_nodes.size(),\
   			cache_hit_mask.ptr(),\
-  		  cache_miss_mask.ptr());
+  		  cache_miss_mask.ptr(),  gpuid);
     gpuErrchk(cudaDeviceSynchronize());
 
     cuslicer::transform<NDTYPE>::self_inclusive_scan(cache_hit_mask);
@@ -124,12 +124,12 @@ void Slice::reorder(PartitionedLayer &l){\
      ps.cache_hit_to[gpuid].resize(hits);
      assert(hits + misses == in_nodes.size());
   	 fill_cache_nodes<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(in_nodes.size()), BLOCK_SIZE>>>(in_nodes.ptr(),\
-   		       storage_map[gpuid].ptr(),\
+   		       orderbook->getDevicePtr(),\
    			in_nodes.size(),\
    			cache_hit_mask.ptr(),\
    		  cache_miss_mask.ptr(),\
         ps.cache_miss_from[gpuid].ptr(), ps.cache_miss_to[gpuid].ptr(),\
-        ps.cache_hit_from[gpuid].ptr(), ps.cache_hit_to[gpuid].ptr());
+        ps.cache_hit_from[gpuid].ptr(), ps.cache_hit_to[gpuid].ptr(), gpuid);
       gpuErrchk(cudaDeviceSynchronize());
 
   }
@@ -140,18 +140,15 @@ void Slice::reorder(PartitionedLayer &l){\
     // 1. Partition last layer of sample nodes into local partition ids. 
     auto nodes = s.block[s.num_layers].layer_nds;
     this->sample_workload_map.resize(nodes.size());
-    std::cout << "Check 1\n";
-    cuslicer::index_in<NDTYPE, PARTITIONIDX>(nodes, this->workload_map, this->sample_workload_map);
+    cuslicer::index_in<NDTYPE, PARTITIONIDX>(nodes, this->orderbook->getDevicePtr(), this->sample_workload_map);
     // this->workload_map
     // nodes.debug("In nodes");
-    std::cout << "Check 2\n";
     
     // this->sample_workload_map.debug("sample workload map");
     if(loadbalancing){
-      this->loadbalancer->balance(this->workload_map, nodes, this->sample_workload_map, \
+      this->loadbalancer->balance(nodes, this->sample_workload_map, \
             s.block[s.num_layers].layer_nds.size());
     }
-    std::cout << "Check 3\n";
     
     // Get partitioned layers.
     for(int i= 1; i< s.num_layers + 1;i++){
@@ -169,9 +166,6 @@ void Slice::reorder(PartitionedLayer &l){\
           }
         }
       }
-      std::cout << "Check  4\n";
-    
-      std::cout << "All clear\n";
       #ifdef DEBUG
         gpuErrchk(cudaDeviceSynchronize());
       #endif
@@ -188,7 +182,5 @@ void Slice::reorder(PartitionedLayer &l){\
           }
           ps.last_layer_nodes[i] = ps.layers[0].bipartite[i]->out_nodes_local;
       }
-      std::cout << "Check 5 \n";
-    
-      std::cout << "All clear\n";
-}
+  
+  }

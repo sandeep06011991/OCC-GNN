@@ -46,19 +46,23 @@ def compute_acc(pred, labels):
 
 
 def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, features, args\
-                        ,num_classes, batch_in, labels,\
+                        ,num_classes,  labels,\
                              deterministic,\
-                          cached_feature_size, cache_percentage,  epochs_required,\
-                            storage_vector, fanout, exchange_queue,\
+                           cache_percentage,  epochs_required,\
+                             fanout, exchange_queue,\
                             graph_name, num_layers, num_gpus, shbuffs, mpbarrier):
     print("Trainer process starts!!!, ",proc_id)
     torch.cuda.set_device(proc_id)
-    gpu_local_storage = GpuLocalStorage(cache_percentage, features, batch_in, proc_id)
+    from utils.utils import get_process_graph
+    from utils.utils import get_order_book
+    dg_graph,partition_offsets, num_classes = get_process_graph(graph_name, -1 , 4)
+    order_book = get_order_book(graph_name, cache_percentage)
+    gpu_local_storage  = GpuLocalStorage(cache_percentage, features, order_book, partition_offsets, proc_id)
     if proc_id == 0:
         ## Configure logger
         os.makedirs('{}/logs'.format(PATH_DIR),exist_ok = True)
         FILENAME= ('{}/logs/{}_{}_{}_{}.txt'.format(PATH_DIR, \
-                 args.graph, args.batch_size, int(100* (args.cache_per)),args.model))
+                 args.graph, args.batch_size, cache_percentage ,args.model))
         fileh = logging.FileHandler(FILENAME, 'w')
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         fileh.setFormatter(formatter)
@@ -107,8 +111,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     else:
         print("using GPU Sampler", args.use_uva)
         from cuslicer import cuslicer
-        sampler = cuslicer(graph_name, storage_vector,
+        sampler = cuslicer(graph_name, cache_percentage,
                 fanout ,deterministic, testing, self_edge, rounds, pull_optimization, num_layers, num_gpus, proc_id, args.random_partition, args.use_uva)
+    
     device = proc_id
     if proc_id ==0:
         print(args.test_graph_dir)
@@ -134,7 +139,11 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     data_moved_per_gpu_epoch =[]
     data_moved_inter_gpu_epoch = []
     edges_per_gpu_epoch = []
+    first_layer_time_epoch = []
+    other_layer_time_epoch = []
     sample_get_time = 0
+    first_layer_time = 0
+    other_layer_time = 0
     forward_time = 0
     backward_time = 0
     movement_graph = 0
@@ -173,8 +182,11 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         if(type(training_node) != type("")):
             
             # args.load_balance   
+            print("Memory allocated ", torch.cuda.memory_allocated())
+            
             csample = sampler.getSample(training_node, args.load_balance)
             tensorized_sample = Sample(csample)
+            
             sample_id = tensorized_sample.randid
             for gpu_id in range(num_gpus):
                 obj = Gpu_Local_Sample()
@@ -199,6 +211,8 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                 ref = (sample_id, for_worker_id, data.shape)
                 assert(len(data.shape) != 0)
                 exchange_queue[for_worker_id].put(ref)
+            
+            print("Memory allocated sampling ", torch.cuda.memory_allocated())    
             del csample
             # gc.collect()
             # torch.cuda.empty_cache()
@@ -213,9 +227,11 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                 ref = (sample_id, for_worker_id, "EMPTY")
                 exchange_queue[for_worker_id].put(ref)
         
+    
         sample_get_end = time.time()
         sample_get_time += sample_get_end - sample_get_start
         # exchange
+        t1 = time.time()
         for gpu_id in range(num_gpus):
             # Read my own exchange_queue
             if(gpu_id) == proc_id:
@@ -225,14 +241,22 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             sample_id, for_worker_id, shape = exchange_queue[proc_id].get()
             assert(for_worker_id == proc_id)
             if shape != "EMPTY":
+                print(sample_id, shape, "SHAPE TO SHUFFLE")
                 recv_dict[sample_id] = torch.empty(shape, device = proc_id, dtype = torch.int32)
             else:
                 recv_dict[sample_id] = torch.empty([0], device= proc_id, dtype = torch.int32)
+        
+        print("Memory allocated shuffling", torch.cuda.memory_allocated(), torch.cuda.memory_reserved())
         shuffle_functional(proc_id, send_dict, recv_dict, gpus)
         torch.cuda.synchronize()
+        t2 = time.time()
+        del send_dict
 
+        movement_graph += (t2 - t1)
+        
         for i in range(num_gpus):
             optimizer.zero_grad()
+            t1 = time.time()
             if i == proc_id:
                 gpu_local_sample = my_gpu_local_sample
                 if type(gpu_local_sample) is type(torch.tensor([])):
@@ -259,6 +283,8 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
 
 #         #assert(features.device == torch.device('cpu'))
 #         #gpu_local_sample.debug()
+            t2 = time.time()
+            movement_graph += (t2 - t1)
             classes = labels[gpu_local_sample.out_nodes].to(torch.device(proc_id))
 #         # print("Last layer nodes",gpu_local_sample.last_layer_nodes)
             torch.cuda.set_device(proc_id)
@@ -267,6 +293,7 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             torch.cuda.nvtx.range_push("storage")
             input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cache_hit_from, \
                     gpu_local_sample.cache_hit_to, gpu_local_sample.cache_miss_from, gpu_local_sample.cache_miss_to)
+            torch.distributed.barrier()
             movement_feat += time.time() - m_t1
             torch.cuda.nvtx.range_pop()
             edges, nodes, edge_split, node_split = gpu_local_sample.get_edges_and_send_data()
@@ -274,7 +301,6 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             data_moved_per_gpu += ((gpu_local_sample.cache_miss_from.shape[0] * features.shape[1] * 4)/(1024 * 1024)) +\
                                 ((nodes * args.num_hidden * 4)/(1024 * 1024))
             data_moved_inter_gpu  += ((nodes * args.num_hidden *4)/(1024 * 1024))
-            torch.distributed.barrier()
             fp_start.record()
             torch.cuda.nvtx.range_push("training {}:{}".format(edge_split, node_split))
             output = model.forward(gpu_local_sample, input_features, None)
@@ -291,6 +317,9 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             if(current_minibatch == 30):
                 torch.cuda.profiler.stop()
 
+            first_layer, other_layer = model.module.get_reset_layer_time()
+            first_layer_time += first_layer
+            other_layer_time += other_layer
             # print(proc_id, "Does both forward and backward!!", current_minibatch)
             current_minibatch += 1
             if (current_minibatch == minibatches_per_epoch):
@@ -303,8 +332,12 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
                 data_moved_per_gpu_epoch.append(data_moved_per_gpu)
                 data_moved_inter_gpu_epoch.append(data_moved_inter_gpu)
                 movement_partials_epoch.append(model.module.get_reset_shuffle_time())
+                first_layer_time_epoch.append(first_layer_time)
+                other_layer_time_epoch.append(other_layer_time)
                 e_t2 = time.time()
                 epoch_time.append(e_t2-e_t1)
+                first_layer_time = 0
+                other_layer_time = 0
                 sample_get_time = 0
                 forward_time = 0
                 backward_time = 0
@@ -350,6 +383,8 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
         #print("Inter gpu data movement:{}MB".format(avg(data_moved_inter_gpu_epoch)))
         print("Shuffle time:{}".format(avg(movement_partials_epoch)))
         print("Memory Used:{} GB".format(torch.cuda.max_memory_allocated()/(1024 ** 3)))
+        print("First layer time:{}".format(avg(first_layer_time_epoch)))
+        print("other layer time:{}".format(avg(other_layer_time_epoch)))
 #     print("Trainer returns")
 #         # print("Memory",torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated())
      # print("Thread running")

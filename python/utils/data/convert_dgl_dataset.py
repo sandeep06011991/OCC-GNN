@@ -19,11 +19,12 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
     graph, labels = dataset[0]
     edges = graph.edges()
     graph.remove_edges(torch.where(edges[0] == edges[1])[0])
+    edges = graph.edges()
     t2 = time.time()
     print(f"Time to read graph:{t2-t1}")
     num_edges = graph.num_edges()
     num_nodes = graph.num_nodes()
-    print(num_nodes, num_edges)
+    assert(num_edges == edges[0].shape[0])
     features = graph.ndata['feat']
     assert features.shape[0] == num_nodes
 
@@ -80,6 +81,7 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
     
     assert torch.all(graph.in_degrees() == (indptr[1:] - indptr[:-1]))
     assert indptr.shape == (num_nodes+1,)
+    print(indices.shape, num_edges, "Error")
     assert indices.shape == (num_edges,)
     csum_offsets = indptr.sum()
     csum_edges = indices.sum()
@@ -145,8 +147,8 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
 # arg1 = full target directory
 if __name__=="__main__":
     # assert(len(sys.argv) == 3)
-    nname = ["ogbn-papers100M","ogbn-products","ogbn-arxiv"]
-    nname = ["ogbn-arxiv"]
+    nname = ["ogbn-papers100M"]
+    # nname = ["ogbn-arxiv"]
     # Note papers 100M must be reordered
     for name in nname:
         target = ROOT_DIR + "/" + name

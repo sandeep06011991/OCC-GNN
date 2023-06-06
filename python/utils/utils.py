@@ -17,6 +17,8 @@ import torch
 from dgl import DGLGraph
 import dgl
 from os.path import exists
+import logging 
+import time 
 
 def get_data_dir():
     # Todo: Repeated code, 
@@ -88,12 +90,30 @@ def read_meta_file(filename):
             results[k] = v
     return results
 
-def get_process_graph(filename, fsize,  num_gpus, testing = False,):
-    graphname = filename
+def get_order_book(graphname, cache):
+    with open("{}/{}/order_book_{}.txt".format(DATA_DIR, graphname, cache)) as fp:
+        lines = fp.readlines()
+        offsets = []
+        for l in lines:
+            v = l.split(",")
+            offsets.append([int(vv) for vv in v])
+    return offsets 
 
+def get_partition_offsets(graphname):
+    with open("{}/{}/partition_offsets.txt".format(DATA_DIR, graphname)) as fp:
+        lines = fp.readlines()
+        assert(len(lines)== 1)
+        offsets = [int(i) for i in lines[0].split(",")]
+        return offsets
+# Need a read function specifically for groot as
+# graphs from from different sources have to preprocessed
+# Remove fsize and testing
+# Todo: Mostly we will use fixed fsize  
+def get_process_graph(filename, fsize,  num_gpus, testing = False,):
+    t1 = time.time()
+    graphname = filename
     indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.int32)
     indices = np.fromfile("{}/{}/indices.bin".format(DATA_DIR,graphname),dtype = np.int32)
-    print("Read indptr")
     num_nodes = indptr.shape[0] - 1
     num_edges = indices.shape[0]
     if graphname not in synthetic_graphs and not graphname.startswith("synth"):
@@ -106,10 +126,8 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
             features = torch.from_numpy(f_np)
             print("Features read")
         else: 
-            # features = torch.from_numpy(np.fromfile(("{}/{}/features.bin").format(DATA_DIR,graphname)\
-            #                                                 ,dtype = np.float32))
-            print("Reading synthetic graphs !!! ")
-            features = torch.ones((num_nodes, fsize),dtype = torch.float32)
+            features = torch.from_numpy(np.fromfile(("{}/{}/features.bin").format(DATA_DIR,graphname)\
+                                                            ,dtype = np.float32))
         features = features.reshape(num_nodes,fsize)
         labels = torch.from_numpy(\
                 np.fromfile(("{}/{}/labels.bin".format(DATA_DIR, graphname)), dtype = np.intc)).to(\
@@ -127,15 +145,15 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
     # features = torch.rand(num_nodes,fsize)
     indptr = indptr.astype(np.int32)
     indices = indices.astype(np.int32)
-    dg_graph = dgl.graph(('csr',(indptr, indices, torch.empty(indices.shape[0], dtype = torch.int32))))
-
+    dg_graph = dgl.graph(('csr',(indptr, indices, torch.arange(indices.shape[0], dtype = torch.int32))))
+    print(dg_graph.edges()[0][:10])
     print("Using 32")
     # sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),
     #     shape = (num_nodes,num_nodes))
     print("Scipy created")
     # dg_graph = dgl.from_scipy(sp)
     # dg_graph = dgl.to_homogeneous(dg_graph)
-    dg_graph = dg_graph.astype(torch.int32).shared_memory('s')
+    dg_graph = dg_graph.astype(torch.int32)
     print("DG Graph Created")
     if graphname != "mag240M":
         # features = features.pin_memory()
@@ -160,29 +178,15 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
           
         dg_graph.ndata["{}_mask".format(idx)] = mask
             
-    if not testing:
-        if num_gpus == -1:
-            p_map_file = "{}/{}/partition_map_opt_random.bin".format(DATA_DIR,graphname)
-        else:
-            p_map_file = "{}/{}/partition_map_opt_{}.bin".format(DATA_DIR,graphname, num_gpus)
-        p_map = np.fromfile(p_map_file,dtype = np.int32)
-        p_map.shape[0] == num_nodes
-        assert(np.all(p_map < num_gpus))
-        # edges = dg_graph.edges()
-
-        partition_map = torch.from_numpy(p_map)
-        print(partition_map.dtype)
-    else:
-        partition_map = None
-    # assert(False)
-    partition_map = partition_map.share_memory_()
-    assert(partition_map.is_shared())
-    assert(dg_graph.ndata['features'].is_shared())
+    
+    partition_offsets = get_partition_offsets(graphname)
+    
     print("All data created")
-
+    t2 = time.time()
+    print(f"Total time to read the graph {t2-t1}")
     # dg_graph = dg_graph.astype(torch.int32)
-    return dg_graph, partition_map, num_classes
-    # , features, num_nodes, num_edges
+    return dg_graph, partition_offsets, num_classes
+
 
 # a,b = get_dgl_graph('ogbn-arxiv')
 if __name__ == "__main__":

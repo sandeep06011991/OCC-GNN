@@ -141,6 +141,7 @@ void update_nodes(NDTYPE * mask,NDTYPE mask_size, NDTYPE* nodes, size_t node_siz
 
 
 ArrayMap::ArrayMap(NDTYPE num_nodes){
+    std::cout << "Allocating array map" <<  sizeof(NDTYPE) * num_nodes <<"\n";
     gpuErrchk(cudaMalloc((void**)&mask, sizeof(NDTYPE) * num_nodes));
     gpuErrchk(cudaMemset(mask, 0, sizeof(NDTYPE) * num_nodes));
     mask_size = num_nodes;

@@ -3,9 +3,10 @@
 #include "../graph/sample.h"
 #include "../graph/sliced_sample.h"
 #include "../util/types.h"
+#include "../graph/order_book.h"
 #include <curand.h>
 #include <curand_kernel.h>
-
+#include <memory>
 #include "balancer.cuh"
 // Ogbn-products sample charectersitcs
 // Nodes [1705194, 684535, 76689, 4096] Edges [12975036, 1490753, 80134]
@@ -73,21 +74,16 @@ bool is_selected(NDTYPE  *id, size_t sz){
 
 class Slice{
 protected:
+  int num_gpus = -1;
+  // Contains all information regarding partitioning and ordering
+  std::shared_ptr<OrderBook> orderbook;
   device_vector<PARTITIONIDX> sample_workload_map;
-  device_vector<PARTITIONIDX> workload_map;
-  device_vector<NDTYPE> storage_map[8];
-  device_vector<NDTYPE> storage[8];
-  // device_vector<int> sample_partition;
-  // Used for new node ordering
-  void** storage_map_flattened;
-  int gpu_capacity[8];
-  int num_gpus = 4;
   DuplicateRemover *dr;
   // Use this for GAT
-  bool pull_optimization = false;
+  
   device_vector<NDTYPE> cache_hit_mask;
   device_vector<NDTYPE> cache_miss_mask;
-  long num_nodes  = 0;
+  NDTYPE num_nodes  = 0;
   cudaEvent_t event1;
   cudaEvent_t event2;
   cudaEvent_t event3;
@@ -105,9 +101,9 @@ protected:
   LoadBalancer *loadbalancer;
 public:
 // Are all these options really needed.
-  Slice(device_vector<PARTITIONIDX> workload_map,
-      std::vector<NDTYPE> storage[8],
-        bool pull_optimization, int num_gpus, curandState *s){
+  Slice(std::shared_ptr<OrderBook> orderbook, \
+        int num_gpus, curandState *s, NDTYPE num_nodes){
+    std::cout << "Do I need all these events \n";
     gpuErrchk(cudaEventCreate(&event1));
     gpuErrchk(cudaEventCreate(&event2));
     gpuErrchk(cudaEventCreate(&event3));
@@ -117,45 +113,13 @@ public:
     gpuErrchk(cudaEventCreate(&event7));
     this->loadbalancer = new LoadBalancer(num_gpus, s, TOTAL_RAND_STATES);
     this->rand_states = s;
-    this->workload_map = workload_map;
+    this->orderbook = orderbook;
     this->num_gpus= num_gpus;
-    long num_nodes = this->workload_map.size();
     this->num_nodes = num_nodes;
     assert(num_gpus <= 8);
-    std::vector<NDTYPE> _t1;
-    std::vector<NDTYPE> _t2;
-    for(int i=0;i<num_gpus;i++){
-      _t1.clear();
-      _t2.clear();
-      for(int j = 0; j < num_nodes; j++){
-          _t1.push_back(-1);
-      }
-      _t2 = storage[i];
-      int count  = 0;
-      for(auto j:_t2){
-          _t1[j] = count;
-           count ++ ;
-      }
-      // Must be an lvalue
-      auto _s1 = device_vector<NDTYPE>(_t1);
-      this->storage_map[i] = _s1;
-      auto s2 = device_vector<NDTYPE>(_t2);
-      this->storage[i] = s2;
-      gpu_capacity[i] = count;
-    }
-    void *t[8];
-    gpuErrchk(cudaMalloc(&storage_map_flattened, num_gpus * sizeof(int *)));
-    for(int i= 0; i < num_gpus; i++){
-    	t[i] = this->storage_map[i].ptr();
-      // std::cout << "Storage map size" << this->storage_map[i].size() <<"\n";
-    }
-    std::cout << "All storage maps moved\n";
 
-    gpuErrchk(cudaMemcpy(storage_map_flattened, t, sizeof(int *) * num_gpus,\
-      cudaMemcpyHostToDevice));
-
-    dr = new ArrayMap(this->workload_map.size());
-    this->pull_optimization = pull_optimization;
+    dr = new ArrayMap(num_nodes);
+    
   }
 
   void slice_sample(Sample &s, PartitionedSample &ps, bool loadbalancing);
@@ -183,10 +147,8 @@ class PushSlicer: public Slice{
     // Must have one to one mapping from every object in bipartite graph
     
 public:
-    PushSlicer(device_vector<PARTITIONIDX> workload_map,
-        std::vector<NDTYPE> storage[8],
-          bool pull_optimization, int num_gpus, curandState *state):Slice(workload_map,
-            storage, pull_optimization, num_gpus, state){
+    PushSlicer(std::shared_ptr<OrderBook> orderbook, \
+        int num_gpus,curandState *state, int num_nodes):Slice(orderbook, num_gpus, state, num_nodes){
               gpuErrchk(cudaMalloc(&device_graph_info, sizeof(LocalGraphInfo) * this->num_gpus ));
     }
 
@@ -208,10 +170,8 @@ class PullSlicer: public Slice{
 
     
 public:
-    PullSlicer(device_vector<PARTITIONIDX> workload_map,
-        std::vector<NDTYPE>  storage[8],
-          bool pull_optimization, int num_gpus, curandState *state):Slice(workload_map,
-            storage, pull_optimization, num_gpus, state){
+    PullSlicer(std::shared_ptr<OrderBook> orderbook, \
+        int num_gpus,curandState *state, NDTYPE num_nodes):Slice(orderbook, num_gpus, state, num_nodes){
               gpuErrchk(cudaMalloc(&device_graph_info, sizeof(LocalGraphInfo) * this->num_gpus ));
             }
 

@@ -14,6 +14,7 @@
 #include <chrono>
 #include <iostream>
 #include "util/types.h"
+#include "graph/order_book.h"
 using namespace std;
 using namespace std::chrono;
 
@@ -34,15 +35,16 @@ int main(){
   std::shared_ptr<Dataset> dataset =\
       std::make_shared<Dataset>(file, num_gpus, random, true);
 
+  std::shared_ptr<OrderBook> order =  std::make_shared<OrderBook>(get_dataset_dir(), graph_name, string("1GB"), 4);
   // Sample datastructure.
-  int num_layers =2;
+  int num_layers =3;
   Sample s1(num_layers);
   
-  vector<int> fanout({10,10});
+  vector<int> fanout({20,20, 20});
   
   bool self_edge = false;
   std::vector<NDTYPE> training_nodes;
-  for(int i=0;i<num_gpus * 10 ;i++){
+  for(int i=0;i<num_gpus * 1000 ;i++){
       training_nodes.push_back(i);
   }
 
@@ -52,58 +54,43 @@ int main(){
   ns->sample(target,s1);
   
   bool pull_optim = false;
-
-  std::vector<PARTITIONIDX> workload_map;
-  workload_map.resize(dataset->num_nodes);
-  std::fstream file2(file + "/partition_map_opt_4.bin", std::ios::in|std::ios::binary);
-  file2.read((char *)workload_map.data(),dataset->num_nodes *  sizeof(PARTITIONIDX));
-
   std::vector<NDTYPE> storage[8];
-  int is_present = 1 ;
-  // // // Test 3b. is_present = 1;
   int gpu_capacity[num_gpus];
-  // workload_map = dataset->partition_map_d;
-  for(int i=0;i < num_gpus; i++)gpu_capacity[i] = 0;
+  // Note how to handle this. ?
+ for(int i=0;i < num_gpus; i++){
+    gpu_capacity[i] = 0;
   // // Write a better version of this.
-  for(int i=0;i<dataset->num_nodes;i++){
-    #pragma unroll
-    for(int j=0;j<num_gpus;j++){
-      if(is_present == 1){
-        gpu_capacity[j]++;
-           // in_f.push_back(nd%10);
-        storage[j].push_back(i);
-        // Since this case is all nodes are present
-        // storage_map[j].push_back(i);
-      }else{
-        // storage_map[j].push_back(-1);
+    for(int j = 0; j < num_gpus; j ++ ){
+      for(int k = order->partition_offsets[j]; k < order->cached_offsets[i][j]; k ++ ){
+        storage[i].push_back(k);
+        gpu_capacity[i] ++;
       }
     }
   }
-
+  
   //   // std::cout << "basic population done \n";
   //   // PushSlicer * sc2 = new PushSlicer(workload_map, storage, pull_optim, num_gpus, ns->dev_curand_states);
   //   // PartitionedSample ps1(num_layers, num_gpus);
   //   // sc1->slice_sample((*s1),ps1);
  
-    PullSlicer * sc2 = new PullSlicer(workload_map, storage, pull_optim, num_gpus,\
-         ns->dev_curand_states);
+    PullSlicer * sc2 = new PullSlicer(order, num_gpus,\
+         ns->dev_curand_states, dataset->num_nodes);
     PartitionedSample ps2(num_layers, num_gpus);
     bool loadbalancing = true;
     std::cout << "Sample \n";
     sc2->slice_sample(s1, ps2, loadbalancing);
     std::cout << "Slice \n";
+    gpuErrchk(cudaDeviceSynchronize());
   // ps2.debug();
   // ps1.push_consistency();
-    test_sample_partition_consistency(s1,ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+    test_sample_partition_consistency(s1, ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
   //   ps2.check_imbalance();
   //       loadbalancing = false;
   //       sc2->slice_sample(s1, ps2, loadbalancing);
   //       ps2.check_imbalance();
   // gpuErrchk(cudaDeviceSynchronize());
-  // cuslicer::transform<NDTYPE>::cleanup();
-  // cuslicer::transform<PARTITIONIDX>::cleanup();
   
-  std::cout <<"All Done is consistent !\n";
+  // std::cout <<"All Done is consistent !\n";
 
   return 0;
 }

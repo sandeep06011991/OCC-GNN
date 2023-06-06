@@ -28,6 +28,7 @@ NeighbourSampler::NeighbourSampler(std::shared_ptr<Dataset> dataset,
     this->self_edge = self_edge ;
     unsigned long seed = \
       std::chrono::system_clock::now().time_since_epoch().count();
+    std::cout << "Size of random states for NS" << (MAX_BLOCKS * BLOCK_SIZE * sizeof(curandState)) / (1024 * 1024 * 1024) <<"GB\n";
     cudaMalloc(&dev_curand_states, MAX_BLOCKS * BLOCK_SIZE * sizeof(curandState));
     init_random_states<<<MAX_BLOCKS, BLOCK_SIZE>>>(dev_curand_states,MAX_BLOCKS * BLOCK_SIZE , seed);
 }

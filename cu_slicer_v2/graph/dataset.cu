@@ -19,7 +19,6 @@ Dataset::Dataset(std::string dir, int num_partitions, bool random, bool UVA){
   this->UVA = UVA;
   read_meta_file();
   read_graph();
-  read_node_data();
 }
 
 void Dataset::read_graph(){
@@ -34,7 +33,7 @@ void Dataset::read_graph(){
     file1.read((char *)_indptr,(this->num_nodes + 1) * sizeof(NDTYPE));
     gpuErrchk(cudaMalloc(&indptr_d, (this->num_nodes + 1)* sizeof(NDTYPE)));
     gpuErrchk(cudaMemcpy(indptr_d, _indptr,(this->num_nodes + 1)* sizeof(NDTYPE), cudaMemcpyHostToDevice )); 
-    free(_indptr);
+    free(_indptr);    
   }
 
   NDTYPE sum = cuslicer::transform<NDTYPE>::reduce_d(indptr_d, this->num_nodes+1);
@@ -42,10 +41,12 @@ void Dataset::read_graph(){
     
   std::fstream file2(this->BIN_DIR + "/cindices.bin",std::ios::in|std::ios::binary);
   if (UVA){
+    std::cout << "using host alloc\n";
     gpuErrchk(cudaHostAlloc(&indices_h,(this->num_edges) * sizeof(NDTYPE), cudaHostAllocMapped | cudaHostAllocWriteCombined  ));
     file2.read((char *)indices_h,(this->num_edges) * sizeof(NDTYPE));
     gpuErrchk(cudaHostGetDevicePointer(&indices_d, indices_h, 0));
   }else{
+    std::cout << "using device alloc \n";
     NDTYPE * _indices = (NDTYPE *)malloc ((this->num_edges) * sizeof(NDTYPE));
     file2.read((char *)_indices,(this->num_edges) * sizeof(NDTYPE));
     gpuErrchk(cudaMalloc(&indices_d, (this->num_edges)* sizeof(NDTYPE)));
@@ -56,30 +57,6 @@ void Dataset::read_graph(){
 
   // Fixme: ADD corect checksums
   // assert(s ==  csum_edges );
-}
-
-void Dataset::read_node_data(){
-    // Add feature for flexible partition
-    // Make shared pointernaj
-    partition_map_h.resize(num_nodes);
-    PARTITIONIDX * _partition_map = partition_map_h.data();
-    int n_gpu = this->num_partitions;
-    if (! this->random){
-	    std::cout << "read partition " << n_gpu << "\n";
-    	std::fstream file2(this->BIN_DIR + "/partition_map_opt_" + std::to_string(this->num_partitions) +".bin",std::ios::in|std::ios::binary);
-    	file2.read((char *)_partition_map,this->num_nodes *  sizeof(PARTITIONIDX));
-      n_gpu = this->num_partitions;
-    }else{
-	    std::cout << "reading random map \n" ;
-	    assert(this->num_partitions == 4);
-	    std::fstream file2(this->BIN_DIR + "/partition_map_opt_random.bin", std::ios::in|std::ios::binary);
-    	file2.read((char *)_partition_map,this->num_nodes *  sizeof(PARTITIONIDX));
-    }
-    gpuErrchk(cudaMalloc(&partition_map_d,sizeof(PARTITIONIDX) * num_nodes ));
-    gpuErrchk(cudaMemcpy(partition_map_d, _partition_map, sizeof(PARTITIONIDX) * num_nodes, cudaMemcpyHostToDevice));
-    
-    // gpuErrchk(cudaMalloc((void**)&this->partition_map, (this->num_nodes *  sizeof(int))));
-    // gpuErrchk(cudaMemcpy(this->partition_map, _partition_map, (this->num_nodes *  sizeof(int)) , cudaMemcpyHostToDevice));
 }
 
 void Dataset::read_meta_file(){

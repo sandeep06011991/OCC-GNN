@@ -270,7 +270,6 @@ void test_sample_partition_consistency(Sample &s, PartitionedSample &ps,
             assert(false);
       }
     }
-    // std::cout << correct << "==" << out << "\n";
-    // assert(correct == out);
+    std::cout << "All correct !!\n";
 
 }

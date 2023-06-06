@@ -17,7 +17,7 @@
 #include "../util/cub.h"
 #include "../util/types.h"
 #include "../util/device_vector.h"
-
+#include "../graph/order_book.h"
 #include <memory>
 using namespace std::chrono;
 namespace py = pybind11;
@@ -43,13 +43,10 @@ class CUSlicer{
     int samples_generated = 0;
     long num_nodes;
 
-    std::vector<NDTYPE> storage_map[MAX_DEVICES];
-    std::vector<PARTITIONIDX> workload_map;
-    int gpu_capacity[MAX_DEVICES];
     NeighbourSampler *neighbour_sampler;
     Slice *slicer;
     std::shared_ptr<Dataset> dataset;
-    
+    std::shared_ptr<OrderBook> orderbook;
     bool deterministic;
     bool self_edge;
     int num_gpus = -1;
@@ -57,10 +54,9 @@ class CUSlicer{
     int num_layers = -1;
 public:
     // py::list v;
-    CUSlicer(const std::string &name,
-      std::vector<std::vector<NDTYPE>> gpu_map,
+    CUSlicer(const std::string &name, const std::string &memory,
       vector<int> fanout,
-       bool deterministic, bool testing,
+        bool deterministic, bool testing,
           bool self_edge, int rounds, bool pull_optimization,
             int num_layers, int num_gpus, int current_gpu, bool random, bool UVA){
         this->num_gpus = num_gpus;
@@ -71,34 +67,20 @@ public:
         device_vector<NDTYPE>::setLocalDevice(current_gpu);
   
         this->name = get_dataset_dir() + name;
-	std::cout << "Current Device is" << current_gpu <<"\n";
-	std::cout << "Got dataset" << this->name << "\n";
+        std::cout << "Current Device is" << current_gpu <<"\n";
+        std::cout << "Got dataset" << this->name << "\n";
         std::cout << "Use UVA" << UVA <<"\n";
         this->deterministic = deterministic;
         this->dataset = std::make_shared<Dataset>(this->name,  num_gpus, random, UVA);
+        this->orderbook =  std::make_shared<OrderBook>(get_dataset_dir(), name, memory, num_gpus);
 
         num_nodes = dataset->num_nodes;
 
         this->self_edge = self_edge;
-    
-        workload_map =  dataset->partition_map_h;
-        
-        std::vector<NDTYPE> _t;
-        std::cout << "begin data population\n";
-        for(int i=0;i<num_gpus;i++){
-          int order =0;
-          _t.clear();
-          for(auto nd: gpu_map[i]){
-             _t.push_back(nd);
-             order ++;
-          }
-          storage_map[i] = _t;
-          gpu_capacity[i] = gpu_map[i].size();
-        }
         
         this->neighbour_sampler = new NeighbourSampler(this->dataset, fanout,  self_edge);
-        this->slicer = new PullSlicer((workload_map), storage_map,  pull_optimization, num_gpus, \
-              this->neighbour_sampler->dev_curand_states);
+        this->slicer = new PullSlicer(this->orderbook, num_gpus, \
+              this->neighbour_sampler->dev_curand_states, num_nodes);
     }
 
     // bool test_correctness(vector<long> sample_nodes){
@@ -168,8 +150,7 @@ public:
 PYBIND11_MODULE(cuslicer, m) {
     m.doc() = "pybind11 example plugin"; // optional module docstring
     py::class_<CUSlicer>(m,"cuslicer")
-         .def(py::init<const std::string &,
-               std::vector<std::vector<NDTYPE>>, vector<int>,\
+         .def(py::init<const std::string &, const std::string &, vector<int>,\
                 bool, bool, bool, int, bool,int,\
                   int, int, bool,bool>())
         .def("getTensor", &CUSlicer::getDummyTensor)

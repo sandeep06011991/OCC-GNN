@@ -137,7 +137,7 @@ def shuffle_functional(device_id, send_dict, recv_dict, num_devices):
     async_all.wait( )
     torch.cuda.nvtx.range_pop()
     s = 0
-    torch.cuda.nvtx.range_push("merge")
+    torch.cuda.nvtx.range_push("merge {}".format(output_splits[num_devices - 1]))
     for i in range(num_devices):
         recv_dict[i] = recv[s : s + output_splits[i]]
         s = s + output_splits[i]

@@ -1,4 +1,4 @@
-#include "pyobj/pybipartite.h"
+#include "../pyobj/pybipartite.h"
 #include <pybind11/stl.h>
 #include "../graph/bipartite.h"
 #include <thrust/device_vector.h>
@@ -10,7 +10,7 @@ PyBipartite::PyBipartite(BiPartite *bp, int local_gpu_id, int num_gpus){
     // std::cout << bp->gpu_id <<"\n";
     // std::cout << bp->in_nodes.size() <<"\n";
     c10::TensorOptions opts; opts;
-    if(sizeof(NDTYPE)== 4){
+    if(sizeof(NDTYPE)== 4){ 
     opts = torch::TensorOptions().dtype(torch::kInt32)\
     .device(torch::kCUDA, local_gpu_id);
     }else{

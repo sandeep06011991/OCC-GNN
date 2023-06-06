@@ -8,8 +8,6 @@ import dgl
 assert(dgl.__version__ == '1.1.0+cu118')
 import time
 import nvtx
-from models.dist_gcn import get_sage_distributed
-from models.dist_gat import get_gat_distributed
 from utils.utils import get_process_graph
 from utils.memory_manager import MemoryManager
 import torch.optim as optim
@@ -106,7 +104,6 @@ def main(args):
         dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize, -1)
     else:
         dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize, args.num_gpus)
-    assert(partition_map.dtype == torch.int32)
     print("Read all data")
     features = dg_graph.ndata.pop('features')
     if not args.deterministic:
@@ -137,13 +134,13 @@ def main(args):
     #Not applicable as some nodes have zero features in ogbn-products
     #assert(not torch.any(torch.sum(features,1)==0))
     # Create main objects
-    mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
-                    fanout, batch_size,  partition_map, num_gpus, deterministic = args.deterministic)
-    storage_vector = []
+    # mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
+    #                 fanout, batch_size,  partition_map, num_gpus, deterministic = args.deterministic)
+    # storage_vector = []
     num_workers = num_gpus
-    for i in range(num_gpus):
-        storage_vector.append(mm.local_to_global_id[i].tolist())
-        print("STorage check",len(storage_vector[-1]))
+    # for i in range(num_gpus):
+    #     storage_vector.append(mm.local_to_global_id[i].tolist())
+    #     print("STorage check",len(storage_vector[-1]))
     # Each gpu gets vertices to sample from this queue from work producer
     work_queues = [mp.Queue(3) for _ in range(num_workers)]
     # Exchange meta data required to read from shared memory
@@ -152,8 +149,8 @@ def main(args):
     train_mask = dg_graph.ndata['train_mask']
     train_nid = train_mask.nonzero().squeeze()
     for i in range(args.num_gpus):
-        print("Nodes per partition", torch.sum(partition_map[train_nid]  == i))
-        print("Total degree", torch.sum(dg_graph.in_degrees(torch.where(partition_map[train_nid] == i)[0].to(torch.int32))))
+        print("Nodes per partition", partition_map[i + 1] - partition_map[i])
+        print("Total degree", torch.sum(dg_graph.in_degrees()[partition_map[i] : partition_map[i + 1]].to(torch.int32)))
     print("Training nodes", train_nid.shape[0])
     if args.deterministic:
         train_nid = torch.arange(dg_graph.num_nodes())
@@ -186,6 +183,7 @@ def main(args):
     if args.optimization1 :
         from cu_train_opt import run_trainer_process
     else:
+        assert(False)
         from cu_train import run_trainer_process
     for proc_id in range(num_gpus):
         print("Starting ", proc_id)
@@ -193,10 +191,10 @@ def main(args):
         p = mp.Process(target=(run_trainer_process), \
                       args=(proc_id, num_gpus, work_queues[proc_id], minibatches_per_epoch \
                        , features, args, \
-                       num_classes, mm.batch_in[proc_id], labels, \
+                       num_classes, labels, \
                          args.deterministic,\
-                         mm.local_sizes[proc_id],cache_percentage, args.num_epochs,\
-                            storage_vector, fanout, exchange_queue, args.graph, args.num_layers, num_gpus, shm, barrier))
+                         cache_percentage, args.num_epochs,\
+                          fanout, exchange_queue, args.graph, args.num_layers, num_gpus, shm, barrier))
         p.start()
         procs.append(p)
     for proc in procs:
@@ -228,7 +226,7 @@ if __name__=="__main__":
     argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
     # model name and details
     argparser.add_argument('--debug',type = bool, default = False)
-    argparser.add_argument('--cache-per', type =float, default = .25, required = True)
+    argparser.add_argument('--cache-per', type =str,  required = True)
     argparser.add_argument('--model',help="gcn|gat", required = True)
     argparser.add_argument('--num-epochs', type=int, default=6)
     argparser.add_argument('--num-hidden', type=int, default=256)

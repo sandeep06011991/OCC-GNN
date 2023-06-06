@@ -4,13 +4,13 @@
 #include "nvtx3/nvToolsExt.h"
 #include "../util/cub.h"
 #include "../util/types.h"
+#include "../graph/order_book.h"
 using namespace cuslicer;
 
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
 void partition_edges_push(PARTITIONIDX *  sample_workload_map,\
-    PARTITIONIDX * global_workload_map,
   // partition_map assigning each vertex ID to one GPU
     NDTYPE * out_nodes, size_t out_nodes_size,\
     // Sample layer out nodes indexed into the graph
@@ -24,7 +24,7 @@ void partition_edges_push(PARTITIONIDX *  sample_workload_map,\
     NDTYPE * index_indptr_local, NDTYPE * index_indptr_remote, \
     NDTYPE * index_edge_local, NDTYPE * index_edge_remote,\
     // Partitioned graphs such that indptr_map[dest, src]
-    bool last_layer, void ** storage_map, int NUM_GPUS){
+    bool last_layer, OrderBook * orderbook , int NUM_GPUS){
     // Last layer use storage map
     int tileId = blockIdx.x;
     int last_tile = ((out_nodes_size - 1) / TILE_SIZE + 1);
@@ -66,7 +66,7 @@ void partition_edges_push(PARTITIONIDX *  sample_workload_map,\
         }
       	if(last_layer){
           // Not the same partition but part of our redundant store.
-      		if(((int *)storage_map[p_nd1])[nd2]!= -1){
+      		if(orderbook->gpuContains(p_nd1, nd2)){
                   // Present here mark it local.
       			      ((long *)&index_edge_local[num_edges * p_nd1])[offset_edge_start + nb_idx] = 1;
                   ((long *)&index_in_nodes[in_nodes_size * p_nd1])[nd2_idx] = 1;
@@ -426,7 +426,7 @@ void PushSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
 
     // gpuErrchk(cudaDeviceSynchronize());
     partition_edges_push<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()),BLOCK_SIZE>>>\
-        (this->workload_map.ptr(),this->workload_map.ptr(),\
+        (this->sample_workload_map.ptr(),\
           layer_nds.ptr(), layer_nds.size(),\
           bs.layer_nds.ptr(), bs.layer_nds.size(),\
           bs.offsets.ptr(), bs.indices.ptr(), bs.indices.size(), \
@@ -434,7 +434,7 @@ void PushSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
           ps.index_in_nodes.ptr(), ps.index_out_nodes_local.ptr(), ps.index_out_nodes_remote.ptr(),\
           ps.index_indptr_local.ptr(), ps.index_indptr_remote.ptr(),\
           ps.index_edge_local.ptr(), ps.index_edge_remote.ptr(),\
-          last_layer, this->storage_map_flattened,this->num_gpus);
+          last_layer, this->orderbook->getDevicePtr(),this->num_gpus);
     #ifdef DEBUG
 
     #endif

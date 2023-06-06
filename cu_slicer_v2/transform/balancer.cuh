@@ -87,8 +87,7 @@ public:
             cudaMalloc(&probability_matrix_d, MAX_DEVICES * MAX_DEVICES * sizeof(float));
         }
 
-        void balance(device_vector<PARTITIONIDX> &workload_map, 
-            device_vector<NDTYPE> &sample_in, 
+        void balance(device_vector<NDTYPE> &sample_in, 
                 device_vector<PARTITIONIDX> &sample_workload_map, size_t last_layer_dst_nodes){
 
                     std::vector<NDTYPE> load; 

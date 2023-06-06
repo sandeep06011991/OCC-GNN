@@ -32,9 +32,6 @@ public:
   // const float *features;
   // const int *labels;
 
-  // gpu_partition_map
-  PARTITIONIDX * partition_map_d;
-  std::vector<PARTITIONIDX> partition_map_h;
   // graph data.
   NDTYPE * indptr_h;
   NDTYPE * indices_h;
@@ -62,7 +59,6 @@ public:
       gpuErrchk(cudaFree(indptr_d));
       gpuErrchk(cudaFree(indices_d));
     }
-    gpuErrchk(cudaFree(partition_map_d));
     // gpuErrchk(cudaFree(indptr_d));
     // gpuErrchk(cudaFree(indices_d));
   }

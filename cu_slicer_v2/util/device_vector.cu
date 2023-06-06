@@ -61,6 +61,7 @@ device_vector<DATATYPE>::device_vector(std::vector<DATATYPE> &host){
 template<typename DATATYPE>
  void device_vector<DATATYPE>::resize(size_t new_size){
     c10::TensorOptions opts;
+    std::cout << "Creating size" << new_size <<"\n";
     if(sizeof(DATATYPE) == 8){
       opts = torch::TensorOptions().dtype(torch::kInt64)\
       .device(torch::kCUDA, device_vector<DATATYPE>::DEVICE);
@@ -115,6 +116,7 @@ void device_vector<DATATYPE>::resize_and_zero(int new_size){
       .device(torch::kCUDA, DEVICE);
     }
       this->data = torch::zeros({(signed long) new_size,}, opts );
+      std::cout << "Creating size" << new_size <<"\n";
       current_size = new_size;
 }
 

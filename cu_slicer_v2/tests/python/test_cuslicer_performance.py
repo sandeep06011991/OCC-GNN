@@ -20,7 +20,7 @@ def get_total_comm(s):
 # // Get this from data
 storage_map_empty = [[],[],[],[]]
 graphnames = ["ogbn-arxiv","ogbn-products"]
-graphname = "ogbn-arxiv"
+graphname = "ogbn-papers100M"
 # graphname = "reorder-papers100M"
 # csl1 = cslicer(graphname, storage_map_empty, 10, True, False)
 # import numpy as np
@@ -60,6 +60,9 @@ i = 0
 t= 0
 s_time = time.time()
 torch.cuda.empty_cache()
+while True:
+    print(torch.cuda.max_memory_allocated())
+    time.sleep(1)
 print("Just setup size is 5 GB")
 while(i < len(training_nodes)):
     in_nodes = training_nodes[i:i+batch_size]

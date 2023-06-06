@@ -18,7 +18,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 // Values from DGL
 constexpr static const int BLOCK_SIZE = 256;
 constexpr static const size_t TILE_SIZE = 1024;
-constexpr static const int MAX_BLOCKS = 10000;
+constexpr static const int MAX_BLOCKS = 1000;
 constexpr static const int MAX_GPUS = 8;
 
 // constexpr static const int BLOCK_SIZE = 256;
@@ -36,7 +36,7 @@ inline int GRID_SIZE(size_t t){
 const int MAX_DEVICES = 8;
 const int MAX_LAYERS = 5;
 
-typedef long NodeID;
-typedef long EdgeID;
-typedef NodeID * EdgePos;
-typedef EdgeID * NodePos;
+// typedef long NodeID;
+// typedef long EdgeID;
+// typedef NodeID * EdgePos;
+// typedef EdgeID * NodePos;

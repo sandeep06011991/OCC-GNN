@@ -79,7 +79,11 @@ class Bipartite:
         edge_ids_remote = torch.arange(self.indices_R.shape[0], device = self.gpu_id, dtype = torch.int32)
         formats = "csc"
         in_nodes = self.num_in_nodes_local + self.num_in_nodes_pulled
-
+        self.block_local = dgl.create_block(("csc",(self.indptr_L, self.indices_L,edge_ids_local)),\
+                                                  num_src_nodes=in_nodes, num_dst_nodes=self.num_out_local)
+        self.block_local = self.block_local.formats(['csr','csc','coo'])
+        self.block_local.create_formats_()
+        return
         #metagraph_index_local = heterograph_index.create_metagraph_index(['_U','_V_local'],[('_U','_E','_V_local')])
         if(self.num_out_local != 0 ):
         # if True:
@@ -90,7 +94,7 @@ class Bipartite:
             graph_local = heterograph_index.create_heterograph_from_relations( \
                     metagraph_index_local[0], [hg_local], Index([in_nodes ,self.num_out_local]))
             self.graph_local = dgl.DGLHeteroGraph(graph_local,['_U','_V_local'],['_E'])
-            self.block_local = dgl.create_block(("csc",(self.indptr_L, self.indices_L,torch.tensor([]))),\
+            self.block_local = dgl.create_block(("csc",(self.indptr_L, self.indices_L,edge_ids_local)),\
                                                   num_src_nodes=in_nodes, num_dst_nodes=self.num_out_local)
             if attention:
                 self.graph_local = self.graph_local.formats(['csr','csc','coo'])

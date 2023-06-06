@@ -1,4 +1,6 @@
 import torch
+# Completely deprecated. Move out 
+
 '''
 GNN has 2 sources of data. Graph Structure and Graph feature data.
 Memory manager manages the gpu memory on all devices with graph features.
@@ -127,14 +129,22 @@ class MemoryManager():
     # @profile
 class GpuLocalStorage():
 
-    def __init__(self, cache_percentage, features, batch_in, \
+    def __init__(self, cache_percentage, features, order_book, partition_offsets,
                  proc_id):
         self.cache_percentage = cache_percentage
-        # print(features.is_pinned(), "Features pin status")
+        print(features.is_pinned(), "Features pin status")
+        print("This approach of pinning does not work for all ")
         # self.features = features.pin_memory()
         self.features = features
+        self.order_book = order_book
+        features_to_cache = []
+        cached = 0
+        for pid, offset in enumerate(order_book[proc_id]):
+            features_to_cache.append(features[partition_offsets[pid]:offset])    
+            cached += offset - partition_offsets[pid]
         # Batch_in tensor with space for extra
-        self.batch_in = batch_in.to(proc_id)
+        self.batch_in = torch.cat(features_to_cache, dim = 0).to(proc_id)
+        assert(self.batch_in.shape[0] == cached)
         self.proc_id = proc_id
 
 
@@ -162,14 +172,12 @@ def unit_test_memory_manager():
     print("Takes in a graph and places all data at correct location")
     print("Test various caching percentages.!")
     from utils import get_process_graph
-    dg_graph,partition_map, num_classes = get_process_graph("ogbn-arxiv")
-    features = torch.rand(dg_graph.num_nodes(),602)
-    cache_percentage = .10
-    batch_size = 1024
-    fanout = [10,10,10]
-    training_nodes = torch.randperm(dg_graph.num_nodes())[:1024*10]
-    mm = MemoryManager(dg_graph, features, num_classes, cache_percentage,fanout, batch_size,  partition_map)
-    # mm.refresh_cache(training_nodes)
+    from utils import get_order_book
+    dg_graph,partition_offsets, num_classes = get_process_graph("ogbn-arxiv", -1 , 4)
+    cache_percentage = "4GB"
+    order_book = get_order_book("ogbn-arxiv", cache_percentage)
+    proc_id = 0
+    GpuLocalStorage(cache_percentage, dg_graph.ndata['features'], order_book, partition_offsets, proc_id)
     print("Memory manager complete.")
 
 if __name__ == "__main__":
