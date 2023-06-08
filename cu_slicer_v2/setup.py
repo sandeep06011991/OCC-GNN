@@ -47,7 +47,7 @@ ext_modules = [
         include_dirs=[pybind11.get_include(),ROOT,\
             "/home/spolisetty/thirdparty/thrust/dependencies/cub","/home/spolisetty/3rdparty/thrust/dependencies/libcubxx" ],
         language='c++',
-        extra_compile_args=['-lstdc++','-G','-g','--maxrregcount=24',\
+        extra_compile_args=['-lstdc++','-G','-g','--maxrregcount=32',\
              '--compiler-options','-Wall',
 '--extended-lambda','-Xcompiler=-fno-gnu-unique',"-arch=sm_70"]
         # sorted(glob("pybind_test.cpp"),"object.cpp"),

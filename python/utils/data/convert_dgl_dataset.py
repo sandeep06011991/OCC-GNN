@@ -32,12 +32,14 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
     train_idx = split_idx['train']
     val_idx = split_idx['valid']
     test_idx = split_idx['test']
+    
     print("Train", train_idx.shape)
     print("Val", val_idx.shape)
     print("Test", test_idx.shape)
 
 
-    if True:
+    if False:
+        # Always back this up
         print("Note check if any new library functions")
         mask = torch.zeros((num_nodes,), dtype=torch.bool)
         mask[train_idx] = 1
@@ -65,17 +67,18 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
     with open(TARGET_DIR+'/partition_offsets.txt', 'w') as fp:
         fp.write(",".join([str(i) for i in partition_offsets]))
 
-    new_order = torch.cat(ordered_partition_nodes, dim = 0)    
-    values,_ = torch.sort(new_order)
+    new_to_old_order = torch.cat(ordered_partition_nodes, dim = 0)    
+    values,old_to_new_order = torch.sort(new_to_old_order)
     assert(torch.all(torch.arange(graph.num_nodes()) == values))
 
     # Start reordering everything
-    graph = dgl.graph((new_order[edges[0]], new_order[edges[1]]))
+    graph = dgl.graph((old_to_new_order[edges[0]], old_to_new_order[edges[1]]), num_nodes = num_nodes)
     sparse_mat = graph.adj()
     # Storing the graph in CSC format is ideal for sampling 
     # DGL Graph can be constructed from CSC format
     indptr, indices, _ = sparse_mat.csc()
     out_degrees = graph.out_degrees()
+    
     with open(TARGET_DIR + '/out_degrees.bin', 'wb') as fp:
         fp.write(out_degrees.numpy().astype(np.int32).tobytes())
     
@@ -90,31 +93,37 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
         fp.write(indptr.numpy().astype(np.int32).tobytes())
     with open(TARGET_DIR+'/indices.bin', 'wb') as fp:
         fp.write(indices.numpy().astype(np.int32).tobytes())
-    features = features[new_order]
+    features = features[new_to_old_order]
     with open(TARGET_DIR+'/features.bin', 'wb') as fp:
         fp.write(features.numpy().astype('float32').tobytes())
-    with open(TARGET_DIR + '/global_order.bin','wb') as fp:
-        fp.write(new_order.numpy().astype('int32').tobytes())
+    with open(TARGET_DIR + '/new_to_old_order.bin','wb') as fp:
+        fp.write(new_to_old_order.numpy().astype('int32').tobytes())
+    with open(TARGET_DIR + '/old_to_new_order.bin','wb') as fp:
+        fp.write(old_to_new_order.numpy().astype('int32').tobytes())
     labels = labels.flatten()
-    labels = labels[new_order]
+    assert(not torch.any(torch.isnan(labels[train_idx])))
+    labels = labels[new_to_old_order]
+    
     with open(TARGET_DIR+'/labels.bin', 'wb') as fp:
         fp.write(labels.numpy().astype('int32').tobytes())
     
     assert features.shape[0] == num_nodes
     feature_dim = features.shape[1]
     csum_features = torch.sum(features).item()
+    
+    train_idx = old_to_new_order[train_idx]
+    test_idx = old_to_new_order[test_idx]
+    val_idx = old_to_new_order[val_idx]
+    
     assert(not torch.any(torch.isnan(labels[train_idx])))
     assert(not torch.any(labels[train_idx] < 0))
     for idx in [train_idx, test_idx, val_idx]:
         nan_lab = torch.where(torch.isnan(labels))
         labels[nan_lab] = 0
         assert labels.shape[0] == num_nodes
-    
     csum_labels = torch.sum(labels).item()
     num_classes = int(torch.max(labels) + 1)
-    train_idx = new_order[train_idx]
-    test_idx = new_order[test_idx]
-    val_idx = new_order[val_idx]
+
 
     with open(TARGET_DIR+'/train_idx.bin', 'wb') as fp:
         fp.write(train_idx.numpy().astype('int32').tobytes())
@@ -148,7 +157,7 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
 if __name__=="__main__":
     # assert(len(sys.argv) == 3)
     nname = ["ogbn-papers100M"]
-    # nname = ["ogbn-arxiv"]
+    nname = [ "ogbn-papers100M"]
     # Note papers 100M must be reordered
     for name in nname:
         target = ROOT_DIR + "/" + name

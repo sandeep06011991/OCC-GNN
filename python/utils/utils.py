@@ -19,6 +19,12 @@ import dgl
 from os.path import exists
 import logging 
 import time 
+import torch
+from ogb.nodeproppred import DglNodePropPredDataset
+import os
+from os.path import exists
+import dgl
+import time 
 
 def get_data_dir():
     # Todo: Repeated code, 
@@ -186,6 +192,29 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
     print(f"Total time to read the graph {t2-t1}")
     # dg_graph = dg_graph.astype(torch.int32)
     return dg_graph, partition_offsets, num_classes
+
+
+# Keep these untouched
+def get_dgl_graph(name):
+    dataset = DglNodePropPredDataset(name, root=DATA_DIR)
+    graph, labels = dataset[0]
+    num_edges = graph.num_edges()
+    num_nodes = graph.num_nodes()
+    features = graph.ndata['feat']
+    graph.ndata['features']   = features
+    assert features.shape[0] == num_nodes
+    graph.ndata['labels'] = labels
+    split_idx = dataset.get_idx_split()
+    train_idx = split_idx['train']
+    val_idx = split_idx['valid']
+    test_idx = split_idx['test']
+    idxs = ['train', 'valid', 'test']
+    for idx in idxs:
+        mask = torch.zeros((num_nodes,), dtype=torch.bool)
+        mask[split_idx[idx]] = True
+        graph.ndata[idx] = mask
+    num_classes = max(labels[train_idx]) + 1
+    return graph, None, num_classes
 
 
 # a,b = get_dgl_graph('ogbn-arxiv')

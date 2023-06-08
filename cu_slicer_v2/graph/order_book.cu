@@ -12,6 +12,11 @@ void test(OrderBook * od){
     for(int i = 0 ; i < 5; i++){
         printf("%d \n",od->partition_offsets[i]);
     }
+    for(int i = 0 ; i < 4; i++){
+        for(int j = 0 ; j < 4; j++){
+        printf("%d \n",od->cached_offsets[i][j]);
+    }
+    }
 }
 
 vector<int> split(string str, string token){
@@ -44,10 +49,13 @@ OrderBook::OrderBook(std::string BIN_DIR, std::string graphname,\
                 auto v = split(line, ",");
                 assert(v.size() == partitions);
                 for(int j = 0; j < partitions ; j ++ ){
-                   cached_offsets[partition][j] == v[j]; 
+                   cached_offsets[partition][j] = v[j]; 
                 }
-            }
+                partition ++;
             
+            }
+            assert(partition == partitions);
+                 
         }
         {
         std::fstream file(BIN_DIR + "/" + graphname + "/partition_offsets.txt");
@@ -61,7 +69,8 @@ OrderBook::OrderBook(std::string BIN_DIR, std::string graphname,\
         }
         gpuErrchk(cudaMalloc(&order_book_d, sizeof(OrderBook)));
         gpuErrchk(cudaMemcpy(order_book_d, this, sizeof(OrderBook), cudaMemcpyHostToDevice));
-        gpuErrchk(cudaDeviceSynchronize())
+        test<<<1,1>>>(order_book_d);
+        gpuErrchk(cudaDeviceSynchronize());
     }
 
 };

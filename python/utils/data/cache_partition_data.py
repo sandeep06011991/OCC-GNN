@@ -14,6 +14,7 @@ def write_storage_order_book(graph_name:str, cache_size:str):
     meta = {}
     for line in lines:
         k, v = line.split("=")
+        print(k,v)
         meta[k] = int(v)
 
     with open(TARGET_DIR + "/partition_offsets.txt", 'r') as fp:
@@ -27,10 +28,11 @@ def write_storage_order_book(graph_name:str, cache_size:str):
     if cache_size[-2:] == "MB":
         size_in_bytes = (1024 ** 2) * int(cache_size[:-2])
 
-    percentage_of_nodes_to_cache = size_in_bytes/(meta['num_nodes'] * meta['feature_dim'] *  32)
+    percentage_of_nodes_to_cache = size_in_bytes/(meta['num_nodes'] * meta['feature_dim'] *  4)
     percentage_of_nodes_to_cache = min(1, percentage_of_nodes_to_cache)
     nodes_to_cache = int(percentage_of_nodes_to_cache * num_nodes)
 
+    print(nodes_to_cache, "nodes to cache")
     fsize = meta['feature_dim']
     import numpy as np
     num_partitions = 4
@@ -58,11 +60,10 @@ def write_storage_order_book(graph_name:str, cache_size:str):
         if(nodes_to_cache_for_partition == 0):
             orderbook.append(local_ordering)
             continue
-        
-        global_nodes_not_partition = torch.cat(global_nodes_not_in_partition)
-        not_in_partition_degree = out_degree[global_nodes_not_partition]
-        values, indices = torch.sort(not_in_partition_degree)
-        global_nodes_not_in_partition_cached = indices[:nodes_to_cache_for_partition]
+        global_nodes_not_in_partition = torch.cat(global_nodes_not_in_partition)
+        not_in_partition_degree = out_degree[global_nodes_not_in_partition]
+        values, indices = torch.sort(not_in_partition_degree, descending = True)
+        global_nodes_not_in_partition_cached =global_nodes_not_in_partition[indices[:nodes_to_cache_for_partition]]
         for i in range(num_partitions):
             if i == curr_partition:
                 continue
@@ -70,7 +71,6 @@ def write_storage_order_book(graph_name:str, cache_size:str):
                 & (global_nodes_not_in_partition_cached < partition_offsets[i + 1])
             local_ordering[i] = partition_offsets[i] + global_nodes_not_in_partition_cached[selected].shape[0]   
         orderbook.append(local_ordering)
-    print(orderbook)    
     with open(f"{TARGET_DIR}/order_book_{cache_size}.txt", 'w') as fp:
         for p_offsets in orderbook:
             str_offsets = [str(p) for p in p_offsets]
@@ -78,4 +78,4 @@ def write_storage_order_book(graph_name:str, cache_size:str):
             fp.write(f"{str_offsets}\n")    
 
 if __name__ == "__main__":
-    write_storage_order_book("ogbn-arxiv", "1GB")    
+    write_storage_order_book("ogbn-papers100M", "2GB")    

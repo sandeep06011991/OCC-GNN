@@ -24,7 +24,7 @@ from utils.data.env import *
 from utils.utils import *
 import pickle
 import nvtx
-
+import gc
 def average(ls):
     if(len(ls) == 1):
         return ls[0]
@@ -110,17 +110,21 @@ def run(rank, args,  data):
     sampler = dgl.dataloading.MultiLayerNeighborSampler(
             [int(fanout) for fanout in args.fan_out.split(',')], replace = False)
     world_size = 4
+    print(sampler, "fanout")
+    print(args.fan_out)
+
     print(train_nid.dtype)
     train_nid = train_nid.split(train_nid.size(0) // world_size)[rank]
     print("nubmer of batches", train_nid.shape[0]/args.batch_size)
     train_nid = train_nid.to(device)
+    
     g = g.formats(['csc'])
         
     if args.sample_gpu:
         # copy only the csc to the GPU
         dataloader = dgl.dataloading.DataLoader(
             g.to(device),
-            train_nid.to(torch.int32),
+            train_nid,
             sampler,
             device=device,
             batch_size=args.batch_size,
@@ -132,7 +136,7 @@ def run(rank, args,  data):
         print("Use UVA True")
         dataloader = dgl.dataloading.DataLoader(
             g,
-            train_nid.to(torch.int32),
+            train_nid,
             sampler,
             device=device,
             batch_size=args.batch_size,
@@ -210,6 +214,7 @@ def run(rank, args,  data):
                 t1 = time.time()
                 e0.record()
                 input_nodes, seeds, blocks = next(dataloader_i)
+                print(blocks)
                 torch.cuda.nvtx.range_pop()
                 e1.record()
                 e1.synchronize()
@@ -231,7 +236,7 @@ def run(rank, args,  data):
                     edges_computed += blk.edges()[0].shape[0]
                     e.append(blk.edges()[0].shape[0])
                     n.append(blk.num_dst_nodes())
-                #print(device, e, n)    
+                print(device, e, n)    
                 #print(edges_computed)
                 t3 = time.time()
                 batch_time[DATALOAD_START_TIME] = t3
@@ -272,9 +277,7 @@ def run(rank, args,  data):
                 with torch.autograd.profiler.profile(enabled=(False), use_cuda=True, profile_memory = True) as prof:
                     e3.record()
                     batch_pred = model(blocks, batch_inputs)
-                    print(batch_pred.shape, torch.max(batch_labels), torch.min(batch_labels))
-                    
-                    loss = loss_fcn(batch_pred, batch_labels)
+                    loss = loss_fcn(batch_pred, batch_labels.flatten())
                     
                     e4.record()
                     loss.backward()
@@ -348,7 +351,7 @@ def run(rank, args,  data):
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("multi-gpu training")
     argparser.add_argument('--graph',type = str, required = True)
-    argparser.add_argument('--cache-per', type =float, required = True)
+    argparser.add_argument('--cache-size', type = str, required = True)
     argparser.add_argument('--model',type = str, required = True)
     argparser.add_argument('--gpu', type=int, default=0,
                            help="GPU device ID. Use -1 for CPU training")
@@ -377,15 +380,17 @@ if __name__ == '__main__':
     # load ogbn-products data
     #root = "/mnt/bigdata/sandeep/"
     #from utils import  get_process_graph
-    dg_graph, partition_map, num_classes = get_process_graph(args.graph, -1, 4)
+    dg_graph, partition_map, num_classes = get_dgl_graph(args.graph)
     data = dg_graph
-    train_idx = torch.where(data.ndata.pop('train_mask'))[0]
-    if args.graph != "mag240M":
-        val_idx = torch.where(data.ndata.pop('val_mask'))[0]
-        test_idx = torch.where(data.ndata.pop('test_mask'))[0]
-    else: 
-        val_idx = None
-        test_idx = None    
+    train_idx = torch.where(data.ndata.pop('train'))[0]
+    val_idx = torch.where(data.ndata.pop('valid'))[0]
+    test_idx = torch.where(data.ndata.pop('test'))[0]
+    # if args.graph != "mag240M":
+    #     val_idx = torch.where(data.ndata.pop('val_mask'))[0]
+    #     test_idx = torch.where(data.ndata.pop('test_mask'))[0]
+    # else: 
+    #     val_idx = None
+    #     test_idx = None    
     print("Train IDx mask", train_idx.dtype)
     graph = dg_graph
     labels = dg_graph.ndata.pop('labels')
@@ -394,7 +399,7 @@ if __name__ == '__main__':
     n_classes = num_classes
     feat = dg_graph.ndata.pop('features')
     feat.share_memory_()
-    print("Feature shape ", feat.shape) 
+    print(graph.edges()[1][:30])
     graph = graph.add_self_loop()
     ###################################
     #data = DglNodePropPredDataset(name=args.graph, root=root)
@@ -406,9 +411,9 @@ if __name__ == '__main__':
 
     # feat = graph.ndata.pop('feat')
     print("Attempting to pin memory")
-    if args.graph != "mag240M":
-        # Pinning memory doubles up for mag causing an out of memory 
-        feat = feat.pin_memory()
+    # if args.graph != "mag240M":
+    #     # Pinning memory doubles up for mag causing an out of memory 
+    #     feat = feat.pin_memory()
     print("memory pinn successful  ")
     #year = graph.ndata.pop('year')
     if args.data == 'cpu':
@@ -421,13 +426,10 @@ if __name__ == '__main__':
         quiver.init_p2p(device_list = [0,1,2,3])
         csr_topo = quiver.CSRTopo(th.stack(graph.edges('uv')))
         #csr_topo = None
-        if feat.dtype == torch.float32:
-            cache_size = int((float(args.cache_per) * feat.shape[0] * feat.shape[1] * 4))
-        if feat.dtype == torch.float16:
-            cache_size = int((float(args.cache_per) * feat.shape[0] * feat.shape[1] * 2))
-        device_cache_size = cache_size
-        print("calculated cache_size ", cache_size)
-        if float(args.cache_per) > .25:
+        device_cache_size = args.cache_size
+        print("cache size", args.cache_size)
+        #if float(args.cache_per) > .25:
+        if False:
             cache_policy = "device_replicate"
             last_node_stored = nfeat.shape[0]
         else:
@@ -446,7 +448,12 @@ if __name__ == '__main__':
         #print(feat.shape)
         print("Get quiver feature")
         nfeat.from_cpu_tensor(feat)
-        if float(args.cache_per) == .25 :
+        dtype = feat.dtype
+        del feat
+        gc.collect()
+        print(dtype)
+        #if float(args.cache_per) == .25 :
+        if False:
             if len(nfeat.clique_tensor_list) != 0:
                 last_node_stored = nfeat.clique_tensor_list[0].shard_tensor_config.tensor_offset_device[3].end
             else:
@@ -476,12 +483,12 @@ if __name__ == '__main__':
     #n_classes = (labels.max() + 1).item()
     # Create csr/coo/csc formats before launching sampling processes
     # This avoids creating certain formats in each data loader process, which saves momory and CPU.
-    graph.create_formats_()
+    #graph.create_formats_()
     # Pack data
     metrics_queue = mp.Queue(4)
     train_idx = train_idx[torch.randperm(train_idx.shape[0])]
 
-    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, metrics_queue, feat.dtype
+    data = train_idx, val_idx, test_idx, in_feats, labels, n_classes, nfeat, graph, offsets, metrics_queue, dtype
 
 
     #test_accs = []

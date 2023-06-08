@@ -293,7 +293,6 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
             torch.cuda.nvtx.range_push("storage")
             input_features  = gpu_local_storage.get_input_features(gpu_local_sample.cache_hit_from, \
                     gpu_local_sample.cache_hit_to, gpu_local_sample.cache_miss_from, gpu_local_sample.cache_miss_to)
-            torch.distributed.barrier()
             movement_feat += time.time() - m_t1
             torch.cuda.nvtx.range_pop()
             edges, nodes, edge_split, node_split = gpu_local_sample.get_edges_and_send_data()

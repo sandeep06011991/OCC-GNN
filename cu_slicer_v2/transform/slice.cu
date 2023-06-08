@@ -22,8 +22,10 @@ void calculate_cache_hit_mask(NDTYPE * in_nodes, OrderBook * orderbook,\
       if(!orderbook->gpuContains(partitionId, nd)){
         cache_hit_mask[tid] = 0;
         cache_miss_mask[tid] = 1;
+      	printf("partition %d does not containt %d\n",partitionId, nd);
       }else{
-        cache_hit_mask[tid] = 1;
+        
+	cache_hit_mask[tid] = 1;
         cache_miss_mask[tid] = 0;
       }
       start = start + BLOCK_SIZE;

@@ -42,6 +42,7 @@ class OrderBook {
                 if(cached_offsets[partition][i]> nd2){
                     return true;
                 }else{
+                    printf("not foudn %d %d\n", cached_offsets[partition][i], nd2);
                     return false;
                 }
             }

@@ -83,7 +83,7 @@ int main(){
     gpuErrchk(cudaDeviceSynchronize());
   // ps2.debug();
   // ps1.push_consistency();
-    test_sample_partition_consistency(s1, ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
+  //  test_sample_partition_consistency(s1, ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);
   //   ps2.check_imbalance();
   //       loadbalancing = false;
   //       sc2->slice_sample(s1, ps2, loadbalancing);

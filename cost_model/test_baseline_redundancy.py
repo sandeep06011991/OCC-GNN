@@ -197,8 +197,8 @@ def test_redundancy_in_edges():
 
     #e3 = edges_per_epoch(graph_name, 4096)
 
-    print("bs",1024, "edges", e1)
-    print("bs",4*1024, "edges", e2, e2/e1)
+    print("bs", 1024, "edges", e1)
+    print("bs", 4*1024, "edges", e2, e2/e1)
     #print("bs",4*4 *1024, "edges", e3, e3/e2)
 
 # b = test_sampling_overhead()

@@ -24,7 +24,7 @@ void partition_edges_pull(PARTITIONIDX * workload_map, \
             // Last layer use storage map
     int tileId = blockIdx.x;
     int last_tile = ((out_nodes_size - 1) / TILE_SIZE + 1);
-
+    int work_done = 0;
     while(tileId < last_tile){
         int start = threadIdx.x + (tileId * TILE_SIZE);
         int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE),\
@@ -33,6 +33,7 @@ void partition_edges_pull(PARTITIONIDX * workload_map, \
             int tid = start;
             auto nd1 = out_nodes[tid];
             auto nbs = indptr[tid+1] - indptr[tid];
+            work_done += nbs;
             #ifdef DEBUG
                 assert(nd1 < num_nodes_in_graph);
             #endif
@@ -81,6 +82,8 @@ void partition_edges_pull(PARTITIONIDX * workload_map, \
       }
       tileId += gridDim.x;
     }
+    printf("block %d  warp %d threadId %d load %d  \n", blockIdx.x, threadIdx.x /32 , threadIdx.x, work_done);
+    
   }
 
 void PullSlicer::resize_bipartite_graphs(PartitionedLayer &ps,\
@@ -329,7 +332,7 @@ void PullSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
     auto num_edges = bs.indices.size();
     auto num_in_nodes = bs.layer_nds.size();
     std::cout << "Launch configuration " << GRID_SIZE(layer_nds.size()) << " " << TILE_SIZE <<"\n";
-    partition_edges_pull<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()), TILE_SIZE>>>\
+    partition_edges_pull<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(layer_nds.size()),BLOCK_SIZE>>>\
         ( this->sample_workload_map.ptr(),\
           layer_nds.ptr(), layer_nds.size(),\
           bs.layer_nds.ptr(), bs.layer_nds.size(),\
