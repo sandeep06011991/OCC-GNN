@@ -398,7 +398,6 @@ if __name__ == '__main__':
     
     n_classes = num_classes
     feat = dg_graph.ndata.pop('features')
-    feat.share_memory_()
     print(graph.edges()[1][:30])
     graph = graph.add_self_loop()
     ###################################
