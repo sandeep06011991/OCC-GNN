@@ -57,7 +57,9 @@ class GAT(torch.nn.Module):
         # lots of computations in the first few layers are repeated.
         # Therefore, we compute the representation of all nodes layer by layer.  The nodes
         # on each layer are of course splitted in batches.
-        # TODO: can we standardize this?
+        # For mag240 M might not be the right approach. 
+        # This is the right approach for products
+
         self.layers = self.convs
         for l, layer in enumerate(self.layers):
             y = th.zeros(g.num_nodes(), self.n_hidden * self.n_heads if l != len(

@@ -84,9 +84,6 @@ class SAGE(nn.Module):
         #     print("Done")
         # rr = torch.cat(r,dim = 0)
         # return rr
-
-    #     x = y
-    # return y
         for l, layer in enumerate(self.layers):
             y = th.zeros(g.num_nodes(), self.n_hidden if l != len(
                 self.layers) - 1 else self.n_classes).to(device)
