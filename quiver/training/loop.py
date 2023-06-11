@@ -4,6 +4,8 @@ import time
 import logging 
 from quiver import Feature 
 from torch import nn 
+from gpuutils import GpuUtils
+
 def load_subtensor(nfeat, labels, seeds, input_nodes, device):
     """
     Extracts features and labels for a set of nodes.
@@ -92,11 +94,13 @@ def train(rank, args, model, train_dataloader,\
                     batch_pred = model(blocks, batch_inputs)
                     total_correct += batch_pred.argmax(dim=-1).eq(batch_labels).sum().item()
                     total_predicted += seeds.shape[0]
-            experiment_metrics.add(epoch_metrics, total_correct/total_predicted, epoch_end - epoch_start)
+            df = GpuUtils.analyzeSystem()
+            memory_used = max(df['memory_usage_percentage'])        
+            experiment_metrics.add(epoch_metrics, total_correct/total_predicted, epoch_end - epoch_start, memory_used)
             logging.info(f"epoch {epoch}, validation accuracy {total_correct/total_predicted}")
             torch.cuda.empty_cache()
         else: 
-            experiment_metrics.add(epoch_metrics, 0, epoch_end - epoch_start )
+            experiment_metrics.add(epoch_metrics, 0, epoch_end - epoch_start, 0 )
             
     if rank == 0:
         experiment_metrics.compute_time()

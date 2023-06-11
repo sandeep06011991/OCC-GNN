@@ -52,7 +52,7 @@ def write_storage_order_book(graph_name:str, cache_size:str):
                 global_nodes_in_partition = ordered_partition_nodes[i]
             else:
                 global_nodes_not_in_partition.append(ordered_partition_nodes[i])
-            local_ordering.append(partition_offsets[i + 1])
+            local_ordering.append(partition_offsets[i])
         num_nodes_from_self =  min(nodes_to_cache, global_nodes_in_partition.shape[0])
         nodes_to_cache_for_partition -= num_nodes_from_self
         local_ordering[curr_partition] = partition_offsets[curr_partition] + \
@@ -78,4 +78,5 @@ def write_storage_order_book(graph_name:str, cache_size:str):
             fp.write(f"{str_offsets}\n")    
 
 if __name__ == "__main__":
-    write_storage_order_book("ogbn-papers100M", "2GB")    
+    write_storage_order_book("ogbn-arxiv", "2MB")
+    #write_storage_order_book("ogbn-papers100M", "2GB")    

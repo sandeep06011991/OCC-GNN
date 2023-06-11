@@ -42,7 +42,6 @@ class OrderBook {
                 if(cached_offsets[partition][i]> nd2){
                     return true;
                 }else{
-                    printf("not foudn %d %d\n", cached_offsets[partition][i], nd2);
                     return false;
                 }
             }
@@ -63,7 +62,7 @@ class OrderBook {
                     assert(false);
                 }
             }
-            offsets += cached_offsets[partition][i];
+            offsets += cached_offsets[partition][i] - partition_offsets[i];
         }
         assert(false);
         return -1;

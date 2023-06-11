@@ -82,7 +82,6 @@ void partition_edges_pull(PARTITIONIDX * workload_map, \
       }
       tileId += gridDim.x;
     }
-    printf("block %d  warp %d threadId %d load %d  \n", blockIdx.x, threadIdx.x /32 , threadIdx.x, work_done);
     
   }
 

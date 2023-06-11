@@ -141,6 +141,7 @@ class GpuLocalStorage():
         cached = 0
         for pid, offset in enumerate(order_book[proc_id]):
             features_to_cache.append(features[partition_offsets[pid]:offset])    
+            print(features_to_cache[-1].shape, partition_offsets[pid], offset, "Adding to cache")
             cached += offset - partition_offsets[pid]
         # Batch_in tensor with space for extra
         self.batch_in = torch.cat(features_to_cache, dim = 0).to(proc_id)

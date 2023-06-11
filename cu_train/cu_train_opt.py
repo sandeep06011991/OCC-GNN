@@ -55,8 +55,8 @@ def run_trainer_process(proc_id, gpus, sample_queue,  minibatches_per_epoch, fea
     torch.cuda.set_device(proc_id)
     from utils.utils import get_process_graph
     from utils.utils import get_order_book
-    dg_graph,partition_offsets, num_classes = get_process_graph(graph_name, -1 , 4)
     order_book = get_order_book(graph_name, cache_percentage)
+    partition_offsets = get_partition_offsets(graph_name)
     gpu_local_storage  = GpuLocalStorage(cache_percentage, features, order_book, partition_offsets, proc_id)
     if proc_id == 0:
         ## Configure logger

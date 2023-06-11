@@ -213,8 +213,9 @@ def get_dgl_graph(name):
         mask = torch.zeros((num_nodes,), dtype=torch.bool)
         mask[split_idx[idx]] = True
         graph.ndata[idx] = mask
-    num_classes = max(labels[train_idx]) + 1
-    return graph, None, num_classes
+    num_classes = int((max(labels[train_idx]) + 1).item())
+    print("Num of classes", num_classes)
+    return graph, None, num_classes, split_idx
 
 
 # a,b = get_dgl_graph('ogbn-arxiv')

@@ -116,9 +116,11 @@ if __name__ == '__main__':
 
     args = argparser.parse_args()
     assert args.model in ["GCN","GAT"]
-
+    
+    t1 = time.time()
     graph, partition_map, n_classes, idx_split = get_dgl_graph(args.graph)
-
+    t2 = time.time()
+    print("Time to load features", t2-t1)
     labels = graph.ndata.pop('labels')
     labels = labels.flatten().clone()
     labels = labels.type(torch.int64)
@@ -133,6 +135,8 @@ if __name__ == '__main__':
     sampler = dgl.dataloading.NeighborSampler(fanouts)
     del graph 
     gc.collect()
+    t3 = time.time()
+    print("Time to share graph", t3-t2)
 
     csr_topo = quiver.CSRTopo(edge_index=(row, col))
     world_size = 4
@@ -147,6 +151,8 @@ if __name__ == '__main__':
         last_node_stored = 0
     del features
     gc.collect()
+    t4 = time.time()
+    print("Time to create quiver Feature", t4 - t3)
     
     mp.spawn(run, args=(world_size, args, qfeat,\
         shared_graph, sampler, labels, idx_split, last_node_stored, in_feat_dim, n_classes), nprocs=world_size, daemon=True)

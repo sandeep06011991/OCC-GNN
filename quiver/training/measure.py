@@ -23,11 +23,11 @@ class MiniBatchMetrics:
     edges_computed: int 
     accuracy: float
     def __repr__(self) -> str:
-        return f'{self.sample_time},' + \
-            f'{self.data_movement_time},' + \
-                f'{self.forward_time},' + \
-                    f'{self.backward_time},' + \
-                        f'{self.total_time},{self.accuracy}'
+        return f'{self.sample_time:.2f},' + \
+            f'{self.data_movement_time:.2f},' + \
+                f'{self.forward_time:.2f},' + \
+                    f'{self.backward_time:.2f},' + \
+                        f'{self.total_time:.2f},{self.accuracy:.2f}'
 
 @dataclass
 class EpochMetrics:
@@ -61,8 +61,9 @@ class ExperimentMetrics:
     gpu_movement: list = field(default_factory=list)     
     valid_accuracy: list[float] = field(default_factory=list)
     edges: list[float] = field(default_factory=list)
+    percentage_memory_used: list[float] = field(default_factory=list)
 
-    def add(self, epoch:EpochMetrics, valid_accuracy: float, total_time):
+    def add(self, epoch:EpochMetrics, valid_accuracy: float, total_time, percentage_memory):
         self.sample_time.append(epoch.sample_time)
         self.data_movement_time.append(epoch.data_movement_time)
         self.forward_time.append(epoch.forward_time)
@@ -72,26 +73,28 @@ class ExperimentMetrics:
         self.valid_accuracy.append(valid_accuracy)
         self.edges.append(epoch.edges_computed)
         self.total_time.append(total_time)
+        self.percentage_memory_used.append(percentage_memory)
 
     def compute_volume(self):
         print(f"gpu_data_moved:{avg(self.gpu_movement)/(1024 ** 3)}GB")
         print(f"cpu_data_moved:{avg(self.cpu_movement)/(1024 ** 3)}GB")
         print(f"edges_per_epoch:{avg(self.edges)}")
-
+    
     def compute_time(self):
-        print(f"accuracy:{avg(self.valid_accuracy)}")
-        print(f"epoch_time:{avg(self.total_time)}")
-        print(f"sample_time:{avg(self.sample_time)}")
-        print(f"movement_feature:{avg(self.data_movement_time)}")
-        print(f"forward_time:{avg(self.forward_time)}")
-        print(f"backward_time:{avg(self.backward_time)}")
-
+        print(f"accuracy:{avg(self.valid_accuracy):.4f}")
+        print(f"epoch_time:{avg(self.total_time):.4f}")
+        print(f"sample_time:{avg(self.sample_time):.4f}")
+        print(f"movement_feature:{avg(self.data_movement_time):.4f}")
+        print(f"forward_time:{avg(self.forward_time):.4f}")
+        print(f"backward_time:{avg(self.backward_time):.4f}")
+        print(f"percentage gpu memory used:{max(self.percentage_memory_used):.4f}")
     def __repr__(self) -> str:
         s = ''
-        s += f"accuracy:{avg(self.valid_accuracy)}"
-        s += f"epoch_time:{avg(self.total_time)}"
-        s += f"sample_time:{avg(self.sample_time)}"
-        s += f"movement_feature:{avg(self.data_movement_time)}"
-        s += f"forward_time:{avg(self.forward_time)}"
-        s += f"backward_time:{avg(self.backward_time)}"
+        s += f"accuracy:{avg(self.valid_accuracy):.4f}"
+        s += f"epoch_time:{avg(self.total_time):.4f}"
+        s += f"sample_time:{avg(self.sample_time):.4f}"
+        s += f"movement_feature:{avg(self.data_movement_time):.4f}"
+        s += f"forward_time:{avg(self.forward_time):.4f}"
+        s += f"backward_time:{avg(self.backward_time):.4f}"
+        s += f"percentage gpu memory used:{max(self.percentage_memory_used):.4f}"
         return s
