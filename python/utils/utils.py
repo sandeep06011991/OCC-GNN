@@ -116,6 +116,7 @@ def get_partition_offsets(graphname):
 # Remove fsize and testing
 # Todo: Mostly we will use fixed fsize  
 def get_process_graph(filename, fsize,  num_gpus, testing = False,):
+    print("TODO: Refactor this not all function calls require the graph to be read")
     t1 = time.time()
     graphname = filename
     indptr = np.fromfile("{}/{}/indptr.bin".format(DATA_DIR,graphname),dtype = np.int32)

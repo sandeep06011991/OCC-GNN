@@ -52,7 +52,7 @@ class EpochMetrics:
 
 @dataclass
 class ExperimentMetrics:
-    sample_time: list = field(default_factory=list, repr = False)
+    sample_time: list = field(default_factory=list)
     data_movement_time : list[float] = field(default_factory=list)
     forward_time : list[float] = field(default_factory=list)
     backward_time : list[float] = field(default_factory=list)

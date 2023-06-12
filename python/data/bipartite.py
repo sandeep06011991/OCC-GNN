@@ -79,6 +79,10 @@ class Bipartite:
         edge_ids_remote = torch.arange(self.indices_R.shape[0], device = self.gpu_id, dtype = torch.int32)
         formats = "csc"
         in_nodes = self.num_in_nodes_local + self.num_in_nodes_pulled
+        print("Indptr", self.indptr_L.shape)
+        print("Meta", in_nodes, self.num_out_local)
+        if (self.num_out_local == 0):
+            self.indptr_L = torch.tensor([0],dtype = torch.int32, device = self.gpu_id)
         self.block_local = dgl.create_block(("csc",(self.indptr_L, self.indices_L,edge_ids_local)),\
                                                   num_src_nodes=in_nodes, num_dst_nodes=self.num_out_local)
         self.block_local = self.block_local.formats(['csr','csc','coo'])

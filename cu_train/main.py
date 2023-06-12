@@ -2,9 +2,6 @@ import argparse
 import argparse
 import torch
 import dgl
-# Ensures all enviroments are running on the correct version
-# assert(dgl.__version__ == '0.9.1post1' or\
-#         dgl.__version__ == '0.8.2' or dgl.__version__ == '0.8.2post1' or dgl.__version__=='0.9.1')
 assert(dgl.__version__ == '1.1.0+cu118')
 import time
 import nvtx
@@ -53,48 +50,7 @@ if (not path_set):
 '''
 from utils.utils import *
 import time
-import inspect
 from cu_shared import *
-
-# Trainer Queues, assign work to each of the trainer which are later shuffled
-# deterministic flag disables shuffle for e2e testing to with naive dgl version
-def work_producer(trainer_queues,training_nodes, batch_size,
-    no_epochs, num_workers, deterministic = False):
-    # TODO: num_workers is redundant
-    assert(len(trainer_queues) == num_workers)
-    # Problem one worker could probably not see it.
-    training_nodes = training_nodes.tolist()
-    num_nodes = len(training_nodes)
-    deterministic = False
-    for epoch in range(no_epochs):
-        current_offset = 0
-        step = 0
-        if not deterministic:
-            random.shuffle(training_nodes)
-        # batches across epochs are not distinguised as multiple queues are not synchronized and do not gurantee FIFO
-        while(current_offset +  batch_size < num_nodes):
-            for j in range(num_workers):
-                if current_offset + batch_size < num_nodes:
-                    trainer_queues[j].put(training_nodes[current_offset:current_offset + batch_size])
-                   
-                else:
-                    trainer_queues[j].put("DUMMY")
-                current_offset = current_offset + batch_size
-    print("All samples generated")
-    # for j in range(num_workers):
-    #     trainer_queues[j].put("END")
-    print("Waiting for clean up")
-    while(True):
-        all_empty = True
-        for j in range(num_workers):
-            if(trainer_queues[j].qsize()!=0):
-                all_empty = False
-            time.sleep(1)
-        if all_empty:
-            break
-    time.sleep(1)
-
-    print("WORK PRODUCER TRIGGERING END")
 
 
 def main(args):
@@ -106,7 +62,9 @@ def main(args):
         dg_graph,partition_map,num_classes = get_process_graph(args.graph, args.fsize, args.num_gpus)
     print("Read all data")
     features = dg_graph.ndata.pop('features')
-    if not args.deterministic:
+    train_nid = dg_graph.ndata['train_mask'].nonzero().flatten()
+    valid_nid = dg_graph.ndata['val_mask'].nonzero().flatten()
+    if True:
         print("Taking in features")
         if graph_name != "mag240M":
             print("Pin memory")
@@ -117,7 +75,7 @@ def main(args):
         features = dg_graph.ndata["features"]
         num_nodes = features.shape[0]
         features = torch.arange(0,num_nodes).reshape(num_nodes,1)
-    cache_percentage = args.cache_per
+    cache_size = args.cache_size
     batch_size = args.batch_size
     no_epochs = args.num_epochs
     num_gpus = args.num_gpus
@@ -128,21 +86,12 @@ def main(args):
     total_minibatches = int(features.shape[0]/batch_size) * no_epochs
     assert(features.is_shared())
     import random
-    # file_id = random.randint(0,10000)
-    # sm_manager = SharedMemManager(num_gpus, file_id)
 
-    #Not applicable as some nodes have zero features in ogbn-products
-    #assert(not torch.any(torch.sum(features,1)==0))
-    # Create main objects
-    # mm = MemoryManager(dg_graph, features, num_classes, cache_percentage, \
-    #                 fanout, batch_size,  partition_map, num_gpus, deterministic = args.deterministic)
-    # storage_vector = []
     num_workers = num_gpus
     # for i in range(num_gpus):
     #     storage_vector.append(mm.local_to_global_id[i].tolist())
     #     print("STorage check",len(storage_vector[-1]))
     # Each gpu gets vertices to sample from this queue from work producer
-    work_queues = [mp.Queue(3) for _ in range(num_workers)]
     # Exchange meta data required to read from shared memory
 
     exchange_queue = [mp.Queue(num_workers) for _ in range(num_workers)]
@@ -152,8 +101,6 @@ def main(args):
         print("Nodes per partition", partition_map[i + 1] - partition_map[i])
         print("Total degree", torch.sum(dg_graph.in_degrees()[partition_map[i] : partition_map[i + 1]].to(torch.int32)))
     print("Training nodes", train_nid.shape[0])
-    if args.deterministic:
-        train_nid = torch.arange(dg_graph.num_nodes())
 
     minibatches_per_epoch = int(len(train_nid)/minibatch_size)
     pull_optimization = False
@@ -166,41 +113,27 @@ def main(args):
         self_edge = True
         pull_optimization = True
         rounds = 4
-
-    shm = None
-
-
-    work_producer_process = mp.Process(target=(work_producer), \
-                  args=(work_queues, train_nid, minibatch_size, no_epochs,\
-                    num_workers))
-    work_producer_process.start()
-    #print("Change to make sampling not a bottleneck")
-    #sample_queues = [mp.Queue(queue_size) for i in range(4)]
+    val_acc_queue = mp.Queue(4)
     procs = []
     labels = dg_graph.ndata["labels"]
     labels.share_memory_()
-    barrier = mp.Barrier(num_gpus)
-    if args.optimization1 :
-        from cu_train_opt import run_trainer_process
-    else:
-        assert(False)
-        from cu_train import run_trainer_process
+    from cu_train_opt import run_trainer_process
     for proc_id in range(num_gpus):
         print("Starting ", proc_id)
         assert(features.is_shared())
         p = mp.Process(target=(run_trainer_process), \
-                      args=(proc_id, num_gpus, work_queues[proc_id], minibatches_per_epoch \
-                       , features, args, \
+                      args=(proc_id, num_gpus,  features, args, \
                        num_classes, labels, \
-                         args.deterministic,\
-                         cache_percentage, args.num_epochs,\
-                          fanout, exchange_queue, args.graph, args.num_layers, num_gpus, shm, barrier))
+                         cache_size, \
+                          fanout, exchange_queue, \
+                              args.graph, args.num_layers, train_nid, valid_nid,\
+                                val_acc_queue))
         p.start()
         procs.append(p)
+
     for proc in procs:
         proc.join()
     print("All Sampler returned")
-    work_producer_process.join()
     print("Leader process returns")
     #for p in procs:
      #   print("Waiting for trainer process")
@@ -219,14 +152,12 @@ if __name__=="__main__":
     # Input data arguments parameters.
     argparser.add_argument('--graph',type = str, default= "ogbn-arxiv", required = True)
     # training details
-    argparser.add_argument('--log-every', type=int, default=20)
-    argparser.add_argument('--eval-every', type=int, default=5)
     argparser.add_argument('--lr', type=float, default=0.003)
     # .007 is best
     argparser.add_argument('--fsize', type = int, default = -1, help = "use only for synthetic")
     # model name and details
     argparser.add_argument('--debug',type = bool, default = False)
-    argparser.add_argument('--cache-per', type =str,  required = True)
+    argparser.add_argument('--cache-size', type =str,  required = True)
     argparser.add_argument('--model',help="gcn|gat", required = True)
     argparser.add_argument('--num-epochs', type=int, default=6)
     argparser.add_argument('--num-hidden', type=int, default=256)
@@ -235,22 +166,14 @@ if __name__=="__main__":
                         help="number of hidden attention heads if gat")
     argparser.add_argument('--fan-out', type=str, default='20,20,20')
     argparser.add_argument('--batch-size', type=int, default=(4096), required = True)
-    argparser.add_argument('--dropout', type=float, default=0)
-    argparser.add_argument('--deterministic', default = False, action="store_true")
-    argparser.add_argument('--early-stopping', action = "store_true")
     argparser.add_argument('--test-graph-dir', type = str)
     argparser.add_argument('--num-gpus', type = int, required = True)
     argparser.add_argument('--random-partition', action = "store_true", default = False)
-    argparser.add_argument('--optimization1', action = "store_true", default = False)
     argparser.add_argument('--skip-shuffle', action = "store_true", default = False)
     argparser.add_argument('--load-balance', action = "store_true", default = False)
-    argparser.add_argument('--barrier', action = "store_true", default = False)
-    argparser.add_argument('--reusable-buffers', action = "store_true", default = False)
     argparser.add_argument('--use-uva', action = "store_true", default = False)
     # We perform only transductive training
-
-    # argparser.add_argument('--inductive', action='store_false',
-    #                        help="Inductive learning setting")
+    
     args = argparser.parse_args()
     mp.set_start_method('spawn')
     assert(args.model in ["gcn","gat", "gat-pull"])

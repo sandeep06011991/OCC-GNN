@@ -61,7 +61,9 @@ device_vector<DATATYPE>::device_vector(std::vector<DATATYPE> &host){
 template<typename DATATYPE>
  void device_vector<DATATYPE>::resize(size_t new_size){
     c10::TensorOptions opts;
-    std::cout << "Creating size" << new_size <<"\n";
+    if(new_size != 0){
+      std::cout << "Creating " << new_size <<"\n";
+    }
     if(sizeof(DATATYPE) == 8){
       opts = torch::TensorOptions().dtype(torch::kInt64)\
       .device(torch::kCUDA, device_vector<DATATYPE>::DEVICE);

@@ -4,8 +4,7 @@ import argparse
 import numpy as np
 import torch
 import dgl
-from dgl._deprecate.graph import DGLGraph
-from dgl.contrib.sampling import SamplerPool
+from dgl import DGLGraph
 import dgl.function as fn
 import multiprocessing
 
@@ -16,6 +15,9 @@ if username =="spolisetty_umass_edu":
 if username == "spolisetty":
     ROOT_DIR = "/data/sandeep/pagraph"
     PATH_DIR = "/home/spolisetty/OCC-GNN/upgraded_pagraph"
+if username == "ubuntu":
+    ROOT_DIR = "/home/ubuntu/data/pagraph"
+    PATH_DIR = "/home/ubuntu/OCC-GNN/upgraded_pagraph"
 
 path_set = False
 for p in sys.path:
@@ -27,7 +29,6 @@ if (not path_set):
     sys.path.append(PATH_DIR)
 
 import PaGraph.data as data
-from PaGraph.parallel import SampleDeliver
 
 
 def main(args):
