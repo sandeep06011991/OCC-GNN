@@ -7,6 +7,57 @@
 #include "../graph/order_book.h"
 using namespace cuslicer;
 
+
+// template<int BLOCK_SIZE, int TILE_SIZE>
+// void partition_edge_pull_alt(PARTITIONIDX * workload_map, \
+//       NDTYPE * out_nodes, size_t out_nodes_size, \
+//     // Sample layer out nodes indexed into the graph
+//       NDTYPE *in_nodes, size_t in_nodes_size, \
+//       NDTYPE * indptr, NDTYPE * indices, size_t num_edges, \
+//       long num_nodes_in_graph, \
+//         NDTYPE * index_in_nodes_local,
+//         NDTYPE * index_out_nodes, NDTYPE * index_indptr_local,\
+//          NDTYPE * index_edge_local,\
+//       // Partitioned graphs such that indptr_map[dest, src]
+//        		bool last_layer, OrderBook * book, int NUM_GPUS){
+//   int tileId = blockIdx.x;
+//   int last_tile = ((out_nodes_size - 1) / TILE_SIZE + 1);
+//   int work_done = 0;
+//   __shared__ NDTYPE indptrSh[BLOCK_SIZE + 1];
+//   __shared__ NDTYPE outNodes[BLOCK_SIZE];
+//   while(tileId < last_tile){
+//       int start = threadIdx.x + (tileId * TILE_SIZE);
+//       int end = threadIdx.x + (tileId + 1) * TILE_SIZE));
+//       while(start < end){
+//         __syncthreads();
+//         __shared__ NDTYPE last_local_node;
+//         if(start < out_nodes_size){
+//           indptrSh[threadIdx.x] = indptr[start];
+//           if(threadIdx.x == 0){
+//             NDTYPE last_local_node = min(start + BLOCK_SIZE, out_nodes_size );
+//             indptrSh[last_local_node - start] = indptr[last_local_node];
+//             // Use shuffle sync to get these values 
+//           }
+//         }  
+//         outNodesSh[threadIdx.x] = out_nodes[start];
+//         __syncthreads()
+//         start_offset = indptrSh[0];
+//         end_offset = indptrSh[last_local_node];
+//         NDTYPE edge_to_process = threadId.x;
+//         NDTYPE currNode = 0
+//         while(start_offset < end_offset){
+//             while(edge_to_process + start_offset < indptrSh[currNode + 1] ){
+//                   currNode ++;
+//               }
+//               edge_to_process += BLOCK_SIZE;
+
+//             }
+//           }
+//         start += BLOCK_SIZE
+//       }
+//       tileId += gridDim.x;
+//     }
+//   }
 // Elaborate as many cases as possible.
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__

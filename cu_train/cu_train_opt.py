@@ -94,14 +94,10 @@ def train_minibatch(target_nodes, num_gpus, partition_offsets,\
         sample_id, for_worker_id, shape = exchange_queue[proc_id].get()
         assert(for_worker_id == proc_id)
         if shape != "EMPTY":
-            print(sample_id, shape, "SHAPE TO SHUFFLE")
             recv_dict[sample_id] = torch.empty(shape, device = proc_id, dtype = torch.int32)
         else:
             recv_dict[sample_id] = torch.empty([0], device= proc_id, dtype = torch.int32)
 
-    print("Memory allocated shuffling", torch.cuda.memory_allocated(), torch.cuda.memory_reserved())
-    print([send_dict[i].shape for i in send_dict.keys()],\
-            [recv_dict[i].shape for i in recv_dict.keys()], "Shuffling ", proc_id)
     shuffle_functional(proc_id, send_dict, recv_dict, num_gpus)
     torch.cuda.synchronize()
     t2 = time.time()
@@ -127,10 +123,8 @@ def train_minibatch(target_nodes, num_gpus, partition_offsets,\
                 continue
             gpu_local_sample = Gpu_Local_Sample()
             device = torch.device(proc_id)
-            #print(tensor.shape, "RECOEVECD", tensor.dtype, torch.sum(tensor))
             construct_from_tensor_on_gpu(tensor, device, gpu_local_sample, num_gpus = num_gpus)
-        # construct_from_tensor_on_gpu(tensor, device, gpu_local_sample, num_gpus = gpus)
-        # gpu_local_sample.debug()
+    
         torch.cuda.nvtx.range_push("prepare")
         gpu_local_sample.prepare(attention)
         torch.cuda.nvtx.range_pop()
@@ -169,7 +163,6 @@ def train_minibatch(target_nodes, num_gpus, partition_offsets,\
             if(proc_id == 0):
                 for _ in range(num_gpus - 1):
                     correct_,total_ = val_acc_queue.get()
-                    print(acc, correct_, total_, "Popped ")
                     correct = correct + correct_ 
                     total = total + total_
                 minibatch_metrics.correct = correct
@@ -305,8 +298,8 @@ def run_trainer_process(proc_id,  num_gpus, features, args\
         t2 = time.time()    
         epoch_time = t2 - t1
         num_val_minibatches = valid_nid.size(0)//args.batch_size
-        correct = 1
-        total = 1 
+        correct = 0
+        total = 0
         for minibatch in range(num_val_minibatches):
             batch_nodes = valid_nid[minibatch * args.batch_size : (minibatch + 1) * args.batch_size]
             isTrain = False 

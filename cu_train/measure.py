@@ -89,6 +89,7 @@ class ExperimentMetrics:
         
     def __str__(self) -> str:
                 # Todo use the metrics data class 
+        print("All accuracy", self.accuracy)
         return f"\n\nVal accuracy: {max(self.accuracy):.3f}\n" + \
             f"Sample time: {avg(self.sample_get_time):.3f}\n" + \
             f"Epoch time: {avg(self.epoch_time):.3f}\n"

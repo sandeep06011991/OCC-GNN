@@ -18,6 +18,7 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
     dataset = DglNodePropPredDataset(name, root=ROOT_DIR)
     graph, labels = dataset[0]
     edges = graph.edges()
+
     graph.remove_edges(torch.where(edges[0] == edges[1])[0])
     edges = graph.edges()
     t2 = time.time()
@@ -33,6 +34,10 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
     val_idx = split_idx['valid']
     test_idx = split_idx['test']
     
+    check_sum_features_train  = torch.sum(features[train_idx])
+    check_sum_features_val = torch.sum(features[val_idx])
+    check_sum_graph_train = torch.sum(graph.in_degrees(train_idx))
+    check_sum_graph_val = torch.sum(graph.in_degrees(val_idx)) 
     print("Train", train_idx.shape)
     print("Val", val_idx.shape)
     print("Test", test_idx.shape)
@@ -43,7 +48,7 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
         print("Note check if any new library functions")
         mask = torch.zeros((num_nodes,), dtype=torch.bool)
         mask[train_idx] = 1
-        mask[val_idx] = 2 
+        #mask[val_idx] = 2 
         graphs = dgl.metis_partition(graph, num_partitions, balance_ntypes = mask)    
         p_map = np.zeros(graph.num_nodes(), dtype = np.int32)
         for p in range(num_partitions):
@@ -116,6 +121,12 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
     test_idx = old_to_new_order[test_idx]
     val_idx = old_to_new_order[val_idx]
     
+    assert(check_sum_features_train == torch.sum(features[train_idx]))
+    assert(check_sum_features_val == torch.sum(features[val_idx]))
+    assert(check_sum_graph_train == torch.sum(graph.in_degrees(train_idx)))
+    assert(check_sum_graph_val == torch.sum(graph.in_degrees(val_idx)))
+    
+    print("All check sums passed")
     assert(not torch.any(torch.isnan(labels[train_idx])))
     assert(not torch.any(labels[train_idx] < 0))
     for idx in [train_idx, test_idx, val_idx]:
@@ -159,7 +170,7 @@ if __name__=="__main__":
     # assert(len(sys.argv) == 3)
     nname = ["ogbn-papers100M"]
     nname = [ "ogbn-papers100M"]
-    nname = ["ogbn-papers100M"]
+    nname = ["ogbn-arxiv"]
     # Note papers 100M must be reordered
     for name in nname:
         target = ROOT_DIR + "/" + name
