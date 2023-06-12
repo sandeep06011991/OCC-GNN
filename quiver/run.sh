@@ -1,11 +1,11 @@
 # Overnight scripts
 #python3 quiver_train.py --model GCN --batch-size 1024 \
 #    --graph ogbn-papers100M --num-hidden 256 --cache-size 7GB 
-python3 dgl_train.py --model GCN --batch-size 1024 \
-	--graph ogbn-papers100M --num-hidden 256
-
 python3 dgl_train.py --model GAT --batch-size 1024 \
-	--graph ogbn-papers100M --num-hidden 256 
+	--graph ogbn-arxiv --num-hidden 256
+
+# python3 dgl_train.py --model GAT --batch-size 1024 \
+# 	--graph ogbn-papers100M --num-hidden 256 
 
 #python3 quiver_train.py --model GAT --batch-size 1024 \
  #   --graph ogbn-papers100M --num-hidden 256 --cache-size 4GB

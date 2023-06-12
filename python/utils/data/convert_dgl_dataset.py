@@ -38,11 +38,12 @@ def write_dataset_dataset(name, TARGET_DIR, num_partitions = 4):
     print("Test", test_idx.shape)
 
 
-    if False:
+    if True:
         # Always back this up
         print("Note check if any new library functions")
         mask = torch.zeros((num_nodes,), dtype=torch.bool)
         mask[train_idx] = 1
+        mask[val_idx] = 2 
         graphs = dgl.metis_partition(graph, num_partitions, balance_ntypes = mask)    
         p_map = np.zeros(graph.num_nodes(), dtype = np.int32)
         for p in range(num_partitions):
@@ -158,6 +159,7 @@ if __name__=="__main__":
     # assert(len(sys.argv) == 3)
     nname = ["ogbn-papers100M"]
     nname = [ "ogbn-papers100M"]
+    nname = ["ogbn-papers100M"]
     # Note papers 100M must be reordered
     for name in nname:
         target = ROOT_DIR + "/" + name

@@ -75,6 +75,7 @@ def main(args):
         features = dg_graph.ndata["features"]
         num_nodes = features.shape[0]
         features = torch.arange(0,num_nodes).reshape(num_nodes,1)
+    
     cache_size = args.cache_size
     batch_size = args.batch_size
     no_epochs = args.num_epochs

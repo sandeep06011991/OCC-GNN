@@ -305,8 +305,8 @@ def run_trainer_process(proc_id,  num_gpus, features, args\
         t2 = time.time()    
         epoch_time = t2 - t1
         num_val_minibatches = valid_nid.size(0)//args.batch_size
-        correct = 0
-        total = 0 
+        correct = 1
+        total = 1 
         for minibatch in range(num_val_minibatches):
             batch_nodes = valid_nid[minibatch * args.batch_size : (minibatch + 1) * args.batch_size]
             isTrain = False 
