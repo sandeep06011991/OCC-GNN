@@ -37,47 +37,52 @@ def train_minibatch(target_nodes, num_gpus, partition_offsets,\
                     sampler, args, exchange_queue, optimizer, gpu_local_storage,\
                         attention, labels, events, isTrain, loss_fn, proc_id, model, val_acc_queue):
     minibatch_metrics = MinibatchMetrics()
-    for i in range(num_gpus):
-        print(partition_offsets[i], partition_offsets[i+1], target_nodes[:10])
-        print((target_nodes >= partition_offsets[i])\
-                            & (target_nodes < partition_offsets[i+1]))
-        n = torch.where((target_nodes >= partition_offsets[i])\
-                            & (target_nodes < partition_offsets[i+1]))[0].shape[0]
-        print("load map ", n, proc_id)
     torch.cuda.nvtx.range_push("Minibatch")
     sample_get_start = time.time()
     send_dict = {}
     recv_dict = {}
     my_gpu_local_sample = None
     print("Memory allocated ", torch.cuda.memory_allocated())
-    csample = sampler.getSample(target_nodes.tolist(), args.load_balance)
-    tensorized_sample = Sample(csample)
-    sample_id = tensorized_sample.randid
-    for gpu_id in range(num_gpus):
-        obj = Gpu_Local_Sample()
-        obj.set_from_global_sample(tensorized_sample,gpu_id)
-        if gpu_id == proc_id:
-            my_gpu_local_sample = obj
-            continue   
-    #print("Temporary fix serializing on cpu")
-        if False:
-            # CPU sampler is never used
-            data = serialize_to_tensor(obj, torch.device('cpu'), num_gpus = gpus)
-        else:
-            data = serialize_to_tensor(obj, torch.device(proc_id), num_gpus = num_gpus)
-            if gpu_id != proc_id:
-                send_dict[gpu_id] = data.clone()
+    if target_nodes.shape[0] != 0:
+        csample = sampler.getSample(target_nodes.tolist(), args.load_balance)
+        print("handle the case of dummy blocks ! ")
+        tensorized_sample = Sample(csample)
+        sample_id = tensorized_sample.randid
+        for gpu_id in range(num_gpus):
+            obj = Gpu_Local_Sample()
+            obj.set_from_global_sample(tensorized_sample,gpu_id)
+            if gpu_id == proc_id:
+                my_gpu_local_sample = obj
+                continue   
+        #print("Temporary fix serializing on cpu")
+            if False:
+                # CPU sampler is never used
+                data = serialize_to_tensor(obj, torch.device('cpu'), num_gpus = gpus)
+            else:
+                data = serialize_to_tensor(obj, torch.device(proc_id), num_gpus = num_gpus)
+                if gpu_id != proc_id:
+                    send_dict[gpu_id] = data.clone()
+        
+            sample_id = proc_id
+            for_worker_id = gpu_id
+            #name = sm_client.write_to_shared_memory(data, for_worker_id, sample_id)
+            #ref = ((sample_id, for_worker_id, name, data.shape, data.dtype.name))
+            ref = (sample_id, for_worker_id, data.shape)
+            assert(len(data.shape) != 0)
+            exchange_queue[for_worker_id].put(ref)
+        print("Memory allocated sampling ", torch.cuda.memory_allocated())    
+        del csample
     
-        sample_id = proc_id
-        for_worker_id = gpu_id
-        #name = sm_client.write_to_shared_memory(data, for_worker_id, sample_id)
-        #ref = ((sample_id, for_worker_id, name, data.shape, data.dtype.name))
-        ref = (sample_id, for_worker_id, data.shape)
-        assert(len(data.shape) != 0)
-        exchange_queue[for_worker_id].put(ref)
-    
-    print("Memory allocated sampling ", torch.cuda.memory_allocated())    
-    del csample
+    else: 
+        for gpu_id in range(num_gpus):
+            for_worker_id = gpu_id
+            if gpu_id == proc_id:
+                my_gpu_local_sample = torch.empty([0], device= proc_id, dtype = torch.int32)
+                continue 
+            else: 
+                ref = (proc_id, gpu_id, "EMPTY")  
+                exchange_queue[for_worker_id].put(ref)
+                send_dict[gpu_id] =  torch.empty([0], device = proc_id, dtype = torch.int32)
         # gc.collect()
         # torch.cuda.empty_cache()
         
@@ -90,7 +95,6 @@ def train_minibatch(target_nodes, num_gpus, partition_offsets,\
         if(gpu_id) == proc_id:
             recv_dict[gpu_id] = torch.empty([0], device = proc_id, dtype = torch.int32)
             continue
-            
         sample_id, for_worker_id, shape = exchange_queue[proc_id].get()
         assert(for_worker_id == proc_id)
         if shape != "EMPTY":
@@ -98,6 +102,7 @@ def train_minibatch(target_nodes, num_gpus, partition_offsets,\
         else:
             recv_dict[sample_id] = torch.empty([0], device= proc_id, dtype = torch.int32)
 
+    print(send_dict, recv_dict)
     shuffle_functional(proc_id, send_dict, recv_dict, num_gpus)
     torch.cuda.synchronize()
     t2 = time.time()
@@ -110,16 +115,19 @@ def train_minibatch(target_nodes, num_gpus, partition_offsets,\
     minibatch_metrics.edges_per_gpu = 0
     minibatch_metrics.forward_time = 0
     minibatch_metrics.backward_time = 0
+    test_hook_outputs = []
     for i in range(num_gpus):
         optimizer.zero_grad()
         t1 = time.time()
         if i == proc_id:
             gpu_local_sample = my_gpu_local_sample
             if type(gpu_local_sample) is type(torch.tensor([])):
+                test_hook_outputs.append(torch.tensor([]), device = proc_id)
                 continue
         else:
             tensor = recv_dict[i]
             if(tensor.shape[0] == 0):
+                test_hook_outputs.append(torch.tensor([]), device = proc_id)
                 continue
             gpu_local_sample = Gpu_Local_Sample()
             device = torch.device(proc_id)
@@ -149,6 +157,7 @@ def train_minibatch(target_nodes, num_gpus, partition_offsets,\
         torch.cuda.nvtx.range_push("training {}:{}".format(edge_split, node_split))
         output = model.forward(gpu_local_sample, input_features, None)
         events[1].record()
+        test_hook_outputs.append(output)
         if isTrain:
             loss = loss_fn(output,classes)/args.batch_size
             loss.backward()
@@ -174,7 +183,7 @@ def train_minibatch(target_nodes, num_gpus, partition_offsets,\
             minibatch_metrics.backward_time += events[1].elapsed_time(events[2])/1000
         # print("Training time", fp_start.elapsed_time(fp_end)/1000, fp_end.elapsed_time(bp_end)/1000)
         #assert(False)
-    return minibatch_metrics
+    return minibatch_metrics, test_hook_outputs
 
 def run_trainer_process(proc_id,  num_gpus, features, args\
                         ,num_classes,  labels,\
@@ -275,7 +284,6 @@ def run_trainer_process(proc_id,  num_gpus, features, args\
     for i in range(1,4):
         assert(check_splits[0].shape[0]// args.batch_size == check_splits[i].shape[0]// args.batch_size)
 
-
     train_nid = train_nid.split(train_nid.size(0) // world_size)[proc_id]
     valid_nid = valid_nid.split(valid_nid.size(0) // world_size)[proc_id]
 
@@ -303,7 +311,7 @@ def run_trainer_process(proc_id,  num_gpus, features, args\
         for minibatch in range(num_val_minibatches):
             batch_nodes = valid_nid[minibatch * args.batch_size : (minibatch + 1) * args.batch_size]
             isTrain = False 
-            minibatch_metrics = train_minibatch(batch_nodes, num_gpus, partition_offsets,\
+            minibatch_metrics, _  = train_minibatch(batch_nodes, num_gpus, partition_offsets,\
                     sampler, args, exchange_queue, optimizer, gpu_local_storage,\
                         attention, labels, events, isTrain, loss_fn, proc_id, model, val_acc_queue)
             if proc_id == 0:

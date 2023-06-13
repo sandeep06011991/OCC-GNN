@@ -88,10 +88,6 @@ def get_gat_distributed(hidden, features, num_classes, gpu_id, deterministic, mo
     in_feats = features.shape[1]
     n_hidden = hidden
     n_classes = num_classes
-    if deterministic:
-        n_hidden = 1
-        n_classes = 1
-
     activation = torch.nn.ReLU()
     assert(model==  "gat" or model == "gat-pull")
     return DistGATModel(in_feats, n_hidden, n_classes, n_layers, activation, \
