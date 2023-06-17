@@ -11,7 +11,7 @@ def load_subtensor(nfeat, labels, seeds, input_nodes, device):
     Extracts features and labels for a set of nodes.
     """
     # assert(nfeat.device == torch.device('cpu')
-    if type(nfeat) == Feature:
+    if type(nfeat) == Feature or nfeat.device == torch.cuda.device(device):
         batch_inputs = nfeat[input_nodes]
     else:    
         batch_inputs = nfeat[input_nodes.to('cpu')].to(device)

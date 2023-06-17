@@ -152,7 +152,7 @@ def get_process_graph(filename, fsize,  num_gpus, testing = False,):
     # features = torch.rand(num_nodes,fsize)
     indptr = indptr.astype(np.int32)
     indices = indices.astype(np.int32)
-    dg_graph = dgl.graph(('csr',(indptr, indices, torch.arange(indices.shape[0], dtype = torch.int32))))
+    dg_graph = dgl.graph(('csc',(indptr, indices, torch.arange(indices.shape[0], dtype = torch.int32))))
     print(dg_graph.edges()[0][:10])
     print("Using 32")
     # sp = scipy.sparse.csr_matrix((np.ones(indices.shape),indices,indptr),

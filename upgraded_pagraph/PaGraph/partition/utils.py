@@ -29,10 +29,10 @@ def get_sub_graph(graph, train_nid, num_hops):
   src, dest = graph.edges()
   selected_edges = torch.where(total[src] * total[dest] != 0)[0]
   dgl_graph = dgl.graph((full2sub[src[selected_edges]], full2sub[dest[selected_edges]]))
-  csr_adj = dgl_graph.adj(scipy_fmt = 'csr')
+  # adj = dgl_graph.adj()
   sub2full_numpy = sub2full.numpy()
   subtrainid_numpy = subtrain_id.numpy()
-  return csr_adj, sub2full_numpy , subtrainid_numpy
+  return dgl_graph, sub2full_numpy , subtrainid_numpy
 
 def get_sub_graph_deprecated(dgl_g, train_nid, num_hops):
   nfs = []

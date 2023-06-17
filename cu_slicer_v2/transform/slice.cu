@@ -158,14 +158,17 @@ void Slice::reorder(PartitionedLayer &l){\
     	  PartitionedLayer& l = ps.layers[i-1];
         this->slice_layer(s.block[i-1].layer_nds, \
             s.block[i], l, last_layer);
+        // TODO: dont have to do this seperately.
         this->reorder(l);
         //consistency check
+        #ifdef DEBUG
         for(int j = 0; j< this->num_gpus; j++){
           for(int k = 0; k < this->num_gpus;k ++ ){
             auto to = l.bipartite[j]->to_offsets[k + 1]  - l.bipartite[j]->to_offsets[k];
             assert(to == l.bipartite[k]->push_from_ids[j].size());
           }
         }
+        #endif 
       }
       #ifdef DEBUG
         gpuErrchk(cudaDeviceSynchronize());

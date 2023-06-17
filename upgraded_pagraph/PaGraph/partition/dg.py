@@ -12,8 +12,9 @@ import ordering
 from utils import get_sub_graph
 import logging
 
-def in_neighbors(csc_adj, nid):
-  return csc_adj.indices[csc_adj.indptr[nid]: csc_adj.indptr[nid+1]]
+def in_neighbors(adj, nid):
+  indptr, indices, edges = adj.csc()
+  return indices[indptr[nid]: indptr[nid+1]]
 
 
 def in_neighbors_hop(csc_adj, nid, hops):
@@ -62,7 +63,6 @@ def dg_ind(adj, neighbors, belongs, p_vnum, r_vnum, pnum, no_train):
 
 
 def dg(partition_num, adj, train_nids, hops):
-  csc_adj = adj.tocsc()
   vnum = adj.shape[0]
   vtrain_num = train_nids.shape[0]
   belongs = -np.ones(vnum, dtype=np.int8)
@@ -80,9 +80,9 @@ def dg(partition_num, adj, train_nids, hops):
     # print(step,"Step")
     if step %100 == 0:
         log.info("current step {} left {} ".format(step, vtrain_num))
-    neighbors = in_neighbors_hop(csc_adj, nid, hops)
+    neighbors = in_neighbors_hop(adj, nid, hops)
 
-    score = dg_ind(csc_adj, neighbors, belongs, p_vnum, r_vnum, partition_num,vtrain_num)
+    score = dg_ind(adj, neighbors, belongs, p_vnum, r_vnum, partition_num,vtrain_num)
     ind = dg_max_score(score, p_vnum)
     if belongs[nid] == -1:
       belongs[nid] = ind
@@ -127,7 +127,9 @@ if __name__ == '__main__':
   args = parser.parse_args()
 
   # get data
-  adj = spsp.load_npz(os.path.join(args.dataset, 'adj.npz'))
+  adj = dgl.data.load_graphs(args.dataset + "/adj.npz")[0][0].adj()
+  print(adj)
+  # adj = spsp.load_npz(os.path.join(args.dataset, 'adj.npz'))
   train_mask, val_mask, test_mask = data.get_masks(args.dataset)
   train_nids = np.nonzero(train_mask)[0].astype(np.int64)
   labels = data.get_labels(args.dataset)
@@ -135,9 +137,9 @@ if __name__ == '__main__':
   # ordering
   if args.ordering:
     print('re-ordering graphs...')
-    adj = adj.tocsc()
+    adj = adj.csc()
     adj, vmap = ordering.reordering(
-        adj, depth=args.num_hop)  # vmap: orig -> new
+        adj, depth=args.num_hops)  # vmap: orig -> new
     # save to files
     mapv = np.zeros(vmap.shape, dtype=np.int64)
     mapv[vmap] = np.arange(vmap.shape[0])  # mapv: new -> orig
@@ -149,7 +151,7 @@ if __name__ == '__main__':
     np.save(os.path.join(args.dataset, 'test.npy'), test_mask[mapv])
 
   # partition
-  p_v, p_trainv = dg(args.partition, adj, train_nids, args.num_hop)
+  p_v, p_trainv = dg(args.partition, adj, train_nids, args.num_hops)
 
   # save to file
   partition_dataset = os.path.join(
@@ -158,12 +160,12 @@ if __name__ == '__main__':
     os.mkdir(partition_dataset)
   except FileExistsError:
     pass
-  dgl_g = dgl.DGLGraph(adj, readonly=True)
+  dgl_g = dgl.DGLGraph(('csc',adj.csc()), readonly=True)
   for pid, (pv, ptrainv) in enumerate(zip(p_v, p_trainv)):
     print('generating subgraph# {}...'.format(pid))
     #subadj, sub2fullid, subtrainid = node2graph(adj, pv, ptrainv)
-    subadj, sub2fullid, subtrainid = get_sub_graph(
-        dgl_g, ptrainv, args.num_hop)
+    subgraph, sub2fullid, subtrainid = get_sub_graph(
+        dgl_g, ptrainv, args.num_hops)
     sublabel = labels[sub2fullid[subtrainid]]
     # files
     subadj_file = os.path.join(
@@ -178,7 +180,7 @@ if __name__ == '__main__':
     sub_label_file = os.path.join(
         partition_dataset,
         'sub_label_{}.npy'.format(str(pid)))
-    spsp.save_npz(subadj_file, subadj)
+    dgl.data.save_graphs(subadj_file, subgraph)
     np.save(sub_trainid_file, subtrainid)
     np.save(sub_train2full_file, sub2fullid)
     np.save(sub_label_file, sublabel)

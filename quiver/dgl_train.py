@@ -80,12 +80,13 @@ def run(rank, world_size, args, features, shared_graph, sampler, labels, idx_spl
     
     setup_logger(rank, "dgl", args, train_nid,0)
     
+    train_nid = train_nid.to(device)
+    
     train_dataloader, valid_dataloader = \
         get_dataloader(rank, args, shared_graph, train_nid, sampler, idx_split)
     
     number_of_minibatches = train_nid.shape[0]/args.batch_size
     
-    train_nid = train_nid.to(device)
     # Define model and optimizer
     if args.model == "GCN":
         model = SAGE(in_feat_dim, args.num_hidden, n_classes,
@@ -99,6 +100,8 @@ def run(rank, world_size, args, features, shared_graph, sampler, labels, idx_spl
     model = DistributedDataParallel(model, device_ids=[device])
     optimizer = optim.Adam(
         model.parameters(), lr=args.lr, weight_decay=args.wd)
+    if args.feat_gpu:
+        features = features.to(device)
     train(rank, args, model, train_dataloader,\
              optimizer, features, labels, in_feat_dim, valid_dataloader)
     # Training loop
@@ -129,7 +132,7 @@ if __name__ == '__main__':
     argparser.add_argument('--early-stopping', action = 'store_true')
     argparser.add_argument('--test-graph',type = str)
     argparser.add_argument('--no-uva', action = 'store_true')
-    
+    argparser.add_argument('--feat-gpu', action = 'store_true')
     args = argparser.parse_args()
     assert args.model in ["GCN","GAT"]
     if args.gpu >= 0:

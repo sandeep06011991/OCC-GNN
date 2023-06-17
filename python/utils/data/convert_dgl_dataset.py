@@ -170,7 +170,7 @@ if __name__=="__main__":
     # assert(len(sys.argv) == 3)
     nname = ["ogbn-papers100M"]
     nname = [ "ogbn-papers100M"]
-    nname = ["ogbn-arxiv"]
+    nname = ["ogbn-arxiv", "ogbn-products", "ogbn-papers100M"]
     # Note papers 100M must be reordered
     for name in nname:
         target = ROOT_DIR + "/" + name

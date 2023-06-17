@@ -23,7 +23,7 @@ Dataset::Dataset(std::string dir, int num_partitions, bool random, bool UVA){
 
 void Dataset::read_graph(){
   // Different file format as sampling needs csc format or indegree graph
-  std::fstream file1(this->BIN_DIR + "/cindptr.bin",std::ios::in|std::ios::binary);
+  std::fstream file1(this->BIN_DIR + "/indptr.bin",std::ios::in|std::ios::binary);
   if (UVA){
     gpuErrchk(cudaHostAlloc(&indptr_h,(this->num_nodes + 1) * sizeof(NDTYPE), cudaHostAllocMapped | cudaHostAllocWriteCombined ));
     file1.read((char *)indptr_h,(this->num_nodes + 1) * sizeof(NDTYPE));
@@ -39,7 +39,7 @@ void Dataset::read_graph(){
   NDTYPE sum = cuslicer::transform<NDTYPE>::reduce_d(indptr_d, this->num_nodes+1);
   std::cout << "Read sum " << sum <<"\n";
     
-  std::fstream file2(this->BIN_DIR + "/cindices.bin",std::ios::in|std::ios::binary);
+  std::fstream file2(this->BIN_DIR + "/indices.bin",std::ios::in|std::ios::binary);
   if (UVA){
     std::cout << "using host alloc\n";
     gpuErrchk(cudaHostAlloc(&indices_h,(this->num_edges) * sizeof(NDTYPE), cudaHostAllocMapped | cudaHostAllocWriteCombined  ));

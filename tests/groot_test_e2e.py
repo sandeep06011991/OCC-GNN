@@ -68,7 +68,7 @@ def test_baseline_GAT(graph_name):
     activation = torch.nn.functional.relu
 
     sampler = dgl.dataloading.MultiLayerFullNeighborSampler(num_layers=num_layers)
-    batch_size = 4096
+    batch_size = 1
     model = GAT(in_feat_dim, hidden_channels, out_channels, heads, num_layers, activation, dropout)
     
     d_graph = graph.to(device)
@@ -90,6 +90,7 @@ def test_baseline_GAT(graph_name):
     for in_nodes, out_nodes, blocks in train_dataloader:
         out = model(blocks, features[in_nodes])
         print(out[0])
+        print(in_nodes.shape)
         break
     return model_cpu, results 
 
@@ -192,7 +193,7 @@ def test_groot(graph_name):
     activation = torch.nn.functional.relu
 
     sampler = dgl.dataloading.MultiLayerFullNeighborSampler(num_layers=num_layers)
-    batch_size = 4096
+    batch_size = 1
     torch.manual_seed(0)
     model = GAT(in_feat_dim, hidden_channels, out_channels, heads, num_layers, activation, dropout)
     

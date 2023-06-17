@@ -102,7 +102,6 @@ def train_minibatch(target_nodes, num_gpus, partition_offsets,\
         else:
             recv_dict[sample_id] = torch.empty([0], device= proc_id, dtype = torch.int32)
 
-    print(send_dict, recv_dict)
     shuffle_functional(proc_id, send_dict, recv_dict, num_gpus)
     torch.cuda.synchronize()
     t2 = time.time()
@@ -299,10 +298,10 @@ def run_trainer_process(proc_id,  num_gpus, features, args\
         for minibatch in range(num_minibatches):
             batch_nodes = train_nid[minibatch * args.batch_size : (minibatch + 1) * args.batch_size]
             isTrain = True 
-            minibatch = train_minibatch(batch_nodes, num_gpus, partition_offsets,\
+            minibatch_metrics,_ = train_minibatch(batch_nodes, num_gpus, partition_offsets,\
                     sampler, args, exchange_queue, optimizer, gpu_local_storage,\
                         attention, labels, events, isTrain, loss_fn, proc_id, model,val_acc_queue)
-            epoch_metrics.append(minibatch)
+            epoch_metrics.append(minibatch_metrics)
         t2 = time.time()    
         epoch_time = t2 - t1
         num_val_minibatches = valid_nid.size(0)//args.batch_size

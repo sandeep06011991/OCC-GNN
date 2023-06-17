@@ -188,5 +188,15 @@ public:
 
 };
 
+class FusedSlicer: public PullSlicer{
+  public: 
+    FusedSlicer(std::shared_ptr<OrderBook> orderbook, \
+        int num_gpus,curandState *state, NDTYPE num_nodes):PullSlicer(orderbook, num_gpus, state, num_nodes){
+            }
+    void slice_layer(device_vector<NDTYPE>& in, Block &bl, \
+        PartitionedLayer& l, bool last_layer);
+
+};
+
 
 }

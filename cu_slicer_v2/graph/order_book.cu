@@ -7,6 +7,7 @@
 #include <fstream>
 #include "order_book.h"
 using namespace std;
+
 __global__
 void test(OrderBook * od){
     for(int i = 0 ; i < 5; i++){
