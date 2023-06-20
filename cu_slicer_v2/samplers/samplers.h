@@ -19,7 +19,7 @@ class NeighbourSampler{
   std::shared_ptr<Dataset> dataset;
 
   DuplicateRemover *dr;
-  std::mt19937 random_number_engine;
+  std::mt19937_64 random_number_engine;
   // Use constant fan out for all layers.
 
   bool deterministic = false;

@@ -8,6 +8,11 @@
 #include "../graph/order_book.h"
 using namespace cuslicer;
 
+
+// void FusedSlicer::partition_edges(void *, bs, last_layer){
+
+// }
+
 void FusedSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
       Block &bs, PartitionedLayer &ps, bool last_layer){
         

@@ -40,3 +40,21 @@ const int MAX_LAYERS = 5;
 // typedef long EdgeID;
 // typedef NodeID * EdgePos;
 // typedef EdgeID * NodePos;
+
+// From DGL better practices
+#define CUDA_CALL(func)                                      \
+  {                                                          \
+    cudaError_t e = (func);                                  \
+    CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading) \
+        << "CUDA: " << cudaGetErrorString(e);                \
+  }
+
+#define CUDA_KERNEL_CALL(kernel, nblks, nthrs, shmem, stream, ...)            \
+  {                                                                           \
+    if (!dgl::runtime::is_zero((nblks)) && !dgl::runtime::is_zero((nthrs))) { \
+      (kernel)<<<(nblks), (nthrs), (shmem), (stream)>>>(__VA_ARGS__);         \
+      cudaError_t e = cudaGetLastError();                                     \
+      CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading)                \
+          << "CUDA kernel launch error: " << cudaGetErrorString(e);           \
+    }                                                                         \
+  }

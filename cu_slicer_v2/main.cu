@@ -15,6 +15,7 @@
 #include <iostream>
 #include "util/types.h"
 #include "graph/order_book.h"
+#include "util/cuda_hash_table.cuh"
 using namespace std;
 using namespace std::chrono;
 
@@ -24,6 +25,20 @@ int main(){
   device_vector<PARTITIONIDX>::setLocalDevice(0);
   device_vector<NDTYPE>::setLocalDevice(0);
   
+  std::vector<int> v = {8, 1, 2, 3, 4, 3, 3, 3, 4, 2, 8};
+  device_vector<int> a(v);
+  device_vector<int> b(v);
+  device_vector<long> c;
+  c.resize(1);
+  auto tb = OrderedHashTable(v.size());
+  tb.FillWithDuplicates(\
+      a.ptr(), a.size(), b.ptr(), c.ptr());
+  gpuErrchk(cudaDeviceSynchronize());
+  b.debug("unique");
+  std::cout << "checl "<< c[0] <<"\n";
+  tb.Replace(a.ptr(), v.size());
+  a.debug("Replce");
+  return 0;
   // std::string graph_name = "synth_8_2";
   
   std::string graph_name = "ogbn-arxiv";
@@ -52,35 +67,38 @@ int main(){
 
   cuslicer::device_vector<NDTYPE> target(training_nodes);
   ns->sample(target,s1);
+
+  cudaDeviceSynchronize();
+  std::cout << "Start edit \n";
   
-  bool pull_optim = false;
-  std::vector<NDTYPE> storage[8];
-  int gpu_capacity[num_gpus];
-  // Note how to handle this. ?
- for(int i=0;i < num_gpus; i++){
-    gpu_capacity[i] = 0;
-  // // Write a better version of this.
-    for(int j = 0; j < num_gpus; j ++ ){
-      for(int k = order->partition_offsets[j]; k < order->cached_offsets[i][j]; k ++ ){
-        storage[i].push_back(k);
-        gpu_capacity[i] ++;
-      }
-    }
-  }
+//   bool pull_optim = false;
+//   std::vector<NDTYPE> storage[8];
+//   int gpu_capacity[num_gpus];
+//   // Note how to handle this. ?
+//  for(int i=0;i < num_gpus; i++){
+//     gpu_capacity[i] = 0;
+//   // // Write a better version of this.
+//     for(int j = 0; j < num_gpus; j ++ ){
+//       for(int k = order->partition_offsets[j]; k < order->cached_offsets[i][j]; k ++ ){
+//         storage[i].push_back(k);
+//         gpu_capacity[i] ++;
+//       }
+//     }
+//   }
   
   //   // std::cout << "basic population done \n";
   //   // PushSlicer * sc2 = new PushSlicer(workload_map, storage, pull_optim, num_gpus, ns->dev_curand_states);
   //   // PartitionedSample ps1(num_layers, num_gpus);
   //   // sc1->slice_sample((*s1),ps1);
  
-    PullSlicer * sc2 = new PullSlicer(order, num_gpus,\
-         ns->dev_curand_states, dataset->num_nodes);
-    PartitionedSample ps2(num_layers, num_gpus);
-    bool loadbalancing = true;
-    std::cout << "Sample \n";
-    sc2->slice_sample(s1, ps2, loadbalancing);
-    std::cout << "Slice \n";
-    gpuErrchk(cudaDeviceSynchronize());
+    // PullSlicer * sc2 = new PullSlicer(order, num_gpus,\
+    //      ns->dev_curand_states, dataset->num_nodes);
+    // PartitionedSample ps2(num_layers, num_gpus);
+    // bool loadbalancing = true;
+    // std::cout << "Sample \n";
+    // sc2->slice_sample(s1, ps2, loadbalancing);
+    // std::cout << "Slice \n";
+    // gpuErrchk(cudaDeviceSynchronize());
   // ps2.debug();
   // ps1.push_consistency();
   //  test_sample_partition_consistency(s1, ps2, storage, gpu_capacity, dataset->num_nodes, num_gpus);

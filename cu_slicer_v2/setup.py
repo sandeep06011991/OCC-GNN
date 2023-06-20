@@ -33,15 +33,7 @@ ext_modules = [
               "util/duplicate.cu",\
               "pyobj/pybipartite.cu", "pyobj/pyfrontend.cu",\
               "util/cub.cu", "util/device_vector.cu",\
-              #"transform/walk.cpp",
-                #samplers/ns.cpp",
-                #"pyobj/pybipartite.cpp",
-                #"pyobj/pyfrontend.cpp",
-                #"graph/bipartite.cpp",
-                #"util/duplicate.cpp", "graph/dataset.cpp",
-                #"tests/gat_test.cpp", "tests/gcn_test.cpp"
-                # "check.cu"
-                        ],
+            ],
         depends = ["util/environment.h","bipartite.h","pybipartite.h", "sample.h", "pyinterface.h","slicer.h"\
             ,"util/conqueue.h", "transform/load_balancer.cuh"]  ,
         include_dirs=[pybind11.get_include(),ROOT,\

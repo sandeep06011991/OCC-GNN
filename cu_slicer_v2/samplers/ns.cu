@@ -4,20 +4,17 @@
 #include <curand_kernel.h>
 #include "nvtx3/nvToolsExt.h"
 #include "../util/cub.h"
+#include <random>
+#include <chrono>
 
-__global__ void init_random_states(curandState *states, size_t num,
-                                   unsigned long seed) {
+__device__
+ void init_random_states(curandState *states, unsigned long seed) {
   size_t threadId = threadIdx.x + blockIdx.x * blockDim.x;
-  assert(num == blockDim.x * gridDim.x);
-  // Todo Add shared memory here
-  if (threadId < num) {
-    // Copied from GNNLAB
-    /** Using different seed & constant sequence 0 can reduce memory
+   /** Using different seed & constant sequence 0 can reduce memory
       * consumption by 800M
       * https://docs.nvidia.com/cuda/curand/device-api-overview.html#performance-notes
       */
-    curand_init(seed+threadId, 0, 0, &states[threadId]);
-  }
+    curand_init(seed+threadId, 0, 0, states);
 }
 
 NeighbourSampler::NeighbourSampler(std::shared_ptr<Dataset> dataset,
@@ -28,9 +25,7 @@ NeighbourSampler::NeighbourSampler(std::shared_ptr<Dataset> dataset,
     this->self_edge = self_edge ;
     unsigned long seed = \
       std::chrono::system_clock::now().time_since_epoch().count();
-    std::cout << "Size of random states for NS" << (MAX_BLOCKS * BLOCK_SIZE * sizeof(curandState)) / (1024 * 1024 * 1024) <<"GB\n";
-    cudaMalloc(&dev_curand_states, MAX_BLOCKS * BLOCK_SIZE * sizeof(curandState));
-    init_random_states<<<MAX_BLOCKS, BLOCK_SIZE>>>(dev_curand_states,MAX_BLOCKS * BLOCK_SIZE , seed);
+    random_number_engine = std::mt19937_64(seed);
 }
 
 template<int BLOCK_SIZE, int TILE_SIZE>
@@ -75,23 +70,14 @@ __global__
 void neigh_sample_based_on_offsets(NDTYPE * in, size_t size,\
     NDTYPE * offsets, NDTYPE * indices,\
       NDTYPE * graph_indptr, NDTYPE * graph_indices, NDTYPE num_nodes,\
-         curandState *random_states, size_t num_random_states, int fanout,\
-       bool self_edge){
-     // Colascing random loads
-     // Credit: Abhinav Jangda from nextdoor paper
-    __shared__ unsigned char shRand[BLOCK_SIZE * sizeof(curandState)];
+         int fanout,\
+       bool self_edge, unsigned long random_seed){
 
-    const int intsInRandState = sizeof(curandState)/sizeof(int);
-    int* shStateBuff = (int*)&shRand[0];
-
-    int* randStatesAsInts = (int*)random_states;
-
-    for (int i = threadIdx.x; i < intsInRandState*blockDim.x; i += blockDim.x) {
-      shStateBuff[i] = randStatesAsInts[i + blockDim.x*blockIdx.x];
-    }
+    curandState randState;
+    init_random_states(&randState, random_seed) ;
 
     __syncthreads();
-    auto curandSrcPtr = (curandState*)(&shStateBuff[threadIdx.x*intsInRandState]);
+
     int tileId = blockIdx.x;
     int last_tile = ((size - 1) / TILE_SIZE + 1);
     while(tileId < last_tile){
@@ -112,7 +98,7 @@ void neigh_sample_based_on_offsets(NDTYPE * in, size_t size,\
         NDTYPE *write = &indices[offsets[id]];
         if((nbs_size > fanout) && (fanout != -1)){
            for(int j = 0; j < fanout; j++){
-              float f = curand_uniform(curandSrcPtr ) ;
+              float f = curand_uniform(&randState) ;
               int sid = (int) (f * nbs_size - 1);
                #ifdef DEBUG
                 if(sid >= nbs_size){
@@ -168,12 +154,13 @@ void NeighbourSampler::layer_sample(device_vector<NDTYPE> &in,
             offsets.ptr(), \
              indices.ptr(), \
               this->dataset->indptr_d, this->dataset->indices_d, this->dataset->num_nodes,\
-                  dev_curand_states, TOTAL_RAND_STATES, fanout, this->self_edge);
+               fanout, this->self_edge, this->random_number_engine());
         gpuErrchk(cudaDeviceSynchronize());
 }
 
 void NeighbourSampler::sample(device_vector<NDTYPE> &target_nodes, Sample &s){
   nvtxRangePush("sample");
+  
   s.block[0].clear();
   dr->clear();
   dr->order(target_nodes);

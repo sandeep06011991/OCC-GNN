@@ -82,6 +82,11 @@ namespace cuslicer{
   class HashMap: public DuplicateRemover{
       // Plan for when stressed with memory.
       // Either use a simple hashing scheme or use HashTable of CUDA
+
+          HashMap(NDTYPE num_nodes);
+
+          void order(device_vector<NDTYPE>& nodes);
+
   };
 
 }

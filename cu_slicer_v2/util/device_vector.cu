@@ -173,5 +173,6 @@ void device_vector<DATATYPE>::append(device_vector<DATATYPE> &in){
 
 
 template class device_vector <NDTYPE>;
+template class device_vector <long>;
 // template class device_vector <PARTITIONIDX>;
 }
