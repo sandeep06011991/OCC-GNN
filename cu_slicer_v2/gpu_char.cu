@@ -27,7 +27,8 @@ int main() {
     printf("  Shared memory per block (Kbytes) %.1f\n",(float)(prop.sharedMemPerBlock)/1024.0);
     printf("  minor-major: %d-%d\n", prop.minor, prop.major);
     printf("  Warp-size: %d\n", prop.warpSize);
+    //printf("  gpuDirectRDMASupported: %s\n", prop.gpuDirectRDMASupported ? "yes" : "no");
     printf("  Concurrent kernels: %s\n", prop.concurrentKernels ? "yes" : "no");
     printf("  Concurrent computation/communication: %s\n\n",prop.deviceOverlap ? "yes" : "no");
-  }
+  } 
 }  

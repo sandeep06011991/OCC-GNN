@@ -115,7 +115,8 @@ void transform<T>::exclusive_scan(cuslicer::device_vector<T> &in, cuslicer::devi
       transform<T>::d_temp_storage.resize(temp_storage_bytes/(sizeof(T)) + 1);
       // Allocate temporary storage
       // Run exclusive prefix sum
-      cub::DeviceScan::InclusiveSum(transform<T>::d_temp_storage.ptr(), temp_storage_bytes, d_in, d_out, num_items);
+      cub::DeviceScan::InclusiveSum(transform<T>::d_temp_storage.ptr(),\
+         temp_storage_bytes, d_in, d_out, num_items);
     }
 
   template<typename T>

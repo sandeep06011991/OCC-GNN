@@ -11,19 +11,13 @@
 using namespace std;
 
 
-// Make this use shared memory if possible.
+// Using constant Memory
 class OrderBook {
     public:
     int partition_offsets[MAX_GPUS];
     int cached_offsets[MAX_GPUS][MAX_GPUS];
     int num_partitions;
-    OrderBook * order_book_d;
-
     
-    OrderBook * getDevicePtr(){
-        return order_book_d;
-    }
-
     __inline__ __device__
     int findWorkloadPartition(NDTYPE nd){
         for(int i = 0; i < num_partitions; i++){

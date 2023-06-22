@@ -94,6 +94,7 @@ public:
 
   int gpu_id = -1;
   int num_gpus = -1;
+  
   BiPartite(int gpu_id, int num_gpus){
     this->gpu_id = gpu_id;
     this->num_gpus = num_gpus;

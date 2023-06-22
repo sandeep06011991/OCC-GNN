@@ -39,7 +39,7 @@ public:
   NDTYPE * indptr_d; // size = num_nodes + 1
   NDTYPE * indices_d; // size = num_edges
 
-
+  
   // check sum
   long csum_features;
   long csum_labels;

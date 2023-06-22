@@ -3,6 +3,7 @@ import numpy as np
 import os
 from os.path import exists
 from metis import *
+import dgl 
 
 # Since this is the easiest dataset to generateself.
 # Allow overwriting.
@@ -42,19 +43,15 @@ def write_synth_dataset(num_nodes, num_partitions , TARGET_DIR):
     # edges = graph.edges()
     # # dgl graph edges are always src to destination.
     # graph.remove_edges(torch.where(edges[0] == edges[1])[0])
-    sparse_mat = graph.adj(scipy_fmt='csr')
-    sparse_mat.sort_indices()
-    assert(np.array_equal(np.ones(sparse_mat.data.shape), sparse_mat.data))
-    indptr = sparse_mat.indptr
-    indices = sparse_mat.indices
+    sparse_mat = graph.adj()
+    # Storing the graph in CSC format is ideal for sampling 
+    # DGL Graph can be constructed from CSC format
+    indptr, indices, _ = sparse_mat.csc()
     # c slicer should be processing from
     # dgl graphs are in src to dest
     # indptr is for srcs
     # However sampling must start from dest
     # Thus reverse this.
-    c_spmat = graph.adj(scipy_fmt = 'csr', transpose = True)
-    c_indptr = c_spmat.indptr
-    c_indices = c_spmat.indices
     train_idx = test_idx = val_idx = torch.arange(num_nodes)
 
     print(indptr.shape)
@@ -88,24 +85,20 @@ def write_synth_dataset(num_nodes, num_partitions , TARGET_DIR):
     # assert(Falscde)
     # with open(TARGET_DIR + '/partition_map.bin','wb') as fp:
     #     fp.write(p_map.numpy().astype(np.int32).tobytes())
-    with open(TARGET_DIR+'/cindptr.bin', 'wb') as fp:
-        fp.write(c_indptr.astype(np.int64).tobytes())
-    with open(TARGET_DIR+'/cindices.bin', 'wb') as fp:
-        fp.write(c_indices.astype(np.int64).tobytes())
     with open(TARGET_DIR+'/indptr.bin', 'wb') as fp:
-        fp.write(indptr.astype(np.int64).tobytes())
+        fp.write(indptr.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/indices.bin', 'wb') as fp:
-        fp.write(indices.astype(np.int64).tobytes())
+        fp.write(indices.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/features.bin', 'wb') as fp:
         fp.write(features.numpy().astype('float32').tobytes())
     with open(TARGET_DIR+'/labels.bin', 'wb') as fp:
         fp.write(labels.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/train_idx.bin', 'wb') as fp:
-        fp.write(train_idx.numpy().astype('int64').tobytes())
+        fp.write(train_idx.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/val_idx.bin', 'wb') as fp:
-        fp.write(val_idx.numpy().astype('int64').tobytes())
+        fp.write(val_idx.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/test_idx.bin', 'wb') as fp:
-        fp.write(test_idx.numpy().astype('int64').tobytes())
+        fp.write(test_idx.numpy().astype('int32').tobytes())
     with open(TARGET_DIR+'/partition_map_opt_{}.bin'.format(num_partitions),'wb') as fp:
         fp.write(torch.tensor(p_map).numpy().astype('int32').tobytes())
     csum_train = torch.sum(train_idx).item()

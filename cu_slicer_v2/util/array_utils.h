@@ -11,14 +11,14 @@ namespace cuslicer{
 template<int BLOCK_SIZE, int TILE_SIZE, typename T1, typename T2>
 __global__
 void  index_in_kernel(T1 * in, size_t sz,
-        OrderBook * orderbook, T2 * out){
+        OrderBook  orderbook, T2 * out){
         int tileId = blockIdx.x;
         int last_tile = ((sz - 1) / TILE_SIZE + 1);
         while(tileId < last_tile){
             int start = threadIdx.x + (tileId * TILE_SIZE);
             int end = min(static_cast<int64_t>(threadIdx.x + (tileId + 1) * TILE_SIZE), sz);
             while(start < end){
-                    out[start] = orderbook->findWorkloadPartition(in[start]);
+                    out[start] = orderbook.findWorkloadPartition(in[start]);
                     start += BLOCK_SIZE;
                 }
             tileId += gridDim.x;
@@ -27,7 +27,7 @@ void  index_in_kernel(T1 * in, size_t sz,
 // nodes, this->orderbook->getDevicePtr(), this->sample_workload_map
 // out[tid] = index[in[tid]]
     template<typename T1, typename T2>
-    void index_in(device_vector<T1>& input, OrderBook * orderbook, device_vector<T2>& out){
+    void index_in(device_vector<T1>& input, OrderBook  orderbook, device_vector<T2>& out){
         index_in_kernel<BLOCK_SIZE, TILE_SIZE, T1, T2><<<GRID_SIZE(input.size()), BLOCK_SIZE>>>\
         (input.ptr(), input.size(), orderbook, out.ptr());
     }

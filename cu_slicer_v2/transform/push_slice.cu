@@ -24,7 +24,7 @@ void partition_edges_push(PARTITIONIDX *  sample_workload_map,\
     NDTYPE * index_indptr_local, NDTYPE * index_indptr_remote, \
     NDTYPE * index_edge_local, NDTYPE * index_edge_remote,\
     // Partitioned graphs such that indptr_map[dest, src]
-    bool last_layer, OrderBook * orderbook , int NUM_GPUS){
+    bool last_layer, OrderBook  orderbook , int NUM_GPUS){
     // Last layer use storage map
     int tileId = blockIdx.x;
     int last_tile = ((out_nodes_size - 1) / TILE_SIZE + 1);
@@ -66,7 +66,7 @@ void partition_edges_push(PARTITIONIDX *  sample_workload_map,\
         }
       	if(last_layer){
           // Not the same partition but part of our redundant store.
-      		if(orderbook->gpuContains(p_nd1, nd2)){
+      		if(orderbook.gpuContains(p_nd1, nd2)){
                   // Present here mark it local.
       			      ((long *)&index_edge_local[num_edges * p_nd1])[offset_edge_start + nb_idx] = 1;
                   ((long *)&index_in_nodes[in_nodes_size * p_nd1])[nd2_idx] = 1;
@@ -434,7 +434,7 @@ void PushSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
           ps.index_in_nodes.ptr(), ps.index_out_nodes_local.ptr(), ps.index_out_nodes_remote.ptr(),\
           ps.index_indptr_local.ptr(), ps.index_indptr_remote.ptr(),\
           ps.index_edge_local.ptr(), ps.index_edge_remote.ptr(),\
-          last_layer, this->orderbook->getDevicePtr(),this->num_gpus);
+          last_layer, *this->orderbook,this->num_gpus);
     #ifdef DEBUG
 
     #endif

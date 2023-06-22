@@ -9,7 +9,7 @@ using namespace cuslicer;
 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void calculate_cache_hit_mask(NDTYPE * in_nodes, OrderBook * orderbook,\
+void calculate_cache_hit_mask(NDTYPE * in_nodes, OrderBook  orderbook,\
        size_t size, NDTYPE * cache_hit_mask, NDTYPE * cache_miss_mask, int partitionId){
   int tileId = blockIdx.x;
   int last_tile = ((size - 1) / TILE_SIZE + 1);
@@ -19,7 +19,7 @@ void calculate_cache_hit_mask(NDTYPE * in_nodes, OrderBook * orderbook,\
   while(start < end){
       int tid = start; 
       long nd = in_nodes[tid];
-      if(!orderbook->gpuContains(partitionId, nd)){
+      if(!orderbook.gpuContains(partitionId, nd)){
         cache_hit_mask[tid] = 0;
         cache_miss_mask[tid] = 1;
       }else{
@@ -36,7 +36,7 @@ void calculate_cache_hit_mask(NDTYPE * in_nodes, OrderBook * orderbook,\
 // Dont change this due to load balancing. 
 template<int BLOCK_SIZE, int TILE_SIZE>
 __global__
-void  fill_cache_nodes(NDTYPE * in_nodes,OrderBook * orderbook, size_t size,\
+void  fill_cache_nodes(NDTYPE * in_nodes,OrderBook  orderbook, size_t size,\
        NDTYPE * cache_hit_mask, NDTYPE * cache_miss_mask, \
 			  NDTYPE * miss_from , NDTYPE * miss_to, NDTYPE  * hit_from, NDTYPE *hit_to, int partitionId){
         int tileId = blockIdx.x;
@@ -47,11 +47,11 @@ void  fill_cache_nodes(NDTYPE * in_nodes,OrderBook * orderbook, size_t size,\
   while(start < end){
         int tid = start;
         long nd = in_nodes[tid];
-        if(!orderbook->gpuContains(partitionId, nd)){
+        if(!orderbook.gpuContains(partitionId, nd)){
                 miss_from[cache_miss_mask[tid]-1] = nd;
 		            miss_to[cache_miss_mask[tid]-1] = tid;
         }else{
-                hit_from[cache_hit_mask[tid]-1] = orderbook->getLocalId(partitionId, nd);
+                hit_from[cache_hit_mask[tid]-1] = orderbook.getLocalId(partitionId, nd);
                 hit_to[cache_hit_mask[tid]-1] = tid;
         }
         start = start + BLOCK_SIZE;;
@@ -63,7 +63,7 @@ void  fill_cache_nodes(NDTYPE * in_nodes,OrderBook * orderbook, size_t size,\
 }
 
 void Slice::reorder(PartitionedLayer &l){\
-
+    // TODO Handle this reordering internally 
     //   // Handle remote destination nodes
      for(int to = 0; to < this->num_gpus; to ++){
        // l.bipartite[to]->reorder_local(dr);
@@ -104,7 +104,7 @@ void Slice::reorder(PartitionedLayer &l){\
   	cache_hit_mask.resize(in_nodes.size());
   	cache_miss_mask.resize(in_nodes.size());
     calculate_cache_hit_mask<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(in_nodes.size()), BLOCK_SIZE >>>(in_nodes.ptr(),\
-  		       orderbook->getDevicePtr(),\
+  		       *orderbook,\
   			in_nodes.size(),\
   			cache_hit_mask.ptr(),\
   		  cache_miss_mask.ptr(),  gpuid);
@@ -125,7 +125,7 @@ void Slice::reorder(PartitionedLayer &l){\
      ps.cache_hit_to[gpuid].resize(hits);
      assert(hits + misses == in_nodes.size());
   	 fill_cache_nodes<BLOCK_SIZE, TILE_SIZE><<<GRID_SIZE(in_nodes.size()), BLOCK_SIZE>>>(in_nodes.ptr(),\
-   		       orderbook->getDevicePtr(),\
+   		       *orderbook,\
    			in_nodes.size(),\
    			cache_hit_mask.ptr(),\
    		  cache_miss_mask.ptr(),\
@@ -141,7 +141,7 @@ void Slice::reorder(PartitionedLayer &l){\
     // 1. Partition last layer of sample nodes into local partition ids. 
     auto nodes = s.block[s.num_layers].layer_nds;
     this->sample_workload_map.resize(nodes.size());
-    cuslicer::index_in<NDTYPE, PARTITIONIDX>(nodes, this->orderbook->getDevicePtr(), this->sample_workload_map);
+    cuslicer::index_in<NDTYPE, PARTITIONIDX>(nodes, *this->orderbook, this->sample_workload_map);
     // this->workload_map
     // nodes.debug("In nodes");
     

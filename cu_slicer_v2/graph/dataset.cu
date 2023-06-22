@@ -21,6 +21,8 @@ Dataset::Dataset(std::string dir, int num_partitions, bool random, bool UVA){
   read_graph();
 }
 
+// Todo: Each GPU allocates seperate space for the graph, 
+// Making all gpus use the same shared memory is more efficient. 
 void Dataset::read_graph(){
   // Different file format as sampling needs csc format or indegree graph
   std::fstream file1(this->BIN_DIR + "/indptr.bin",std::ios::in|std::ios::binary);

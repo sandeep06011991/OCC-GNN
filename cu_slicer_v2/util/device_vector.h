@@ -44,6 +44,7 @@ namespace cuslicer{
   public:
     //  Todo: Should not be exposed 
     torch::Tensor data;
+    torch::Tensor EMPTY;
     
     size_t current_size= 0;
 
@@ -85,12 +86,8 @@ namespace cuslicer{
 
    void debug(std::string str);
 
-  //  inline DATATYPE * ptr(){
-  //    auto c_pointer = tensor.data_ptr<DATATYPE>();
-  //    if(current_size ==0) return nullptr;
-  //    return d->ptr();
-  //  }
-
+    device_vector<DATATYPE>& clone(device_vector<DATATYPE> &in);
+  
    ~device_vector();
 
    inline DATATYPE operator[](size_t id){
@@ -100,20 +97,7 @@ namespace cuslicer{
       return t;
    }
 
-  // inline void set_value(size_t id, DATATYPE val){
-  //    assert(id < current_size);
-  //    DATATYPE t = val;
-  //    cudaMemcpy(&(d->ptr()[id]), &t, sizeof(DATATYPE), cudaMemcpyHostToDevice);
-  // }
-
-  // inline void destroy(){
-  //   TOTAL_USED -= current_size;
-  //   current_size = 0;
-  //   allocated = 0;
-  //   free_size = 0;
-  //   d = nullptr;
-  // }
-
+  
   device_vector<DATATYPE>& operator=(device_vector<DATATYPE>  &in);
 
 

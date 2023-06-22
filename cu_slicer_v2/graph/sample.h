@@ -15,6 +15,15 @@ using namespace std;
 namespace cuslicer {
 
 struct Block{
+
+  struct device_Block {
+    NDTYPE * offsets;
+    NDTYPE * indices;
+    NDTYPE * layer_nds;
+    NDTYPE * in_degree;
+
+  };
+
   cuslicer::device_vector<NDTYPE> offsets;
   cuslicer::device_vector<NDTYPE> indices;
   cuslicer::device_vector<NDTYPE> layer_nds;
@@ -34,7 +43,14 @@ public:
     layer_nds.debug("layer_nds");
     in_degree.debug("in_degree");
   }
-
+  const struct device_Block getDeviceBlock(){
+    struct device_Block ret;
+    ret.offsets = this->offsets.ptr();
+    ret.indices = this->indices.ptr();
+    ret.layer_nds = this->layer_nds.ptr();
+    ret.in_degree = this->in_degree.ptr();
+    return ret;
+  }
 };
 
 class Sample{

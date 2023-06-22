@@ -113,6 +113,7 @@ void neigh_sample_based_on_offsets(NDTYPE * in, size_t size,\
                }
             }else{
               for(int j = 0; j < nbs_size; j++){
+                printf("read : %d\n", read[j]);
                 write[j] = read[j];
               }
               if(self_edge){

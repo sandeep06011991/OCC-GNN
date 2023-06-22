@@ -18,6 +18,7 @@ namespace cuslicer{
  __inline__ __device__
 bool is_selected(NDTYPE  *id, size_t sz){
    if(sz == 0)return id[0] != 0;
+    // Todo. Use warp exchange 
    return id[sz] != id[sz-1];
 }
 

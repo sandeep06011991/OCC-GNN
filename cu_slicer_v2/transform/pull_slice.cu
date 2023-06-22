@@ -71,7 +71,7 @@ void partition_edges_pull(PARTITIONIDX * workload_map, \
         NDTYPE * index_out_nodes, NDTYPE * index_indptr_local,\
          NDTYPE * index_edge_local,\
       // Partitioned graphs such that indptr_map[dest, src]
-       		bool last_layer, OrderBook * book, int NUM_GPUS){
+       		bool last_layer, OrderBook  book, int NUM_GPUS){
             // Last layer use storage map
     int tileId = blockIdx.x;
     int last_tile = ((out_nodes_size - 1) / TILE_SIZE + 1);
@@ -107,7 +107,7 @@ void partition_edges_pull(PARTITIONIDX * workload_map, \
                 [offset_edge_start + nb_idx] = 1;
           if(p_nd1 != p_nd2){
                   if(last_layer){
-                    if(book->gpuContains(p_nd1, nd2)){
+                    if(book.gpuContains(p_nd1, nd2)){
                         index_in_nodes_local[p_nd1 * (in_nodes_size) * NUM_GPUS + nd2_idx] = 1;
                         continue;
                     }
@@ -391,7 +391,7 @@ void PullSlicer::slice_layer(device_vector<NDTYPE> &layer_nds,
           ps.index_in_nodes.ptr(),\
           ps.index_out_nodes_local.ptr(), ps.index_indptr_local.ptr(),
           ps.index_edge_local.ptr(),\
-          last_layer, this->orderbook->getDevicePtr(),this->num_gpus);
+          last_layer, * this->orderbook,this->num_gpus);
     gpuErrchk(cudaDeviceSynchronize());
     #ifdef DEBUG
       gpuErrchk(cudaDeviceSynchronize());

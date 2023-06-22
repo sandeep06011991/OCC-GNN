@@ -24,33 +24,18 @@ int main(){
   cudaSetDevice(0);
   device_vector<PARTITIONIDX>::setLocalDevice(0);
   device_vector<NDTYPE>::setLocalDevice(0);
+  std::string graph_name = "synth_8_2";
   
-  std::vector<int> v = {8, 1, 2, 3, 4, 3, 3, 3, 4, 2, 8};
-  device_vector<int> a(v);
-  device_vector<int> b(v);
-  device_vector<long> c;
-  c.resize(1);
-  auto tb = OrderedHashTable(v.size());
-  tb.FillWithDuplicates(\
-      a.ptr(), a.size(), b.ptr(), c.ptr());
-  gpuErrchk(cudaDeviceSynchronize());
-  b.debug("unique");
-  std::cout << "checl "<< c[0] <<"\n";
-  tb.Replace(a.ptr(), v.size());
-  a.debug("Replce");
-  return 0;
-  // std::string graph_name = "synth_8_2";
-  
-  std::string graph_name = "ogbn-arxiv";
+  // std::string graph_name = "ogbn-arxiv";
 
   std::string file = get_dataset_dir() + graph_name;
   
-  int num_gpus = 4;
+  int num_gpus = 2;
   bool random = false;
   std::shared_ptr<Dataset> dataset =\
       std::make_shared<Dataset>(file, num_gpus, random, true);
 
-  std::shared_ptr<OrderBook> order =  std::make_shared<OrderBook>(get_dataset_dir(), graph_name, string("1GB"), 4);
+  std::shared_ptr<OrderBook> order =  std::make_shared<OrderBook>(get_dataset_dir(), graph_name, string("1GB"), num_gpus);
   // Sample datastructure.
   int num_layers =3;
   Sample s1(num_layers);
@@ -59,7 +44,7 @@ int main(){
   
   bool self_edge = false;
   std::vector<NDTYPE> training_nodes;
-  for(int i=0;i<num_gpus * 1000 ;i++){
+  for(int i=0;i<num_gpus;i++){
       training_nodes.push_back(i);
   }
 
@@ -112,3 +97,18 @@ int main(){
 
   return 0;
 }
+
+// void test(){
+  //  device_vector<bool> a(v);
+  // device_vector<int> b(v);
+  // device_vector<long> c;
+  // c.resize(1);
+  // auto tb = OrderedHashTable(v.size());
+  // tb.FillWithDuplicates(\
+  //     a.ptr(), a.size(), b.ptr(), c.ptr());
+  // gpuErrchk(cudaDeviceSynchronize());
+  // b.debug("unique");
+  // std::cout << "checl "<< c[0] <<"\n";
+  // tb.Replace(a.ptr(), v.size());
+  // a.debug("Replce");
+// }

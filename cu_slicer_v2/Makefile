@@ -4,6 +4,7 @@
 
 GTEST_INCLUDE=-I/home/spolisetty_umass_edu/googletest/googletest/include
 LGTEST=/home/spolisetty_umass_edu/googletest/build/lib/libgtest.a
+# nvcc -arch=sm_70 -Xptxas=-v  test1.cu 
 
 INCLUDE= -I/home/ubuntu/3rdparty/thrust/dependencies/cub $(GTEST_INCLUDE)
 DEBUG=-DDEBUG  --extended-lambda

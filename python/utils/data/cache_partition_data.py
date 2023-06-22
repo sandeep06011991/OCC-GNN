@@ -78,5 +78,5 @@ def write_storage_order_book(graph_name:str, cache_size:str):
             fp.write(f"{str_offsets}\n")    
 
 if __name__ == "__main__":
-    write_storage_order_book("ogbn-products", "2GB")
+    write_storage_order_book("ogbn-arxiv", "1GB")
     #write_storage_order_book("ogbn-papers100M", "2GB")    

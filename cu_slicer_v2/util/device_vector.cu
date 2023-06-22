@@ -46,6 +46,16 @@ device_vector<DATATYPE>::device_vector(){
     allocated = 0;
     resize(0);
     free_size = 0;
+    c10::TensorOptions opts;
+     if(sizeof(DATATYPE) == 8){
+      opts = torch::TensorOptions().dtype(torch::kInt64)\
+      .device(torch::kCUDA, device_vector<DATATYPE>::DEVICE);
+    }
+    if(sizeof(DATATYPE) == 4){
+        opts = torch::TensorOptions().dtype(torch::kInt32)\
+      .device(torch::kCUDA, device_vector<DATATYPE>::DEVICE);
+    }
+    EMPTY = torch::empty({(signed long) 0,}, opts );
     // Ideally empty torch tensor
 }
 
@@ -72,7 +82,17 @@ template<typename DATATYPE>
         opts = torch::TensorOptions().dtype(torch::kInt32)\
       .device(torch::kCUDA, device_vector<DATATYPE>::DEVICE);
     }
+    if(sizeof(DATATYPE) == 1){
+        opts = torch::TensorOptions().dtype(torch::kInt8)\
+      .device(torch::kCUDA, device_vector<DATATYPE>::DEVICE);
+    }
+    if(new_size == 0){
+        this->data = EMPTY;
+        current_size = 0;
+        return;
+    }
       this->data = torch::empty({(signed long) new_size,}, opts );
+      std::cout <<  "Allocating " <<  new_size <<"\n";
       current_size = new_size;
   }
 
@@ -117,6 +137,11 @@ void device_vector<DATATYPE>::resize_and_zero(int new_size){
         opts = torch::TensorOptions().dtype(torch::kInt32)\
       .device(torch::kCUDA, DEVICE);
     }
+    if(sizeof(DATATYPE) == 1){
+        opts = torch::TensorOptions().dtype(torch::kBool)\
+      .device(torch::kCUDA, DEVICE);
+    }
+    
       this->data = torch::zeros({(signed long) new_size,}, opts );
       std::cout << "Creating size" << new_size <<"\n";
       current_size = new_size;
@@ -125,8 +150,15 @@ void device_vector<DATATYPE>::resize_and_zero(int new_size){
 template<typename DATATYPE>
 device_vector<DATATYPE>& device_vector<DATATYPE>::operator=(device_vector<DATATYPE> &in){
    this->current_size = in.current_size;
+   this->data = in.data;
+   return *this;
+}
+
+
+template<typename DATATYPE>
+device_vector<DATATYPE>& device_vector<DATATYPE>::clone(device_vector<DATATYPE> &in){
+   this->current_size = in.current_size;
    this->data = in.data.clone();
-   std::cout << "Cloning data of size " << in.current_size  << "\n";
    return *this;
 }
 
