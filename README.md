@@ -13,5 +13,5 @@ This version was submitted to OSDI Dec 2022.
 This work was further optimized in our current [V2 arxiv](https://arxiv.org/abs/2303.13775) submission to perform split sampling along with probabilistic guarantees.
 
 
-Concurrent work done by M.F Balin done during his nvidia internship was subsequently discovered by us as also introducing split training with further split parallel sampling shown on the [pull request]
+Concurrent work by [M.F Balin](https://github.com/mfbalin) done during his nvidia internship was subsequently discovered by us as also introducing split training with further split parallel sampling shown on the [pull request]
 (Muhammed Fatih Balin, Dominique LaSalle, and Ümit V. Çatalyürek. Cooperative minibatching, August 2022. URL https://github.com/dmlc/dgl/pull/4337) dated Aug 2022. submitted to ICML in Jan 2023 and which was subsequently submitted to [arxiv](https://arxiv.org/abs/2310.12403).
