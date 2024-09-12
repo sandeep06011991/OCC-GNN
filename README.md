@@ -1,63 +1,17 @@
-### Artifact Instructions.
+# README 
 
-We rely on the following datasets.
+## Optimized computation through communication (OCC) 
+### (later named GSplit)
 
-Dataset       | Source
-------------- | -------------
-OGBN-products  | DGL Package
-OGBN-100mag | DGL Package
-Reddit | DGL Package
-com-orkut | SNAP
-com-reddit | SNAP
-com-friendster | SNAP
-
-The steps to perform data preprocessing are approximately:
-1. For DGL datasets.
-    run utils/convert_dgl_dataset.py with appropriate ROOT_DIR and TARGET_DIR
-    This step downloads the dgl datasets and create binaries for consumption in later
-    phases.
-2. For SNAP datasets.
-    Download ungraph.txt.zip files from SNAP database.
-    gunzip -d the text file with the correct directory name.
-    run utils/convert_snap_dataset.py to create binaries for later consumption.
-3. 
-Multi GPU GCN, using collection and train independently.
-
-## Coding Blocks. (Each block doesnt take beyond 1 hour.)
-1. Read datasets from dgl datasets (DONE!)
-2. Populate data into graph cpp datastructures. (DONE)
-3. Initialize data on GPU (DONE)
-4. Add exception support (DONE)
-5. Initialize model weights on gpu linear layers.
-  Build Linear Layers.
-
-5. Forward Pass.
-6. Compute Loss
-7. Backward Pass
-8. Combine everything into training iteration.
-9. Add the concept of a sample.
-10. Create a sampled gcn (TOO COARSE)
-11. Compare with dgl with neighbourhood sampling.
+This is repository is the early prototype for the paper GSplit: Scaling Graph Neural Network Training on Large Graphs via Split-Parallelism.
+Split introduces hybrid parallel mini-batch training paradigm called split parallelism. 
+Split parallelism splits the sampling and training of each mini-batch across multiple GPUs online, at each iteration, using a lightweight splitting algorithm.
+This was proposed as an nvidia research proposal in Dec 2021 work was awarded the [NSF grant](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2224054&HistoricalAwards=false) on July 22.
+The current branch is the working prototype for the [arxiv](https://arxiv.org/abs/2303.13775)](V1) 
+which introduces cooperative training while sampling on the CPU and splitting the training phase across GPUs with its last working commit dated to May 2022.
+This version was submitted to  working prototype has its last commit dated to May 2022 and submitted to OSDI Dec 2022(rejected).
+This work was further optimized in our current V2 submission to perform split sampling along with probabilistic guarantees.
 
 
-
-## Credits:
-
-## Important Datastructures and and design philosphy
-
-1. Tensor:
-    Located in either cpu or one of the gpus as a continuos array.
-    Can be initialized from another tensor or cpu_array.
-    Tensor creates its own pointers and frees them itself.
-    It does not hold any external pointers.
-    Can be instantiated as a blank or with values from another tensor.
-
-2. Distributed Tensor
-    A Global tensor which is split across multiple gpus.
-
-
-
-Parts of the code have been inspired/copied from the following repos.
-1. https://github.com/pwlnk/cuda-neural-network/
-2. https://github.com/GT-TDAlab/MG-GCN
-3. Understad the code base of quiver, pagraph and DGCL.
+Concurrent work done by M.F Balin done during his nvidia internship was discovered by us as also introducing split training with further split parallel sampling shown on the [pull request]
+(Muhammed Fatih Balin, Dominique LaSalle, and Ümit V. Çatalyürek. Cooperative minibatching, August 2022. URL https://github.com/dmlc/dgl/pull/4337) dated Aug 2022. submitted to ICML in Jan 2023 and which was subsequently submitted to [arxiv](https://arxiv.org/abs/2310.12403).
